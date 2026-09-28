@@ -1,0 +1,23 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage{note-style}
+
+\title{A Small Research Note}
+\author{TeXeed Example Project}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+This multi-file project demonstrates live PDF preview, bibliography completion,
+labels, an outline, and navigation between source and PDF.
+\end{abstract}
+
+\tableofcontents
+\input{sections/introduction}
+\newpage
+\input{sections/method}
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}

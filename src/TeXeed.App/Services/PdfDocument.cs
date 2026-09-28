@@ -1,0 +1,169 @@
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
+namespace TeXeed.App.Services;
+
+// PDFium is not thread safe: every call, including close, shares one gate.
+internal sealed class PdfDocument : IDisposable
+{
+    private static readonly object Gate = new();
+    private static bool _initialized;
+    private IntPtr _document;
+    private IntPtr _memory;
+    private readonly List<Matrix> _viewToPage = [];
+    public IReadOnlyList<Size> Pages { get; }
+
+    public PdfDocument(byte[] data)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        if (data.Length == 0) throw new IOException("PDF 文件为空。");
+        lock (Gate)
+        {
+            if (!_initialized) { Native.FPDF_InitLibrary(); _initialized = true; }
+            _memory = Marshal.AllocHGlobal(data.Length);
+            Marshal.Copy(data, 0, _memory, data.Length);
+            _document = Native.FPDF_LoadMemDocument64(_memory, (nuint)data.Length, IntPtr.Zero);
+            if (_document == IntPtr.Zero) { var error = Native.FPDF_GetLastError(); Dispose(); throw new IOException($"PDF 无法打开（PDFium 错误 {error}）。"); }
+            try
+            {
+                var count = Native.FPDF_GetPageCount(_document);
+                if (count <= 0 || count > 10000) throw new IOException("PDF 页数无效或超过 10,000 页。");
+                var pages = new List<Size>(count);
+                for (var i = 0; i < count; i++)
+                {
+                    var page = Native.FPDF_LoadPage(_document, i);
+                    if (page == IntPtr.Zero) throw new IOException($"无法读取 PDF 第 {i + 1} 页。");
+                    try
+                    {
+                        var width = Native.FPDF_GetPageWidth(page);
+                        var height = Native.FPDF_GetPageHeight(page);
+                        if (!double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0)
+                            throw new IOException($"PDF 第 {i + 1} 页尺寸无效。");
+                        pages.Add(new Size(width, height));
+                        _viewToPage.Add(CoordinateTransform(page, height));
+                    }
+                    finally { Native.FPDF_ClosePage(page); }
+                }
+                Pages = pages;
+            }
+            catch { Dispose(); throw; }
+        }
+    }
+
+    public BitmapSource Render(int index, double pixelsPerPoint, int maxPixels = 8 * 1024 * 1024)
+    {
+        if (!double.IsFinite(pixelsPerPoint) || pixelsPerPoint <= 0) throw new ArgumentOutOfRangeException(nameof(pixelsPerPoint));
+        if (maxPixels < 1) throw new ArgumentOutOfRangeException(nameof(maxPixels));
+        lock (Gate)
+        {
+            ObjectDisposedException.ThrowIf(_document == IntPtr.Zero, this);
+            var size = Pages[index];
+            var scale = Math.Min(pixelsPerPoint, Math.Min(3200 / Math.Max(size.Width, size.Height), Math.Sqrt(maxPixels / (size.Width * size.Height))));
+            var width = Math.Max(1, (int)Math.Floor(size.Width * scale));
+            var height = Math.Max(1, (int)Math.Floor(size.Height * scale));
+            if ((long)width * height > maxPixels)
+            {
+                // A very thin page can hit the one-pixel minimum on its short
+                // side, so enforce the area budget once more after rounding.
+                if (width >= height) width = Math.Max(1, maxPixels / height);
+                else height = Math.Max(1, maxPixels / width);
+            }
+            var page = Native.FPDF_LoadPage(_document, index);
+            if (page == IntPtr.Zero) throw new IOException("无法渲染 PDF 页面。");
+            var bitmap = Native.FPDFBitmap_Create(width, height, 1);
+            if (bitmap == IntPtr.Zero) { Native.FPDF_ClosePage(page); throw new OutOfMemoryException("PDF 页面渲染缓冲区分配失败。"); }
+            try
+            {
+                Native.FPDFBitmap_FillRect(bitmap, 0, 0, width, height, 0xFFFFFFFF);
+                Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, 3);
+                var stride = Native.FPDFBitmap_GetStride(bitmap);
+                var pixels = new byte[stride * height];
+                Marshal.Copy(Native.FPDFBitmap_GetBuffer(bitmap), pixels, 0, pixels.Length);
+                var image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+                image.Freeze();
+                return image;
+            }
+            finally { Native.FPDFBitmap_Destroy(bitmap); Native.FPDF_ClosePage(page); }
+        }
+    }
+
+    // SyncTeX uses unrotated paper points from the media box's top-left. PDFium
+    // maps through page rotation and crop boxes, so clicks and highlights must
+    // use that same transform rather than assuming a simple width/height ratio.
+    public Point ViewToPage(int index, Point point, Size viewSize)
+    {
+        ValidateView(viewSize);
+        return _viewToPage[index].Transform(new Point(point.X / viewSize.Width, point.Y / viewSize.Height));
+    }
+
+    public Point PageToView(int index, Point point, Size viewSize)
+    {
+        ValidateView(viewSize);
+        var transform = _viewToPage[index];
+        transform.Invert();
+        var normalized = transform.Transform(point);
+        return new Point(normalized.X * viewSize.Width, normalized.Y * viewSize.Height);
+    }
+
+    private static void ValidateView(Size size)
+    {
+        if (!double.IsFinite(size.Width) || !double.IsFinite(size.Height) || size.Width <= 0 || size.Height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(size));
+    }
+
+    private static Matrix CoordinateTransform(IntPtr page, double height)
+    {
+        const int extent = 1_000_000;
+        var left = 0f;
+        var top = (float)height;
+        if (Native.FPDFPage_GetMediaBox(page, out var mediaLeft, out _, out _, out var mediaTop) != 0)
+        { left = mediaLeft; top = mediaTop; }
+        Point Convert(int x, int y)
+        {
+            if (Native.FPDF_DeviceToPage(page, 0, 0, extent, extent, 0, x, y, out var px, out var py) == 0)
+                throw new IOException("PDF 页面坐标转换失败。");
+            return new Point(px - left, top - py);
+        }
+        var origin = Convert(0, 0);
+        var across = Convert(extent, 0);
+        var down = Convert(0, extent);
+        var result = new Matrix(across.X - origin.X, across.Y - origin.Y,
+            down.X - origin.X, down.Y - origin.Y, origin.X, origin.Y);
+        if (!result.HasInverse) throw new IOException("PDF 页面坐标无效。");
+        return result;
+    }
+
+    public void Dispose()
+    {
+        lock (Gate)
+        {
+            if (_document != IntPtr.Zero) { Native.FPDF_CloseDocument(_document); _document = IntPtr.Zero; }
+            if (_memory != IntPtr.Zero) { Marshal.FreeHGlobal(_memory); _memory = IntPtr.Zero; }
+        }
+    }
+
+    private static class Native
+    {
+        private const string Dll = "pdfium";
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_InitLibrary();
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDF_LoadMemDocument64(IntPtr data, nuint length, IntPtr password);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDF_GetLastError();
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetPageCount(IntPtr document);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDF_LoadPage(IntPtr document, int index);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern double FPDF_GetPageWidth(IntPtr page);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern double FPDF_GetPageHeight(IntPtr page);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_GetMediaBox(IntPtr page, out float left, out float bottom, out float right, out float top);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_DeviceToPage(IntPtr page, int startX, int startY, int sizeX, int sizeY, int rotate, int deviceX, int deviceY, out double pageX, out double pageY);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_ClosePage(IntPtr page);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_CloseDocument(IntPtr document);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDFBitmap_Create(int width, int height, int alpha);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDFBitmap_FillRect(IntPtr bitmap, int left, int top, int width, int height, uint color);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_RenderPageBitmap(IntPtr bitmap, IntPtr page, int x, int y, int width, int height, int rotate, int flags);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDFBitmap_GetBuffer(IntPtr bitmap);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFBitmap_GetStride(IntPtr bitmap);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDFBitmap_Destroy(IntPtr bitmap);
+    }
+}

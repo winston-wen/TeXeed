@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TeXeed.App/TeXeed.App.csproj" />
+    <Project Path="src/TeXeed.Core/TeXeed.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TeXeed.AppTests/TeXeed.AppTests.csproj" />
+    <Project Path="tests/TeXeed.EditorTests/TeXeed.EditorTests.csproj" />
+    <Project Path="tests/TeXeed.PdfTests/TeXeed.PdfTests.csproj" />
+    <Project Path="tests/TeXeed.Tests/TeXeed.Tests.csproj" />
+  </Folder>
+</Solution>

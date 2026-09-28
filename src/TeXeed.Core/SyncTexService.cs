@@ -1,0 +1,364 @@
+using System.Globalization;
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace TeXeed.Core;
+
+/// <summary>SyncTeX positions are 1-based pages, with coordinates in PDF points
+/// (72 per inch) measured from the page's top left. Returned boxes use their top edge.</summary>
+public sealed class SyncTexService
+{
+    private string? cachedPath;
+    private DateTime cachedTime;
+    private long cachedSize;
+    private IReadOnlyList<SyncNode> cachedNodes = [];
+    private readonly SemaphoreSlim cacheGate = new(1, 1);
+
+    public async Task<PdfLocation?> ForwardAsync(TexProject project, string pdfPath, SourceLocation source, AppSettings settings, CancellationToken ct = default)
+    {
+        var valid = ValidateSource(project, source);
+        if (valid is null || !ValidOutput(project, pdfPath)) return null;
+        var command = await GetExecutableAsync(settings);
+        if (command is not null)
+        {
+            var position = FormattableString.Invariant($"{valid.Line}:{valid.Column}:{valid.Path}");
+            var output = await QueryAsync(command, ["view", "-i", position, "-o", pdfPath], project.Root, ct);
+            var result = ParseForwardOutput(output);
+            if (result is not null) return result;
+        }
+        var nodes = await GetNodesAsync(pdfPath, ct);
+        var files = new Dictionary<string, ValidatedFile?>();
+        SyncNode? best = null;
+        var bestDistance = double.PositiveInfinity;
+        foreach (var node in nodes)
+        {
+            ct.ThrowIfCancellationRequested();
+            var nodeSource = ResolveCachedSource(project, files, node);
+            if (nodeSource is null || !PathsEqual(nodeSource.Path, valid.Path)) continue;
+            // Prefer precise leaf records to large paragraph boxes on the same line.
+            var distance = Math.Abs(node.Line - valid.Line) * 1_000_000d + (node.IsBox ? 100_000 : 0)
+                + (node.Column > 0 ? Math.Abs(node.Column - valid.Column) : 0);
+            if (distance < bestDistance) { best = node; bestDistance = distance; }
+        }
+        return best?.Box;
+    }
+
+    public async Task<SourceLocation?> InverseAsync(TexProject project, string pdfPath, PdfLocation point, AppSettings settings, CancellationToken ct = default)
+    {
+        if (point.Page < 1 || !double.IsFinite(point.X) || !double.IsFinite(point.Y) || point.X < 0 || point.Y < 0 || !ValidOutput(project, pdfPath)) return null;
+        var command = await GetExecutableAsync(settings);
+        if (command is not null)
+        {
+            var position = FormattableString.Invariant($"{point.Page}:{point.X}:{point.Y}:{pdfPath}");
+            var output = await QueryAsync(command, ["edit", "-o", position], project.Root, ct);
+            var result = ParseInverseOutput(output, project);
+            if (result is not null) return result;
+        }
+        var nodes = await GetNodesAsync(pdfPath, ct);
+        var files = new Dictionary<string, ValidatedFile?>();
+        SourceLocation? best = null;
+        var bestDistance = double.PositiveInfinity;
+        foreach (var node in nodes.Where(n => n.Box.Page == point.Page))
+        {
+            ct.ThrowIfCancellationRequested();
+            var source = ResolveCachedSource(project, files, node);
+            if (source is null) continue;
+            var xDistance = Math.Max(Math.Max(node.Box.X - point.X, point.X - node.Box.X - node.Box.Width), 0);
+            var yDistance = Math.Max(Math.Max(node.Box.Y - point.Y, point.Y - node.Box.Y - node.Box.Height), 0);
+            var distance = yDistance * yDistance * 16 + xDistance * xDistance
+                + (node.IsBox ? 16 + node.Box.Width * node.Box.Height / 1000 : 0);
+            if (distance < bestDistance) { best = source; bestDistance = distance; }
+        }
+        return best;
+    }
+
+    public static PdfLocation? ParseForwardOutput(string output)
+    {
+        foreach (var record in Records(output))
+        {
+            if (!Number(record, "Page", out var page) || page < 1 || page > int.MaxValue || page != Math.Truncate(page)) continue;
+            // SyncTeX's h,v,W,H describe a box whose v is the LOWER edge.
+            // x,y describe a point and must not be mixed with the box dimensions.
+            if (Number(record, "h", out var horizontal) && Number(record, "v", out var vertical)
+                && Number(record, "W", out var width) && Number(record, "H", out var height))
+            {
+                return new((int)page, width < 0 ? horizontal + width : horizontal,
+                    vertical - Math.Abs(height), Math.Abs(width), Math.Max(1, Math.Abs(height)));
+            }
+            if (Number(record, "x", out var x) && Number(record, "y", out var y))
+                return new((int)page, x, y, 6, 12);
+        }
+        return null;
+    }
+
+    public static SourceLocation? ParseInverseOutput(string output, TexProject project)
+    {
+        foreach (var record in Records(output))
+        {
+            if (!record.TryGetValue("Input", out var input) || !Number(record, "Line", out var line) || line < 1 || line > int.MaxValue || line != Math.Truncate(line)) continue;
+            var column = Number(record, "Column", out var value) && value > 0 && value < int.MaxValue ? (int)value : 1;
+            var source = ResolveSource(project, input, (int)line, column);
+            if (source is not null) return source;
+        }
+        return null;
+    }
+
+    private static IEnumerable<Dictionary<string, string>> Records(string output)
+    {
+        Dictionary<string, string>? record = null;
+        foreach (var line in output.Replace("\r", "").Split('\n'))
+        {
+            var colon = line.IndexOf(':');
+            if (colon < 0) continue;
+            var key = line[..colon];
+            if (key == "Output")
+            {
+                if (record is not null) yield return record;
+                record = new(StringComparer.Ordinal);
+            }
+            if (record is not null) record[key] = line[(colon + 1)..].Trim();
+        }
+        if (record is not null) yield return record;
+    }
+
+    private static bool Number(Dictionary<string, string> record, string key, out double value)
+    {
+        value = 0;
+        return record.TryGetValue(key, out var raw) && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && double.IsFinite(value);
+    }
+
+    private static async Task<string?> GetExecutableAsync(AppSettings settings)
+    {
+        if (!string.IsNullOrWhiteSpace(settings.SynctexPath))
+        {
+            var custom = Environment.ExpandEnvironmentVariables(settings.SynctexPath.Trim().Trim('"'));
+            return File.Exists(custom) ? Path.GetFullPath(custom) : null;
+        }
+        var besideEngine = string.IsNullOrWhiteSpace(settings.EnginePath) ? null : Path.GetDirectoryName(settings.EnginePath);
+        var found = CompileService.FindTool("synctex", CompileService.ToolDirectories(besideEngine));
+        await Task.CompletedTask;
+        return found;
+    }
+
+    private static async Task<string> QueryAsync(string command, string[] arguments, string root, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        try
+        {
+            var result = await CompileService.RunProcessAsync(command, arguments, root, null, timeout.Token);
+            return result.ExitCode == 0 ? result.Output : "";
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return ""; }
+        catch (Exception exception) when (exception is IOException or System.ComponentModel.Win32Exception or InvalidOperationException) { return ""; }
+    }
+
+    private static bool ValidOutput(TexProject project, string pdfPath)
+    {
+        try { return CompileService.IsWithin(project.Root, pdfPath) && File.Exists(pdfPath); }
+        catch (ArgumentException) { return false; }
+    }
+
+    private static SourceLocation? ValidateSource(TexProject project, SourceLocation source) => ResolveSource(project, source.Path, source.Line, source.Column);
+
+    private static SourceLocation? ResolveSource(TexProject project, string input, int line, int column)
+    {
+        if (line < 1) return null;
+        return ClampSource(ValidateFile(project, input), line, column);
+    }
+
+    private sealed record ValidatedFile(ProjectFile File, string[] Lines);
+
+    private static SourceLocation? ResolveCachedSource(TexProject project, Dictionary<string, ValidatedFile?> cache, SyncNode node)
+    {
+        if (!cache.TryGetValue(node.Input, out var file))
+        {
+            file = ValidateFile(project, node.Input);
+            cache[node.Input] = file;
+        }
+        return ClampSource(file, node.Line, node.Column);
+    }
+
+    private static SourceLocation? ClampSource(ValidatedFile? file, int line, int column)
+    {
+        if (file is null || line < 1) return null;
+        line = Math.Clamp(line, 1, Math.Max(1, file.Lines.Length));
+        column = Math.Clamp(column, 1, file.Lines[line - 1].TrimEnd('\r').Length + 1);
+        return new(file.File.Path, line, column);
+    }
+
+    private static ValidatedFile? ValidateFile(TexProject project, string input)
+    {
+        try
+        {
+            var path = Path.GetFullPath(input.Trim('"'), project.Root);
+            if (!CompileService.IsWithin(project.Root, path)) return null;
+            var file = project.Files.FirstOrDefault(f => f.IsEditable && PathsEqual(f.Path, path));
+            if (file is null) return null;
+            // An included path may be a symlink to something outside the project.
+            var currentPath = Path.GetFullPath(project.Root);
+            foreach (var segment in Path.GetRelativePath(project.Root, path).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            {
+                currentPath = Path.Combine(currentPath, segment);
+                if (File.Exists(currentPath) || Directory.Exists(currentPath))
+                    if ((File.GetAttributes(currentPath) & FileAttributes.ReparsePoint) != 0) return null;
+            }
+            return new(file, file.Content.Split('\n'));
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    private static bool PathsEqual(string left, string right) => string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    private sealed record SyncNode(string Input, int Line, int Column, PdfLocation Box, bool IsBox);
+    private sealed record RawNode(int Page, int Tag, int Line, int Column, double X, double Y, double Width, double Height, double Depth, bool IsBox);
+
+    private async Task<IReadOnlyList<SyncNode>> GetNodesAsync(string pdfPath, CancellationToken ct)
+    {
+        await cacheGate.WaitAsync(ct);
+        try
+        {
+            var plain = Path.ChangeExtension(pdfPath, ".synctex");
+            var path = new[] { plain, plain + ".gz" }.Where(File.Exists).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+            if (path is null) return [];
+            var info = new FileInfo(path);
+            if (cachedPath == path && cachedTime == info.LastWriteTimeUtc && cachedSize == info.Length) return cachedNodes;
+            if (info.Length > 64 * 1024 * 1024) return [];
+            await using var file = File.OpenRead(path);
+            using var stream = path.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) ? (Stream)new GZipStream(file, CompressionMode.Decompress) : file;
+            using var reader = new StreamReader(stream, Encoding.UTF8, true);
+            var text = new StringBuilder();
+            var buffer = new char[8192];
+            int count;
+            while ((count = await reader.ReadAsync(buffer.AsMemory(), ct)) > 0)
+            {
+                if (text.Length + count > 64 * 1024 * 1024) return [];
+                text.Append(buffer, 0, count);
+            }
+            var nativeText = text.ToString();
+            var nodes = await Task.Run(() => ParseNative(nativeText), ct);
+            cachedPath = path;
+            cachedTime = info.LastWriteTimeUtc;
+            cachedSize = info.Length;
+            cachedNodes = nodes;
+            return nodes;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException) { return []; }
+        finally { cacheGate.Release(); }
+    }
+
+    // The native fallback handles ordinary boxes and glyph/glue/math records, including
+    // compressed coordinates. The official CLI remains preferred for PDF form objects
+    // and the complete SyncTeX matching algorithm.
+    private static IReadOnlyList<SyncNode> ParseNative(string text)
+    {
+        if (!text.StartsWith("SyncTeX Version:", StringComparison.Ordinal) || !text.Contains("Postamble:", StringComparison.Ordinal)) return [];
+        var inputs = new Dictionary<int, string>();
+        var raw = new List<RawNode>();
+        var stack = new Stack<(char Kind, RawNode Box)>();
+        double unit = 8192, magnification = 1000, xOffset = 578, yOffset = 578, postMagnification = 1;
+        double? postX = null, postY = null;
+        double lastY = 0;
+        var page = 0;
+        var postScriptum = false;
+        var inForm = false;
+        foreach (var record in text.Replace("\r", "").Split('\n'))
+        {
+            if (record.Length == 0) continue;
+            if (record == "Post Scriptum:") { postScriptum = true; continue; }
+            if (record.StartsWith("Input:", StringComparison.Ordinal))
+            {
+                var split = record.IndexOf(':', 6);
+                if (split > 6 && int.TryParse(record.AsSpan(6, split - 6), out var tag)) inputs[tag] = record[(split + 1)..];
+                continue;
+            }
+            if (record.StartsWith("Magnification:", StringComparison.Ordinal))
+            {
+                if (double.TryParse(record.AsSpan(14), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value > 0)
+                {
+                    if (postScriptum) postMagnification = value; else magnification = value;
+                }
+                continue;
+            }
+            if (record.StartsWith("Unit:", StringComparison.Ordinal))
+            {
+                if (double.TryParse(record.AsSpan(5), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value > 0) unit = value;
+                continue;
+            }
+            if (record.StartsWith("X Offset:", StringComparison.Ordinal) || record.StartsWith("Y Offset:", StringComparison.Ordinal))
+            {
+                var horizontal = record[0] == 'X';
+                if (postScriptum)
+                {
+                    var value = DimensionInPdfPoints(record[9..]);
+                    if (horizontal) postX = value; else postY = value;
+                }
+                else if (double.TryParse(record.AsSpan(9), NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                {
+                    if (horizontal) xOffset = value; else yOffset = value;
+                }
+                continue;
+            }
+            if (record[0] == '{') { int.TryParse(record.AsSpan(1), out page); stack.Clear(); continue; }
+            if (record[0] == '}') { page = 0; stack.Clear(); continue; }
+            if (record[0] == '<') { inForm = true; continue; }
+            if (record[0] == '>') { inForm = false; continue; }
+            if (inForm || page <= 0) continue;
+            if (record[0] is ')' or ']') { if (stack.Count > 0) stack.Pop(); continue; }
+            if ("[(vhxgk$".IndexOf(record[0]) < 0) continue;
+            var fields = record[1..].Split(':');
+            if (fields.Length < 2) continue;
+            var link = fields[0].Split(',');
+            var coordinates = fields[1].Split(',');
+            if (link.Length < 2 || coordinates.Length < 2 || !int.TryParse(link[0], out var inputTag) || !int.TryParse(link[1], out var sourceLine)
+                || !double.TryParse(coordinates[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var x)) continue;
+            double y;
+            if (coordinates[1] == "=") y = lastY;
+            else if (double.TryParse(coordinates[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out y)) lastY = y;
+            else continue;
+            var column = link.Length > 2 && int.TryParse(link[2], out var parsedColumn) ? parsedColumn : 1;
+            var isBox = record[0] is '[' or '(' or 'v' or 'h';
+            double width = 0, height = 0, depth = 0;
+            if (fields.Length > 2)
+            {
+                var size = fields[2].Split(',');
+                if (size.Length > 0) double.TryParse(size[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out width);
+                if (size.Length > 1) double.TryParse(size[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out height);
+                if (size.Length > 2) double.TryParse(size[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out depth);
+            }
+            if (!isBox)
+            {
+                var parent = stack.FirstOrDefault(item => item.Kind == '(').Box;
+                if (parent is not null) { height = parent.Height; depth = parent.Depth; }
+            }
+            var node = new RawNode(page, inputTag, sourceLine, column, x, y, width, height, depth, isBox);
+            if (record[0] is '[' or '(') stack.Push((record[0], node));
+            if (record[0] != '[' && sourceLine > 0) raw.Add(node);
+            if (raw.Count > 1_000_000) break;
+        }
+        var scale = unit / 65781.76 * magnification / 1000 * postMagnification;
+        var offsetX = postX ?? xOffset * unit / 65781.76;
+        var offsetY = postY ?? yOffset * unit / 65781.76;
+        return raw.Where(n => inputs.ContainsKey(n.Tag)).Select(n =>
+        {
+            var width = Math.Abs(n.Width * scale);
+            var height = Math.Abs((n.Height + n.Depth) * scale);
+            var x = n.X * scale + offsetX + Math.Min(0, n.Width * scale);
+            var y = (n.Y - n.Height) * scale + offsetY;
+            return new SyncNode(inputs[n.Tag], n.Line, n.Column, new(n.Page, x, y, Math.Max(3, width), Math.Max(6, height)), n.IsBox);
+        }).Where(n => double.IsFinite(n.Box.X) && double.IsFinite(n.Box.Y) && double.IsFinite(n.Box.Width) && double.IsFinite(n.Box.Height)).ToList();
+    }
+
+    private static double? DimensionInPdfPoints(string text)
+    {
+        var match = Regex.Match(text.Trim(), @"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*(sp|pt|bp|in|cm|mm|pc|dd|cc)?$");
+        if (!match.Success || !double.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) return null;
+        return value * (match.Groups[2].Value switch
+        {
+            "bp" => 1, "pt" => 72d / 72.27, "in" => 72, "cm" => 72 / 2.54, "mm" => 72 / 25.4,
+            "pc" => 12 * 72d / 72.27, "dd" => 1238d / 1157 * 72 / 72.27, "cc" => 12 * 1238d / 1157 * 72 / 72.27,
+            _ => 1 / 65781.76
+        });
+    }
+}

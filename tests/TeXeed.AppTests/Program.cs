@@ -1,0 +1,912 @@
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using TeXeed.App;
+using TeXeed.App.Controls;
+using TeXeed.Core;
+
+internal static partial class Program
+{
+    [STAThread]
+    public static int Main(string[] args)
+    {
+        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
+        var output = Path.Combine(root, "artifacts", "ui-check"); Directory.CreateDirectory(output);
+        SettingsMigrationTests.Run(Path.Combine(output, "settings-migration"));
+        var config = Path.Combine(output, "profile"); Directory.CreateDirectory(config);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", config);
+        File.WriteAllText(Path.Combine(config, "settings.json"), JsonSerializer.Serialize(new AppSettings { LivePreview = false }));
+        var result = 1;
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        var window = new MainWindow { Width = 1440, Height = 900, WindowStartupLocation = WindowStartupLocation.Manual, Left = 30, Top = 30 };
+        app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
+        window.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await Task.Delay(200);
+                var mainMenu = (Menu)window.FindName("MainMenu");
+                if (mainMenu.Visibility != Visibility.Collapsed) throw new Exception("Main menu must start collapsed");
+                var windowGrid = (Grid)window.Content;
+                if (windowGrid.RowDefinitions.Any(row => row.Height.IsAbsolute && Math.Abs(row.Height.Value - 64) < 0.1))
+                    throw new Exception("The removed top toolbar still reserves a 64 px row");
+                if (((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y > 1)
+                    throw new Exception("Hidden menu/top toolbar still consumes welcome-page space");
+                Capture(window, Path.Combine(output, "welcome.png"));
+                var fixture = Path.Combine(output, "project"); Directory.CreateDirectory(Path.Combine(fixture, "sections"));
+                var main = Path.Combine(fixture, "main.tex");
+                File.WriteAllText(main, "\\documentclass{article}\n\\begin{document}\n\\section{Introduction}\n\\label{sec:intro}\nHello from TeXeed.\n\\input{sections/method}\n\\end{document}\n");
+                var child = Path.Combine(fixture, "sections", "method.tex");
+                File.WriteAllText(child, "\\section{Method}\n\\label{sec:method}\n% TODO: Check equation\nA compact proof.\n");
+                await CallAsync(window, "OpenAsync", main);
+                var editor = (LatexEditor)window.FindName("Editor");
+                if (editor.CurrentFilePath != main) throw new Exception("Main editor did not open fixture");
+                var project = (TexProject)Field(window, "_project")!;
+                if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
+                if (args.Contains("--outline-interactive"))
+                {
+                    await InspectOutlineClicksAsync(window, output);
+                    result = 0; return;
+                }
+                var profileIndex = Array.IndexOf(args, "--outline-profile");
+                if (profileIndex >= 0)
+                {
+                    await ProfileOutlineAsync(window, args[profileIndex + 1], args.ElementAtOrDefault(profileIndex + 2));
+                    await CloseAndObserveAsync(window, "outline profile");
+                    result = 0; return;
+                }
+                if (args.Contains("--outline-only", StringComparer.Ordinal))
+                {
+                    await CheckOutlineAsync(window, output);
+                    await CheckNavigationAsync(window, output);
+                    await CloseAndObserveAsync(window, "outline regression");
+                    result = 0; return;
+                }
+                if (args.Contains("--close-only", StringComparer.Ordinal))
+                {
+                    await CheckClosingAsync(window, main);
+                    if (app.Windows.OfType<MainWindow>().Any()) throw new Exception("A MainWindow remained open after the close regressions");
+                    result = 0; return;
+                }
+                if (args.Contains("--find-only", StringComparer.Ordinal))
+                {
+                    await CheckFindPanelAsync(window, output);
+                    await CheckReplacePanelAsync(output);
+                    await CloseAndObserveAsync(window, "find-panel regression");
+                    result = 0; return;
+                }
+                if (args.Contains("--viewport-only", StringComparer.Ordinal))
+                {
+                    await CheckViewportFollowingAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "viewport-following regression");
+                    result = 0; return;
+                }
+                if (args.Contains("--build-scheduling-only", StringComparer.Ordinal))
+                {
+                    await CheckBuildSchedulingAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "build-scheduling regression");
+                    result = 0; return;
+                }
+                Invoke(window, "ActivateFile", child);
+                editor.Document.Insert(editor.Document.TextLength, "A new paragraph.\n");
+                Invoke(window, "ActivateFile", main);
+                editor.Document.Insert(editor.Document.TextLength, "% Unsaved main edit\n");
+                await CallAsync(window, "SaveAsync");
+                if (!File.ReadAllText(child).Contains("A new paragraph.")) throw new Exception("Child edit was not saved");
+                if (!File.ReadAllText(main).Contains("Unsaved main edit")) throw new Exception("Main edit was not saved");
+                var beforeSave = editor.Text;
+                editor.Document.Insert(editor.Document.TextLength, "% edit during save\n");
+                var saving = (Task)Invoke(window, "SaveAsync")!;
+                editor.Text = beforeSave;
+                await saving;
+                var dirty = (Dictionary<string, string>)Field(window, "_changes")!;
+                if (!dirty.TryGetValue(main, out var reverted) || reverted != beforeSave) throw new Exception("Undo during save was lost");
+                await CallAsync(window, "SaveAsync");
+                if (File.ReadAllText(main) != beforeSave) throw new Exception("Undo during save was not persisted");
+                // Detaching an open file keeps its buffer writable until project close.
+                editor.Document.Replace(editor.Text.IndexOf("\\input", StringComparison.Ordinal), "\\input{sections/method}".Length, "% include removed");
+                await CallAsync(window, "SaveAsync");
+                await Task.Delay(750);
+                Invoke(window, "ActivateFile", child);
+                if (editor.CurrentFilePath != child) throw new Exception("Detached open file was lost");
+                editor.Document.Insert(editor.Document.TextLength, "% detached edit\n");
+                await CallAsync(window, "SaveAsync");
+                if (!File.ReadAllText(child).Contains("detached edit")) throw new Exception("Detached buffer could not save");
+                Invoke(window, "ActivateFile", main);
+                var engine = Path.Combine(root, ".tools", "tectonic", "tectonic.exe");
+                if (File.Exists(engine))
+                {
+                    Environment.SetEnvironmentVariable("TECTONIC_CACHE_DIR", Path.Combine(root, ".tools", "tectonic", "cache"));
+                    window.GetType().GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(window, new AppSettings { LivePreview = false, Engine = TexEngine.Tectonic, EnginePath = engine });
+                    editor.Document.Insert(editor.Document.TextLength, "% Ctrl+S must compile with live preview disabled\n");
+                    var saveKey = CreateKey(window, Key.S, Keyboard.PreviewKeyDownEvent);
+                    await CallAsync(window, "HandleShortcutAsync", saveKey, ModifierKeys.Control);
+                    if (!saveKey.Handled || !File.ReadAllText(main).Contains("Ctrl+S must compile"))
+                        throw new Exception("Ctrl+S did not handle and save the source edit");
+                    var generated = (string?)Field(window, "_pdfPath");
+                    if (generated == null || !File.Exists(generated)) throw new Exception("WPF build did not generate a PDF: " + ((TextBox)window.FindName("LogText")).Text);
+                    if ((int)Field(window, "_pdfRevision")! != (int)Field(window, "_revision")! || ((AppSettings)Field(window, "_settings")!).LivePreview)
+                        throw new Exception("Ctrl+S did not compile the saved revision with live preview disabled");
+                    Console.WriteLine("PASS: Ctrl+S saves and compiles with live preview disabled");
+                    editor.NavigateTo(new SourceLocation(main, 5));
+                    await CallAsync(window, "ForwardAsync", true);
+                    var loadedProject = (TexProject)Field(window, "_project")!;
+                    var point = await new SyncTexService().ForwardAsync(loadedProject, generated, new SourceLocation(main, 5), new AppSettings());
+                    if (point == null) throw new Exception("UI build did not produce a SyncTeX mapping");
+                    await CallAsync(window, "InverseAsync", point);
+                    if (editor.CurrentFilePath != main) throw new Exception("PDF inverse navigation did not select source");
+                    var settingsField = window.GetType().GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                    settingsField.SetValue(window, ((AppSettings)settingsField.GetValue(window)!) with { LivePreview = true });
+                    editor.Document.Insert(editor.Document.TextLength, "% live preview test\n");
+                    var expectedRevision = (int)Field(window, "_revision")!;
+                    var deadline = DateTime.UtcNow.AddSeconds(20);
+                    while ((int)Field(window, "_pdfRevision")! != expectedRevision && DateTime.UtcNow < deadline) await Task.Delay(150);
+                    if ((int)Field(window, "_pdfRevision")! != expectedRevision || !File.ReadAllText(main).Contains("live preview test")) throw new Exception("Live preview did not save and refresh PDF");
+                    settingsField.SetValue(window, ((AppSettings)settingsField.GetValue(window)!) with { LivePreview = false });
+                    Console.WriteLine("PASS: actual WPF compile, PDF load, forward/inverse SyncTeX through MainWindow");
+                    Console.WriteLine("PASS: editing triggers automatic save, compile and PDF refresh");
+                }
+                if (File.Exists(engine))
+                {
+                    await CheckBuildSchedulingAsync(window, root, output);
+                    await CheckViewportFollowingAsync(window, root, output);
+                }
+                // Render a real PDF if integration test has already produced one.
+                var pdf = Path.Combine(root, "examples", "ResearchNote", ".texeed", "preview", "main.pdf");
+                if (File.Exists(pdf) && File.Exists(engine))
+                {
+                    await CallAsync(window, "OpenAsync", Path.Combine(root, "examples", "ResearchNote", "main.tex"));
+                    await CallAsync(window, "BuildAsync");
+                    var research = (TexProject)Field(window, "_project")!;
+                    var intro = research.Files.First(f => f.Name == "introduction.tex");
+                    Invoke(window, "ActivateFile", intro.Path);
+                }
+                await Task.Delay(600); window.UpdateLayout();
+                await WaitForPreviewRenderedAsync(window);
+                Capture(window, Path.Combine(output, "workspace.png"));
+                await CheckFindPanelAsync(window, output);
+                await CheckReplacePanelAsync(output);
+                await CheckNavigationAsync(window, output);
+                await CheckOutlineAsync(window, output);
+                ((Expander)window.FindName("LogExpander")).IsExpanded = true;
+                window.Width = 1050; window.Height = 640;
+                await WaitForPreviewRenderedAsync(window);
+                Capture(window, Path.Combine(output, "compact.png"));
+                var settings = new SettingsWindow(new AppSettings()) { Owner = window }; settings.Show();
+                await Task.Delay(200); Capture(settings, Path.Combine(output, "settings.png")); settings.Close();
+                Console.WriteLine("PASS: WPF startup, main/child editing, multi-file save, detached buffer preservation, settings and layout rendering");
+                await CheckClosingAsync(window, main);
+                if (app.Windows.OfType<MainWindow>().Any()) throw new Exception("A MainWindow remained open after the close regressions");
+                Console.WriteLine($"Render output: {output}"); result = 0;
+            }
+            catch (Exception error) { Console.Error.WriteLine(error); }
+            finally
+            {
+                // A failed assertion must not leave a dirty-window confirmation blocking the test process.
+                // Successful runs exercise the production Close/Closing/Closed path for every test window.
+                if (result != 0)
+                    foreach (var remaining in app.Windows.OfType<MainWindow>().ToArray())
+                    {
+                        remaining.GetType().GetField("_allowClose", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(remaining, true);
+                        ((CompileService)Field(remaining, "_compiler")!).Cancel(); remaining.Close();
+                    }
+                app.Shutdown(result);
+            }
+        };
+        window.Show(); app.Run(); return result;
+    }
+    private static object? Field(object owner, string name) => owner.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner);
+    private static object? Invoke(object owner, string method, params object[] args)
+    {
+        var member = owner.GetType().GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var parameters = member.GetParameters();
+        return member.Invoke(owner, parameters.Select((p, index) => index < args.Length ? args[index] : p.DefaultValue).ToArray());
+    }
+    private static async Task CallAsync(object owner, string method, params object[] args) => await (Task)Invoke(owner, method, args)!;
+    private static async Task CheckClosingAsync(MainWindow projectWindow, string mainPath)
+    {
+        if (Field(projectWindow, "_project") is not TexProject || ((Dictionary<string, string>)Field(projectWindow, "_changes")!).Count != 0)
+            throw new Exception("Clean-project close regression requires an open, saved project");
+        await CloseAndObserveAsync(projectWindow, "clean project");
+
+        var welcome = await ShowCloseTestWindowAsync();
+        if (Field(welcome, "_project") != null || ((FrameworkElement)welcome.FindName("Welcome")).Visibility != Visibility.Visible)
+            throw new Exception("Welcome close regression unexpectedly opened a project");
+        await CloseAndObserveAsync(welcome, "welcome window");
+
+        var compiling = await ShowCloseTestWindowAsync();
+        await CallAsync(compiling, "OpenAsync", mainPath);
+        var pending = new TaskCompletionSource<CompileResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        compiling.GetType().GetField("_compileTask", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(compiling, pending.Task);
+        compiling.GetType().GetField("_building", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(compiling, true);
+        await CloseAndObserveAsync(compiling, "pending compilation", async closed =>
+        {
+            // Closing resumes at Background priority. ContextIdle runs after that continuation
+            // has reached its await, so this barrier proves the window waits for the compile task.
+            await compiling.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            if (closed.IsCompleted || pending.Task.IsCompleted || !(bool)Field(compiling, "_closing")! || !compiling.IsVisible)
+                throw new Exception("Window closed before the outstanding compilation completed");
+            if (((LatexEditor)compiling.FindName("Editor")).IsEnabled)
+                throw new Exception("Editor remained enabled while window close waited for compilation");
+            pending.SetResult(new CompileResult(false, null, "Canceled by close regression", [], TimeSpan.Zero, "test", false));
+        });
+        Console.WriteLine("PASS: actual clean-project and welcome closes; pending compilation completes before Closed; no close reentrancy");
+    }
+
+    private static async Task<MainWindow> ShowCloseTestWindowAsync()
+    {
+        var window = new MainWindow { Width = 1050, Height = 640, ShowInTaskbar = false };
+        var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        RoutedEventHandler onLoaded = (_, _) => loaded.TrySetResult();
+        window.Loaded += onLoaded;
+        try
+        {
+            window.Show();
+            await loaded.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            return window;
+        }
+        finally { window.Loaded -= onLoaded; }
+    }
+
+    private static async Task CloseAndObserveAsync(MainWindow window, string description, Func<Task, Task>? beforeCompletion = null)
+    {
+        if ((bool)Field(window, "_allowClose")!) throw new Exception($"{description}: close guard was bypassed before the test");
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstCloseReturned = false;
+        EventHandler onClosed = (_, _) =>
+        {
+            if (!firstCloseReturned) closed.TrySetException(new Exception($"{description}: Closed reentered the first Close call"));
+            else closed.TrySetResult();
+        };
+        window.Closed += onClosed;
+        try
+        {
+            window.Close();
+            firstCloseReturned = true;
+            if (beforeCompletion != null) await beforeCompletion(closed.Task);
+            // The timeout is only a failure bound; success is signaled by the actual WPF Closed event.
+            await closed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            if (window.IsVisible) throw new Exception($"{description}: Closed fired but the window is still visible");
+        }
+        finally { window.Closed -= onClosed; }
+    }
+
+    private static KeyEventArgs CreateKey(Window window, Key key, RoutedEvent routedEvent) => new(
+        Keyboard.PrimaryDevice, PresentationSource.FromVisual(window) ?? throw new InvalidOperationException("Window is not connected to a presentation source"),
+        Environment.TickCount, key) { RoutedEvent = routedEvent };
+
+    private static async Task CheckFindPanelAsync(MainWindow window, string output)
+    {
+        var editor = (LatexEditor)window.FindName("Editor");
+        var search = (Control)Field(editor, "_search")!;
+        var editorColumn = ((Grid)window.FindName("Workspace")).ColumnDefinitions[2];
+        var oldWidth = window.Width; var oldHeight = window.Height; var oldColumn = editorColumn.Width;
+        var oldFont = editor.FontSize; var oldTransform = editor.LayoutTransform; var oldText = editor.Text;
+        var oldSelection = editor.SelectionStart; var oldSelectionLength = editor.SelectionLength;
+        try
+        {
+            var replaceShortcut = CreateKey(window, Key.H, Keyboard.PreviewKeyDownEvent);
+            await CallAsync(window, "HandleShortcutAsync", replaceShortcut, ModifierKeys.Control);
+            if (!replaceShortcut.Handled || search.Tag is not FrameworkElement { Visibility: Visibility.Visible })
+                throw new Exception("Ctrl+H did not expand replacement in the editor search panel");
+            editor.Select(0, 0); editor.ExecuteCommand("find");
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            var input = (TextBox)search.Template.FindName("PART_searchTextBox", search);
+            input.Text = "section";
+            async Task CheckAndCapture(string name)
+            {
+                window.UpdateLayout();
+                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                window.UpdateLayout();
+                if (!search.IsVisible || input.ActualHeight <= 0) throw new Exception($"{name}: editor find panel did not open (visible={search.IsVisible}; visibility={search.Visibility}; loaded={search.IsLoaded}; inputHeight={input.ActualHeight}; closed={search.GetType().GetProperty("IsClosed")!.GetValue(search)}; editorVisible={editor.IsVisible})");
+                var root = (FrameworkElement)window.Content;
+                var textView = Descendants<FrameworkElement>(input).FirstOrDefault(view => view.GetType().Name == "TextBoxView") ?? input;
+                var textViewport = VisibleBounds(textView, root);
+                foreach (var index in new[] { 0, input.Text.Length - 1 })
+                {
+                    var character = input.GetRectFromCharacterIndex(index);
+                    if (character.IsEmpty || character.Height < 8) throw new Exception($"{name}: find text has no usable line layout");
+                    character.Width = Math.Max(1, character.Width);
+                    var glyph = input.TransformToAncestor(root).TransformBounds(character);
+                    var visibleGlyph = Rect.Intersect(glyph, textViewport);
+                    if (visibleGlyph.IsEmpty || visibleGlyph.Height < glyph.Height - 1 || visibleGlyph.Width < glyph.Width - 1)
+                        throw new Exception($"{name}: find text is clipped (line {glyph}, visible {visibleGlyph})");
+                }
+                var buttons = Descendants<Button>(search).Where(button => button.Name is not
+                    ("PART_replaceToggle" or "ReplaceCurrentButton" or "ReplaceAllButton")).ToArray();
+                if (buttons.Length < 3) throw new Exception($"{name}: previous/next/close search buttons are missing");
+                foreach (var button in buttons)
+                {
+                    var icons = Descendants<Image>(button).Where(image => image.Source != null).Cast<FrameworkElement>()
+                        .Concat(Descendants<System.Windows.Shapes.Path>(button).Where(path => path.Data != null && (path.Fill != null || path.Stroke != null))).ToArray();
+                    if (icons.Length == 0) throw new Exception($"{name}: a search button has no rendered icon");
+                    foreach (var icon in icons)
+                    {
+                        var bounds = icon.TransformToAncestor(root).TransformBounds(new Rect(new Point(), icon.RenderSize));
+                        var visible = Rect.Intersect(VisibleBounds(icon, root), VisibleBounds(button, root));
+                        if (bounds.Width < 4 || bounds.Height < 4 || visible.IsEmpty || visible.Width < bounds.Width - 1 || visible.Height < bounds.Height - 1)
+                            throw new Exception($"{name}: search icon is empty or clipped (icon {bounds}, visible {visible})");
+                    }
+                }
+                await WaitForPreviewRenderedAsync(window);
+                Capture(window, Path.Combine(output, name + ".png"));
+            }
+            await CheckAndCapture("find-normal");
+            window.Width = window.MinWidth; window.Height = window.MinHeight;
+            editorColumn.Width = new GridLength(300); editor.FontSize = 24;
+            await CheckAndCapture("find-narrow-large-font");
+            // 150% scaling keeps the minimum 300-DIP editor area at 450 display units.
+            editorColumn.Width = new GridLength(450); editor.LayoutTransform = new ScaleTransform(1.5, 1.5);
+            await CheckAndCapture("find-scaled");
+            if (editor.Text != oldText) throw new Exception("Find-panel checks modified the document");
+            Console.WriteLine("PASS: themed find input and previous/next/close icons remain visible at normal, narrow/large-font and 150% scales");
+        }
+        finally
+        {
+            search.GetType().GetMethod("Close", Type.EmptyTypes)!.Invoke(search, null);
+            editor.LayoutTransform = oldTransform; editor.FontSize = oldFont; editorColumn.Width = oldColumn;
+            window.Width = oldWidth; window.Height = oldHeight; editor.Select(oldSelection, oldSelectionLength); window.UpdateLayout();
+        }
+    }
+
+    private static async Task CheckReplacePanelAsync(string output)
+    {
+        var editor = new LatexEditor();
+        var window = new Window { Content = editor, Width = 800, Height = 400, ShowInTaskbar = false };
+        var first = new ProjectFile(Path.Combine(output, "replace.tex"), "replace.tex", ProjectFileKind.Tex, "cat cat cat");
+        var other = new ProjectFile(Path.Combine(output, "other.tex"), "other.tex", ProjectFileKind.Tex, "cat in another file");
+        editor.ShowFile(other, other.Content); var otherDocument = editor.Document;
+        editor.ShowFile(first, first.Content);
+        try
+        {
+            window.Show(); editor.ExecuteCommand("replace");
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            var search = (Control)Field(editor, "_search")!;
+            var input = (TextBox)search.Template.FindName("PART_searchTextBox", search);
+            var replacement = Descendants<TextBox>(search).Single(box => box.Name == "ReplaceTextBox");
+            var current = Descendants<Button>(search).Single(button => button.Name == "ReplaceCurrentButton");
+            var all = Descendants<Button>(search).Single(button => button.Name == "ReplaceAllButton");
+            var toggle = (Button)search.Template.FindName("PART_replaceToggle", search);
+            ((RoutedCommand)toggle.Command).Execute(null, toggle);
+            if (replacement.IsVisible) throw new Exception("Find-panel toggle did not collapse replacement");
+            ((RoutedCommand)toggle.Command).Execute(null, toggle);
+            if (!replacement.IsVisible) throw new Exception("Find-panel toggle did not expand replacement");
+            input.Text = "cat"; replacement.Text = "dog";
+            editor.Select(0, 3);
+            current.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (editor.Text != "dog cat cat") throw new Exception("Replace button did not replace exactly the current match");
+            if (!editor.IsKeyboardFocusWithin || replacement.IsKeyboardFocusWithin) throw new Exception("Replacement did not return undo focus to the document");
+            ApplicationCommands.Undo.Execute(null, Keyboard.FocusedElement);
+            if (editor.Text != first.Content || editor.Document.UndoStack.CanUndo)
+                throw new Exception("Replace current was not exactly one undo unit");
+            all.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (editor.Text != "dog dog dog" || otherDocument.Text != other.Content)
+                throw new Exception("Replace all did not stay within the current document");
+            ApplicationCommands.Undo.Execute(null, Keyboard.FocusedElement);
+            if (editor.Text != first.Content || editor.Document.UndoStack.CanUndo)
+                throw new Exception("Replace all was not exactly one undo unit");
+            // The real input binding must report a bad regex without modifying the document.
+            search.GetType().GetProperty("UseRegex")!.SetValue(search, true);
+            input.Text = "[";
+            all.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (editor.Text != first.Content || editor.Document.UndoStack.CanUndo)
+                throw new Exception("Invalid regex in the replacement UI modified the document");
+            input.Text = "cat";
+            search.GetType().GetProperty("UseRegex")!.SetValue(search, false);
+            async Task CheckAndCapture(string name)
+            {
+                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                window.UpdateLayout();
+                foreach (var control in new FrameworkElement[] { input, replacement, current, all })
+                {
+                    var bounds = control.TransformToAncestor(editor).TransformBounds(new Rect(new Point(), control.RenderSize));
+                    var visible = VisibleBounds(control, editor);
+                    if (!control.IsVisible || bounds.Width < 20 || bounds.Height < 16 || visible.IsEmpty ||
+                        visible.Width < bounds.Width - 1 || visible.Height < bounds.Height - 1)
+                        throw new Exception($"{name}: replacement control {control.Name} is empty or clipped");
+                }
+                Capture(window, Path.Combine(output, name + ".png"));
+            }
+            await CheckAndCapture("replace-normal");
+            editor.Width = 300; editor.HorizontalAlignment = HorizontalAlignment.Left; editor.FontSize = 24;
+            window.Width = 340;
+            await CheckAndCapture("replace-narrow-large-font");
+            Console.WriteLine("PASS: replace controls, current-file replacement, grouped Undo and normal/narrow rendering");
+        }
+        finally { window.Close(); }
+    }
+
+    private static Rect VisibleBounds(FrameworkElement element, FrameworkElement root)
+    {
+        var bounds = element.TransformToAncestor(root).TransformBounds(new Rect(new Point(), element.RenderSize));
+        for (DependencyObject? current = element; current != null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is UIElement visual)
+            {
+                if (!visual.IsVisible || visual.Opacity == 0) return Rect.Empty;
+                var transform = visual.TransformToAncestor(root);
+                if (VisualTreeHelper.GetClip(visual) is { } clip) bounds.Intersect(transform.TransformBounds(clip.Bounds));
+                if (visual.ClipToBounds || ReferenceEquals(visual, root)) bounds.Intersect(transform.TransformBounds(new Rect(new Point(), visual.RenderSize)));
+            }
+            if (ReferenceEquals(current, root)) break;
+        }
+        return bounds;
+    }
+
+    private static async Task CheckNavigationAsync(MainWindow window, string output)
+    {
+        var menu = (Menu)window.FindName("MainMenu");
+        var sidebar = (FrameworkElement)window.FindName("SidebarPanel");
+        var column = (ColumnDefinition)window.FindName("SidebarColumn");
+        var splitterColumn = (ColumnDefinition)window.FindName("SidebarSplitterColumn");
+        var splitter = (GridSplitter)window.FindName("SidebarSplitter");
+        var rail = (FrameworkElement)window.FindName("CollapsedWorkspaceRail");
+        var visibilityItem = (MenuItem)window.FindName("WorkspaceVisibilityMenuItem");
+        var editor = (LatexEditor)window.FindName("Editor");
+        var search = (TextBox)window.FindName("SearchBox");
+        var results = (ListBox)window.FindName("IndexList");
+        var workspace = (FrameworkElement)window.FindName("Workspace");
+        if (workspace.TranslatePoint(new Point(), (Grid)window.Content).Y > 1) throw new Exception("Removed toolbar leaves space above the editing workspace");
+
+        // Collapsing layout must not rebuild the search view or replace the editor's document/selection.
+        Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "search")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        search.Text = "section";
+        column.Width = new GridLength(315);
+        editor.Select(3, Math.Min(9, Math.Max(0, editor.Text.Length - 3)));
+        window.UpdateLayout();
+        var rememberedWidth = column.ActualWidth;
+        var rememberedPath = editor.CurrentFilePath;
+        var rememberedSelection = editor.SelectedText;
+        var rememberedResults = results.ItemsSource;
+        ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.UpdateLayout();
+        if (sidebar.Visibility != Visibility.Collapsed || rail.Visibility != Visibility.Visible || splitter.Visibility != Visibility.Collapsed || visibilityItem.IsChecked)
+            throw new Exception("Sidebar collapse did not switch panel, splitter, rail and menu state together");
+        if (Math.Abs(column.ActualWidth - 30) > 1 || splitterColumn.ActualWidth > 1)
+            throw new Exception("Collapsed workspace must leave only its 30 px restore rail");
+        await WaitForPreviewRenderedAsync(window);
+        Capture(window, Path.Combine(output, "workspace-collapsed.png"));
+        var sidebarKey = CreateKey(window, Key.B, Keyboard.PreviewKeyDownEvent);
+        await CallAsync(window, "HandleShortcutAsync", sidebarKey, ModifierKeys.Control);
+        window.UpdateLayout();
+        if (!sidebarKey.Handled || sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Collapsed || !visibilityItem.IsChecked || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
+            throw new Exception("Ctrl+B did not restore the sidebar's user-selected width");
+        if ((string?)Field(window, "_sidebar") != "search" || search.Text != "section" || !ReferenceEquals(rememberedResults, results.ItemsSource) ||
+            editor.CurrentFilePath != rememberedPath || editor.SelectedText != rememberedSelection)
+            throw new Exception("Collapsing the sidebar discarded search mode, filter, source location or selection");
+
+        visibilityItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        var restore = rail as Button ?? Descendants<Button>(rail).FirstOrDefault() ?? throw new Exception("Collapsed rail has no restore button");
+        restore.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.UpdateLayout();
+        if (sidebar.Visibility != Visibility.Visible || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
+            throw new Exception("The collapsed rail did not restore the sidebar");
+
+        // Routed Alt events exercise the actual XAML key handlers without changing desktop keyboard state.
+        editor.Focus();
+        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
+        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));
+        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+        if (menu.Visibility != Visibility.Visible) throw new Exception("Alt did not reveal the main menu");
+        if (!menu.IsKeyboardFocusWithin) throw new Exception("Alt did not move keyboard focus into the main menu");
+        await WaitForPreviewRenderedAsync(window);
+        Capture(window, Path.Combine(output, "menu-visible.png"));
+        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
+        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));
+        if (menu.Visibility != Visibility.Collapsed) throw new Exception("A second Alt did not hide the main menu");
+        if (!editor.IsKeyboardFocusWithin) throw new Exception("Hiding the main menu did not restore editor focus");
+        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
+        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));
+        window.RaiseEvent(CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent));
+        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Escape did not leave the revealed menu");
+        // Modifier state cannot be synthesized by routed events; exercise the same gesture state machine for chords.
+        Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt);
+        if ((bool)Invoke(window, "ProcessMenuKeyDown", Key.Tab, ModifierKeys.Alt)!) throw new Exception("Menu handler consumed Alt+Tab");
+        Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
+        Invoke(window, "ProcessMenuKeyDown", Key.RightAlt, ModifierKeys.Control | ModifierKeys.Alt);
+        Invoke(window, "ProcessMenuKeyUp", Key.RightAlt, ModifierKeys.Control);
+        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Alt+Tab or AltGr unexpectedly revealed the menu");
+        Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt);
+        editor.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+            { RoutedEvent = UIElement.PreviewMouseDownEvent });
+        Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
+        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Alt+mouse editor gesture unexpectedly revealed the main menu on release");
+        var firstMenu = (MenuItem)window.FindName("FirstMenuItem");
+        Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt);
+        Invoke(window, "ProcessMenuKeyDown", Key.F, ModifierKeys.Alt);
+        Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
+        if (menu.Visibility != Visibility.Visible || !firstMenu.IsSubmenuOpen) throw new Exception("Alt+F did not retain the open File menu after Alt release");
+        if ((bool)Invoke(window, "ProcessMenuKeyDown", Key.Escape, ModifierKeys.None)!) throw new Exception("Escape should let WPF close an open submenu first");
+        firstMenu.IsSubmenuOpen = false;
+        Invoke(window, "ProcessMenuKeyDown", Key.Escape, ModifierKeys.None);
+        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Escape did not close menu activation after submenu dismissal");
+        Console.WriteLine("PASS: toolbar removal, Alt menu toggle, Ctrl+B/rail sidebar restoration, preserved width and editor/search state");
+        search.Clear();
+        Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+    }
+
+    private static async Task CheckViewportFollowingAsync(MainWindow window, string root, string output)
+    {
+        var engine = Path.Combine(root, ".tools", "tectonic", "tectonic.exe");
+        if (!File.Exists(engine)) throw new Exception("Viewport regression requires the local .tools/tectonic/tectonic.exe fixture engine");
+        Environment.SetEnvironmentVariable("TECTONIC_CACHE_DIR", Path.Combine(root, ".tools", "tectonic", "cache"));
+        var fixture = Path.Combine(output, "viewport-project"); Directory.CreateDirectory(fixture);
+        var main = Path.Combine(fixture, "main.tex");
+        var lines = new List<string> { "\\documentclass{article}", "\\pagestyle{empty}", "\\begin{document}" };
+        for (var page = 1; page <= 8; page++)
+        {
+            if (page > 1) lines.Add("\\newpage");
+            for (var row = 1; row <= 40; row++)
+                lines.Add($"\\noindent Page {page}, row {row:00}. View synchronization.\\par");
+        }
+        lines.Add("\\end{document}");
+        File.WriteAllText(main, string.Join('\n', lines) + "\n");
+        var settingsField = window.GetType().GetField("_settings", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var originalSettings = (AppSettings)settingsField.GetValue(window)!;
+        // An explicit missing command selects the real SyncTeX parser without a machine-specific CLI.
+        var settings = new AppSettings
+        {
+            LivePreview = false, FollowMode = PreviewFollowMode.Viewport, Engine = TexEngine.Tectonic, EnginePath = engine,
+            SynctexPath = Path.Combine(fixture, "no-external-synctex.exe")
+        };
+        settingsField.SetValue(window, settings);
+        try
+        {
+            await CallAsync(window, "OpenAsync", main);
+            await CallAsync(window, "BuildAsync");
+            var editor = (LatexEditor)window.FindName("Editor");
+            var preview = (PdfPreview)window.FindName("Preview");
+            var modeBox = (ComboBox)window.FindName("FollowModeBox");
+            if (modeBox.Items.Count != 3 || !Equals(modeBox.SelectedValue, PreviewFollowMode.Viewport))
+                throw new Exception("Preview toolbar must expose three follow modes and show the current viewport mode");
+            var pdfScroll = (ScrollViewer)Field(preview, "_scroll")!;
+            var project = (TexProject)Field(window, "_project")!;
+            var pdf = (string?)Field(window, "_pdfPath");
+            if (pdf == null || preview.PageCount != 8)
+                throw new Exception("Viewport fixture must produce eight real PDF pages: " + ((TextBox)window.FindName("LogText")).Text);
+            var sync = new SyncTexService();
+            void SelectMode(PreviewFollowMode mode)
+            {
+                modeBox.SelectedValue = mode;
+                if (((AppSettings)settingsField.GetValue(window)!).FollowMode != mode)
+                    throw new Exception("Preview follow mode did not take effect from its toolbar: " + mode);
+                var profile = Environment.GetEnvironmentVariable("TEXEED_HOME") ?? throw new Exception("Test settings profile is not isolated");
+                var persisted = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path.Combine(profile, "settings.json")));
+                if (persisted?.FollowMode != mode) throw new Exception("Toolbar follow mode was not persisted immediately: " + mode);
+            }
+            async Task<PdfLocation> MapAsync(SourceLocation source) =>
+                await sync.ForwardAsync(project, pdf, source, settings) ?? throw new Exception($"No SyncTeX mapping for {source.Line}");
+            async Task<SourceLocation> ScrollSourceAsync(int topLine)
+            {
+                editor.ScrollToVerticalOffset((topLine - 1) * editor.TextArea.TextView.DefaultLineHeight);
+                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                window.UpdateLayout();
+                return editor.ViewportLocation ?? throw new Exception("Visible source viewport has no anchor");
+            }
+            async Task AwaitLocationAsync(SourceLocation source, double viewportFraction, bool centerBounds = false)
+            {
+                var point = await MapAsync(source);
+                var expected = PdfOffset(preview, centerBounds ? point with { Y = point.Y + point.Height / 2 } : point, viewportFraction);
+                await WaitUntilAsync(() => Math.Abs(pdfScroll.VerticalOffset - expected) < 2 && Field(preview, "_highlight") == null,
+                    $"Preview did not follow source line {source.Line} without a highlight at {viewportFraction:P0} height (expected offset {expected:0.0})");
+            }
+            Task AwaitAnchorAsync(SourceLocation source) => AwaitLocationAsync(source, .5);
+
+            // Exercise the outline handler with nearby locations on the same PDF
+            // page: neither a page change nor a second click may be required.
+            var nearby = new[] { new SourceLocation(main, 100), new SourceLocation(main, 103) };
+            if ((await MapAsync(nearby[0])).Page != (await MapAsync(nearby[1])).Page)
+                throw new Exception("Nearby outline targets must share a PDF page");
+            foreach (var mode in new[] { PreviewFollowMode.Viewport, PreviewFollowMode.Cursor, PreviewFollowMode.None })
+            {
+                SelectMode(mode);
+                foreach (var source in nearby)
+                {
+                    var before = pdfScroll.VerticalOffset;
+                    Invoke(window, "Outline_NavigateRequested", window, source);
+                    await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                    window.UpdateLayout();
+                    if (editor.CurrentLocation?.Line != source.Line || editor.ViewportLocation?.Line != source.Line)
+                        throw new Exception($"Single outline click did not center nearby source line {source.Line} in mode {mode}");
+                    if (mode == PreviewFollowMode.None)
+                        await AssertPdfOffsetStableAsync(pdfScroll, before, "Outline navigation overrode None mode");
+                    else
+                        await AwaitLocationAsync(source, .5, centerBounds: mode == PreviewFollowMode.Cursor);
+                }
+                if (mode != PreviewFollowMode.None)
+                {
+                    Invoke(window, "CancelPendingNavigation");
+                    pdfScroll.ScrollToVerticalOffset(pdfScroll.VerticalOffset + 100);
+                    await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                    Invoke(window, "Outline_NavigateRequested", window, nearby[1]);
+                    await AwaitLocationAsync(nearby[1], .5, centerBounds: mode == PreviewFollowMode.Cursor);
+                }
+            }
+            SelectMode(PreviewFollowMode.Viewport);
+            Console.WriteLine("PASS: one outline click centers same-screen source targets and same-page PDF positions; repeated clicks resync, while None mode stays still");
+
+            editor.CaretOffset = editor.Document.GetLineByNumber(5).Offset;
+            await ScrollSourceAsync(1);
+            await Task.Delay(600);
+            var initialOffset = pdfScroll.VerticalOffset;
+            var originalCaret = editor.CaretOffset;
+            var anchor = await ScrollSourceAsync(95);
+            if (editor.CaretOffset != originalCaret) throw new Exception("Scrolling the source fixture unexpectedly moved the caret");
+            await AwaitAnchorAsync(anchor);
+            if (Math.Abs(pdfScroll.VerticalOffset - initialOffset) < pdfScroll.ViewportHeight)
+                throw new Exception("Scrolling with a stationary caret did not move the PDF to a different page");
+            await WaitForPreviewRenderedAsync(window);
+            Capture(window, Path.Combine(output, "viewport-following.png"));
+            Console.WriteLine("PASS: source scrolling moves the real PDF to the visible source center while the caret stays fixed; no automatic highlight");
+
+            var sourceOffset = editor.VerticalOffset;
+            var pdfOffset = pdfScroll.VerticalOffset;
+            editor.CaretOffset = editor.Document.GetLineByNumber(anchor.Line + 2).Offset;
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            if (Math.Abs(editor.VerticalOffset - sourceOffset) > 1) throw new Exception("Caret-only regression accidentally scrolled the source view");
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Moving only the caret within the viewport moved the PDF");
+            Console.WriteLine("PASS: moving the caret within an unchanged source view does not move the PDF");
+
+            await ScrollSourceAsync(175);
+            await ScrollSourceAsync(35);
+            anchor = await ScrollSourceAsync(255);
+            await AwaitAnchorAsync(anchor);
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfScroll.VerticalOffset, "An earlier scroll request overwrote the latest viewport position");
+            Console.WriteLine("PASS: rapid source scrolling settles at the final viewport, without stale jumps");
+
+            SelectMode(PreviewFollowMode.Cursor);
+            await AwaitLocationAsync(editor.CurrentLocation!, .5, centerBounds: true);
+            pdfOffset = pdfScroll.VerticalOffset;
+            originalCaret = editor.CaretOffset;
+            await ScrollSourceAsync(155);
+            if (editor.CaretOffset != originalCaret) throw new Exception("Cursor-mode source scrolling moved the fixture caret");
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Cursor mode incorrectly followed source scrolling while the caret stayed fixed");
+            editor.CaretOffset = editor.Document.GetLineByNumber(260).Offset;
+            await AwaitLocationAsync(editor.CurrentLocation!, .5, centerBounds: true);
+            if (Math.Abs(pdfScroll.VerticalOffset - pdfOffset) < pdfScroll.ViewportHeight)
+                throw new Exception("Cursor mode did not move the PDF after moving the caret to a different page");
+            Console.WriteLine("PASS: toolbar cursor mode follows caret movement without following source scroll or flashing highlights");
+
+            // Changing the caret queues automatic cursor synchronization synchronously. Switching
+            // the toolbar to None in the same dispatcher turn must cancel that pending navigation.
+            pdfOffset = pdfScroll.VerticalOffset;
+            editor.CaretOffset = editor.Document.GetLineByNumber(290).Offset;
+            SelectMode(PreviewFollowMode.None);
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Switching to None did not cancel pending cursor synchronization");
+            pdfOffset = pdfScroll.VerticalOffset;
+            await ScrollSourceAsync(135);
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Disabling view following did not stop automatic PDF navigation");
+            Console.WriteLine("PASS: toolbar None mode cancels pending synchronization and keeps the PDF still during source scrolling");
+
+            // Explicit navigation has the same caret meaning in every mode and cancels a
+            // just-scheduled automatic follow instead of letting it undo the Ctrl+J request.
+            foreach (var mode in new[] { PreviewFollowMode.None, PreviewFollowMode.Cursor, PreviewFollowMode.Viewport })
+            {
+                SelectMode(PreviewFollowMode.None);
+                var caretLocation = new SourceLocation(main, 8);
+                editor.CaretOffset = editor.Document.GetLineByNumber(caretLocation.Line).Offset;
+                await ScrollSourceAsync(215);
+                var caretPoint = await MapAsync(caretLocation);
+                SelectMode(mode);
+                var shortcut = CreateKey(window, Key.J, Keyboard.PreviewKeyDownEvent);
+                await CallAsync(window, "HandleShortcutAsync", shortcut, ModifierKeys.Control);
+                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                if (!shortcut.Handled || Field(preview, "_highlight") is not PdfLocation highlighted || highlighted != caretPoint)
+                    throw new Exception($"Ctrl+J did not explicitly highlight the caret's PDF location in {mode} mode");
+                var expected = PdfOffset(preview, mode == PreviewFollowMode.Cursor ? caretPoint with { Y = caretPoint.Y + caretPoint.Height / 2 } : caretPoint,
+                    mode == PreviewFollowMode.Cursor ? .5 : .35);
+                if (Math.Abs(pdfScroll.VerticalOffset - expected) > 2)
+                    throw new Exception($"Ctrl+J did not scroll to the caret's PDF location in {mode} mode");
+                await AssertPdfOffsetStableAsync(pdfScroll, expected, $"Automatic {mode} mode synchronization overrode Ctrl+J");
+            }
+            Console.WriteLine("PASS: Ctrl+J follows and highlights the caret in all three modes; automatic synchronization does not override it");
+
+            SelectMode(PreviewFollowMode.Viewport);
+            anchor = await ScrollSourceAsync(255);
+            await AwaitAnchorAsync(anchor);
+            var inversePoint = await MapAsync(new SourceLocation(main, 120));
+            preview.ShowLocation(inversePoint);
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            pdfOffset = pdfScroll.VerticalOffset;
+            var previousCaretLine = editor.CurrentLocation!.Line;
+            await CallAsync(window, "InverseAsync", inversePoint);
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            if (editor.CurrentLocation!.Line == previousCaretLine || editor.CurrentFilePath != main)
+                throw new Exception("PDF inverse navigation did not move to the corresponding source");
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Inverse navigation caused the PDF to jump back to the editor viewport center");
+            Console.WriteLine("PASS: inverse SyncTeX changes the source view without feeding an automatic jump back into the PDF");
+
+            SelectMode(PreviewFollowMode.Cursor);
+            await AwaitLocationAsync(editor.CurrentLocation!, .5, centerBounds: true);
+            inversePoint = await MapAsync(new SourceLocation(main, 205));
+            preview.ShowLocation(inversePoint);
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            pdfOffset = pdfScroll.VerticalOffset;
+            previousCaretLine = editor.CurrentLocation!.Line;
+            await CallAsync(window, "InverseAsync", inversePoint);
+            if (editor.CurrentLocation!.Line == previousCaretLine)
+                throw new Exception("Cursor-mode inverse navigation did not move the source caret");
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Cursor mode fed inverse navigation back into an automatic PDF jump");
+            Console.WriteLine("PASS: cursor mode also suppresses automatic feedback during inverse SyncTeX");
+            SelectMode(PreviewFollowMode.Viewport);
+            await AwaitAnchorAsync(editor.ViewportLocation!);
+
+            // Start a pending editor follow, then exercise the PDF's actual interaction event.
+            // A plain ScrollToVerticalOffset alone is programmatic and cannot prove cancellation.
+            await ScrollSourceAsync(225);
+            preview.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+                { RoutedEvent = UIElement.PreviewMouseWheelEvent });
+            pdfScroll.ScrollToVerticalOffset(Math.Min(pdfScroll.ScrollableHeight, pdfScroll.VerticalOffset + pdfScroll.ViewportHeight * 1.5));
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            pdfOffset = pdfScroll.VerticalOffset;
+            await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Manual PDF scrolling was pulled back by a pending source-view follow");
+            anchor = await ScrollSourceAsync(275);
+            await AwaitAnchorAsync(anchor);
+            Console.WriteLine("PASS: manual PDF scrolling cancels a pending automatic follow; a later source scroll resumes following");
+
+            var topLine = 145;
+            foreach (var command in new[] { "ZoomIn_Click", "ZoomOut_Click", "Fit_Click" })
+            {
+                await ScrollSourceAsync(topLine);
+                Invoke(window, command, window, new RoutedEventArgs());
+                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                await AssertPdfOffsetStableAsync(pdfScroll, pdfScroll.VerticalOffset,
+                    "A pending source-view follow overrode the PDF toolbar action " + command);
+                topLine += 25;
+            }
+            Console.WriteLine("PASS: PDF zoom and fit-width toolbar actions cancel pending source-view navigation");
+            await CheckPreviewModeToolbarAsync(window, output);
+            CheckSettingsFollowModes(window, output);
+        }
+        finally { settingsField.SetValue(window, originalSettings); }
+    }
+
+    private static async Task CheckPreviewModeToolbarAsync(MainWindow window, string output)
+    {
+        var column = ((Grid)window.FindName("Workspace")).ColumnDefinitions[4];
+        var originalWidth = column.Width;
+        var preview = (PdfPreview)window.FindName("Preview");
+        var panel = (Grid)VisualTreeHelper.GetParent(preview);
+        var modes = (ComboBox)window.FindName("FollowModeBox");
+        var toolbar = (DockPanel)modes.Parent;
+        try
+        {
+            column.Width = new GridLength(300);
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            window.UpdateLayout();
+            if (Math.Abs(panel.ActualWidth - 300) > 1 || Math.Abs(panel.RowDefinitions[0].ActualHeight - 42) > 1)
+                throw new Exception("Narrow preview toolbar regression requires a 300-DIP column and the existing 42-DIP toolbar row");
+            var buttons = Descendants<Button>(toolbar).ToArray();
+            if (buttons.Length != 4) throw new Exception("Narrow preview toolbar lost zoom, fit-width or export controls");
+            var toolbarBounds = new Rect(0, 0, panel.ActualWidth, panel.RowDefinitions[0].ActualHeight);
+            foreach (var control in new FrameworkElement[] { modes }.Concat(buttons))
+            {
+                var bounds = control.TransformToAncestor(panel).TransformBounds(new Rect(new Point(), control.RenderSize));
+                var visible = Rect.Intersect(VisibleBounds(control, panel), toolbarBounds);
+                if (!control.IsVisible || bounds.Width < 15 || bounds.Height < 16 || visible.IsEmpty ||
+                    visible.Width < bounds.Width - 1 || visible.Height < bounds.Height - 1)
+                    throw new Exception($"Preview toolbar control is clipped at 300 DIP: {control.Name} ({bounds}, visible {visible})");
+            }
+            await WaitForPreviewRenderedAsync(window);
+            Capture(window, Path.Combine(output, "follow-mode-toolbar-narrow.png"));
+            Console.WriteLine("PASS: follow-mode dropdown and all preview toolbar buttons remain visible in a 300-DIP preview column");
+        }
+        finally { column.Width = originalWidth; window.UpdateLayout(); }
+    }
+
+    private static void CheckSettingsFollowModes(MainWindow owner, string output)
+    {
+        var dialog = new SettingsWindow(new AppSettings { FollowMode = PreviewFollowMode.Cursor, LivePreview = false, EditorFontFamily = "Arial" }) { Owner = owner };
+        Exception? failure = null;
+        dialog.Loaded += (_, _) =>
+        {
+            try
+            {
+                var modes = (ComboBox)dialog.FindName("FollowModeBox");
+                if (modes.Items.Count != 3 || !Equals(modes.SelectedValue, PreviewFollowMode.Cursor))
+                    throw new Exception("Settings did not expose three modes and load the existing cursor mode");
+                modes.SelectedValue = PreviewFollowMode.None;
+                var font = (ComboBox)dialog.FindName("EditorFontBox");
+                if (font.Text != "Arial") throw new Exception("Settings did not preserve a proportional editor font");
+                font.Text = "Times New Roman";
+                Capture(dialog, Path.Combine(output, "settings-follow-mode.png"));
+                Descendants<Button>(dialog).Single(button => button.IsDefault).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+            catch (Exception error) { failure = error; dialog.Close(); }
+        };
+        var accepted = dialog.ShowDialog();
+        if (failure != null) throw new Exception("Settings follow-mode regression failed", failure);
+        if (accepted != true || dialog.Settings.FollowMode != PreviewFollowMode.None || dialog.Settings.EditorFontFamily != "Times New Roman")
+            throw new Exception("Saving settings did not retain the selected follow mode");
+        Console.WriteLine("PASS: settings loads an existing follow mode, offers all three modes and saves the selected mode");
+    }
+
+    private static double PdfOffset(PdfPreview preview, PdfLocation point, double viewportFraction)
+    {
+        var scroll = (ScrollViewer)Field(preview, "_scroll")!;
+        var layouts = ((System.Collections.IEnumerable)Field(preview, "_layouts")!).Cast<object>().ToArray();
+        var layout = layouts[point.Page - 1];
+        var top = (double)layout.GetType().GetProperty("Top")!.GetValue(layout)!;
+        var size = (Size)layout.GetType().GetProperty("Size")!.GetValue(layout)!;
+        var document = Field(preview, "_document")!;
+        var mapped = (Point)document.GetType().GetMethod("PageToView")!.Invoke(document, [point.Page - 1, new Point(point.X, point.Y), size])!;
+        var margin = ((Canvas)Field(preview, "_pages")!).Margin.Top;
+        return Math.Clamp(margin + top + 1 + mapped.Y - scroll.ViewportHeight * viewportFraction, 0, scroll.ScrollableHeight);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> completed, string failure)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(8);
+        while (!completed())
+        {
+            if (DateTime.UtcNow >= deadline) throw new Exception(failure);
+            await Task.Delay(25);
+        }
+    }
+
+    private static async Task AssertPdfOffsetStableAsync(ScrollViewer scroll, double expected, string failure)
+    {
+        // Observe beyond the synchronization interval so an unwanted navigation cannot hide between checks.
+        var deadline = DateTime.UtcNow.AddMilliseconds(1000);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (Math.Abs(scroll.VerticalOffset - expected) > 2)
+                throw new Exception($"{failure} (was {expected:0.0}, now {scroll.VerticalOffset:0.0})");
+            await Task.Delay(25);
+        }
+    }
+
+    private static async Task WaitForPreviewRenderedAsync(MainWindow window)
+    {
+        window.UpdateLayout();
+        var preview = (PdfPreview)window.FindName("Preview");
+        if (preview.PageCount == 0) return;
+        var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var scroll = (ScrollViewer)Field(preview, "_scroll")!;
+        void CheckRendered()
+        {
+            if ((bool)Field(preview, "_rendering")! || ((DispatcherTimer)Field(preview, "_renderTimer")!).IsEnabled) return;
+            var viewport = new Rect(new Point(), scroll.RenderSize);
+            var visiblePages = Descendants<Image>(preview).Where(image => image.ActualWidth > 0 && image.ActualHeight > 0 &&
+                image.TransformToAncestor(scroll).TransformBounds(new Rect(new Point(), image.RenderSize)).IntersectsWith(viewport)).ToArray();
+            if (visiblePages.Length > 0 && visiblePages.All(image => image.Source is BitmapSource)) rendered.TrySetResult();
+        }
+        EventHandler onFrame = (_, _) => CheckRendered();
+        CompositionTarget.Rendering += onFrame;
+        try
+        {
+            CheckRendered();
+            // Completion depends on the current visible pages acquiring rasters, not an assumed render delay.
+            await rendered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        }
+        finally { CompositionTarget.Rendering -= onFrame; }
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T matched) yield return matched;
+            foreach (var descendant in Descendants<T>(child)) yield return descendant;
+        }
+    }
+    private static void Capture(Window window, string path)
+    {
+        window.UpdateLayout(); var visual = (FrameworkElement)window.Content;
+        var width = (int)Math.Ceiling(visual.ActualWidth + visual.Margin.Left + visual.Margin.Right);
+        var height = (int)Math.Ceiling(visual.ActualHeight + visual.Margin.Top + visual.Margin.Bottom);
+        var target = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        var background = new DrawingVisual(); using (var drawing = background.RenderOpen()) drawing.DrawRectangle(window.Background ?? Brushes.White, null, new Rect(0, 0, width, height));
+        target.Render(background);
+        target.Render(visual); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(target));
+        using var file = File.Create(path); encoder.Save(file);
+    }
+}
