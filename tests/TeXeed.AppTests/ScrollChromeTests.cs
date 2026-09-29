@@ -41,6 +41,7 @@ internal static partial class Program
         var editorBar = Descendants<ScrollBar>(editor).First(b => b.IsVisible && b.Orientation == Orientation.Vertical);
         var previewBar = Descendants<ScrollBar>(previewPane).First(b => b.IsVisible && b.Orientation == Orientation.Vertical);
         var oldOffset = editor.VerticalOffset;
+        AssertEditorScrollEdges(editor);
         // Previous modal/menu tests can leave the real pointer over a scrollbar.
         // Park it on the test window's title bar so idle assertions test idle input.
         GetCursorPos(out var previousPointer);
@@ -97,11 +98,13 @@ internal static partial class Program
             }
 
             log.IsExpanded = true; window.UpdateLayout();
+            AssertEditorScrollEdges(editor);
             if (!((TextBlock)window.FindName("LogToggleHint")).Text.Contains("收起")) throw new Exception("Missing collapse output hint");
             foreach (var atEnd in new[] { false, true })
             {
                 if (atEnd) editor.ScrollToEnd(); else editor.ScrollToHome();
                 window.UpdateLayout(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                AssertEditorScrollEdges(editor);
                 foreach (var bar in Descendants<ScrollBar>(editor).Where(b => b.IsVisible))
                 {
                     var t = (Track)bar.Template.FindName("PART_Track", bar);
@@ -147,5 +150,17 @@ internal static partial class Program
             editor.ScrollToHorizontalOffset(0); editor.ScrollToVerticalOffset(oldOffset);
             window.UpdateLayout(); MouseActionIn(pane); MouseActionIn(previewPane);
         }
+    }
+
+    private static void AssertEditorScrollEdges(LatexEditor editor)
+    {
+        var view = editor.TextArea.TextView;
+        var contentEdge = view.TranslatePoint(new Point(view.ActualWidth, view.ActualHeight), editor);
+        var vertical = Descendants<ScrollBar>(editor).First(b => b.IsVisible && b.Orientation == Orientation.Vertical);
+        var horizontal = Descendants<ScrollBar>(editor).FirstOrDefault(b => b.IsVisible && b.Orientation == Orientation.Horizontal);
+        var rightGap = vertical.TranslatePoint(new Point(), editor).X - contentEdge.X;
+        var bottomGap = horizontal is null ? 0 : horizontal.TranslatePoint(new Point(), editor).Y - contentEdge.Y;
+        if (Math.Abs(rightGap) > 1 || Math.Abs(bottomGap) > 1)
+            throw new Exception($"Blank strips between editor viewport and scrollbars: right={rightGap:F2}, bottom={bottomGap:F2} DIP");
     }
 }

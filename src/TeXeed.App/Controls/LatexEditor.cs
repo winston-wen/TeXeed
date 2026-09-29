@@ -47,7 +47,9 @@ public sealed partial class LatexEditor : TextEditor
         Foreground = Brush("EditorForeground");
         LineNumbersForeground = Brush("Subtle");
         BorderThickness = new Thickness(0);
-        Padding = new Thickness(12, 14, 14, 14);
+        // AvalonEdit applies this to the viewport, inside the scrollbars. Right/bottom
+        // padding would leave fixed blank strips where scrolling text gets clipped.
+        Padding = new Thickness(12, 14, 0, 0);
         HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
         Options.ConvertTabsToSpaces = true;
