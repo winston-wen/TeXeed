@@ -8,6 +8,7 @@ try {
     dotnet @publishArguments
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
     Copy-Item -LiteralPath README.md,THIRD-PARTY-NOTICES.md -Destination $Output
+    if (Test-Path -LiteralPath docs) { Copy-Item -LiteralPath docs -Destination $Output -Recurse -Force }
     if (Test-Path -LiteralPath examples) {
         $exampleRoot = (Resolve-Path -LiteralPath examples).Path
         foreach ($file in Get-ChildItem -LiteralPath $exampleRoot -Recurse -File) {

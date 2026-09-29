@@ -15,7 +15,7 @@ public partial class MainWindow
     private bool _workspaceExpanded = true;
     private double _expandedWorkspaceWidth = 252;
     private double _expandedWorkspaceMinimum = 200;
-    private GridLength _expandedSplitterWidth = new(5);
+    private GridLength _expandedSplitterWidth = new(2);
     private Point? _workspaceIconPress;
     private int _workspaceIconPressTime;
     private bool _workspaceIconClickCompleted;

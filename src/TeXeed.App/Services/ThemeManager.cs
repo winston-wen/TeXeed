@@ -81,8 +81,12 @@ public static class ThemeManager
             (SystemColors.InactiveSelectionHighlightTextBrushKey, "Ink"), (SystemColors.MenuBrushKey, "EditorBackground"),
             (SystemColors.MenuTextBrushKey, "Ink")
         }) resources[key] = Brush(token);
-        resources[SystemParameters.VerticalScrollBarWidthKey] = 8d;
-        resources[SystemParameters.HorizontalScrollBarHeightKey] = 8d;
+        resources[SystemParameters.VerticalScrollBarWidthKey] = 14d;
+        resources[SystemParameters.HorizontalScrollBarHeightKey] = 12d;
+        // WPF Track uses half these metrics as its minimum thumb length. Setting
+        // Thumb.MinHeight instead disagrees with Track's drag geometry and clips it.
+        resources[SystemParameters.VerticalScrollBarButtonHeightKey] = 48d;
+        resources[SystemParameters.HorizontalScrollBarButtonWidthKey] = 48d;
         foreach (Window window in Application.Current.Windows) WindowTheme.Apply(window);
         Changed?.Invoke(null, EventArgs.Empty);
     }

@@ -26,7 +26,7 @@ internal static partial class Program
         WriteThemePdf(pdf);
         await CallAsync(window, "OpenAsync", main);
         preview.AutoCrop = false; await preview.LoadAsync(pdf);
-        editor.Document.Insert(editor.Document.TextLength, "% unsaved theme test " + new string('x', 300));
+        editor.Document.Insert(editor.Document.TextLength, new string('\n', 10000) + "% unsaved theme test " + new string('x', 300));
         editor.NavigateTo(new SourceLocation(main, 7));
         var document = editor.Document; var caret = editor.CaretOffset; var font = editor.FontFamily;
         var themeMenu = (MenuItem)window.FindName("ThemeMenu");
@@ -44,21 +44,22 @@ internal static partial class Program
                     throw new Exception("Editor did not switch its active theme");
                 if (preview.InvertColors != theme.IsDark) throw new Exception("PDF appearance did not follow theme selection");
                 if (!ReferenceEquals(document, editor.Document) || editor.CaretOffset != caret || editor.FontFamily != font || !editor.Document.UndoStack.CanUndo)
-                    throw new Exception("Theme switch disturbed editor state");
+                    throw new Exception($"Theme switch disturbed editor state: id={id}, document={ReferenceEquals(document, editor.Document)}, caret={editor.CaretOffset}/{caret}, font={editor.FontFamily}/{font}, undo={editor.Document.UndoStack.CanUndo}");
                 var saved = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path.Combine(Environment.GetEnvironmentVariable("TEXEED_HOME")!, "settings.json")))!;
                 if (saved.ThemeId != id) throw new Exception("Theme selection was not saved");
                 foreach (var owner in new FrameworkElement[] { editor, preview })
                 {
                     var bar = Descendants<ScrollBar>(owner).First(bar => bar.Orientation == Orientation.Vertical && bar.IsVisible);
-                    if (Math.Abs(bar.ActualWidth - 8) > .1) throw new Exception($"{owner.GetType().Name} scrollbar width is {bar.ActualWidth}, expected 8 DIP");
+                    if (Math.Abs(bar.ActualWidth - 14) > .1) throw new Exception($"{owner.GetType().Name} scrollbar width is {bar.ActualWidth}, expected 14 DIP");
                     var grip = Descendants<Border>(bar).FirstOrDefault(border => border.Name == "Grip");
-                    if (grip is null || grip.CornerRadius.TopLeft < 3 || Math.Abs(grip.ActualWidth - 6) > .1
+                    if (grip is null || grip.CornerRadius.TopLeft != 2 || Math.Abs(grip.ActualWidth - 14) > .1
                         || ((SolidColorBrush)grip.Background).Color != ThemeManager.Brush("ScrollThumb").Color)
-                        throw new Exception($"{owner.GetType().Name} scrollbar is not a themed capsule");
+                        throw new Exception($"{owner.GetType().Name} scrollbar is not a themed translucent rectangle");
                     if (((SolidColorBrush)bar.Background).Color != ThemeManager.Brush("ScrollTrack").Color)
                         throw new Exception("Scrollbar track lost its distinct background");
                 }
                 await CheckPaneChromeAsync(window);
+                await CheckScrollChromeAsync(window, output, id);
                 Capture(window, Path.Combine(output, id + ".png"));
             }
             var reopened = new MainWindow { Width = 1100, Height = 700 };
@@ -82,8 +83,8 @@ internal static partial class Program
                 if (ThemeManager.Brush("Accent").Color != Color.FromRgb(18, 52, 86)) throw new Exception("Invalid theme partially replaced the palette");
             }
             finally { File.Delete(custom); }
-            Console.WriteLine("PASS: pane footers, sidebar title alignment, momentary outline actions, log toggle and vertical/horizontal end caps");
-            Console.WriteLine("PASS: live dark/light/custom themes, persistent selection, unchanged editor state, PDF appearance and capsule scrollbars");
+            Console.WriteLine("PASS: pane footers, sidebar title alignment, momentary outline actions, log toggle and pane layout");
+            Console.WriteLine("PASS: live dark/light/custom themes, persistent selection, unchanged editor state, PDF appearance and translucent scrollbars");
         }
         finally
         {
@@ -92,7 +93,7 @@ internal static partial class Program
         }
     }
 
-    private static async Task CheckPaneChromeAsync(MainWindow window)
+    private static Task CheckPaneChromeAsync(MainWindow window)
     {
         var workspace = (FrameworkElement)window.FindName("Workspace");
         var editor = (LatexEditor)window.FindName("Editor");
@@ -128,31 +129,11 @@ internal static partial class Program
         if (!log.IsExpanded || log.ActualHeight < 100) throw new Exception("Status bar cannot open compiler output");
         ((ToggleButton)window.FindName("LogToggle")).IsChecked = false; window.UpdateLayout();
         if (log.ActualHeight > 1) throw new Exception("Closed compiler output still consumes editor space");
-        foreach (var owner in new FrameworkElement[] { editor, preview })
-        {
-            var bar = Descendants<ScrollBar>(owner).First(bar => bar.IsVisible && bar.Orientation == Orientation.Vertical);
-            var cap = (RepeatButton)bar.Template.FindName("EndCap", bar);
-            if (cap.ActualHeight < 10 || cap.ActualWidth > 8.1) throw new Exception("Scrollbar end cap has wrong size");
-            var before = bar.Value;
-            ((System.Windows.Input.RoutedCommand)cap.Command).Execute(cap.CommandParameter, cap);
-            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-            if (bar.Value <= before) throw new Exception("Scrollbar end cap did not scroll content");
-        }
-        var oldY = editor.VerticalOffset;
-        editor.ScrollToEnd(); window.UpdateLayout();
-        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-        var horizontal = Descendants<ScrollBar>(editor).First(bar => bar.IsVisible && bar.Orientation == Orientation.Horizontal);
-        var rightCap = (RepeatButton)horizontal.Template.FindName("EndCap", horizontal);
-        var oldX = horizontal.Value;
-        ((System.Windows.Input.RoutedCommand)rightCap.Command).Execute(rightCap.CommandParameter, rightCap);
-        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-        if (horizontal.Value <= oldX || Math.Abs(rightCap.ActualWidth - 12) > .1 || rightCap.ActualHeight > 8.1)
-            throw new Exception("Horizontal end cap did not scroll content");
-        editor.ScrollToHorizontalOffset(0); editor.ScrollToVerticalOffset(oldY);
         Invoke(window, "ToggleWorkspace"); window.UpdateLayout();
         if (Math.Abs(footer.TranslatePoint(new Point(), workspace).Y - pdfFooter.TranslatePoint(new Point(), workspace).Y) > .1)
             throw new Exception("Collapsing sidebar moved pane footers");
         Invoke(window, "ToggleWorkspace"); window.UpdateLayout();
+        return Task.CompletedTask;
     }
 
     private static void WriteThemePdf(string path)

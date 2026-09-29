@@ -55,6 +55,7 @@ internal static partial class Program
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 if (args.Contains("--themes-only"))
                 {
+                    await CheckAppearanceAsync(window, output);
                     await CheckThemesAsync(window, output);
                     await CloseAndObserveAsync(window, "theme regression");
                     result = 0; return;
