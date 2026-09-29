@@ -19,10 +19,28 @@ internal sealed partial class PdfDocument
             cancellation.ThrowIfCancellationRequested();
             // Analyze the original white-background raster once, independent of zoom and night colors.
             var raster = Render(index, 1, 1_000_000);
-            crops.Add(PdfPageCrop.Detect(raster, Pages[index], cancellation, ProtectedGraphicBands(index, cancellation)));
+            crops.Add(PdfPageCrop.Detect(raster, Pages[index], cancellation, ProtectedGraphicBands(index, cancellation), TextArea(index)));
         }
         cancellation.ThrowIfCancellationRequested();
         Crops = crops;
+    }
+
+    private Rect? TextArea(int index)
+    {
+        if (_texLayouts.Count != Pages.Count) return null;
+        var layout = _texLayouts[index];
+        // Transform the recorded physical page through the PDF's rotation and CropBox mapping.
+        var paper = new Rect(0, 0, layout.PaperWidth, layout.PaperHeight);
+        var matrix = _viewToPage[index]; matrix.Invert();
+        matrix.Scale(Pages[index].Width, Pages[index].Height);
+        var viewPaper = Rect.Transform(paper, matrix);
+        if (layout.PaperWidth > 0 && (Math.Abs(viewPaper.Width - Pages[index].Width) > 2 || Math.Abs(viewPaper.Height - Pages[index].Height) > 2))
+            return null;
+        // A quarter-turn rotates horizontal margins into vertical ones; keep those pages conservative.
+        if (Math.Abs(matrix.M12) > .01 || Math.Abs(matrix.M21) > .01) return null;
+        if (layout.Left < 0 || layout.Width <= 0 || !double.IsFinite(layout.Left + layout.Width)) return null;
+        var area = Rect.Transform(new Rect(layout.Left, 0, layout.Width, Math.Max(1, layout.PaperHeight)), matrix);
+        return area.Left >= -1 && area.Right <= Pages[index].Width + 1 ? area : null;
     }
 
     private IReadOnlyList<PdfCropBand> ProtectedGraphicBands(int index, CancellationToken cancellation)

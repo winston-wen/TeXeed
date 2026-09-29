@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace TeXeed.Core;
 
-public sealed partial class CompileService
+public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly object cancellationLock = new();
@@ -65,7 +65,7 @@ public sealed partial class CompileService
 
             // An engine that exits successfully without producing a new PDF must never
             // cause a failed or stale build to be published. Aux files stay for speed.
-            foreach (var extension in new[] { ".pdf", ".log", ".synctex", ".synctex.gz", ".fls" })
+            foreach (var extension in new[] { ".pdf", ".log", ".synctex", ".synctex.gz", ".fls", TexPageLayout.Extension })
                 File.Delete(Path.Combine(buildDirectory, job + extension));
 
             // \include writes auxiliary files in matching subdirectories of the outdir.
@@ -78,7 +78,12 @@ public sealed partial class CompileService
 
             var directories = ToolDirectories(Path.GetDirectoryName(engine.Path));
             var env = CreateEnvironment(project.Root, directories);
-            var arguments = BuildArguments(engine.Name, project.MainPath, buildDirectory, toolchain);
+            // Tectonic resolves project assets relative to the primary input. Keep its original entry;
+            // its SyncTeX page container supplies the typeset width without moving that search root.
+            var driver = engine.Name == "tectonic" ? project.MainPath : await PrepareLayoutDriverAsync(project, buildDirectory, token);
+            var arguments = BuildArguments(engine.Name, driver, buildDirectory, toolchain);
+            if (disableMiKTeXInstaller && engine.Name != "tectonic")
+                arguments = [.. arguments[..^1], engine.Name == "latexmk" ? "-latexoption=--disable-installer" : "--disable-installer", arguments[^1]];
             log.AppendLine($"引擎：{engine.Name}  |  {engine.Path}");
             var directEngine = engine.Name is "xelatex" or "pdflatex" or "lualatex";
             var auxiliaryState = directEngine ? await AuxiliaryStateAsync(buildDirectory, token) : "";
@@ -93,7 +98,7 @@ public sealed partial class CompileService
                 // Every pass must create its own final products. A zero exit after a
                 // later pass silently does nothing must not publish an earlier PDF.
                 if (pass > 1)
-                    foreach (var extension in new[] { ".pdf", ".log", ".synctex", ".synctex.gz", ".fls" })
+                    foreach (var extension in new[] { ".pdf", ".log", ".synctex", ".synctex.gz", ".fls", TexPageLayout.Extension })
                         File.Delete(Path.Combine(buildDirectory, job + extension));
                 result = await RunProcessAsync(engine.Path, arguments, project.Root, env, token);
                 AppendRun(log, pass == 1 ? engine.Name : $"{engine.Name} · 第 {pass} 遍", result);
@@ -187,6 +192,11 @@ public sealed partial class CompileService
 
             if (pendingBibliographyCache is not null)
                 await WriteBibliographyCacheAsync(bibliographyCachePath, pendingBibliographyCache);
+
+            var generatedLayout = Path.Combine(buildDirectory, job + TexPageLayout.Extension);
+            var publishedLayout = Path.Combine(previewDirectory, job + TexPageLayout.Extension);
+            if (File.Exists(generatedLayout)) File.Copy(generatedLayout, publishedLayout, true);
+            else File.Delete(publishedLayout);
 
             return new(true, publishedPdf, log.ToString(), ParseDiagnostics(diagnosticLog, project), watch.Elapsed, engineName, synctexAvailable);
         }

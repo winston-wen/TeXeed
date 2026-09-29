@@ -73,7 +73,9 @@ public static class CompilerTests
             Check.Equal(2, runCount);
             var arguments = await File.ReadAllLinesAsync(Path.Combine(build, "fake-arguments"));
             Check.True(arguments.Contains("-no-shell-escape"), "Engine shell escape must be disabled");
-            Check.True(arguments.Contains(main), "Source path with spaces and shell metacharacters must remain a single argument");
+            var driver = arguments.Last();
+            Check.Equal(Path.GetFileName(main), Path.GetFileName(driver));
+            Check.True(File.Exists(driver) && (await File.ReadAllTextAsync(driver)).Contains(main.Replace('\\', '/')), "Layout driver must retain the original source path with spaces and shell metacharacters");
             Check.True(arguments.Contains("-recorder"), "Direct engines must record active generated files");
             await File.WriteAllTextAsync(Path.Combine(build, "fake-run-count"), "0");
             var warm = await new CompileService().CompileAsync(project, settings);

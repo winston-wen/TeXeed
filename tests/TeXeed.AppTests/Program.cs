@@ -53,6 +53,12 @@ internal static partial class Program
                 if (editor.CurrentFilePath != main) throw new Exception("Main editor did not open fixture");
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
+                if (args.Contains("--layout-only"))
+                {
+                    await CheckLayoutMetadataAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "page layout regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--completion-only"))
                 {
                     await CheckCompletionKeysAsync();

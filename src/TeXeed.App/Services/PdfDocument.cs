@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using TeXeed.Core;
 
 namespace TeXeed.App.Services;
 
@@ -21,8 +22,11 @@ internal sealed partial class PdfDocument : IDisposable
     private readonly List<Matrix> _viewToPage = [];
     public IReadOnlyList<Size> Pages { get; }
 
-    public PdfDocument(byte[] data)
+    private readonly IReadOnlyList<TexPageLayout> _texLayouts;
+
+    public PdfDocument(byte[] data, IReadOnlyList<TexPageLayout>? texLayouts = null)
     {
+        _texLayouts = texLayouts ?? [];
         ArgumentNullException.ThrowIfNull(data);
         if (data.Length == 0) throw new IOException("PDF 文件为空。");
         lock (Gate)

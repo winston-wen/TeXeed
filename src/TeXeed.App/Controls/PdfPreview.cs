@@ -144,7 +144,7 @@ public sealed class PdfPreview : UserControl, IDisposable
         {
             cancellation.ThrowIfCancellationRequested();
             if (new FileInfo(path).Length > 256L * 1024 * 1024) throw new IOException("PDF 文件超过 256 MB，无法预览。");
-            var loaded = new PdfDocument(File.ReadAllBytes(path));
+            var loaded = new PdfDocument(File.ReadAllBytes(path), TexPageLayout.Read(path));
             try
             {
                 if (analyzeCrop) loaded.PrepareCrops(cancellation);

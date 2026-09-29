@@ -39,12 +39,11 @@ internal sealed class PdfPageCrop(double left, double width, IReadOnlyList<PdfCr
         return new Point(Left + Math.Clamp(point.X, 0, Width), Bands[^1].Bottom);
     }
 
-    public static PdfPageCrop Detect(BitmapSource image, Size sourceSize, CancellationToken cancellation, IReadOnlyList<PdfCropBand>? protectedBands = null)
+    public static PdfPageCrop Detect(BitmapSource image, Size sourceSize, CancellationToken cancellation, IReadOnlyList<PdfCropBand>? protectedBands = null, Rect? textArea = null)
     {
         var stride = image.PixelWidth * 4;
         var pixels = new byte[stride * image.PixelHeight]; image.CopyPixels(pixels, stride, 0);
         var occupied = new bool[image.PixelHeight];
-        var minX = image.PixelWidth; var maxX = -1;
         for (var y = 0; y < image.PixelHeight; y++)
         {
             cancellation.ThrowIfCancellationRequested();
@@ -52,14 +51,17 @@ internal sealed class PdfPageCrop(double left, double width, IReadOnlyList<PdfCr
             {
                 var offset = y * stride + x * 4;
                 if (pixels[offset] >= 250 && pixels[offset + 1] >= 250 && pixels[offset + 2] >= 250) continue;
-                occupied[y] = true; minX = Math.Min(minX, x); maxX = Math.Max(maxX, x);
+                occupied[y] = true;
+                break;
             }
         }
-        // Keep genuinely empty (or almost-white) pages intact rather than guessing away content.
-        if (maxX < minX) return new PdfPageCrop(0, sourceSize.Width, [new(0, sourceSize.Height)]);
         const double padding = 6, minimumGap = 36;
-        var sx = sourceSize.Width / image.PixelWidth; var sy = sourceSize.Height / image.PixelHeight;
+        // Horizontal bounds come only from TeX's page layout, never the visible ink.
+        var left = textArea is { } area ? Math.Clamp(area.Left - padding, 0, sourceSize.Width) : 0;
+        var right = textArea is { } bounds ? Math.Clamp(bounds.Right + padding, left, sourceSize.Width) : sourceSize.Width;
         var first = Array.FindIndex(occupied, value => value);
+        if (first < 0) return new PdfPageCrop(left, Math.Max(1, right - left), [new(0, sourceSize.Height)]);
+        var sy = sourceSize.Height / image.PixelHeight;
         var final = Array.FindLastIndex(occupied, value => value);
         // Whitespace inside a graphic/form is part of that object, not a page gap.
         // Protect it without adding new outer margins to the detected visible bounds.
@@ -78,11 +80,6 @@ internal sealed class PdfPageCrop(double left, double width, IReadOnlyList<PdfCr
             last = row;
         }
         bands.Add(new(Math.Max(0, start * sy - padding), Math.Min(sourceSize.Height, (last + 1) * sy + padding)));
-        // Preserve the original horizontal center, including short-line pages and centered footers.
-        // The rightmost ink only limits trimming so overhanging content cannot be clipped.
-        var leftMargin = Math.Max(0, minX * sx - padding);
-        var rightMargin = Math.Max(0, sourceSize.Width - (maxX + 1) * sx - padding);
-        var trim = Math.Min(leftMargin, rightMargin);
-        return new PdfPageCrop(trim, Math.Max(1, sourceSize.Width - 2 * trim), bands);
+        return new PdfPageCrop(left, Math.Max(1, right - left), bands);
     }
 }

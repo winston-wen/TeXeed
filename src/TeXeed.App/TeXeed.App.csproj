@@ -8,7 +8,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.1.26</Version>
+    <Version>0.1.27</Version>
     <Description>A native Windows LaTeX workspace</Description>
   </PropertyGroup>
   <ItemGroup>

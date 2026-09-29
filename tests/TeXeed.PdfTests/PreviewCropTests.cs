@@ -15,21 +15,30 @@ internal static partial class Program
 
     private static void CropGeometry()
     {
-        using var document = new PdfDocument(Fixture(2, pageContent: CropContent));
+        var layout = new TexPageLayout(200, 300, 40, 120);
+        using var document = new PdfDocument(Fixture(2, pageContent: CropContent), [layout, layout]);
         document.PrepareCrops(CancellationToken.None);
         var crop = document.Crops![0];
         Near(crop.Left, 34, "Left crop padding"); Near(crop.Width, 132, "Horizontal margins");
-        using var shortPage = new PdfDocument(Fixture(1, pageContent: "0 0 0 rg 40 260 45 12 re f 95 10 10 8 re f"));
+        using var shortPage = new PdfDocument(Fixture(1, pageContent: "0 0 0 rg 70 260 15 12 re f 95 10 10 8 re f"), [layout]);
         shortPage.PrepareCrops(CancellationToken.None);
         var shortCrop = shortPage.Crops![0];
         Near(shortCrop.Left, crop.Left, "Short page left margin");
         Near(shortCrop.Width, crop.Width, "Short lines must retain right-hand whitespace");
         Near(shortCrop.ToCropped(new Point(100, 286)).X, shortCrop.Width / 2, "Centered footer must stay centered");
-        using var overhang = new PdfDocument(Fixture(1, pageContent: "0 0 0 rg 40 260 145 12 re f"));
+        using var overhang = new PdfDocument(Fixture(1, pageContent: "0 0 0 rg 40 260 145 12 re f"), [layout]);
         overhang.PrepareCrops(CancellationToken.None);
         var overhangCrop = overhang.Crops![0];
-        Near(overhangCrop.Left, 9, "Right overhang must limit both margins");
-        Near(overhangCrop.Width, 182, "Overhang retains equal margins without clipping ink");
+        Near(overhangCrop.Left, 34, "Overhang must not change document margins");
+        Near(overhangCrop.Width, 132, "Overhang must not change the typeset text width");
+        using var unknown = new PdfDocument(Fixture(1, pageContent: CropContent));
+        unknown.PrepareCrops(CancellationToken.None);
+        Near(unknown.Crops![0].Width, 200, "Missing layout must retain full horizontal width");
+        Require(unknown.Crops[0].Height < 85, "Missing layout must still compress vertical gaps");
+        using var asymmetric = new PdfDocument(Fixture(1, pageContent: CropContent), [new(200, 300, 20, 120)]);
+        asymmetric.PrepareCrops(CancellationToken.None);
+        Near(asymmetric.Crops![0].Left, 14, "Explicit asymmetric left margin");
+        Near(asymmetric.Crops[0].Width, 132, "Explicit asymmetric text width");
         Require(crop.Bands.Count == 2 && crop.Height < 85, "Body/footer whitespace was not compressed or normal line spacing was removed");
         foreach (var source in new[] { new Point(50, 35), new Point(50, 69), new Point(100, 286) })
         {
@@ -68,6 +77,8 @@ internal static partial class Program
     {
         var path = Path.Combine(Path.GetTempPath(), $"texeed-crop-test-{Guid.NewGuid():N}.pdf");
         var original = Fixture(60, pageContent: CropContent); File.WriteAllBytes(path, original);
+        var layoutPath = Path.ChangeExtension(path, TexPageLayout.Extension);
+        File.WriteAllLines(layoutPath, new[] { "TeXeed layout 1" }.Concat(Enumerable.Repeat("13156352:19734528:2631270:7893811", 60)));
         using var preview = new PdfPreview { AutoCrop = true };
         var window = Host(preview);
         try
@@ -105,6 +116,6 @@ internal static partial class Program
             var analysis = (Task)Field(preview, "_cropTask"); preview.Clear(); await analysis;
             Require(preview.PageCount == 0 && ((IDictionary)Field(preview, "_visuals")).Count == 0, "Canceled crop analysis revived a cleared document");
         }
-        finally { window.Close(); File.Delete(path); }
+        finally { window.Close(); File.Delete(path); File.Delete(layoutPath); }
     }
 }
