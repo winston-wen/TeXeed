@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using TeXeed.App;
 using TeXeed.App.Controls;
@@ -60,14 +61,32 @@ internal static partial class Program
             var bands = ((System.Collections.IEnumerable)crop.GetType().GetProperty("Bands")!.GetValue(crop)!).Cast<object>().ToArray();
             if (bands.Length < 3 || (double)crop.GetType().GetProperty("Height")!.GetValue(crop)! > 380)
                 throw new Exception("Large body/footer whitespace was not removed from the real PDF");
+            AssertPdfPagesCentered(preview);
             Capture(window, Path.Combine(output, "pdf-auto-crop.png"));
             var scroll = (ScrollViewer)Field(preview, "_scroll")!;
             if (scroll.ScrollableWidth > 1) throw new Exception("Automatic fill introduced horizontal scrolling");
+            var verticalBar = Descendants<ScrollBar>(preview).First(b => b.Orientation == Orientation.Vertical && b.IsVisible);
+            var oldY = scroll.VerticalOffset;
+            ScrollBar.PageDownCommand.Execute(null, verticalBar); window.UpdateLayout();
+            if (scroll.VerticalOffset <= oldY) throw new Exception("Overlay scrollbar track did not scroll the PDF");
+            scroll.ScrollToVerticalOffset(oldY); window.UpdateLayout();
             toggle.IsChecked = false; toggle.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
-            await WaitForPreviewRenderedAsync(window); Capture(window, Path.Combine(output, "pdf-full-page.png"));
+            await WaitForPreviewRenderedAsync(window); AssertPdfPagesCentered(preview); Capture(window, Path.Combine(output, "pdf-full-page.png"));
             if (scroll.ScrollableWidth > 1) throw new Exception("Restoring a full page retained stale horizontal anchor padding");
             toggle.IsChecked = true; toggle.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
             await WaitForPreviewRenderedAsync(window);
+            AssertPdfPagesCentered(preview);
+            var previousWidth = preview.Width;
+            foreach (var width in new[] { 300d, 520d, 380d })
+            {
+                preview.Width = width; window.UpdateLayout(); await WaitForPreviewRenderedAsync(window);
+                AssertPdfPagesCentered(preview);
+                if (scroll.ScrollableWidth > 1) throw new Exception("Fit-width resize introduced horizontal scrolling");
+            }
+            preview.Width = previousWidth; window.UpdateLayout(); await WaitForPreviewRenderedAsync(window);
+            preview.SetZoom(2, new Point(75, 100)); preview.FitWidth();
+            await WaitForPreviewRenderedAsync(window); AssertPdfPagesCentered(preview);
+            await preview.LoadAsync(pdf); await WaitForPreviewRenderedAsync(window); AssertPdfPagesCentered(preview);
             var persisted = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path.Combine(Environment.GetEnvironmentVariable("TEXEED_HOME")!, "settings.json")))!;
             if (!persisted.AutoCropPdf || persisted.EditorFontFamily != previous.EditorFontFamily) throw new Exception("Crop setting was not saved or changed the font preference");
             var line = Array.FindIndex(source.Split('\n'), text => text.StartsWith("Lower content", StringComparison.Ordinal)) + 1;
@@ -83,8 +102,22 @@ internal static partial class Program
             if (Math.Abs(editor.CurrentLocation!.Line - line) > 1) throw new Exception("Cropped PDF inverse navigation reached the wrong source line");
             if (!File.ReadAllBytes(pdf).SequenceEqual(original)) throw new Exception("Cropping changed the PDF that is exported");
             await CheckPreviewModeToolbarAsync(window, output);
-            Console.WriteLine("PASS: soft editor text, real PDF margin/internal-gap cropping, continuous width fill, saved crop setting and cropped SyncTeX round-trip");
+            Console.WriteLine("PASS: soft editor text, real PDF margin/internal-gap cropping, continuous width fill, saved crop setting and cropped SyncTeX round-trip and symmetric page gutters across resize/zoom/reload");
         }
         finally { field.SetValue(window, previous); }
     }
+    private static void AssertPdfPagesCentered(PdfPreview preview)
+    {
+        var pages = (Canvas)Field(preview, "_pages")!;
+        foreach (var layout in ((System.Collections.IEnumerable)Field(preview, "_layouts")!).Cast<object>())
+        {
+            var left = (double)layout.GetType().GetProperty("Left")!.GetValue(layout)!;
+            var size = (Size)layout.GetType().GetProperty("Size")!.GetValue(layout)!;
+            var point = pages.TranslatePoint(new Point(left, 0), preview);
+            var right = preview.ActualWidth - point.X - size.Width - 2;
+            if (Math.Abs(point.X - right) > 1)
+                throw new Exception($"PDF preview gutters are asymmetric: left={point.X:F2}, right={right:F2}, preview={preview.ActualWidth:F2}");
+        }
+    }
+
 }

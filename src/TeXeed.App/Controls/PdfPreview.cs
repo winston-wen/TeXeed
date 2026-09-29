@@ -20,7 +20,7 @@ public sealed class PdfPreview : UserControl, IDisposable
     {
         var brush = new SolidColorBrush(PdfDocument.DarkPaperColor); brush.Freeze(); return brush;
     }
-    private readonly ScrollViewer _scroll = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, CanContentScroll = false };
+    private readonly ScrollViewer _scroll = new PreviewScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, CanContentScroll = false };
     private readonly Canvas _pages = new() { HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(20) };
     private readonly TextBlock _empty = new() { Text = "预览将在编译成功后出现\n\n从左侧开始写作，让想法慢慢成形。", TextAlignment = TextAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(195, 183, 184)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(25), TextWrapping = TextWrapping.Wrap, LineHeight = 26 };
     private readonly List<PageLayout> _layouts = [];
@@ -279,7 +279,9 @@ public sealed class PdfPreview : UserControl, IDisposable
         var crops = _autoCrop ? document.Crops : null;
         var sizes = document.Pages.Select((size, index) => crops?[index].Size ?? size).ToArray();
         if (_fit && ActualWidth > 65)
-            _zoom = Math.Clamp((ActualWidth - 65) / (sizes.Max(s => s.Width) * 96 / 72), .2, _autoCrop ? 8 : 3);
+            // Symmetric 20-DIP gutters plus the two page-border pixels. Overlay
+            // scrollbars do not subtract width from just the right-hand side.
+            _zoom = Math.Clamp((ActualWidth - 42) / (sizes.Max(s => s.Width) * 96 / 72), .2, _autoCrop ? 8 : 3);
         if (_layoutZoom == _zoom && _layouts.Count == document.Pages.Count) { ScheduleRender(); return; }
         _layoutZoom = _zoom;
         _renderVersion++;
