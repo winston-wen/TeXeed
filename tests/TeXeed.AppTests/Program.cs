@@ -53,6 +53,12 @@ internal static partial class Program
                 if (editor.CurrentFilePath != main) throw new Exception("Main editor did not open fixture");
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
+                if (args.Contains("--completion-only"))
+                {
+                    await CheckCompletionKeysAsync();
+                    await CloseAndObserveAsync(window, "completion regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--themes-only"))
                 {
                     await CheckAppearanceAsync(window, output);
@@ -204,6 +210,7 @@ internal static partial class Program
                 Capture(window, Path.Combine(output, "workspace.png"));
                 await CheckFindPanelAsync(window, output);
                 await CheckReplacePanelAsync(output);
+                await CheckCompletionKeysAsync();
                 await CheckNavigationAsync(window, output);
                 await CheckOutlineAsync(window, output);
                 await CheckOutlineDecorationsAsync(window, output);

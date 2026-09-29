@@ -32,6 +32,8 @@ internal static partial class Program
             Page two follows page one without large paper margins.\par
             \vspace{110pt}
             Additional content retains its source mapping after cropping.\par
+            \newpage
+            \noindent Short final page.
             \end{document}
             """;
         File.WriteAllText(main, source);
@@ -52,7 +54,7 @@ internal static partial class Program
             await CallAsync(window, "OpenAsync", main); await CallAsync(window, "BuildAsync");
             await WaitForPreviewRenderedAsync(window);
             var pdf = (string?)Field(window, "_pdfPath");
-            if (pdf is null || preview.PageCount != 2) throw new Exception("Crop fixture did not compile: " + ((TextBox)window.FindName("LogText")).Text);
+            if (pdf is null || preview.PageCount != 3) throw new Exception("Crop fixture did not compile: " + ((TextBox)window.FindName("LogText")).Text);
             if (editor.Foreground is not SolidColorBrush { Color: var color } || color != Color.FromRgb(216, 204, 200))
                 throw new Exception("Editor body text did not adopt soft warm white");
             var original = File.ReadAllBytes(pdf);
@@ -62,6 +64,11 @@ internal static partial class Program
             if (bands.Length < 3 || (double)crop.GetType().GetProperty("Height")!.GetValue(crop)! > 380)
                 throw new Exception("Large body/footer whitespace was not removed from the real PDF");
             AssertPdfPagesCentered(preview);
+            var layouts = ((System.Collections.IEnumerable)Field(preview, "_layouts")!).Cast<object>().ToArray();
+            var shortSize = (Size)layouts[2].GetType().GetProperty("Size")!.GetValue(layouts[2])!;
+            var firstSize = (Size)layout.GetType().GetProperty("Size")!.GetValue(layout)!;
+            if (Math.Abs(shortSize.Width - firstSize.Width) > 4)
+                throw new Exception("Short final page was narrowed to its ink bounds");
             Capture(window, Path.Combine(output, "pdf-auto-crop.png"));
             var scroll = (ScrollViewer)Field(preview, "_scroll")!;
             if (scroll.ScrollableWidth > 1) throw new Exception("Automatic fill introduced horizontal scrolling");

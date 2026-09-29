@@ -19,6 +19,17 @@ internal static partial class Program
         document.PrepareCrops(CancellationToken.None);
         var crop = document.Crops![0];
         Near(crop.Left, 34, "Left crop padding"); Near(crop.Width, 132, "Horizontal margins");
+        using var shortPage = new PdfDocument(Fixture(1, pageContent: "0 0 0 rg 40 260 45 12 re f 95 10 10 8 re f"));
+        shortPage.PrepareCrops(CancellationToken.None);
+        var shortCrop = shortPage.Crops![0];
+        Near(shortCrop.Left, crop.Left, "Short page left margin");
+        Near(shortCrop.Width, crop.Width, "Short lines must retain right-hand whitespace");
+        Near(shortCrop.ToCropped(new Point(100, 286)).X, shortCrop.Width / 2, "Centered footer must stay centered");
+        using var overhang = new PdfDocument(Fixture(1, pageContent: "0 0 0 rg 40 260 145 12 re f"));
+        overhang.PrepareCrops(CancellationToken.None);
+        var overhangCrop = overhang.Crops![0];
+        Near(overhangCrop.Left, 9, "Right overhang must limit both margins");
+        Near(overhangCrop.Width, 182, "Overhang retains equal margins without clipping ink");
         Require(crop.Bands.Count == 2 && crop.Height < 85, "Body/footer whitespace was not compressed or normal line spacing was removed");
         foreach (var source in new[] { new Point(50, 35), new Point(50, 69), new Point(100, 286) })
         {

@@ -311,7 +311,7 @@ public sealed partial class LatexEditor : TextEditor
         if (_completion is not null) return;
         var context = BuildCompletionContext(explicitRequest);
         if (context is null) return;
-        var (startOffset, items, typed) = context;
+        var (startOffset, items, typed, _) = context;
         var window = new CompletionWindow(TextArea)
         {
             StartOffset = startOffset,
@@ -325,7 +325,19 @@ public sealed partial class LatexEditor : TextEditor
         };
         foreach (var item in items)
         {
-            item.Inserted += () => Dispatcher.BeginInvoke(new Action(() => ShowCompletion(false)));
+            item.Inserted += () =>
+            {
+                var document = Document;
+                var version = document.Version;
+                var offset = CaretOffset;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    // Chain command -> label/citation, not command -> the same command again.
+                    if (IsLoaded && ReferenceEquals(Document, document) && Document.Version == version && CaretOffset == offset &&
+                        BuildCompletionContext(false)?.IsReferenceContext == true)
+                        ShowCompletion(false);
+                }));
+            };
             window.CompletionList.CompletionData.Add(item);
         }
         _completion = window;
@@ -370,7 +382,7 @@ public sealed partial class LatexEditor : TextEditor
         if (items.Count == 0) return null;
         var typed = Document.GetText(startOffset, CaretOffset - startOffset);
         if (!explicitRequest && !items.Any(item => item.Text.StartsWith(typed, StringComparison.OrdinalIgnoreCase))) return null;
-        return new(startOffset, items, typed);
+        return new(startOffset, items, typed, reference.Success);
     }
 
     private void CloseCompletion() { _completion?.Close(); _completion = null; }
@@ -483,6 +495,8 @@ public sealed partial class LatexEditor : TextEditor
         public double Priority => isReference ? 1 : 0;
         public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
         {
+            // Completion segments use moving anchors; insertion into an empty argument moves them.
+            var startOffset = completionSegment.Offset;
             var cursor = snippet.IndexOf('¦');
             var value = snippet.Replace("¦", "");
             var line = textArea.Document.GetLineByOffset(completionSegment.Offset);
@@ -495,12 +509,12 @@ public sealed partial class LatexEditor : TextEditor
                 value = value.Replace("\n", newline + leading);
             }
             textArea.Document.Replace(completionSegment, value);
-            textArea.Caret.Offset = completionSegment.Offset + (cursor >= 0 ? cursor : value.Length);
+            textArea.Caret.Offset = startOffset + (cursor >= 0 ? cursor : value.Length);
             if (!isReference) Inserted?.Invoke();
         }
     }
 
-    private sealed record CompletionContext(int StartOffset, List<LatexCompletion> Items, string Typed);
+    private sealed record CompletionContext(int StartOffset, List<LatexCompletion> Items, string Typed, bool IsReferenceContext);
 
     private sealed class LatexIndentationStrategy : DefaultIndentationStrategy
     {

@@ -78,8 +78,11 @@ internal sealed class PdfPageCrop(double left, double width, IReadOnlyList<PdfCr
             last = row;
         }
         bands.Add(new(Math.Max(0, start * sy - padding), Math.Min(sourceSize.Height, (last + 1) * sy + padding)));
-        var left = Math.Max(0, minX * sx - padding);
-        var right = Math.Min(sourceSize.Width, (maxX + 1) * sx + padding);
-        return new PdfPageCrop(left, Math.Max(1, right - left), bands);
+        // Preserve the original horizontal center, including short-line pages and centered footers.
+        // The rightmost ink only limits trimming so overhanging content cannot be clipped.
+        var leftMargin = Math.Max(0, minX * sx - padding);
+        var rightMargin = Math.Max(0, sourceSize.Width - (maxX + 1) * sx - padding);
+        var trim = Math.Min(leftMargin, rightMargin);
+        return new PdfPageCrop(trim, Math.Max(1, sourceSize.Width - 2 * trim), bands);
     }
 }
