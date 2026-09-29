@@ -6,6 +6,7 @@ if (args.Length == 3 && args[0] == "--real-tex")
     return await CompilerTests.RunRealEngineAsync(args[1], args[2]);
 try
 {
+    await TitleTests.RunAsync();
     await ProjectTests.RunAsync();
     Console.WriteLine("PASS: project discovery, indexing, safe save, formatting");
     await CompilerTests.RunAsync();

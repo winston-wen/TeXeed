@@ -10,6 +10,8 @@
     <ProjectReference Include="../../src/TeXeed.Core/TeXeed.Core.csproj" />
     <PackageReference Include="PDFiumCore" Version="155.0.8057" />
     <Compile Include="../../src/TeXeed.App/Services/PdfDocument.cs" Link="PdfDocument.cs" />
+    <Compile Include="../../src/TeXeed.App/Services/PdfDocument.Crop.cs" Link="PdfDocument.Crop.cs" />
+    <Compile Include="../../src/TeXeed.App/Services/PdfPageCrop.cs" Link="PdfPageCrop.cs" />
     <Compile Include="../../src/TeXeed.App/Controls/PdfPreview.cs" Link="PdfPreview.cs" />
   </ItemGroup>
 </Project>

@@ -14,6 +14,10 @@ public partial class DocumentOutline : UserControl
     private readonly ObservableCollection<OutlineNode> _roots = [];
     private Dictionary<NodeKey, OutlineNode> _nodes = [];
     private string? _mainPath;
+    private (string Path, int FirstLine, int LastLine)? _visibleRange;
+    private bool _updating;
+    private SourceLocation? _caret;
+    private IReadOnlyList<IndexEntry> _todos = [];
     public event EventHandler<SourceLocation>? NavigateRequested;
 
     public DocumentOutline()
@@ -24,11 +28,99 @@ public partial class DocumentOutline : UserControl
 
     public void SetAllExpanded(bool expanded)
     {
+        _updating = true;
         foreach (var node in _nodes.Values) node.IsExpanded = expanded;
+        _updating = false;
+        RefreshHighlights();
+        RefreshMarkers();
     }
 
-    public void Update(IReadOnlyList<IndexEntry> entries, string mainPath)
+    public void MarkCaret(SourceLocation? caret)
     {
+        if (string.Equals(_caret?.Path, caret?.Path, StringComparison.OrdinalIgnoreCase) && _caret?.Line == caret?.Line) return;
+        _caret = caret;
+        RefreshMarkers();
+    }
+
+    private void RefreshMarkers()
+    {
+        var visible = new List<OutlineNode>();
+        void Visit(IEnumerable<OutlineNode> nodes)
+        {
+            foreach (var node in nodes)
+            {
+                visible.Add(node);
+                if (node.IsExpanded) Visit(node.Children);
+            }
+        }
+        Visit(_roots);
+        var files = visible.GroupBy(node => node.Entry.Path, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.OrderBy(node => node.Entry.Line).ToArray(), StringComparer.OrdinalIgnoreCase);
+        OutlineNode? Owner(string path, int line)
+        {
+            if (!files.TryGetValue(path, out var headings)) return null;
+            var low = 0; var high = headings.Length;
+            while (low < high)
+            {
+                var mid = (low + high) / 2;
+                if (headings[mid].Entry.Line <= line) low = mid + 1; else high = mid;
+            }
+            return low == 0 ? null : headings[low - 1];
+        }
+        var caretNode = _caret is { } caret ? Owner(caret.Path, caret.Line) : null;
+        var todoNodes = _todos.Select(todo => Owner(todo.Path, todo.Line)).OfType<OutlineNode>().ToHashSet();
+        foreach (var node in _nodes.Values)
+        {
+            node.HasCaret = ReferenceEquals(node, caretNode);
+            node.HasTodo = todoNodes.Contains(node);
+        }
+    }
+
+    public void HighlightViewport((string Path, int FirstLine, int LastLine)? range)
+    {
+        _visibleRange = range;
+        RefreshHighlights();
+    }
+
+    private void NodeChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!_updating && e.PropertyName == nameof(OutlineNode.IsExpanded)) { RefreshHighlights(); RefreshMarkers(); }
+    }
+
+    private void RefreshHighlights()
+    {
+        var active = new HashSet<OutlineNode>();
+        if (_visibleRange is { } range)
+        {
+            var visible = new List<(OutlineNode Node, OutlineNode[] Ancestors)>();
+            void Visit(IEnumerable<OutlineNode> nodes, OutlineNode[] ancestors)
+            {
+                foreach (var node in nodes)
+                {
+                    if (string.Equals(node.Entry.Path, range.Path, StringComparison.OrdinalIgnoreCase)) visible.Add((node, ancestors));
+                    if (node.IsExpanded) Visit(node.Children, [.. ancestors, node]);
+                }
+            }
+            Visit(_roots, []);
+            // Each visible heading owns the following source up to the next visible
+            // heading. Collapsed descendants therefore belong to their visible parent.
+            var ordered = visible.OrderBy(item => item.Node.Entry.Line).ToArray();
+            for (var i = 0; i < ordered.Length; i++)
+            {
+                var end = i + 1 < ordered.Length ? ordered[i + 1].Node.Entry.Line : int.MaxValue;
+                if (ordered[i].Node.Entry.Line <= range.LastLine && end > range.FirstLine) active.Add(ordered[i].Node);
+            }
+            var ancestorsToRemove = ordered.Where(item => active.Contains(item.Node)).SelectMany(item => item.Ancestors).ToArray();
+            active.ExceptWith(ancestorsToRemove);
+        }
+        foreach (var node in _nodes.Values) node.IsViewportHighlighted = active.Contains(node);
+    }
+
+    public void Update(IReadOnlyList<IndexEntry> entries, string mainPath, IReadOnlyList<IndexEntry>? todos = null)
+    {
+        _todos = todos ?? [];
+        _updating = true;
+        foreach (var node in _nodes.Values) node.PropertyChanged -= NodeChanged;
         if (!string.Equals(mainPath, _mainPath, StringComparison.OrdinalIgnoreCase))
         {
             _roots.Clear(); _nodes.Clear(); _mainPath = mainPath;
@@ -74,6 +166,10 @@ public partial class DocumentOutline : UserControl
         foreach (var pair in children) Reconcile(pair.Key.Children, pair.Value);
         Reconcile(_roots, roots);
         _nodes = next;
+        foreach (var node in _nodes.Values) node.PropertyChanged += NodeChanged;
+        _updating = false;
+        RefreshHighlights();
+        RefreshMarkers();
     }
 
     private static void Reconcile(ObservableCollection<OutlineNode> current, List<OutlineNode> desired)
@@ -114,11 +210,16 @@ public sealed class OutlineNode : INotifyPropertyChanged
 {
     public IndexEntry Entry { get; private set; } = new("", "", 1);
     public string Title => Entry.Title;
+    public string Latex => Entry.Latex ?? Entry.Title;
     public string Tooltip { get; private set; } = "";
     public bool IsRoot { get; private set; }
     public string LevelLabel { get; private set; } = "h1";
     public ObservableCollection<OutlineNode> Children { get; } = [];
-    private bool _isExpanded = true, _isSelected;
+    private bool _isExpanded = true, _isSelected, _isViewportHighlighted;
+    private bool _hasCaret, _hasTodo;
+    public bool HasCaret { get => _hasCaret; internal set { if (_hasCaret != value) { _hasCaret = value; Changed(); } } }
+    public bool HasTodo { get => _hasTodo; internal set { if (_hasTodo != value) { _hasTodo = value; Changed(); } } }
+    public bool IsViewportHighlighted { get => _isViewportHighlighted; internal set { if (_isViewportHighlighted != value) { _isViewportHighlighted = value; Changed(); } } }
     public bool IsExpanded { get => _isExpanded; set { if (_isExpanded != value) { _isExpanded = value; Changed(); } } }
     public bool IsSelected { get => _isSelected; set { if (_isSelected != value) { _isSelected = value; Changed(); } } }
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -129,7 +230,7 @@ public sealed class OutlineNode : INotifyPropertyChanged
         {
             Entry = entry;
             Tooltip = $"{entry.Title}\n{Path.GetRelativePath(root, entry.Path)}:{entry.Line}";
-            Changed(nameof(Title)); Changed(nameof(Tooltip));
+            Changed(nameof(Title)); Changed(nameof(Latex)); Changed(nameof(Tooltip));
         }
         var isRoot = depth == 1;
         if (IsRoot != isRoot) { IsRoot = isRoot; Changed(nameof(IsRoot)); }

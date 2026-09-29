@@ -15,6 +15,8 @@ internal static class SettingsStore
         try
         {
             if (JsonNode.Parse(File.ReadAllText(SettingsPath)) is not JsonObject json) return new();
+            if (json[nameof(AppSettings.ThemeId)] is not JsonValue theme || !theme.TryGetValue<string>(out var themeId) || string.IsNullOrWhiteSpace(themeId))
+                json[nameof(AppSettings.ThemeId)] = ThemeManager.DefaultId;
             // Normalize before deserializing so an invalid mode cannot discard unrelated settings.
             json[nameof(AppSettings.FollowMode)] = (int)ReadFollowMode(json);
             var settings = json.Deserialize<AppSettings>() ?? new();

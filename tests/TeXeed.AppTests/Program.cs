@@ -17,7 +17,10 @@ internal static partial class Program
     public static int Main(string[] args)
     {
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
-        var output = Path.Combine(root, "artifacts", "ui-check"); Directory.CreateDirectory(output);
+        var outputArgument = Array.IndexOf(args, "--output");
+        var output = outputArgument >= 0 && outputArgument + 1 < args.Length
+            ? Path.GetFullPath(args[outputArgument + 1]) : Path.Combine(root, "artifacts", "ui-check");
+        Directory.CreateDirectory(output);
         SettingsMigrationTests.Run(Path.Combine(output, "settings-migration"));
         var config = Path.Combine(output, "profile"); Directory.CreateDirectory(config);
         Environment.SetEnvironmentVariable("TEXEED_HOME", config);
@@ -50,6 +53,32 @@ internal static partial class Program
                 if (editor.CurrentFilePath != main) throw new Exception("Main editor did not open fixture");
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
+                if (args.Contains("--themes-only"))
+                {
+                    await CheckThemesAsync(window, output);
+                    await CloseAndObserveAsync(window, "theme regression");
+                    result = 0; return;
+                }
+                if (args.Contains("--workspace-only"))
+                {
+                    await CheckNavigationAsync(window, output);
+                    await CloseAndObserveAsync(window, "workspace icons regression");
+                    result = 0; return;
+                }
+                if (args.Contains("--crop-only"))
+                {
+                    await CheckPdfCropAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "crop regression");
+                    result = 0; return;
+                }
+                if (args.Contains("--appearance-only"))
+                {
+                    await CheckAppearanceAsync(window, output);
+                    await CheckFindPanelAsync(window, output);
+                    await CheckReplacePanelAsync(output);
+                    await CloseAndObserveAsync(window, "appearance regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--outline-interactive"))
                 {
                     await InspectOutlineClicksAsync(window, output);
@@ -65,6 +94,7 @@ internal static partial class Program
                 if (args.Contains("--outline-only", StringComparer.Ordinal))
                 {
                     await CheckOutlineAsync(window, output);
+                    await CheckOutlineDecorationsAsync(window, output);
                     await CheckNavigationAsync(window, output);
                     await CloseAndObserveAsync(window, "outline regression");
                     result = 0; return;
@@ -175,6 +205,10 @@ internal static partial class Program
                 await CheckReplacePanelAsync(output);
                 await CheckNavigationAsync(window, output);
                 await CheckOutlineAsync(window, output);
+                await CheckOutlineDecorationsAsync(window, output);
+                await CheckAppearanceAsync(window, output);
+                await CheckThemesAsync(window, output);
+                await CheckPdfCropAsync(window, root, output);
                 ((Expander)window.FindName("LogExpander")).IsExpanded = true;
                 window.Width = 1050; window.Height = 640;
                 await WaitForPreviewRenderedAsync(window);
@@ -469,8 +503,8 @@ internal static partial class Program
         window.UpdateLayout();
         if (sidebar.Visibility != Visibility.Collapsed || rail.Visibility != Visibility.Visible || splitter.Visibility != Visibility.Collapsed || visibilityItem.IsChecked)
             throw new Exception("Sidebar collapse did not switch panel, splitter, rail and menu state together");
-        if (Math.Abs(column.ActualWidth - 30) > 1 || splitterColumn.ActualWidth > 1)
-            throw new Exception("Collapsed workspace must leave only its 30 px restore rail");
+        if (Math.Abs(column.ActualWidth - 42) > 1 || splitterColumn.ActualWidth > 1)
+            throw new Exception("Collapsed workspace must leave only its 42 px icon rail");
         await WaitForPreviewRenderedAsync(window);
         Capture(window, Path.Combine(output, "workspace-collapsed.png"));
         var sidebarKey = CreateKey(window, Key.B, Keyboard.PreviewKeyDownEvent);
@@ -488,6 +522,60 @@ internal static partial class Program
         window.UpdateLayout();
         if (sidebar.Visibility != Visibility.Visible || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
             throw new Exception("The collapsed rail did not restore the sidebar");
+
+        // Every collapsed icon must open its own panel with a single activation,
+        // including the already-selected mode; preserve source and search state.
+        foreach (var mode in new[] { "outline", "files", "search", "labels", "todos", "todos" })
+        {
+            ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Descendants<Button>(rail).Single(button => Equals(button.Tag, mode)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.UpdateLayout();
+            if (sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Collapsed ||
+                (string?)Field(window, "_sidebar") != mode || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
+                throw new Exception($"Collapsed {mode} icon did not open its panel and restore width");
+            var visiblePanel = mode switch { "outline" => "OutlineTree", "files" => "FileTree", _ => "IndexList" };
+            if (!((FrameworkElement)window.FindName(visiblePanel)).IsVisible)
+                throw new Exception($"The {mode} panel is not visible after activating its icon");
+            if (mode == "search" && !search.IsKeyboardFocusWithin)
+                throw new Exception("Opening search from the rail did not focus its input");
+            if (search.Text != "section" || editor.CurrentFilePath != rememberedPath || editor.SelectedText != rememberedSelection)
+                throw new Exception("Switching panels through the rail discarded search or editor state");
+        }
+        Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        column.Width = new GridLength(200); window.UpdateLayout();
+        var iconBar = (FrameworkElement)window.FindName("WorkspaceIconBar");
+        foreach (var icon in Descendants<System.Windows.Shapes.Path>(iconBar))
+        {
+            var origin = icon.TranslatePoint(new Point(), iconBar);
+            if (origin.X < 0 || origin.Y < 0 || origin.X + icon.ActualWidth > iconBar.ActualWidth || origin.Y + icon.ActualHeight > iconBar.ActualHeight)
+                throw new Exception("Workspace icon clipped at minimum sidebar width");
+        }
+        CaptureOutline(sidebar, Path.Combine(output, "workspace-icons-narrow.png"));
+        column.Width = new GridLength(rememberedWidth); window.UpdateLayout();
+        CaptureOutline(sidebar, Path.Combine(output, "workspace-icons-expanded.png"));
+        ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.UpdateLayout();
+        CaptureOutline(rail, Path.Combine(output, "workspace-icons-rail.png"));
+        ((Button)window.FindName("ExpandWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+        foreach (var collapsed in new[] { false, true })
+        foreach (var mode in new[] { "outline", "files", "search", "labels", "todos" })
+        {
+            if (collapsed) Invoke(window, "ToggleWorkspace");
+            window.UpdateLayout();
+            var surface = collapsed ? rail : sidebar;
+            var icon = Descendants<Button>(surface).Single(button => Equals(button.Tag, mode));
+            var position = icon.TranslatePoint(new Point(10, 10), window);
+            var timestamp = Environment.TickCount;
+            Invoke(window, "HandleWorkspaceIconPress", icon, position, timestamp, MouseButton.Left);
+            icon.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.UpdateLayout();
+            // On the rail the icon has now moved. The second press may hit content.
+            if (!(bool)Invoke(window, "HandleWorkspaceIconPress", sidebar, position, timestamp + 50, MouseButton.Left)!
+                || sidebar.Visibility != Visibility.Collapsed)
+                throw new Exception($"Double click on {mode} (collapsed={collapsed}) failed to collapse");
+            Invoke(window, "ToggleWorkspace");
+        }
 
         // Routed Alt events exercise the actual XAML key handlers without changing desktop keyboard state.
         editor.Focus();
@@ -571,6 +659,7 @@ internal static partial class Program
             var pdf = (string?)Field(window, "_pdfPath");
             if (pdf == null || preview.PageCount != 8)
                 throw new Exception("Viewport fixture must produce eight real PDF pages: " + ((TextBox)window.FindName("LogText")).Text);
+            await CheckPdfColorsAsync(window, output);
             var sync = new SyncTexService();
             void SelectMode(PreviewFollowMode mode)
             {
@@ -813,6 +902,12 @@ internal static partial class Program
                 if (modes.Items.Count != 3 || !Equals(modes.SelectedValue, PreviewFollowMode.Cursor))
                     throw new Exception("Settings did not expose three modes and load the existing cursor mode");
                 modes.SelectedValue = PreviewFollowMode.None;
+                var invert = (CheckBox)dialog.FindName("InvertPdfBox");
+                if (invert.IsChecked != true) throw new Exception("PDF inversion should default on in settings");
+                invert.IsChecked = false;
+                var autoCrop = (CheckBox)dialog.FindName("AutoCropPdfBox");
+                if (autoCrop.IsChecked != true) throw new Exception("Automatic cropping should default on");
+                autoCrop.IsChecked = false;
                 var font = (ComboBox)dialog.FindName("EditorFontBox");
                 if (font.Text != "Arial") throw new Exception("Settings did not preserve a proportional editor font");
                 font.Text = "Times New Roman";
@@ -823,7 +918,7 @@ internal static partial class Program
         };
         var accepted = dialog.ShowDialog();
         if (failure != null) throw new Exception("Settings follow-mode regression failed", failure);
-        if (accepted != true || dialog.Settings.FollowMode != PreviewFollowMode.None || dialog.Settings.EditorFontFamily != "Times New Roman")
+        if (accepted != true || dialog.Settings.FollowMode != PreviewFollowMode.None || dialog.Settings.EditorFontFamily != "Times New Roman" || dialog.Settings.InvertPdfColors || dialog.Settings.AutoCropPdf)
             throw new Exception("Saving settings did not retain the selected follow mode");
         Console.WriteLine("PASS: settings loads an existing follow mode, offers all three modes and saves the selected mode");
     }
@@ -834,9 +929,8 @@ internal static partial class Program
         var layouts = ((System.Collections.IEnumerable)Field(preview, "_layouts")!).Cast<object>().ToArray();
         var layout = layouts[point.Page - 1];
         var top = (double)layout.GetType().GetProperty("Top")!.GetValue(layout)!;
-        var size = (Size)layout.GetType().GetProperty("Size")!.GetValue(layout)!;
-        var document = Field(preview, "_document")!;
-        var mapped = (Point)document.GetType().GetMethod("PageToView")!.Invoke(document, [point.Page - 1, new Point(point.X, point.Y), size])!;
+        var mapped = (Point)typeof(PdfPreview).GetMethod("PageToDisplay", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(preview, [point.Page - 1, new Point(point.X, point.Y)])!;
         var margin = ((Canvas)Field(preview, "_pages")!).Margin.Top;
         return Math.Clamp(margin + top + 1 + mapped.Y - scroll.ViewportHeight * viewportFraction, 0, scroll.ScrollableHeight);
     }

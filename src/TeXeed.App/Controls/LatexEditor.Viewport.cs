@@ -10,6 +10,20 @@ public sealed partial class LatexEditor
     private SourceLocation? _lastViewportLocation;
 
     public event EventHandler<SourceLocation>? ViewportLocationChanged;
+    public event EventHandler? VisibleRangeChanged;
+
+    public (string Path, int FirstLine, int LastLine)? VisibleSourceRange
+    {
+        get
+        {
+            var view = TextArea.TextView;
+            if (_changingDocument || CurrentFilePath is not { } path || !view.VisualLinesValid
+                || !view.IsMeasureValid || !view.IsArrangeValid || view.ActualHeight <= 0) return null;
+            var lines = view.VisualLines.Where(line => line.VisualTop + line.Height > view.ScrollOffset.Y
+                && line.VisualTop < view.ScrollOffset.Y + view.ActualHeight).ToArray();
+            return lines.Length == 0 ? null : (path, lines[0].FirstDocumentLine.LineNumber, lines[^1].LastDocumentLine.LineNumber);
+        }
+    }
 
     /// <summary>
     /// Source position at the start of the display row nearest the viewport's vertical center.
@@ -56,6 +70,7 @@ public sealed partial class LatexEditor
         _viewportNotification = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             _viewportNotification = null;
+            VisibleRangeChanged?.Invoke(this, EventArgs.Empty);
             if (ViewportLocation is not { } location || location == _lastViewportLocation) return;
             _lastViewportLocation = location;
             ViewportLocationChanged?.Invoke(this, location);

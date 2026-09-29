@@ -60,6 +60,14 @@ internal static class SettingsMigrationTests
             save.Invoke(null, [new AppSettings { EditorFontFamily = "Times New Roman" }]);
             if (((AppSettings)load.Invoke(null, null)!).EditorFontFamily != "Times New Roman")
                 throw new InvalidOperationException("A proportional editor font did not round-trip.");
+            File.WriteAllText(path, "{\"EditorFontFamily\":\"Sarasa Mono Slab SC\"}");
+            var legacy = (AppSettings)load.Invoke(null, null)!;
+            if (!legacy.InvertPdfColors || !legacy.AutoCropPdf || legacy.EditorFontFamily != "Sarasa Mono Slab SC")
+                throw new InvalidOperationException("PDF inversion default discarded the existing font");
+            save.Invoke(null, [legacy with { InvertPdfColors = false, AutoCropPdf = false }]);
+            var restoredColors = (AppSettings)load.Invoke(null, null)!;
+            if (restoredColors.InvertPdfColors || restoredColors.AutoCropPdf)
+                throw new InvalidOperationException("Original PDF color preference did not persist");
             Console.WriteLine("PASS: all preview follow modes round-trip, with legacy migration, key priority and invalid-value defaults");
         }
         finally { Environment.SetEnvironmentVariable("TEXEED_HOME", previous); }

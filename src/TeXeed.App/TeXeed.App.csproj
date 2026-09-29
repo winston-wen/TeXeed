@@ -8,12 +8,16 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.1.14</Version>
+    <Version>0.1.23</Version>
     <Description>A native Windows LaTeX workspace</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="Themes/*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Themes/README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Themes/*.json" />
     <ProjectReference Include="../TeXeed.Core/TeXeed.Core.csproj" />
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
     <PackageReference Include="PDFiumCore" Version="155.0.8057" />
+    <PackageReference Include="WpfMath" Version="2.1.0" />
   </ItemGroup>
 </Project>

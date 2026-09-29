@@ -2,17 +2,24 @@
  <Grid Margin="30" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,20"><StackPanel>
    <TextBlock Text="让工具适应你的写作" FontSize="24" Margin="0,0,0,24"/>
+   <StackPanel x:Name="ProjectNameSection" Margin="0,0,0,20">
+    <TextBlock Text="项目名称" FontWeight="SemiBold"/>
+    <DockPanel Margin="0,8,0,6"><Button x:Name="UseTitleButton" Content="使用 \title" DockPanel.Dock="Right" Click="UseTitle_Click"/><TextBox x:Name="ProjectNameBox" MaxLength="200" AutomationProperties.Name="项目名称"/></DockPanel>
+    <TextBlock x:Name="ProjectNameHint" FontSize="12" Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
+   </StackPanel>
    <TextBlock Text="排版引擎" FontWeight="SemiBold"/><ComboBox x:Name="EngineBox" Margin="0,8,0,16" Padding="8" DisplayMemberPath="Label" SelectedValuePath="Value"/>
    <TextBlock Text="引擎可执行文件（留空则自动检测）"/><DockPanel Margin="0,8,0,16"><Button Content="浏览…" DockPanel.Dock="Right" Click="EngineBrowse_Click"/><TextBox x:Name="EnginePathBox" ToolTip="选择 latexmk.exe、xelatex.exe、pdflatex.exe、lualatex.exe 或 tectonic.exe"/></DockPanel>
    <TextBlock Text="SyncTeX 可执行文件（可选）"/><DockPanel Margin="0,8,0,10"><Button Content="浏览…" DockPanel.Dock="Right" Click="SynctexBrowse_Click"/><TextBox x:Name="SynctexPathBox"/></DockPanel>
-   <DockPanel Margin="0,0,0,16"><Button Content="检测工具" DockPanel.Dock="Right" Click="Detect_Click"/><TextBlock x:Name="ToolStatus" Text="支持 TeX Live、MiKTeX 和 Tectonic" TextWrapping="Wrap" Foreground="{StaticResource Muted}" VerticalAlignment="Center" FontSize="12"/></DockPanel>
+   <DockPanel Margin="0,0,0,16"><Button Content="检测工具" DockPanel.Dock="Right" Click="Detect_Click"/><TextBlock x:Name="ToolStatus" Text="支持 TeX Live、MiKTeX 和 Tectonic" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" FontSize="12"/></DockPanel>
    <Separator Margin="0,0,0,16"/>
    <CheckBox x:Name="LiveBox" Content="实时预览：编辑后自动保存并编译" Margin="0,0,0,12"/>
+   <CheckBox x:Name="InvertPdfBox" Content="PDF 反色预览（导出保持原色）" Margin="0,0,0,12"/>
+   <CheckBox x:Name="AutoCropPdfBox" Content="PDF 自动裁边并压缩大段纵向空白" Margin="0,0,0,12" ToolTip="保留少量阅读留白、页码和图表；只影响连续预览，导出保持完整页面。"/>
    <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="预览跟随" VerticalAlignment="Center" Margin="0,0,16,0"/><ComboBox x:Name="FollowModeBox" Grid.Column="1" Padding="8" DisplayMemberPath="Label" SelectedValuePath="Value" ToolTip="不跟随：自由浏览 PDF；跟随光标：同步到当前编辑位置；跟随视图：同步到编辑区可见内容的中间位置。Ctrl+J 始终可手动定位到光标。"/></Grid>
    <TextBlock Text="编辑器字体"/><ComboBox x:Name="EditorFontBox" IsEditable="True" IsTextSearchEnabled="True" DisplayMemberPath="Source" TextSearch.TextPath="Source" Margin="0,8,0,6" Padding="8" AutomationProperties.Name="编辑器字体"/>
-   <TextBlock Text="保留字体字形，按固定网格排版：英文一格，中文两格。" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,16"/>
+   <TextBlock Text="保留字体字形，按固定网格排版：英文一格，中文两格。" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,16"/>
    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel Margin="0,0,12,0"><TextBlock Text="编译延迟（毫秒）"/><TextBox x:Name="DelayBox" Margin="0,8,0,0"/></StackPanel><StackPanel Grid.Column="1" Margin="12,0,0,0"><TextBlock Text="编辑器字号"/><TextBox x:Name="FontBox" Margin="0,8,0,0"/></StackPanel></Grid>
-   <TextBlock Text="中文项目建议使用 XeLaTeX。首次编译可能需要 TeX 发行版下载宏包。完整编译日志可以在编辑器下方查看。" TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,18,0,0" LineHeight="19"/>
+   <TextBlock Text="中文项目建议使用 XeLaTeX。首次编译可能需要 TeX 发行版下载宏包。完整编译日志可以在编辑器下方查看。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,18,0,0" LineHeight="19"/>
   </StackPanel></ScrollViewer>
   <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="取消" IsCancel="True" MinWidth="80"/><Button Content="保存设置" IsDefault="True" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" Click="Save_Click"/></StackPanel>
  </Grid>

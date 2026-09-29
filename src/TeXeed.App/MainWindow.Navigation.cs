@@ -16,6 +16,41 @@ public partial class MainWindow
     private double _expandedWorkspaceWidth = 252;
     private double _expandedWorkspaceMinimum = 200;
     private GridLength _expandedSplitterWidth = new(5);
+    private Point? _workspaceIconPress;
+    private int _workspaceIconPressTime;
+    private bool _workspaceIconClickCompleted;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
+    private bool HandleWorkspaceIconPress(DependencyObject? source, Point position, int timestamp, MouseButton button)
+    {
+        // The first click can turn the vertical rail into a horizontal bar. Match
+        // the second click in window coordinates even if the icon moved away.
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var doubleClick = button == MouseButton.Left && _workspaceIconClickCompleted && _workspaceIconPress is { } previous
+            && unchecked((uint)(timestamp - _workspaceIconPressTime)) <= GetDoubleClickTime()
+            && Math.Abs(position.X - previous.X) <= GetSystemMetricsForDpi(36, (uint)dpi.PixelsPerInchX) / dpi.DpiScaleX / 2
+            && Math.Abs(position.Y - previous.Y) <= GetSystemMetricsForDpi(37, (uint)dpi.PixelsPerInchY) / dpi.DpiScaleY / 2;
+        _workspaceIconPress = null;
+        _workspaceIconClickCompleted = false;
+        if (doubleClick)
+        {
+            if (_workspaceExpanded) ToggleWorkspace();
+            return true;
+        }
+        if (button != MouseButton.Left) return false;
+        foreach (var icon in WorkspaceIconBar.Children.OfType<Button>().Concat(WorkspaceRailIcons.Children.OfType<Button>()))
+        {
+            if (icon.Tag is not string || !IsWithin(source, icon)) continue;
+            _workspaceIconPress = position;
+            _workspaceIconPressTime = timestamp;
+            break;
+        }
+        return false;
+    }
 
     private bool HandleMenuKeyDown(KeyEventArgs e)
     {
@@ -97,6 +132,8 @@ public partial class MainWindow
     private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (_closing || _allowClose) return;
+        if (HandleWorkspaceIconPress(e.OriginalSource as DependencyObject, e.GetPosition(this), e.Timestamp, e.ChangedButton))
+        { e.Handled = true; return; }
         _menuAltAlone = false;
         if (MainMenu.Visibility == Visibility.Visible && !IsWithin(e.OriginalSource as DependencyObject, MainMenu))
             HideMainMenu(restoreFocus: false);
@@ -174,8 +211,8 @@ public partial class MainWindow
             SidebarPanel.Visibility = Visibility.Collapsed;
             SidebarSplitter.Visibility = Visibility.Collapsed;
             SidebarSplitterColumn.Width = new GridLength(0);
-            SidebarColumn.MinWidth = 30;
-            SidebarColumn.Width = new GridLength(30);
+            SidebarColumn.MinWidth = 42;
+            SidebarColumn.Width = new GridLength(42);
             CollapsedWorkspaceRail.Visibility = Visibility.Visible;
             _workspaceExpanded = false;
             if (returnFocusWasInSidebar) _menuReturnFocus = Editor.TextArea;

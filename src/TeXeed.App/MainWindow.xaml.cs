@@ -39,7 +39,13 @@ public partial class MainWindow : Window
 
     public MainWindow(string? initialPath = null)
     {
+        try { ThemeManager.Apply(_settings.ThemeId); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException)
+        { ThemeManager.UseDefault(); _settings = _settings with { ThemeId = ThemeManager.DefaultId }; }
         InitializeComponent();
+        RefreshThemeMenu();
+        UpdateWorkspaceIcons();
+        WindowTheme.Attach(this);
         LiveMenuItem.IsChecked = _settings.LivePreview;
         FollowModeBox.ItemsSource = new[]
         {
@@ -48,6 +54,10 @@ public partial class MainWindow : Window
             new { Label = "跟随视图", Value = PreviewFollowMode.Viewport }
         };
         FollowModeBox.SelectedValue = _settings.FollowMode;
+        InvertPdfBox.IsChecked = _settings.InvertPdfColors;
+        Preview.InvertColors = _settings.InvertPdfColors;
+        AutoCropPdfBox.IsChecked = _settings.AutoCropPdf;
+        Preview.AutoCrop = _settings.AutoCropPdf;
         Editor.FontSize = _settings.FontSize;
         Editor.FontFamily = new FontFamily(_settings.EditorFontFamily);
         _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
@@ -63,13 +73,15 @@ public partial class MainWindow : Window
         Editor.ContentEdited += (_, _) => OnEdited();
         Editor.CursorLocationChanged += (_, location) =>
         {
-            CursorStatus.Text = $"行 {location.Line}，列 {location.Column}  ·  LaTeX";
+            OutlineTree.MarkCaret(location);
+            UpdateCursorStatus();
             if (_settings.FollowMode == PreviewFollowMode.Cursor) QueueFollowSync();
         };
         Editor.ViewportLocationChanged += (_, _) =>
         {
             if (_settings.FollowMode == PreviewFollowMode.Viewport) QueueFollowSync();
         };
+        Editor.VisibleRangeChanged += (_, _) => OutlineTree.HighlightViewport(Editor.VisibleSourceRange);
         Preview.ViewInteracted += (_, _) => CancelPendingNavigation();
         Preview.InverseRequested += async (_, location) => await InverseAsync(location);
         Preview.StatusChanged += (_, status) => PdfStatus.Text = status;
@@ -102,6 +114,7 @@ public partial class MainWindow : Window
             item.Click += async (_, _) => await OpenAsync(path); RecentMenu.Items.Add(item);
             if (RecentList.Children.Count >= 3) continue;
             var button = new Button { Content = Path.GetFileName(path), ToolTip = path, HorizontalContentAlignment = HorizontalAlignment.Left, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 3, 0, 3) };
+
             button.Click += async (_, _) => await OpenAsync(path); RecentList.Children.Add(button);
         }
         NoRecent.Visibility = RecentList.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -164,8 +177,14 @@ public partial class MainWindow : Window
         if (!file.IsEditable) { Status("此文件是项目资源或不可编辑的编码：" + file.RelativePath); return; }
         if (!_tabs.Contains(path, StringComparer.OrdinalIgnoreCase)) _tabs.Add(path);
         Editor.SetProjectFiles(CurrentFiles()); Editor.ShowFile(file, file.Content);
-        FileCaption.Text = file.RelativePath.Replace('\\', '／'); FileCaption.ToolTip = file.Path;
+        UpdateCursorStatus();
         RefreshTabs();
+    }
+    private void UpdateCursorStatus()
+    {
+        var format = Path.GetExtension(Editor.CurrentFilePath ?? "").Equals(".bib", StringComparison.OrdinalIgnoreCase) ? "BibTeX" : "LaTeX";
+        var location = Editor.CurrentLocation;
+        CursorStatus.Text = $"行 {location?.Line ?? 1}，列 {location?.Column ?? 1}  ·  {format}";
     }
     private void RefreshTabs()
     {
@@ -173,7 +192,9 @@ public partial class MainWindow : Window
         foreach (var path in _tabs)
         {
             var active = string.Equals(path, Editor.CurrentFilePath, StringComparison.OrdinalIgnoreCase);
-            var button = new Button { Content = Path.GetFileName(path) + (_changes.ContainsKey(path) ? "  ●" : ""), ToolTip = path, Margin = new Thickness(0), Padding = new Thickness(16, 10, 16, 10), BorderBrush = Brushes.Transparent, Background = active ? Brushes.White : Brushes.Transparent, Foreground = active ? (Brush)FindResource("Accent") : (Brush)FindResource("Muted") };
+            var button = new Button { Content = Path.GetFileName(path) + (_changes.ContainsKey(path) ? "  ●" : ""), ToolTip = path, Margin = new Thickness(0), Padding = new Thickness(16, 10, 16, 10), BorderBrush = Brushes.Transparent, Background = active ? (Brush)FindResource("EditorBackground") : Brushes.Transparent, Foreground = active ? (Brush)FindResource("Accent") : (Brush)FindResource("Muted") };
+            button.SetResourceReference(Control.ForegroundProperty, active ? "Accent" : "Muted");
+            if (active) button.SetResourceReference(Control.BackgroundProperty, "EditorBackground");
             button.Click += (_, _) => ActivateFile(path); FileTabs.Children.Add(button);
         }
         Title = (_changes.Count > 0 ? "● " : "") + (_project?.Name ?? "") + " — TeXeed";
@@ -399,11 +420,13 @@ public partial class MainWindow : Window
         if (_project == null) return;
         var files = CurrentFiles().ToArray(); var index = LatexIndexer.Build(files);
         Editor.SetProjectFiles(files);
-        ProjectSummary.Text = $"{files.Length} 个文件 · {index.Labels.Count} 个标签\n{index.Citations.Count} 条参考文献";
-        ProjectSummary.ToolTip = string.Join(Environment.NewLine, _project.Warnings);
+        SidebarTitle.ToolTip = $"{files.Length} 个文件 · {index.Labels.Count} 个标签\n{index.Citations.Count} 条参考文献";
+        if (_project.Warnings.Count > 0) SidebarTitle.ToolTip += "\n" + string.Join(Environment.NewLine, _project.Warnings);
         FileTree.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
         OutlineTree.Visibility = _sidebar == "outline" ? Visibility.Visible : Visibility.Collapsed;
-        OutlineTree.Update(index.Outline, _project.MainPath);
+        OutlineTree.Update(index.Outline, _project.MainPath, index.Todos);
+        OutlineTree.MarkCaret(Editor.CurrentLocation);
+        OutlineTree.HighlightViewport(Editor.VisibleSourceRange);
         IndexList.Visibility = _sidebar is "files" or "outline" ? Visibility.Collapsed : Visibility.Visible;
         SearchBox.Visibility = _sidebar is "search" or "labels" ? Visibility.Visible : Visibility.Collapsed;
         SidebarTitle.Text = _sidebar switch { "files" => "项目文件", "search" => "全文搜索", "labels" => "标签与引用", "todos" => "待办事项", _ => "文档大纲" };
@@ -438,7 +461,9 @@ public partial class MainWindow : Window
                 if (child == null) { child = new TreeViewItem { Header = directory, IsExpanded = true, FontWeight = FontWeights.Normal, Margin = new Thickness(0, 4, 0, 0) }; parent.Items.Add(child); }
                 parent = child;
             }
-            parent.Items.Add(new TreeViewItem { Header = file.Name + (file.Path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase) ? "  · 主文件" : ""), Tag = file.Path, ToolTip = file.RelativePath, FontWeight = FontWeights.Normal, Foreground = file.IsEditable ? (Brush)FindResource("Ink") : (Brush)FindResource("Muted"), Margin = new Thickness(0, 5, 0, 4) });
+            var item = new TreeViewItem { Header = file.Name + (file.Path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase) ? "  · 主文件" : ""), Tag = file.Path, ToolTip = file.RelativePath, FontWeight = FontWeights.Normal, Margin = new Thickness(0, 4, 0, 0) };
+            item.SetResourceReference(Control.ForegroundProperty, file.IsEditable ? "Ink" : "Muted");
+            parent.Items.Add(item);
         }
         FileTree.Items.Add(root);
     }
@@ -539,7 +564,23 @@ public partial class MainWindow : Window
         if (_scheduledBuildExplicit) ScheduleBuildAt(Environment.TickCount64, true);
         else if (_settings.LivePreview && _project != null) ScheduleLiveBuild();
     }
-    private void SidebarMode_Click(object sender, RoutedEventArgs e) { _sidebar = (string)((Button)sender).Tag; RefreshIndex(); if (_sidebar == "search") SearchBox.Focus(); }
+    private void SidebarMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing || _allowClose) return;
+        _workspaceIconClickCompleted = true;
+        var mode = (string)((Button)sender).Tag;
+        if (!_workspaceExpanded) ToggleWorkspace();
+        if (_sidebar != mode) { _sidebar = mode; RefreshIndex(); }
+        UpdateWorkspaceIcons();
+        if (_sidebar == "search") SearchBox.Focus();
+        else WorkspaceIconBar.Children.OfType<Button>().First(button => Equals(button.Tag, mode)).Focus();
+    }
+
+    private void UpdateWorkspaceIcons()
+    {
+        foreach (var button in WorkspaceIconBar.Children.OfType<Button>().Concat(WorkspaceRailIcons.Children.OfType<Button>()))
+            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, Equals(button.Tag, _sidebar));
+    }
     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (e.NewValue is TreeViewItem { Tag: string path }) ActivateFile(path); }
     private void Outline_NavigateRequested(object? sender, SourceLocation location)
@@ -584,10 +625,15 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new SettingsWindow(_settings) { Owner = this };
+        var dialog = new SettingsWindow(_settings, _project is null ? null : _project with { Files = CurrentFiles().ToArray() }) { Owner = this };
         if (dialog.ShowDialog() != true) return;
+        if (_project is not null) { _project = _project with { ConfiguredName = dialog.ProjectName }; RefreshTabs(); }
         _settings = dialog.Settings; PersistSettings(); LiveMenuItem.IsChecked = _settings.LivePreview; Editor.FontSize = _settings.FontSize;
         Editor.FontFamily = new FontFamily(_settings.EditorFontFamily);
+        InvertPdfBox.IsChecked = _settings.InvertPdfColors;
+        Preview.InvertColors = _settings.InvertPdfColors;
+        AutoCropPdfBox.IsChecked = _settings.AutoCropPdf;
+        Preview.AutoCrop = _settings.AutoCropPdf;
         FollowModeBox.SelectedValue = _settings.FollowMode;
         CancelPendingNavigation();
         QueueFollowSync();
@@ -596,9 +642,22 @@ public partial class MainWindow : Window
         if (_scheduledBuildExplicit) ScheduleBuildAt(Environment.TickCount64, true);
         else if (_settings.LivePreview && _project != null) ScheduleLiveBuild();
     }
+    private void InvertPdf_Click(object sender, RoutedEventArgs e)
+    {
+        _settings = _settings with { InvertPdfColors = InvertPdfBox.IsChecked == true };
+        Preview.InvertColors = _settings.InvertPdfColors;
+        PersistSettings();
+    }
+    private void AutoCropPdf_Click(object sender, RoutedEventArgs e)
+    {
+        _settings = _settings with { AutoCropPdf = AutoCropPdfBox.IsChecked == true };
+        CancelPendingNavigation();
+        Preview.AutoCrop = _settings.AutoCropPdf;
+        PersistSettings();
+    }
     private void Help_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this,
         "打开主 .tex 文件会自动加载项目依赖。\n\nAlt　显示 / 隐藏菜单\nCtrl+B　折叠 / 展开工作区\nCtrl+S　保存全部文件并编译\nCtrl+Enter　编译文档\nCtrl+Space　自动补全\nCtrl+/　切换注释\nTab / Shift+Tab　缩进 / 取消缩进\nCtrl+Shift+F　格式化\nCtrl+F　文件内查找\nCtrl+H　文件内替换\nAlt+左键单击　添加光标\nAlt+左键拖动 / 中键拖动　列框选\nEsc　返回单光标\nCtrl+J　按光标定位 PDF\nPDF 右键双击或 Ctrl+左键　返回源码\nPDF Ctrl+滚轮　以鼠标下的内容为中心缩放\n\n编辑器字体可在设置中选择，固定按英文一格、中文两格排版。\nPDF 预览栏可选择不跟随、跟随光标或跟随视图，选择会自动保存；跟随光标时，对应内容始终垂直居中。\n实时预览开启时，修改会在短暂延迟后自动保存并编译。\n编译需要安装 TeX Live 或 MiKTeX，也支持配置 Tectonic。\n中文文档建议使用 ctex 宏包及 XeLaTeX。\n动态生成的文件路径、外部目录引用需要手动整理到主文件目录内。", "TeXeed 使用说明", MessageBoxButton.OK, MessageBoxImage.Information);
-    private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, "TeXeed 0.1.14\n原生 Windows LaTeX 工作区\n\nC# · .NET 10 · WPF\nAvalonEdit (MIT) · PDFiumCore (Apache-2.0) · PDFium\n\n第三方许可随发行包提供。", "关于 TeXeed", MessageBoxButton.OK, MessageBoxImage.Information);
+    private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, "TeXeed 0.1.22\n原生 Windows LaTeX 工作区\n\nC# · .NET 10 · WPF\nAvalonEdit / WpfMath (MIT) · PDFiumCore (Apache-2.0) · PDFium\n\n第三方许可随发行包提供。", "关于 TeXeed", MessageBoxButton.OK, MessageBoxImage.Information);
     private async void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (HandleMenuKeyDown(e)) return;

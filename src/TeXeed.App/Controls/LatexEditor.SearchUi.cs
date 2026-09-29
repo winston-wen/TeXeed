@@ -17,6 +17,9 @@ public sealed partial class LatexEditor
         var assembly = typeof(LatexEditor).Assembly.GetName().Name;
         var resources = new ResourceDictionary { Source = new Uri($"/{assembly};component/Controls/EditorSearchTheme.xaml", UriKind.Relative) };
         _search.Template = (ControlTemplate)resources["EditorSearchTemplate"];
+        _search.Resources[typeof(Button)] = resources["SearchActionButton"];
+        _search.Resources[typeof(CheckBox)] = resources["SearchCheckBox"];
+        _search.MarkerBrush = Brush("SearchMatch");
         _replaceText = new TextBox
         {
             Name = "ReplaceTextBox", Height = 28, Padding = new Thickness(4, 1, 4, 1),
@@ -35,7 +38,7 @@ public sealed partial class LatexEditor
         current.Click += (_, _) => RunReplacement(false);
         all.Click += (_, _) => RunReplacement(true);
         buttons.Children.Add(current); buttons.Children.Add(all);
-        _replacementStatus = new TextBlock { Name = "ReplacementStatus", Text = "仅替换当前文件 · Ctrl+Z 撤销", FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = Brush("#6F7D77"), Margin = new Thickness(0, 6, 0, 0) };
+        _replacementStatus = new TextBlock { Name = "ReplacementStatus", Text = "仅替换当前文件 · Ctrl+Z 撤销", FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = Brush("Muted"), Margin = new Thickness(0, 6, 0, 0) };
         _replacementControls = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 4, 0, 0) };
         _replacementControls.Children.Add(new TextBlock { Text = "替换为", FontSize = 11, Margin = new Thickness(0, 0, 0, 4) });
         _replacementControls.Children.Add(_replaceText);

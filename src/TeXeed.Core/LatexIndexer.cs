@@ -27,8 +27,8 @@ public static class LatexIndexer
                 var line = LatexSyntax.LineAt(file.Content, command.Index);
                 if (SectionLevels.TryGetValue(command.Name, out var level))
                 {
-                    heading = Readable(value);
-                    outline.Add(new(heading, file.Path, line, command.Name, level));
+                    heading = LatexTitle.PlainText(value);
+                    outline.Add(new(heading, file.Path, line, command.Name, level) { Latex = value });
                 }
                 else if (command.Name == "label" && value.Length > 0)
                     labels.Add(new(value, file.Path, line, heading.Length > 0 ? $"{heading} · {file.RelativePath}" : file.RelativePath));

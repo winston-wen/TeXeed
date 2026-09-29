@@ -22,6 +22,10 @@ internal static partial class Program
             try
             {
                 Check("native PDFium loads, sizes and rasterizes known color marks", NativeRender);
+                Check("Ristretto PDF palette preserves alpha and smooth antialiasing gradients", InvertedRaster);
+                await CheckAsync("color switching preserves rasters and anchors across zoom races, scroll and reload", InversionContinuity);
+                Check("automatic crop preserves content, footer, short gaps, rotation and bounded rasters", CropGeometry);
+                await CheckAsync("cropped continuous preview fills width and preserves source anchors, zoom and lifecycle", CropPreview);
                 Check("inverse mapping respects page rotation and crop boxes", Coordinates);
                 Check("raster limits and render/dispose concurrency remain bounded", RasterLifecycle);
                 await CheckAsync("resize during load retains the newest PDF", LoadingRace);
@@ -188,7 +192,7 @@ internal static partial class Program
         System.IO.File.WriteAllBytes(path, Fixture(pages, rotation, crop, varied)); return path;
     }
 
-    private static byte[] Fixture(int pages, int rotation = 0, bool crop = false, bool varied = false)
+    private static byte[] Fixture(int pages, int rotation = 0, bool crop = false, bool varied = false, string? pageContent = null)
     {
         var objects = new List<string>
         {
@@ -200,7 +204,7 @@ internal static partial class Program
             var width = varied && i % 2 != 0 ? 360 : 200;
             var cropBox = crop ? $"/CropBox [10 20 {width - 10} 280]" : "";
             objects.Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} 300] /Rotate {rotation} {cropBox} /Resources << >> /Contents {4 + i * 2} 0 R >>");
-            const string content = "1 0 0 rg\n20 240 40 30 re f\n";
+            var content = pageContent ?? "1 0 0 rg\n20 240 40 30 re f\n";
             objects.Add($"<< /Length {Encoding.ASCII.GetByteCount(content)} >>\nstream\n{content}endstream");
         }
         using var stream = new MemoryStream();

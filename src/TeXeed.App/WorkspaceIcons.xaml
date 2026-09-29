@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <Geometry x:Key="WorkspaceCollapseIcon">M 3,3 L 17,3 17,17 3,17 Z M 7,3 L 7,17 M 13,7 L 10,10 13,13</Geometry>
+ <Geometry x:Key="WorkspaceExpandIcon">M 3,3 L 17,3 17,17 3,17 Z M 7,3 L 7,17 M 11,7 L 14,10 11,13</Geometry>
+ <Geometry x:Key="WorkspaceOutlineIcon">M 3,4 L 5,4 M 8,4 L 17,4 M 5,10 L 7,10 M 10,10 L 17,10 M 7,16 L 9,16 M 12,16 L 17,16</Geometry>
+ <Geometry x:Key="WorkspaceFilesIcon">M 2,5 L 8,5 10,7 18,7 18,16 2,16 Z M 2,8 L 18,8</Geometry>
+ <Geometry x:Key="WorkspaceSearchIcon">M 14,8 A 6,6 0 1 1 2,8 A 6,6 0 1 1 14,8 M 12.5,12.5 L 18,18</Geometry>
+ <Geometry x:Key="WorkspaceLabelsIcon">M 2,3 L 10,3 18,11 11,18 2,9 Z M 6,6 L 6,7</Geometry>
+ <Geometry x:Key="WorkspaceTodosIcon">M 2,4 L 4,6 7,2 M 10,4 L 18,4 M 2,10 L 4,12 7,8 M 10,10 L 18,10 M 3,16 L 6,16 M 10,16 L 18,16</Geometry>
+ <Geometry x:Key="OutlineExpandAllIcon">M 4,3 L 10,8 16,3 M 4,10 L 10,15 16,10</Geometry>
+ <Geometry x:Key="OutlineCollapseAllIcon">M 4,8 L 10,3 16,8 M 4,15 L 10,10 16,15</Geometry>
+ <Style x:Key="WorkspaceIconButton" TargetType="Button">
+  <Setter Property="Height" Value="32"/><Setter Property="Margin" Value="1,2"/>
+  <Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+  <Setter Property="Cursor" Value="Hand"/><Setter Property="ToolTipService.InitialShowDelay" Value="350"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+   <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent">
+    <Path Width="20" Height="20" Data="{TemplateBinding Content}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+   </Border>
+   <ControlTemplate.Triggers>
+    <Trigger Property="Selector.IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource PanelBackground}"/></Trigger>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.65"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+ <Style x:Key="OutlineActionButton" TargetType="Button" BasedOn="{StaticResource WorkspaceIconButton}">
+  <Setter Property="Focusable" Value="False"/><Setter Property="IsTabStop" Value="False"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+ </Style>
+</ResourceDictionary>

@@ -19,6 +19,15 @@
           "bblanchon.PDFium.macOS": "155.0.8057"
         }
       },
+      "WpfMath": {
+        "type": "Direct",
+        "requested": "[2.1.0, )",
+        "resolved": "2.1.0",
+        "contentHash": "216GtCBYFMPw5SaArNcuTgemgAWw985LihSEf7mtOjJYTN04X4BVFGPrkJ2Fiv1ffL8gX2xiRw/o+q1SC5oSAA==",
+        "dependencies": {
+          "XamlMath.Shared": "2.1.0"
+        }
+      },
       "bblanchon.PDFium.Linux": {
         "type": "Transitive",
         "resolved": "155.0.8057",
@@ -33,6 +42,11 @@
         "type": "Transitive",
         "resolved": "155.0.8057",
         "contentHash": "ebTLAJuXIItKJkjU5kByDT+XOlmemUpKyhWkI/+LAJQhzgDJtNNs2jt/nF+rWNXB75WD3gA6hctLNuZ40iOm+g=="
+      },
+      "XamlMath.Shared": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "p7W78KZc2EWuVqAd704m4yGWg0HtxahjNYRVxDWhw7npf8oMD8C7EUc1pjkjZIcmk5PxXJ+t5FE2Fs3gBYjv1A=="
       },
       "texeed.core": {
         "type": "Project"

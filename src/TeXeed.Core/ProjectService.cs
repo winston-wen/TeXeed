@@ -110,8 +110,39 @@ public sealed class ProjectService
                 warnings.Add($"无法读取文件 {relativePath}：{ex.Message}");
             }
         }
-        return new(root, mainPath, files, warnings.Distinct().ToArray());
+        string? name = null;
+        var metadataPath = Path.Combine(root, ".texeed", "project.json");
+        try
+        {
+            EnsureSafePath(root, metadataPath);
+            if (File.Exists(metadataPath) && new FileInfo(metadataPath).Length <= 16384)
+                name = System.Text.Json.JsonSerializer.Deserialize<ProjectMetadata>(await File.ReadAllTextAsync(metadataPath, ct))?.Name;
+            name = name?.Trim();
+            if (name is not null && (name.Length > 200 || name.Any(char.IsControl)))
+            { warnings.Add("项目名称配置无效，已使用目录名。"); name = null; }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        { warnings.Add("无法读取项目名称配置：" + ex.Message); }
+        return new TexProject(root, mainPath, files, warnings.Distinct().ToArray()) { ConfiguredName = name };
     }
+
+    public async Task<TexProject> SetNameAsync(TexProject project, string name)
+    {
+        name = name.Trim();
+        if (name.Length > 200 || name.Any(char.IsControl)) throw new ArgumentException("项目名称最多 200 字，且不能包含换行或控制字符。");
+        var path = Path.Combine(project.Root, ".texeed", "project.json");
+        EnsureSafePath(project.Root, path);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await File.WriteAllTextAsync(temporary, System.Text.Json.JsonSerializer.Serialize(new ProjectMetadata(name)));
+            File.Move(temporary, path, true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        return project with { ConfiguredName = name };
+    }
+    private sealed record ProjectMetadata(string? Name);
 
     public async Task<TexProject> SaveAsync(TexProject project, IReadOnlyDictionary<string, string> changes, CancellationToken ct = default)
     {

@@ -43,9 +43,9 @@ public sealed partial class LatexEditor : TextEditor
         ShowLineNumbers = true;
         FontFamily = new FontFamily("Cascadia Code, Consolas");
         FontSize = 15;
-        Background = Brush("#FFFEFA");
-        Foreground = Brush("#30433D");
-        LineNumbersForeground = Brush("#A1A9A1");
+        Background = Brush("EditorBackground");
+        Foreground = Brush("EditorForeground");
+        LineNumbersForeground = Brush("Subtle");
         BorderThickness = new Thickness(0);
         Padding = new Thickness(12, 14, 14, 14);
         HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
@@ -55,11 +55,11 @@ public sealed partial class LatexEditor : TextEditor
         Options.HighlightCurrentLine = true;
         Options.EnableHyperlinks = false;
         Options.EnableEmailHyperlinks = false;
-        TextArea.SelectionBrush = Brush("#CFE8D6");
-        TextArea.SelectionForeground = Brush("#173D2C");
+        TextArea.SelectionBrush = Brush("Selection");
+        TextArea.SelectionForeground = Brush("EditorForeground");
         TextArea.SelectionBorder = null;
-        TextArea.TextView.CurrentLineBackground = Brush("#F2F5EE");
-        TextArea.TextView.CurrentLineBorder = new Pen(Brush("#F2F5EE"), 0);
+        TextArea.TextView.CurrentLineBackground = Brush("CurrentLine");
+        TextArea.TextView.CurrentLineBorder = new Pen(Brush("CurrentLine"), 0);
         TextArea.IndentationStrategy = new LatexIndentationStrategy();
         _search = SearchPanel.Install(this);
         // The compact AvalonEdit search template must not inherit the application's
@@ -74,6 +74,11 @@ public sealed partial class LatexEditor : TextEditor
             Setters =
             {
                 new Setter(Control.PaddingProperty, new Thickness(2, 0, 2, 0)),
+                new Setter(Control.BackgroundProperty, new DynamicResourceExtension("SidebarBackground")),
+                new Setter(Control.ForegroundProperty, new DynamicResourceExtension("EditorForeground")),
+                new Setter(Control.BorderBrushProperty, new DynamicResourceExtension("Subtle")),
+                new Setter(TextBox.CaretBrushProperty, new DynamicResourceExtension("EditorForeground")),
+                new Setter(TextBox.SelectionBrushProperty, new DynamicResourceExtension("Selection")),
                 new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center)
             }
         };
@@ -81,6 +86,9 @@ public sealed partial class LatexEditor : TextEditor
         InitializeViewportTracking();
         InitializeFixedGrid();
         InitializeMultiCaret();
+        ApplyTheme();
+        Loaded += (_, _) => { TeXeed.App.Services.ThemeManager.Changed += ThemeChanged; ApplyTheme(); };
+        Unloaded += (_, _) => TeXeed.App.Services.ThemeManager.Changed -= ThemeChanged;
         TextChanged += (_, _) =>
         {
             if (!_changingDocument && CurrentFilePath is not null)
@@ -311,8 +319,8 @@ public sealed partial class LatexEditor : TextEditor
             CloseAutomatically = true,
             Width = 360,
             MaxHeight = 300,
-            Background = Brush("#FFFEFA"),
-            Foreground = Brush("#233C31"),
+            Background = Brush("EditorBackground"),
+            Foreground = Brush("EditorForeground"),
             ResizeMode = ResizeMode.NoResize
         };
         foreach (var item in items)
@@ -447,12 +455,7 @@ public sealed partial class LatexEditor : TextEditor
         TextArea.Caret.BringCaretToView();
     }
 
-    private static SolidColorBrush Brush(string hex)
-    {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-        brush.Freeze();
-        return brush;
-    }
+    private static SolidColorBrush Brush(string key) => TeXeed.App.Services.ThemeManager.Brush(key);
 
     private static IHighlightingDefinition LoadHighlighting(string xml)
     {
@@ -594,11 +597,11 @@ public sealed partial class LatexEditor : TextEditor
 
     private const string LatexSyntax = """
         <SyntaxDefinition name="LaTeX" extensions=".tex;.sty;.cls" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
-          <Color name="Command" foreground="#267653" fontWeight="bold" />
-          <Color name="Comment" foreground="#96A195" fontStyle="italic" />
-          <Color name="Math" foreground="#947349" />
-          <Color name="Brace" foreground="#83948B" />
-          <Color name="Number" foreground="#8F6B48" />
+          <Color name="Command" foreground="#FD6883" fontWeight="bold" />
+          <Color name="Comment" foreground="#938889" fontStyle="italic" />
+          <Color name="Math" foreground="#F9CC6C" />
+          <Color name="Brace" foreground="#C3B7B8" />
+          <Color name="Number" foreground="#A8A9EB" />
           <RuleSet>
             <Span color="Comment"><Begin>(?&lt;!\\)(?:\\\\)*%</Begin></Span>
             <Span color="Comment" multiline="true"><Begin>\\begin\{(?:verbatim|lstlisting|minted)\}</Begin><End>\\end\{(?:verbatim|lstlisting|minted)\}</End></Span>
@@ -619,11 +622,11 @@ public sealed partial class LatexEditor : TextEditor
 
     private const string BibSyntax = """
         <SyntaxDefinition name="BibTeX" extensions=".bib" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
-          <Color name="Type" foreground="#267653" fontWeight="bold" />
-          <Color name="Field" foreground="#50738C" />
-          <Color name="String" foreground="#947349" />
-          <Color name="Comment" foreground="#96A195" fontStyle="italic" />
-          <Color name="Brace" foreground="#83948B" />
+          <Color name="Type" foreground="#FD6883" fontWeight="bold" />
+          <Color name="Field" foreground="#85DACC" />
+          <Color name="String" foreground="#F9CC6C" />
+          <Color name="Comment" foreground="#938889" fontStyle="italic" />
+          <Color name="Brace" foreground="#C3B7B8" />
           <RuleSet>
             <Span color="Comment"><Begin>%</Begin></Span>
             <Span color="String" multiline="true"><Begin>"</Begin><End>(?&lt;!\\)"</End></Span>

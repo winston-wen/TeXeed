@@ -15,9 +15,14 @@ public sealed class PdfPreview : UserControl, IDisposable
 {
     private const double PageGap = 18;
     private const int RasterBudgetPixels = 16 * 1024 * 1024;
+    private static readonly Brush DarkPaperBrush = CreateDarkPaperBrush();
+    private static Brush CreateDarkPaperBrush()
+    {
+        var brush = new SolidColorBrush(PdfDocument.DarkPaperColor); brush.Freeze(); return brush;
+    }
     private readonly ScrollViewer _scroll = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, CanContentScroll = false };
     private readonly Canvas _pages = new() { HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(20) };
-    private readonly TextBlock _empty = new() { Text = "预览将在编译成功后出现\n\n从左侧开始写作，让想法慢慢成形。", TextAlignment = TextAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(112, 127, 117)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(25), TextWrapping = TextWrapping.Wrap, LineHeight = 26 };
+    private readonly TextBlock _empty = new() { Text = "预览将在编译成功后出现\n\n从左侧开始写作，让想法慢慢成形。", TextAlignment = TextAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(195, 183, 184)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(25), TextWrapping = TextWrapping.Wrap, LineHeight = 26 };
     private readonly List<PageLayout> _layouts = [];
     private readonly Dictionary<int, PageVisual> _visuals = [];
     private PdfDocument? _document;
@@ -29,15 +34,77 @@ public sealed class PdfPreview : UserControl, IDisposable
     private ZoomAnchor? _readingAnchor;
     private Size _readingViewport;
     private int _loadVersion, _renderVersion;
+    private CancellationTokenSource? _loadCancellation, _cropCancellation;
+    private Task? _cropTask;
+    private PdfDocument? _cropDocument;
     private PdfLocation? _highlight;
     public event EventHandler<PdfLocation>? InverseRequested;
     public event EventHandler? ViewInteracted;
     public event EventHandler<string>? StatusChanged;
     public int PageCount => _document?.Pages.Count ?? 0;
     public double Zoom => _zoom;
+    private bool _autoCrop;
+    public bool AutoCrop
+    {
+        get => _autoCrop;
+        set
+        {
+            if (_disposed || _autoCrop == value) return;
+            var anchor = CaptureAnchor(ViewportCenter);
+            _autoCrop = value;
+            if (value) _fit = true;
+            RebuildCropLayout(anchor);
+            if (value && _document is { Crops: null } document) StartCropAnalysis(document);
+        }
+    }
+
+    private void RebuildCropLayout(ZoomAnchor? anchor)
+    {
+        _layoutZoom = double.NaN; _anchorPadding = new Thickness();
+        UpdatePageSizes(); RestoreAnchor(anchor, horizontal: !_fit);
+        if (_fit) _scroll.ScrollToHorizontalOffset(0);
+    }
+
+    private void StartCropAnalysis(PdfDocument document)
+    {
+        if (ReferenceEquals(_cropDocument, document) && _cropTask is { IsCompleted: false }) return;
+        _cropCancellation?.Cancel(); _cropCancellation?.Dispose();
+        _cropCancellation = new CancellationTokenSource(); _cropDocument = document;
+        _cropTask = AnalyzeCropAsync(document, _cropCancellation.Token);
+    }
+
+    private async Task AnalyzeCropAsync(PdfDocument document, CancellationToken cancellation)
+    {
+        try
+        {
+            StatusChanged?.Invoke(this, "正在分析 PDF 空白…");
+            await Task.Run(() => document.PrepareCrops(cancellation), cancellation);
+            if (_disposed || document != _document || cancellation.IsCancellationRequested) return;
+            if (_autoCrop) RebuildCropLayout(CaptureAnchor(ViewportCenter));
+            StatusChanged?.Invoke(this, $"{PageCount} 页 · PDFium");
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex)
+        { if (!_disposed && document == _document) StatusChanged?.Invoke(this, "裁边分析失败：" + ex.Message); }
+    }
+    private bool _invertColors;
+    public bool InvertColors
+    {
+        get => _invertColors;
+        set
+        {
+            if (_disposed || _invertColors == value) return;
+            _invertColors = value; _renderVersion++;
+            foreach (var visual in _visuals.Values)
+                ((Grid)visual.Holder.Child).Background = value ? DarkPaperBrush : Brushes.White;
+            ScheduleRender();
+        }
+    }
 
     public PdfPreview()
     {
+        _empty.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         var grid = new Grid();
         grid.Children.Add(_scroll); grid.Children.Add(_empty); Content = grid;
         _scroll.Content = _pages;
@@ -68,25 +135,44 @@ public sealed class PdfPreview : UserControl, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var version = ++_loadVersion;
-        var document = await Task.Run(() =>
+        _cropCancellation?.Cancel();
+        _loadCancellation?.Cancel(); _loadCancellation?.Dispose();
+        _loadCancellation = new CancellationTokenSource();
+        var cancellation = _loadCancellation.Token; var analyzeCrop = _autoCrop;
+        PdfDocument document;
+        try { document = await Task.Run(() =>
         {
+            cancellation.ThrowIfCancellationRequested();
             if (new FileInfo(path).Length > 256L * 1024 * 1024) throw new IOException("PDF 文件超过 256 MB，无法预览。");
-            return new PdfDocument(File.ReadAllBytes(path));
-        });
+            var loaded = new PdfDocument(File.ReadAllBytes(path));
+            try
+            {
+                if (analyzeCrop) loaded.PrepareCrops(cancellation);
+                cancellation.ThrowIfCancellationRequested();
+                return loaded;
+            }
+            catch { loaded.Dispose(); throw; }
+        }, cancellation); }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return; }
         // A resize/zoom only invalidates rasters; it must never discard an in-flight document load.
         if (_disposed || version != _loadVersion) { document.Dispose(); return; }
         var offset = _scroll.VerticalOffset - _pages.Margin.Top;
         var horizontalOffset = _scroll.HorizontalOffset - _pages.Margin.Left;
+        var anchor = CaptureAnchor(ViewportCenter);
         _renderVersion++;
+        _cropCancellation?.Cancel();
         _document?.Dispose(); _document = document;
         ClearVisuals(); _layouts.Clear(); _layoutZoom = double.NaN; _anchorPadding = new Thickness(); _readingAnchor = null;
         ClearHighlights(); _empty.Visibility = Visibility.Collapsed;
         UpdatePageSizes();
         _scroll.ScrollToVerticalOffset(Math.Max(0, offset + _pages.Margin.Top));
         _scroll.ScrollToHorizontalOffset(Math.Max(0, horizontalOffset + _pages.Margin.Left));
+        if (anchor is not null && anchor.Page < PageCount) RestoreAnchor(anchor, horizontal: !_fit);
+        else if (_autoCrop) _scroll.ScrollToVerticalOffset(Math.Max(0, _pages.Margin.Top - 12));
         RememberReadingAnchor();
         ScheduleRender();
         StatusChanged?.Invoke(this, $"{PageCount} 页 · PDFium");
+        if (_autoCrop && document.Crops is null) StartCropAnalysis(document);
     }
 
     /// <summary>Fit width while retaining the content nearest the viewport center.</summary>
@@ -110,7 +196,7 @@ public sealed class PdfPreview : UserControl, IDisposable
     public void SetZoom(double zoom, Point viewportAnchor)
     {
         if (_disposed || !double.IsFinite(zoom) || !double.IsFinite(viewportAnchor.X) || !double.IsFinite(viewportAnchor.Y)) return;
-        var nextZoom = Math.Clamp(zoom, .35, 3);
+        var nextZoom = Math.Clamp(zoom, .35, _autoCrop ? 8 : 3);
         _fit = false;
         if (_zoom == nextZoom) return;
         var anchor = CaptureAnchor(viewportAnchor);
@@ -121,8 +207,10 @@ public sealed class PdfPreview : UserControl, IDisposable
     public void Clear()
     {
         _loadVersion++; _renderVersion++;
+        _loadCancellation?.Cancel(); _cropCancellation?.Cancel();
         _renderTimer.Stop(); _highlightTimer.Stop(); _renderAgain = false;
         _document?.Dispose(); _document = null;
+        _cropDocument = null;
         ClearVisuals(); _layouts.Clear(); _highlight = null; _layoutZoom = double.NaN; _anchorPadding = new Thickness(); _readingAnchor = null;
         _pages.Width = 0; _pages.Height = 0; _empty.Visibility = Visibility.Visible;
     }
@@ -188,8 +276,10 @@ public sealed class PdfPreview : UserControl, IDisposable
     private void UpdatePageSizesCore()
     {
         var document = _document!;
+        var crops = _autoCrop ? document.Crops : null;
+        var sizes = document.Pages.Select((size, index) => crops?[index].Size ?? size).ToArray();
         if (_fit && ActualWidth > 65)
-            _zoom = Math.Clamp((ActualWidth - 65) / (document.Pages.Max(s => s.Width) * 96 / 72), .2, 3);
+            _zoom = Math.Clamp((ActualWidth - 65) / (sizes.Max(s => s.Width) * 96 / 72), .2, _autoCrop ? 8 : 3);
         if (_layoutZoom == _zoom && _layouts.Count == document.Pages.Count) { ScheduleRender(); return; }
         _layoutZoom = _zoom;
         _renderVersion++;
@@ -197,15 +287,17 @@ public sealed class PdfPreview : UserControl, IDisposable
         // Only a different document (LoadAsync/Clear) invalidates the page content.
         _layouts.Clear();
         var top = 0d;
-        var widest = document.Pages.Max(s => s.Width) * 96 / 72 * _zoom;
-        foreach (var size in document.Pages)
+        var widest = sizes.Max(s => s.Width) * 96 / 72 * _zoom;
+        var gap = crops is null ? PageGap : 8;
+        for (var index = 0; index < sizes.Length; index++)
         {
+            var size = sizes[index];
             var displayed = new Size(size.Width * 96 / 72 * _zoom, size.Height * 96 / 72 * _zoom);
-            _layouts.Add(new PageLayout(top, (widest - displayed.Width) / 2, displayed));
-            top += displayed.Height + PageGap;
+            _layouts.Add(new PageLayout(top, (widest - displayed.Width) / 2, displayed, crops?[index]));
+            top += displayed.Height + gap;
         }
         _pages.Width = widest + 2;
-        _pages.Height = Math.Max(0, top - PageGap + 2);
+        _pages.Height = Math.Max(0, top - gap + 2);
         foreach (var (index, visual) in _visuals)
         {
             var layout = _layouts[index];
@@ -257,7 +349,7 @@ public sealed class PdfPreview : UserControl, IDisposable
             if (squaredDistance < distance) { distance = squaredDistance; pageIndex = index; nearest = candidate; }
         }
         var page = _layouts[pageIndex];
-        var documentPoint = _document.ViewToPage(pageIndex, new Point(nearest.X - page.Left - 1, nearest.Y - page.Top - 1), page.Size);
+        var documentPoint = DisplayToPage(pageIndex, new Point(nearest.X - page.Left - 1, nearest.Y - page.Top - 1));
         return new ZoomAnchor(pageIndex, documentPoint, _pages.TranslatePoint(nearest, _scroll));
     }
 
@@ -273,7 +365,7 @@ public sealed class PdfPreview : UserControl, IDisposable
                 ArrangeViewportPadding();
                 if (_scroll.ViewportHeight <= 0 || _scroll.ViewportWidth <= 0) return;
                 var layout = _layouts[anchor.Page];
-                var pagePoint = _document.PageToView(anchor.Page, anchor.DocumentPoint, layout.Size);
+                var pagePoint = PageToDisplay(anchor.Page, anchor.DocumentPoint);
                 var current = _pages.TranslatePoint(new Point(layout.Left + 1 + pagePoint.X, layout.Top + 1 + pagePoint.Y), _scroll);
                 var target = new Point(Math.Clamp(anchor.ViewportPoint.X, 0, _scroll.ViewportWidth),
                     viewportFraction is { } fraction ? _scroll.ViewportHeight * fraction : Math.Clamp(anchor.ViewportPoint.Y, 0, _scroll.ViewportHeight));
@@ -311,7 +403,7 @@ public sealed class PdfPreview : UserControl, IDisposable
         var image = new Image { Stretch = Stretch.Fill, SnapsToDevicePixels = true };
         RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.LowQuality);
         var overlay = new Canvas { IsHitTestVisible = false, ClipToBounds = true };
-        var page = new Grid { Background = Brushes.White, Width = layout.Size.Width, Height = layout.Size.Height, ClipToBounds = true };
+        var page = new Grid { Background = _invertColors ? DarkPaperBrush : Brushes.White, Width = layout.Size.Width, Height = layout.Size.Height, ClipToBounds = true };
         page.Children.Add(image); page.Children.Add(overlay);
         page.PreviewMouseDown += (_, e) =>
         {
@@ -319,12 +411,13 @@ public sealed class PdfPreview : UserControl, IDisposable
                 || (e.ChangedButton == MouseButton.Left && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)))
             {
                 if (_document is null || page.ActualWidth <= 0 || page.ActualHeight <= 0) return;
-                var point = _document.ViewToPage(index, e.GetPosition(page), new Size(page.ActualWidth, page.ActualHeight));
+                var point = DisplayToPage(index, e.GetPosition(page));
                 InverseRequested?.Invoke(this, new PdfLocation(index + 1, point.X, point.Y));
                 e.Handled = true;
             }
         };
-        var holder = new Border { Child = page, BorderBrush = new SolidColorBrush(Color.FromRgb(211, 219, 210)), BorderThickness = new Thickness(1) };
+        var holder = new Border { Child = page, BorderBrush = new SolidColorBrush(Color.FromRgb(64, 56, 56)), BorderThickness = new Thickness(1) };
+        holder.SetResourceReference(Border.BorderBrushProperty, "Line");
         Canvas.SetLeft(holder, layout.Left); Canvas.SetTop(holder, layout.Top);
         var visual = new PageVisual(holder, image, overlay);
         _visuals.Add(index, visual); _pages.Children.Add(holder);
@@ -340,7 +433,7 @@ public sealed class PdfPreview : UserControl, IDisposable
         var width = double.IsFinite(location.Width) ? Math.Max(1, location.Width) : 1;
         var height = double.IsFinite(location.Height) ? Math.Max(1, location.Height) : 1;
         var corners = new[] { new Point(location.X, location.Y), new Point(location.X + width, location.Y), new Point(location.X, location.Y + height), new Point(location.X + width, location.Y + height) }
-            .Select(p => _document.PageToView(index, p, size)).ToArray();
+            .Select(p => PageToDisplay(index, p)).ToArray();
         var left = Math.Clamp(corners.Min(p => p.X), 0, size.Width);
         var top = Math.Clamp(corners.Min(p => p.Y), 0, size.Height);
         var rectangle = new Rectangle
@@ -379,6 +472,7 @@ public sealed class PdfPreview : UserControl, IDisposable
         {
             var document = _document;
             var version = _renderVersion;
+            var inverted = _invertColors;
             var viewportHeight = _scroll.ViewportHeight > 0 ? _scroll.ViewportHeight : ActualHeight;
             var canvasOffset = _scroll.VerticalOffset - _pages.Margin.Top;
             var firstY = canvasOffset - 300;
@@ -395,15 +489,23 @@ public sealed class PdfPreview : UserControl, IDisposable
             {
                 if (_disposed || version != _renderVersion || document != _document) { _renderAgain = !_disposed; break; }
                 var item = RealizePage(index);
-                var scale = _layouts[index].Size.Width / document.Pages[index].Width * VisualTreeHelper.GetDpi(this).DpiScaleX;
+                var crop = _layouts[index].Crop;
+                var scale = _layouts[index].Size.Width / (crop?.Width ?? document.Pages[index].Width) * VisualTreeHelper.GetDpi(this).DpiScaleX;
                 var budget = Math.Min(budgetPerPage, 8 * 1024 * 1024);
-                if (item.Image.Source is BitmapSource && item.RasterScale == scale && item.RasterBudget == budget) continue;
-                var bitmap = await Task.Run(() => document.Render(index, scale, budget));
+                var current = item.Image.Source as BitmapSource;
+                var sameSize = current is not null && item.RasterScale == scale && item.RasterBudget == budget && ReferenceEquals(item.RasterCrop, crop);
+                if (sameSize && item.RasterInverted == inverted) continue;
+                // The softer palette is intentionally lossy. Restore original colors from PDF,
+                // never by inverting the tinted raster, so repeated toggles cannot accumulate error.
+                var bitmap = await Task.Run(() => sameSize && inverted
+                    ? PdfDocument.ApplyDarkColors(current!) : document.Render(index, scale, budget, inverted, crop));
                 if (_disposed || version != _renderVersion || document != _document) { _renderAgain = !_disposed; break; }
                 // Replace in one assignment; the previous image stays visible even
                 // if rendering fails or this request is superseded by another zoom.
                 item.Image.Source = bitmap;
                 item.RasterScale = scale; item.RasterBudget = budget;
+                item.RasterInverted = inverted;
+                item.RasterCrop = crop;
             }
         }
         catch (ObjectDisposedException) { _renderAgain = !_disposed && _document is not null; }
@@ -419,13 +521,32 @@ public sealed class PdfPreview : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true; Clear();
+        _loadCancellation?.Dispose(); _cropCancellation?.Dispose();
     }
 
-    private sealed record PageLayout(double Top, double Left, Size Size);
+    private Point PageToDisplay(int index, Point point)
+    {
+        var layout = _layouts[index];
+        if (layout.Crop is not { } crop) return _document!.PageToView(index, point, layout.Size);
+        var mapped = crop.ToCropped(_document!.PageToView(index, point, _document.Pages[index]));
+        return new Point(mapped.X / crop.Width * layout.Size.Width, mapped.Y / crop.Height * layout.Size.Height);
+    }
+
+    private Point DisplayToPage(int index, Point point)
+    {
+        var layout = _layouts[index];
+        if (layout.Crop is not { } crop) return _document!.ViewToPage(index, point, layout.Size);
+        var source = crop.ToSource(new Point(point.X / layout.Size.Width * crop.Width, point.Y / layout.Size.Height * crop.Height));
+        return _document!.ViewToPage(index, source, _document.Pages[index]);
+    }
+
+    private sealed record PageLayout(double Top, double Left, Size Size, PdfPageCrop? Crop = null);
     private sealed record ZoomAnchor(int Page, Point DocumentPoint, Point ViewportPoint);
     private sealed record PageVisual(Border Holder, Image Image, Canvas Overlay)
     {
         public double RasterScale { get; set; } = double.NaN;
         public int RasterBudget { get; set; }
+        public bool RasterInverted { get; set; }
+        public PdfPageCrop? RasterCrop { get; set; }
     }
 }

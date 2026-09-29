@@ -7,8 +7,13 @@ using System.Windows.Media.Imaging;
 namespace TeXeed.App.Services;
 
 // PDFium is not thread safe: every call, including close, shares one gate.
-internal sealed class PdfDocument : IDisposable
+internal sealed partial class PdfDocument : IDisposable
 {
+    internal static readonly Color DarkPaperColor = Color.FromRgb(44, 37, 37); // Ristretto #2C2525
+    internal static readonly Color DarkInkColor = Color.FromRgb(216, 204, 200); // Softer warm ink #D8CCC8
+    private static readonly byte[] DarkBlue = ColorRamp(DarkPaperColor.B, DarkInkColor.B);
+    private static readonly byte[] DarkGreen = ColorRamp(DarkPaperColor.G, DarkInkColor.G);
+    private static readonly byte[] DarkRed = ColorRamp(DarkPaperColor.R, DarkInkColor.R);
     private static readonly object Gate = new();
     private static bool _initialized;
     private IntPtr _document;
@@ -53,10 +58,11 @@ internal sealed class PdfDocument : IDisposable
         }
     }
 
-    public BitmapSource Render(int index, double pixelsPerPoint, int maxPixels = 8 * 1024 * 1024)
+    public BitmapSource Render(int index, double pixelsPerPoint, int maxPixels = 8 * 1024 * 1024, bool invertColors = false, PdfPageCrop? crop = null)
     {
         if (!double.IsFinite(pixelsPerPoint) || pixelsPerPoint <= 0) throw new ArgumentOutOfRangeException(nameof(pixelsPerPoint));
         if (maxPixels < 1) throw new ArgumentOutOfRangeException(nameof(maxPixels));
+        if (crop is not null) return RenderCropped(index, pixelsPerPoint, maxPixels, invertColors, crop);
         lock (Gate)
         {
             ObjectDisposedException.ThrowIf(_document == IntPtr.Zero, this);
@@ -82,11 +88,40 @@ internal sealed class PdfDocument : IDisposable
                 var stride = Native.FPDFBitmap_GetStride(bitmap);
                 var pixels = new byte[stride * height];
                 Marshal.Copy(Native.FPDFBitmap_GetBuffer(bitmap), pixels, 0, pixels.Length);
+                if (invertColors) ApplyDarkPalette(pixels);
                 var image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
                 image.Freeze();
                 return image;
             }
             finally { Native.FPDFBitmap_Destroy(bitmap); Native.FPDF_ClosePage(page); }
+        }
+    }
+
+    // Frozen rasters can be recolored on the worker thread without invoking PDFium again.
+    internal static BitmapSource ApplyDarkColors(BitmapSource source)
+    {
+        if (source.Format != PixelFormats.Bgra32) throw new ArgumentException("Expected a BGRA PDF raster.", nameof(source));
+        var stride = source.PixelWidth * 4;
+        var pixels = new byte[stride * source.PixelHeight];
+        source.CopyPixels(pixels, stride, 0);
+        ApplyDarkPalette(pixels);
+        var result = BitmapSource.Create(source.PixelWidth, source.PixelHeight, source.DpiX, source.DpiY,
+            PixelFormats.Bgra32, null, pixels, stride);
+        result.Freeze();
+        return result;
+    }
+
+    private static byte[] ColorRamp(byte paper, byte ink) => Enumerable.Range(0, 256)
+        .Select(value => (byte)(ink - ((ink - paper) * value + 127) / 255)).ToArray();
+
+    private static void ApplyDarkPalette(byte[] pixels)
+    {
+        for (var offset = 0; offset < pixels.Length; offset += 4)
+        {
+            pixels[offset] = DarkBlue[pixels[offset]];
+            pixels[offset + 1] = DarkGreen[pixels[offset + 1]];
+            pixels[offset + 2] = DarkRed[pixels[offset + 2]];
+            // Alpha stays unchanged. Only the preview raster changes, never PDF bytes.
         }
     }
 
@@ -153,6 +188,10 @@ internal sealed class PdfDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDF_GetLastError();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetPageCount(IntPtr document);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDF_LoadPage(IntPtr document, int index);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_CountObjects(IntPtr page);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDFPage_GetObject(IntPtr page, int index);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPageObj_GetType(IntPtr pageObject);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPageObj_GetBounds(IntPtr pageObject, out float left, out float bottom, out float right, out float top);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern double FPDF_GetPageWidth(IntPtr page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern double FPDF_GetPageHeight(IntPtr page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_GetMediaBox(IntPtr page, out float left, out float bottom, out float right, out float top);

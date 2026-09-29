@@ -146,7 +146,7 @@ internal static partial class Program
             child = Item(parent, roots[1].Children[1]);
             var clickedNode = roots[1].Children[1].Children[0];
             grandchild = Item(child, clickedNode);
-            var title = Descendants<TextBlock>(grandchild).First(block => block.Text == clickedNode.Title);
+            var title = Descendants<LatexTitleBlock>(grandchild).First(block => block.Latex == clickedNode.Latex);
             ((IInvokeProvider)new ButtonAutomationPeer((Button)grandchild.Template.FindName("HeadingButton", grandchild))).Invoke();
             await Settle();
             RequireOutline(editor.CurrentLocation!.Line == clickedNode.Entry.Line && title.ToolTip.ToString()!.Contains("main.tex:"),
@@ -154,12 +154,36 @@ internal static partial class Program
             Console.WriteLine("PASS: outline expander, native arrow-key navigation, Enter and title clicks use independent fold/navigation actions");
 
             column.Width = new GridLength(200); await Settle();
-            RequireOutline(Descendants<ScrollViewer>(tree).First().ScrollableWidth < 1, "Narrow outline overflows horizontally instead of trimming titles");
+            RequireOutline(Descendants<ScrollViewer>(tree).First().ScrollableWidth > 1, "Long outline titles should be reachable by horizontal scrolling");
             CaptureOutline(sidebar, Path.Combine(output, "outline-narrow.png"));
             column.Width = new GridLength(390); outline.LayoutTransform = new ScaleTransform(1.5, 1.5); await Settle();
             CaptureOutline(sidebar, Path.Combine(output, "outline-scaled.png"));
             RequireOutline(Descendants<ToggleButton>(tree).Where(b => b.IsVisible).All(b => b.ActualWidth >= 20 && b.ActualHeight >= 28), "Scaled outline clipped its expander hit areas");
-            Console.WriteLine("PASS: outline renders at narrow widths and 150% scale without horizontal overflow");
+            Console.WriteLine("PASS: outline renders at narrow widths and 150% scale with horizontal scrolling");
+
+            outline.LayoutTransform = Transform.Identity;
+            editor.Document.Text = "\\section{Parent}\n\\subsection{A}\n" + string.Concat(Enumerable.Repeat("body\n", 120))
+                + "\\subsection{B}\n" + string.Concat(Enumerable.Repeat("body\n", 5))
+                + "\\subsection{C}\n" + string.Concat(Enumerable.Repeat("body\n", 120)) + "\\section{Other}\n\\input{child}\n";
+            await CallAsync(window, "SaveAsync");
+            var trackedParent = tree.Items.Cast<OutlineNode>().First();
+            var trackedChildren = trackedParent.Children.ToArray();
+            editor.NavigateTo(new SourceLocation(main, 60), center: true); await Settle();
+            RequireOutline(trackedChildren[0].IsViewportHighlighted && !trackedParent.IsViewportHighlighted
+                && !trackedChildren[1].IsViewportHighlighted, "Body viewport did not highlight only its deepest visible section");
+            editor.NavigateTo(new SourceLocation(main, 126), center: true); await Settle();
+            RequireOutline(trackedChildren[1].IsViewportHighlighted && trackedChildren[2].IsViewportHighlighted
+                && !trackedParent.IsViewportHighlighted, "Multiple viewport headings did not highlight together without their ancestor");
+            CaptureOutline(sidebar, Path.Combine(output, "outline-viewport-highlights.png"));
+            trackedParent.IsExpanded = false; await Settle();
+            RequireOutline(trackedParent.IsViewportHighlighted && trackedChildren.All(node => !node.IsViewportHighlighted)
+                && !trackedParent.IsExpanded, "Collapsed branch did not retain folding and transfer highlighting to the parent");
+            editor.NavigateTo(new SourceLocation(main, 60), center: true); await Settle();
+            RequireOutline(!trackedParent.IsExpanded && trackedParent.IsViewportHighlighted, "Editor scrolling automatically expanded the outline");
+            Invoke(window, "ActivateFile", Path.Combine(directory, "child.tex")); await Settle();
+            RequireOutline(!trackedParent.IsViewportHighlighted && tree.Items.Cast<OutlineNode>().Last().IsViewportHighlighted,
+                $"Switching source files left stale outline highlighting: range={editor.VisibleSourceRange}; nodes={string.Join(", ", tree.Items.Cast<OutlineNode>().Select(n => $"{n.Title}:{n.IsViewportHighlighted}"))}");
+            Console.WriteLine("PASS: outline follows visible source ranges, highlights multiple deepest headings, and preserves collapsed branches");
         }
         finally
         {

@@ -21,9 +21,9 @@ public static class CompilerTests
         Console.WriteLine(result.Log);
         Check.True(result.Success, "Real Tectonic compilation failed. Log: " + logPath);
         Check.True(result.SynctexAvailable && result.PdfPath is not null, "Real compilation must produce PDF and SyncTeX");
-        var bibliography = await File.ReadAllTextAsync(Path.Combine(project.Root, ".texeed", "build", project.Name + ".bbl"));
+        var bibliography = await File.ReadAllTextAsync(Path.Combine(project.Root, ".texeed", "build", Path.GetFileNameWithoutExtension(project.MainPath) + ".bbl"));
         Check.True(bibliography.Contains("knuth1984texbook", StringComparison.Ordinal) && bibliography.Contains("lamport1994latex", StringComparison.Ordinal), "Real bibliography must include both cited entries");
-        var auxiliary = await File.ReadAllTextAsync(Path.Combine(project.Root, ".texeed", "build", project.Name + ".aux"));
+        var auxiliary = await File.ReadAllTextAsync(Path.Combine(project.Root, ".texeed", "build", Path.GetFileNameWithoutExtension(project.MainPath) + ".aux"));
         Check.True(auxiliary.Contains(@"\newlabel{eq:energy}{{1}{1}}", StringComparison.Ordinal) && auxiliary.Contains(@"\newlabel{sec:method}{{2}{2}}", StringComparison.Ordinal), "Equation and section references must resolve across included files");
         Check.True(!result.Diagnostics.Any(d => d.Message.Contains("undefined", StringComparison.OrdinalIgnoreCase)), "The final pass must have no undefined references or citations");
         var intro = project.Files.Single(f => f.RelativePath.Replace('\\', '/') == "sections/introduction.tex");
@@ -276,7 +276,7 @@ public static class CompilerTests
             await File.WriteAllTextAsync(Path.Combine(build, "fake-citation-key"), "second-" + mode);
             Check.True((await Compile(mode)).Success);
             Check.Equal(before + 4, await Count());
-            await File.WriteAllTextAsync(Path.Combine(build, project.Name + ".bbl"), "externally overwritten bibliography");
+            await File.WriteAllTextAsync(Path.Combine(build, Path.GetFileNameWithoutExtension(project.MainPath) + ".bbl"), "externally overwritten bibliography");
             Check.True((await Compile(mode)).Success);
             Check.Equal(before + 5, await Count());
 

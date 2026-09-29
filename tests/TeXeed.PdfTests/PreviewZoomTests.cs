@@ -222,7 +222,7 @@ internal static partial class Program
     private static Point PagePointOnViewport(PdfPreview preview, int index, Point point)
     {
         var layout = Layout(preview, index);
-        var mapped = ((PdfDocument)Field(preview, "_document")).PageToView(index, point, layout.Size);
+        var mapped = (Point)typeof(PdfPreview).GetMethod("PageToDisplay", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(preview, [index, point])!;
         var canvas = (Canvas)Field(preview, "_pages");
         var scroll = (ScrollViewer)Field(preview, "_scroll");
         return canvas.TranslatePoint(new Point(layout.Left + 1 + mapped.X, layout.Top + 1 + mapped.Y), scroll);
@@ -233,7 +233,7 @@ internal static partial class Program
         var visual = ((IDictionary)Field(preview, "_visuals"))[index] ?? throw new InvalidOperationException("Anchored page was not rendered.");
         var image = (Image)visual.GetType().GetProperty("Image")!.GetValue(visual)!;
         preview.UpdateLayout();
-        var mapped = ((PdfDocument)Field(preview, "_document")).PageToView(index, point, image.RenderSize);
+        var mapped = (Point)typeof(PdfPreview).GetMethod("PageToDisplay", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(preview, [index, point])!;
         return image.TranslatePoint(mapped, (ScrollViewer)Field(preview, "_scroll"));
     }
 

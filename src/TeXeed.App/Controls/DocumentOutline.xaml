@@ -13,18 +13,19 @@
   <Style x:Key="OutlineExpander" TargetType="ToggleButton">
    <Setter Property="Focusable" Value="False"/>
    <Setter Property="Width" Value="26"/><Setter Property="MinHeight" Value="30"/>
-   <Setter Property="Foreground" Value="#839087"/><Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="Cursor" Value="Hand"/>
    <Setter Property="ToolTip" Value="展开子标题"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
     <Border Background="Transparent"><Path x:Name="Chevron" Data="M 0,0 L 5,4 L 0,8 Z" Fill="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"/></Border>
     <ControlTemplate.Triggers>
      <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chevron" Property="RenderTransform"><Setter.Value><RotateTransform Angle="90"/></Setter.Value></Setter></Trigger>
-     <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="#26765C"/></Trigger>
+     <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Trigger>
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
    <Style.Triggers><Trigger Property="IsChecked" Value="True"><Setter Property="ToolTip" Value="折叠子标题"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="TreeViewItem">
+   <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
    <Setter Property="FontWeight" Value="Normal"/>
    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
@@ -40,33 +41,41 @@
       </Grid>
      </Border>
      <Grid x:Name="ChildrenHost" Grid.Row="1" Margin="10,0,0,0">
-      <Border x:Name="IndentGuide" Background="#CAD0CC" Width="1" HorizontalAlignment="Left" IsHitTestVisible="False"/>
+      <Border x:Name="IndentGuide" Background="{DynamicResource Guide}" Width="1" HorizontalAlignment="Left" IsHitTestVisible="False"/>
       <ItemsPresenter Margin="10,0,0,0"/>
      </Grid>
     </Grid>
     <ControlTemplate.Triggers>
      <Trigger Property="IsExpanded" Value="False"><Setter TargetName="ChildrenHost" Property="Visibility" Value="Collapsed"/></Trigger>
      <Trigger Property="HasItems" Value="False"><Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/><Setter TargetName="ChildrenHost" Property="Visibility" Value="Collapsed"/></Trigger>
-     <Trigger SourceName="Row" Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#E8EDE7"/></Trigger>
-     <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#DCE9DF"/><Setter Property="Foreground" Value="#1E654B"/></Trigger>
+     <Trigger SourceName="Row" Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource PanelBackground}"/></Trigger>
+     <DataTrigger Binding="{Binding IsViewportHighlighted}" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource Selection}"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/></DataTrigger>
      <DataTrigger Binding="{Binding IsRoot}" Value="True"><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,5,0,2"/></DataTrigger>
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
   </Style>
   <HierarchicalDataTemplate DataType="{x:Type local:OutlineNode}" ItemsSource="{Binding Children}">
    <DockPanel LastChildFill="True" VerticalAlignment="Center" Background="Transparent">
-    <Border x:Name="LevelBadge" DockPanel.Dock="Left" Background="#E8EDE7" BorderBrush="#BCC8BF" BorderThickness="1" CornerRadius="3" Width="20" Height="16" Margin="0,0,5,0" VerticalAlignment="Center" ToolTip="标题层级">
-     <TextBlock Text="{Binding LevelLabel}" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" Foreground="#657A6C" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid DockPanel.Dock="Left" Margin="0,0,5,0" VerticalAlignment="Center">
+    <Border x:Name="LevelBadge" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}" BorderThickness="1" CornerRadius="3" Width="20" Height="16" ToolTip="标题层级">
+     <TextBlock Text="{Binding LevelLabel}" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Badge}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Border>
-    <TextBlock x:Name="HeadingText" DockPanel.Dock="Left" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{Binding Tooltip}" ToolTipService.ShowDuration="20000"/>
-    <Path x:Name="DotLeader" Data="M 0,0 L 1,0" Stretch="Fill" Height="1" VerticalAlignment="Center" Stroke="#AAB5AD" StrokeThickness="1" StrokeDashArray="1,3" StrokeDashCap="Round" IsHitTestVisible="False">
+     <Ellipse x:Name="TodoDot" Width="6" Height="6" Fill="{DynamicResource Todo}" Stroke="{DynamicResource SidebarBackground}" StrokeThickness="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Visibility="Collapsed" ToolTip="此章节有待办事项"/>
+    </Grid>
+    <Path x:Name="CaretPen" DockPanel.Dock="Left" Width="13" Height="13" Margin="0,0,4,0" VerticalAlignment="Center" Data="M 2,9 L 9,2 12,5 5,12 1,13 Z M 7,4 L 10,7" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" StrokeThickness="1.3" StrokeLineJoin="Round" Visibility="Collapsed" ToolTip="光标所在章节"/>
+    <local:LatexTitleBlock x:Name="HeadingText" DockPanel.Dock="Left" Latex="{Binding Latex}" TextTrimming="None" TextWrapping="NoWrap" VerticalAlignment="Center" Margin="0,2,6,2" ToolTip="{Binding Tooltip}" ToolTipService.ShowDuration="20000"/>
+    <Path x:Name="DotLeader" Data="M 0,0 L 1,0" Stretch="Fill" Height="1" VerticalAlignment="Center" Stroke="{DynamicResource Subtle}" StrokeThickness="1" StrokeDashArray="1,3" StrokeDashCap="Round" IsHitTestVisible="False">
      <Path.Style><Style TargetType="Path"><Style.Triggers><DataTrigger Binding="{Binding Children.Count}" Value="0"><Setter Property="Visibility" Value="Hidden"/></DataTrigger></Style.Triggers></Style></Path.Style>
     </Path>
    </DockPanel>
+   <HierarchicalDataTemplate.Triggers>
+    <DataTrigger Binding="{Binding HasCaret}" Value="True"><Setter TargetName="CaretPen" Property="Visibility" Value="Visible"/></DataTrigger>
+    <DataTrigger Binding="{Binding HasTodo}" Value="True"><Setter TargetName="TodoDot" Property="Visibility" Value="Visible"/></DataTrigger>
+   </HierarchicalDataTemplate.Triggers>
   </HierarchicalDataTemplate>
  </UserControl.Resources>
  <TreeView x:Name="Tree" Background="Transparent" BorderThickness="0" Padding="0" Margin="8,0,8,6"
-  FontSize="13" Foreground="#34483E" HorizontalContentAlignment="Stretch"
-  ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+  FontSize="13" Foreground="{DynamicResource Ink}" HorizontalContentAlignment="Stretch"
+  ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
   PreviewKeyDown="Tree_KeyDown" AutomationProperties.Name="文档大纲"/>
 </UserControl>
