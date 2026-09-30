@@ -36,12 +36,12 @@ internal static partial class Program
             {
                 await Task.Delay(200);
                 var mainMenu = (Menu)window.FindName("MainMenu");
-                if (mainMenu.Visibility != Visibility.Collapsed) throw new Exception("Main menu must start collapsed");
+                if (mainMenu.Visibility != Visibility.Visible) throw new Exception("Wide title bar must show its menu");
                 var windowGrid = (Grid)window.Content;
                 if (windowGrid.RowDefinitions.Any(row => row.Height.IsAbsolute && Math.Abs(row.Height.Value - 64) < 0.1))
                     throw new Exception("The removed top toolbar still reserves a 64 px row");
-                if (((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y > 1)
-                    throw new Exception("Hidden menu/top toolbar still consumes welcome-page space");
+                if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
+                    throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
                 var fixture = Path.Combine(output, "project"); Directory.CreateDirectory(Path.Combine(fixture, "sections"));
                 var main = Path.Combine(fixture, "main.tex");
@@ -54,6 +54,13 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--titlebar-only"))
+                {
+                    await CheckTitleBarAsync(window, output);
+                    ((Button)window.FindName("CloseButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitUntilAsync(() => !window.IsVisible, "Caption close button did not close the window");
+                    result = 0; return;
+                }
                 if (existingFollow >= 0)
                 {
                     await CheckExistingFollowAsync(window, Path.GetFullPath(args[existingFollow + 1]), output);
@@ -508,7 +515,8 @@ internal static partial class Program
         var search = (TextBox)window.FindName("SearchBox");
         var results = (ListBox)window.FindName("IndexList");
         var workspace = (FrameworkElement)window.FindName("Workspace");
-        if (workspace.TranslatePoint(new Point(), (Grid)window.Content).Y > 1) throw new Exception("Removed toolbar leaves space above the editing workspace");
+        window.UpdateLayout();
+        if (Math.Abs(workspace.TranslatePoint(new Point(), (Grid)window.Content).Y - 40) > 1) throw new Exception("Workspace must begin directly below the title bar");
 
         // Collapsing layout must not rebuild the search view or replace the editor's document/selection.
         Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "search")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -599,6 +607,7 @@ internal static partial class Program
         }
 
         // Routed Alt events exercise the actual XAML key handlers without changing desktop keyboard state.
+        Invoke(window, "HideMainMenu", false);
         editor.Focus();
         window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
         window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));

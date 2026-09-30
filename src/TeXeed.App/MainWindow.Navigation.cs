@@ -96,10 +96,10 @@ public partial class MainWindow
             return true;
         }
 
-        if (key == Key.Escape && modifiers == ModifierKeys.None && MainMenu.Visibility == Visibility.Visible)
+        if (key == Key.Escape && modifiers == ModifierKeys.None && (MainMenu.Visibility == Visibility.Visible || _compactMenu.IsOpen))
         {
             // The menu's own keyboard handler closes the innermost popup first.
-            if (MainMenu.Items.OfType<MenuItem>().Any(item => item.IsSubmenuOpen)) return false;
+            if (_titleMenus.Any(item => item.IsSubmenuOpen)) return false;
             HideMainMenu(restoreFocus: true);
             return true;
         }
@@ -115,7 +115,7 @@ public partial class MainWindow
         ResetMenuAltGesture();
         if (toggle)
         {
-            if (MainMenu.Visibility == Visibility.Visible) HideMainMenu(restoreFocus: true);
+            if (MainMenu.Visibility == Visibility.Visible || _compactMenu.IsOpen) HideMainMenu(restoreFocus: true);
             else ShowMainMenu(FirstMenuItem);
         }
         return handled;
@@ -126,7 +126,7 @@ public partial class MainWindow
         // Alt+Tab may never deliver its key-up to this window.
         ResetMenuAltGesture();
         if (_closing || _allowClose) return;
-        if (MainMenu.Visibility == Visibility.Visible) HideMainMenu(restoreFocus: false);
+        CloseTitleMenus();
     }
 
     private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -135,8 +135,9 @@ public partial class MainWindow
         if (HandleWorkspaceIconPress(e.OriginalSource as DependencyObject, e.GetPosition(this), e.Timestamp, e.ChangedButton))
         { e.Handled = true; return; }
         _menuAltAlone = false;
-        if (MainMenu.Visibility == Visibility.Visible && !IsWithin(e.OriginalSource as DependencyObject, MainMenu))
-            HideMainMenu(restoreFocus: false);
+        if (!IsWithin(e.OriginalSource as DependencyObject, MainMenu)
+            && !IsWithin(e.OriginalSource as DependencyObject, _compactMenu)
+            && !IsWithin(e.OriginalSource as DependencyObject, CompactMenuButton)) CloseTitleMenus();
     }
 
     private void ResetMenuAltGesture()
@@ -150,7 +151,7 @@ public partial class MainWindow
     {
         var name = key.ToString();
         if (name.Length != 1) return null;
-        foreach (var menu in MainMenu.Items.OfType<MenuItem>().Where(item => item.IsEnabled))
+        foreach (var menu in _titleMenus.Where(item => item.IsEnabled))
         {
             var header = menu.Header?.ToString() ?? "";
             for (var i = 0; i < header.Length - 1; i++)
@@ -168,10 +169,23 @@ public partial class MainWindow
     {
         if (_closing || _allowClose || !IsLoaded || !IsVisible) return;
         MainMenu.IsMainMenu = false;
+        if (_compactTitleBar)
+        {
+            if (!_compactMenu.IsOpen)
+            {
+                _menuReturnFocus = Keyboard.FocusedElement;
+                _compactMenu.IsOpen = true;
+                _compactMenu.UpdateLayout();
+            }
+            selectedItem.Focus();
+            return;
+        }
+        if (!IsWithin(Keyboard.FocusedElement as DependencyObject, MainMenu))
+        {
+            _menuReturnFocus = Keyboard.FocusedElement;
+        }
         if (MainMenu.Visibility != Visibility.Visible)
         {
-            var previous = Keyboard.FocusedElement;
-            _menuReturnFocus = IsWithin(previous as DependencyObject, MainMenu) ? null : previous;
             MainMenu.Visibility = Visibility.Visible;
             MainMenu.UpdateLayout();
         }
@@ -182,9 +196,8 @@ public partial class MainWindow
     {
         var previous = _menuReturnFocus;
         _menuReturnFocus = null;
-        foreach (var item in MainMenu.Items.OfType<MenuItem>()) item.IsSubmenuOpen = false;
-        if (IsWithin(Mouse.Captured as DependencyObject, MainMenu)) Mouse.Capture(null);
-        MainMenu.Visibility = Visibility.Collapsed;
+        CloseTitleMenus();
+        if (!_compactTitleBar) MainMenu.Visibility = Visibility.Collapsed;
         if (!restoreFocus || _closing || _allowClose || !IsActive) return;
         if (previous is UIElement { IsVisible: true, IsEnabled: true, Focusable: true } element)
         {

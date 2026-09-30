@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException)
         { ThemeManager.UseDefault(); _settings = _settings with { ThemeId = ThemeManager.DefaultId }; }
         InitializeComponent();
+        InitializeTitleBar();
         RefreshThemeMenu();
         UpdateWorkspaceIcons();
         WindowTheme.Attach(this);
@@ -659,7 +660,7 @@ public partial class MainWindow : Window
     }
     private void Help_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this,
         "打开主 .tex 文件会自动加载项目依赖。\n\nAlt　显示 / 隐藏菜单\nCtrl+B　折叠 / 展开工作区\nCtrl+S　保存全部文件并编译\nCtrl+Enter　编译文档\nCtrl+Space　自动补全\nCtrl+/　切换注释\nTab / Shift+Tab　缩进 / 取消缩进\nCtrl+Shift+F　格式化\nCtrl+F　文件内查找\nCtrl+H　文件内替换\nAlt+左键单击　添加光标\nAlt+左键拖动 / 中键拖动　列框选\nEsc　返回单光标\nCtrl+J　按光标定位 PDF\nPDF 右键双击或 Ctrl+左键　返回源码\nPDF Ctrl+滚轮　以鼠标下的内容为中心缩放\n\n编辑器字体可在设置中选择，固定按英文一格、中文两格排版。\nPDF 预览栏可选择不跟随、跟随光标或跟随视图，选择会自动保存；跟随光标时，对应内容始终垂直居中。\n实时预览开启时，修改会在短暂延迟后自动保存并编译。\n编译需要安装 TeX Live 或 MiKTeX，也支持配置 Tectonic。\n中文文档建议使用 ctex 宏包及 XeLaTeX。\n动态生成的文件路径、外部目录引用需要手动整理到主文件目录内。", "TeXeed 使用说明", MessageBoxButton.OK, MessageBoxImage.Information);
-    private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, "TeXeed 0.1.22\n原生 Windows LaTeX 工作区\n\nC# · .NET 10 · WPF\nAvalonEdit / WpfMath (MIT) · PDFiumCore (Apache-2.0) · PDFium\n\n第三方许可随发行包提供。", "关于 TeXeed", MessageBoxButton.OK, MessageBoxImage.Information);
+    private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, $"TeXeed {typeof(MainWindow).Assembly.GetName().Version?.ToString(3)}\n原生 Windows LaTeX 工作区\n\nC# · .NET 10 · WPF\nAvalonEdit / WpfMath (MIT) · PDFiumCore (Apache-2.0) · PDFium\n\n第三方许可随发行包提供。", "关于 TeXeed", MessageBoxButton.OK, MessageBoxImage.Information);
     private async void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (HandleMenuKeyDown(e)) return;
