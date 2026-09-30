@@ -83,7 +83,7 @@ internal static partial class Program
                 if (ThemeManager.Brush("Accent").Color != Color.FromRgb(18, 52, 86)) throw new Exception("Invalid theme partially replaced the palette");
             }
             finally { File.Delete(custom); }
-            Console.WriteLine("PASS: pane footers, sidebar title alignment, momentary outline actions, log toggle and pane layout");
+            Console.WriteLine("PASS: pane footers, sidebar title alignment, removed fold icons, log toggle and pane layout");
             Console.WriteLine("PASS: live dark/light/custom themes, persistent selection, unchanged editor state, PDF appearance and translucent scrollbars");
         }
         finally
@@ -112,18 +112,14 @@ internal static partial class Program
         double? y = null;
         foreach (var icon in ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Where(button => button.Tag is string))
         {
-            icon.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
+            if ((string)Field(window, "_sidebar")! != (string)icon.Tag || !(bool)Field(window, "_workspaceExpanded")!) icon.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
             var next = title.TranslatePoint(new Point(), workspace).Y;
             if (y is { } before && Math.Abs(next - before) > .1) throw new Exception("Sidebar mode titles change vertical position");
             y = next;
         }
-        ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        foreach (var name in new[] { "CollapseOutlineButton", "ExpandOutlineButton" })
-        {
-            var button = (Button)window.FindName(name);
-            editor.Focus(); button.Focus(); button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            if (button.IsKeyboardFocused) throw new Exception("Outline action retained focus decoration");
-        }
+        if ((string)Field(window, "_sidebar")! != "outline") ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        if (window.FindName("CollapseOutlineButton") is not null || window.FindName("ExpandOutlineButton") is not null || window.FindName("CollapseWorkspaceButton") is not null)
+            throw new Exception("Redundant sidebar fold icons are still present");
         var log = (Expander)window.FindName("LogExpander");
         ((ToggleButton)window.FindName("LogToggle")).IsChecked = true; window.UpdateLayout();
         if (!log.IsExpanded || log.ActualHeight < 100) throw new Exception("Status bar cannot open compiler output");

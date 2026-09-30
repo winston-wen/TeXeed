@@ -30,7 +30,7 @@ internal static partial class Program
             await window.Dispatcher.InvokeAsync(() => window.UpdateLayout(), DispatcherPriority.ContextIdle);
             var heading = (Button)item.Template.FindName("HeadingButton", item);
             var watch = Stopwatch.StartNew();
-            heading.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            DoubleClickHeading(window, heading);
             var navigate = watch.Elapsed.TotalMilliseconds;
             await window.Dispatcher.InvokeAsync(() => window.UpdateLayout(), DispatcherPriority.ContextIdle);
             var frame = watch.Elapsed.TotalMilliseconds;

@@ -44,12 +44,12 @@ internal static partial class Program
         await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
         var menuPopup = (System.Windows.Controls.Primitives.Popup)fileMenu.Template.FindName("PART_Popup", fileMenu);
         CaptureOutline((FrameworkElement)menuPopup.Child, Path.Combine(output, "ristretto-menu.png"));
-        fileMenu.IsSubmenuOpen = false; menu.Visibility = Visibility.Collapsed;
+        fileMenu.IsSubmenuOpen = false;
         var sidebar = (FrameworkElement)window.FindName("SidebarPanel");
         CaptureOutline(sidebar, Path.Combine(output, "outline-latex.png"));
         var column = (ColumnDefinition)window.FindName("SidebarColumn"); var width = column.Width;
         column.Width = new GridLength(200); window.UpdateLayout();
-        if (Descendants<ScrollViewer>(outline).First().ScrollableWidth <= 1) throw new Exception("Long LaTeX titles lack horizontal scrolling");
+        if (Descendants<ScrollViewer>(outline).First().ScrollableWidth > 1 || !Descendants<OutlineTitleViewport>(outline).Any(t => t.IsClipped)) throw new Exception("Long LaTeX titles lack bounded clipping");
         CaptureOutline(sidebar, Path.Combine(output, "outline-latex-narrow.png")); column.Width = width;
 
         var project = await service.LoadAsync(path);

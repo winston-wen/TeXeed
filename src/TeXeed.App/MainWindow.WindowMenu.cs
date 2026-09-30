@@ -55,7 +55,7 @@ public partial class MainWindow
             }
             return 0;
         }
-        // Caption areas use non-client messages, whereas the logo and window
+        // Caption areas use non-client messages, whereas window
         // buttons route WPF right clicks. Consume WindowChrome's default menu
         // invocation so both paths use the same physical screen coordinates.
         if (message != 0xA5 || _closing || _allowClose) return 0; // WM_NCRBUTTONUP

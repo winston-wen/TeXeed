@@ -16,40 +16,6 @@ public partial class MainWindow
     private double _expandedWorkspaceWidth = 294;
     private double _expandedWorkspaceMinimum = 242;
     private GridLength _expandedSplitterWidth = new(2);
-    private Point? _workspaceIconPress;
-    private int _workspaceIconPressTime;
-    private bool _workspaceIconClickCompleted;
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern uint GetDoubleClickTime();
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern int GetSystemMetricsForDpi(int index, uint dpi);
-
-    private bool HandleWorkspaceIconPress(DependencyObject? source, Point position, int timestamp, MouseButton button)
-    {
-        // The permanent rail keeps every function at the same position.
-        var dpi = VisualTreeHelper.GetDpi(this);
-        var doubleClick = button == MouseButton.Left && _workspaceIconClickCompleted && _workspaceIconPress is { } previous
-            && unchecked((uint)(timestamp - _workspaceIconPressTime)) <= GetDoubleClickTime()
-            && Math.Abs(position.X - previous.X) <= GetSystemMetricsForDpi(36, (uint)dpi.PixelsPerInchX) / dpi.DpiScaleX / 2
-            && Math.Abs(position.Y - previous.Y) <= GetSystemMetricsForDpi(37, (uint)dpi.PixelsPerInchY) / dpi.DpiScaleY / 2;
-        _workspaceIconPress = null;
-        _workspaceIconClickCompleted = false;
-        if (doubleClick)
-        {
-            if (_workspaceExpanded) ToggleWorkspace();
-            return true;
-        }
-        if (button != MouseButton.Left) return false;
-        foreach (var icon in WorkspaceIconBar.Children.OfType<Button>())
-        {
-            if (icon.Tag is not string || !IsWithin(source, icon)) continue;
-            _workspaceIconPress = position;
-            _workspaceIconPressTime = timestamp;
-            break;
-        }
-        return false;
-    }
 
     private bool HandleMenuKeyDown(KeyEventArgs e)
     {
@@ -95,7 +61,7 @@ public partial class MainWindow
             return true;
         }
 
-        if (key == Key.Escape && modifiers == ModifierKeys.None && (MainMenu.Visibility == Visibility.Visible || _compactMenu.IsOpen))
+        if (key == Key.Escape && modifiers == ModifierKeys.None && (MainMenu.IsKeyboardFocusWithin || _compactMenu.IsOpen || _titleMenus.Any(item => item.IsSubmenuOpen)))
         {
             if (_compactMenu.IsOpen && _compactPanel.GoBack()) return true;
             // The menu's own keyboard handler closes the innermost popup first.
@@ -115,7 +81,7 @@ public partial class MainWindow
         ResetMenuAltGesture();
         if (toggle)
         {
-            if (MainMenu.Visibility == Visibility.Visible || _compactMenu.IsOpen) HideMainMenu(restoreFocus: true);
+            if (MainMenu.IsKeyboardFocusWithin || _compactMenu.IsOpen) HideMainMenu(restoreFocus: true);
             else ShowMainMenu(FirstMenuItem);
         }
         return handled;
@@ -132,8 +98,6 @@ public partial class MainWindow
     private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (_closing || _allowClose) return;
-        if (HandleWorkspaceIconPress(e.OriginalSource as DependencyObject, e.GetPosition(this), e.Timestamp, e.ChangedButton))
-        { e.Handled = true; return; }
         _menuAltAlone = false;
         if (!IsWithin(e.OriginalSource as DependencyObject, MainMenu)
             && !IsWithin(e.OriginalSource as DependencyObject, _compactPanel)
@@ -199,7 +163,6 @@ public partial class MainWindow
         var previous = _menuReturnFocus;
         _menuReturnFocus = null;
         CloseTitleMenus();
-        if (!_compactTitleBar) MainMenu.Visibility = Visibility.Collapsed;
         if (!restoreFocus || _closing || _allowClose || !IsActive) return;
         if (previous is UIElement { IsVisible: true, IsEnabled: true, Focusable: true } element)
         {

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using TeXeed.Core;
 
 namespace TeXeed.App.Controls;
@@ -18,6 +19,9 @@ public partial class DocumentOutline : UserControl
     private bool _updating;
     private SourceLocation? _caret;
     private IReadOnlyList<IndexEntry> _todos = [];
+    private OutlineNode? _lastClickedNode;
+    private bool _beforeSingleClickExpanded;
+    private Button? _marqueeButton;
     public event EventHandler<SourceLocation>? NavigateRequested;
 
     public DocumentOutline()
@@ -185,14 +189,56 @@ public partial class DocumentOutline : UserControl
 
     private void Heading_Click(object sender, RoutedEventArgs e)
     {
-        // A native button owns the entire row up to the separate expander. Let it
-        // capture and complete the click, including padding, before moving focus.
         if (sender is Button { DataContext: OutlineNode node })
         {
             e.Handled = true;
             node.IsSelected = true;
-            Navigate(node);
+            _lastClickedNode = node;
+            _beforeSingleClickExpanded = node.IsExpanded;
+            if (node.Children.Count > 0) node.IsExpanded = !node.IsExpanded;
         }
+    }
+
+    private void Heading_LeftDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || sender is not Button { DataContext: OutlineNode node }) return;
+        e.Handled = true;
+        // Single-click feedback is immediate. Undo the first click's fold when
+        // it becomes a double click, so navigation does not alter the hierarchy.
+        if (ReferenceEquals(_lastClickedNode, node)) node.IsExpanded = _beforeSingleClickExpanded;
+        _lastClickedNode = null;
+        node.IsSelected = true;
+        Navigate(node);
+    }
+    private void Heading_RightDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Button button) return;
+        e.Handled = true;
+        StopHeadingMarquee();
+        var title = FindTitle(button);
+        if (title is null || !title.IsClipped) return;
+        _marqueeButton = button;
+        ToolTipService.SetIsEnabled(button, false);
+        button.CaptureMouse(); title.StartMarquee();
+    }
+    private void Heading_RightUp(object sender, MouseButtonEventArgs e) { e.Handled = true; StopHeadingMarquee(); }
+    private void Heading_LostCapture(object sender, MouseEventArgs e)
+    {
+        if (ReferenceEquals(sender, _marqueeButton)) StopHeadingMarquee();
+    }
+    private void StopHeadingMarquee()
+    {
+        var button = _marqueeButton; _marqueeButton = null;
+        if (button is null) return;
+        FindTitle(button)?.StopMarquee(); ToolTipService.SetIsEnabled(button, true);
+        if (button.IsMouseCaptured) button.ReleaseMouseCapture();
+    }
+    private static OutlineTitleViewport? FindTitle(DependencyObject parent)
+    {
+        if (parent is OutlineTitleViewport title) return title;
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+            if (FindTitle(VisualTreeHelper.GetChild(parent, index)) is { } child) return child;
+        return null;
     }
 
     private void Tree_KeyDown(object sender, KeyEventArgs e)

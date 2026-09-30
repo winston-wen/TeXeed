@@ -34,6 +34,7 @@ public partial class MainWindow
         TitleBar.SizeChanged += (_, _) => UpdateTitleBarLayout();
         WindowRoot.SizeChanged += (_, _) => UpdateCompactMenuSize();
         Loaded += (_, _) => UpdateTitleBarLayout();
+        Activated += (_, _) => UpdateTitleBarLayout();
         StateChanged += (_, _) => UpdateCaptionState();
         UpdateCaptionState();
         InitializeWindowMenu();
@@ -55,8 +56,8 @@ public partial class MainWindow
         {
             CloseTitleMenus();
             _compactTitleBar = compact;
-            MainMenu.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         }
+        MainMenu.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         CompactMenuButton.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         CaptionTitle.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         UpdateCompactMenuSize();

@@ -68,7 +68,8 @@ internal static partial class Program
         {
             settingsField.SetValue(window, previousSettings with { LivePreview = false });
             await CallAsync(window, "OpenAsync", main);
-            Descendants<Button>(sidebar).Single(b => Equals(b.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if ((string)Field(window, "_sidebar")! != "outline" || !(bool)Field(window, "_workspaceExpanded")!)
+                Descendants<Button>((FrameworkElement)window.FindName("WorkspaceRail")).Single(b => Equals(b.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             column.Width = new GridLength(290); await Settle();
             var roots = tree.Items.Cast<OutlineNode>().ToArray();
             RequireOutline(roots.Length == 4 && roots[0].Children.Count == 4 && roots[1].Children[1].Children.Count == 5,
@@ -102,7 +103,7 @@ internal static partial class Program
                     for (var repeat = 0; repeat < 3; repeat++)
                     {
                         editor.Focus();
-                        ((IInvokeProvider)new ButtonAutomationPeer(heading)).Invoke();
+                        DoubleClickHeading(window, heading);
                         await Settle();
                         RequireOutline(clicks == repeat + 1 && editor.CurrentLocation?.Line == ((OutlineNode)target.Header).Entry.Line,
                             "A heading button invocation was dropped or navigated more than once.");
@@ -110,7 +111,7 @@ internal static partial class Program
                 }
                 finally { outline.NavigateRequested -= observe; }
             }
-            Console.WriteLine("PASS: full heading rows own upper/lower padding, badges and trailing space; repeated invocations navigate exactly once after editor focus");
+            Console.WriteLine("PASS: full heading rows own padding, badges and trailing space; repeated double clicks navigate exactly once after editor focus");
             CaptureOutline(sidebar, Path.Combine(output, "outline-expanded.png"));
 
             var caret = editor.CaretOffset;
@@ -129,7 +130,7 @@ internal static partial class Program
             RequireOutline(ReferenceEquals(roots[1], tree.Items[1]) && !roots[1].IsExpanded && roots[1].Title.EndsWith("（修订）"),
                 "Renaming a heading in place reset its collapsed state");
             foreach (var mode in new[] { "search", "files", "outline" })
-                Descendants<Button>(sidebar).Single(b => Equals(b.Tag, mode)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Descendants<Button>((FrameworkElement)window.FindName("WorkspaceRail")).Single(b => Equals(b.Tag, mode)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await Settle();
             RequireOutline(!roots[1].IsExpanded && outline.Visibility == Visibility.Visible, "Switching sidebar modes lost collapsed state");
             Console.WriteLine("PASS: outline hierarchy, consistent gray guides, compact rows and collapsed state survive edits, saves and sidebar switching");
@@ -146,20 +147,22 @@ internal static partial class Program
             child = Item(parent, roots[1].Children[1]);
             var clickedNode = roots[1].Children[1].Children[0];
             grandchild = Item(child, clickedNode);
-            var title = Descendants<LatexTitleBlock>(grandchild).First(block => block.Latex == clickedNode.Latex);
-            ((IInvokeProvider)new ButtonAutomationPeer((Button)grandchild.Template.FindName("HeadingButton", grandchild))).Invoke();
+            var title = Descendants<OutlineTitleViewport>(grandchild).First(block => block.Latex == clickedNode.Latex);
+            DoubleClickHeading(window, (Button)grandchild.Template.FindName("HeadingButton", grandchild));
             await Settle();
             RequireOutline(editor.CurrentLocation!.Line == clickedNode.Entry.Line && title.ToolTip.ToString()!.Contains("main.tex:"),
                 "Heading clicks or source-location tooltips do not target the correct source line");
             Console.WriteLine("PASS: outline expander, native arrow-key navigation, Enter and title clicks use independent fold/navigation actions");
 
-            column.Width = new GridLength(200); await Settle();
-            RequireOutline(Descendants<ScrollViewer>(tree).First().ScrollableWidth > 1, "Long outline titles should be reachable by horizontal scrolling");
+            column.Width = new GridLength(242); await Settle();
+            RequireOutline(Descendants<ScrollViewer>(tree).First().ScrollableWidth < 1 && Descendants<OutlineTitleViewport>(tree).Any(t => t.IsClipped), "Long outline titles must be clipped without pushing the expander offscreen");
             CaptureOutline(sidebar, Path.Combine(output, "outline-narrow.png"));
+            Capture(window, Path.Combine(output, "outline-narrow-window.png"));
+            await CheckOutlineInteractionsAsync(window, output);
             column.Width = new GridLength(390); outline.LayoutTransform = new ScaleTransform(1.5, 1.5); await Settle();
             CaptureOutline(sidebar, Path.Combine(output, "outline-scaled.png"));
             RequireOutline(Descendants<ToggleButton>(tree).Where(b => b.IsVisible).All(b => b.ActualWidth >= 20 && b.ActualHeight >= 28), "Scaled outline clipped its expander hit areas");
-            Console.WriteLine("PASS: outline renders at narrow widths and 150% scale with horizontal scrolling");
+            Console.WriteLine("PASS: outline renders at narrow widths and 150% scale with bounded title viewports");
 
             outline.LayoutTransform = Transform.Identity;
             editor.Document.Text = "\\section{Parent}\n\\subsection{A}\n" + string.Concat(Enumerable.Repeat("body\n", 120))

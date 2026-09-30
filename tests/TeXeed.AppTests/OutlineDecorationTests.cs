@@ -41,7 +41,8 @@ internal static partial class Program
         try
         {
             await CallAsync(window, "OpenAsync", main); column.Width = new GridLength(320);
-            Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if ((string)Field(window, "_sidebar")! != "outline" || !(bool)Field(window, "_workspaceExpanded")!)
+                Descendants<Button>((FrameworkElement)window.FindName("WorkspaceRail")).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             editor.NavigateTo(new SourceLocation(main, 8)); await Settle();
             var root = (OutlineNode)tree.Items[0];
             var formulaNode = root.Children[1]; var leaf = formulaNode.Children[0];
@@ -67,18 +68,15 @@ internal static partial class Program
                 "Vector formula lost inherited theme color");
             CaptureOutline(sidebar, Path.Combine(output, "outline-markers-math.png"));
             var scroll = Descendants<ScrollViewer>(tree).First();
-            Require(scroll.ScrollableWidth > 100, "Long titles were clipped instead of horizontally scrollable");
-            scroll.ScrollToRightEnd(); await Settle();
-            Require(scroll.HorizontalOffset > 100, "Horizontal scrollbar cannot reach title endings");
-            CaptureOutline(sidebar, Path.Combine(output, "outline-scrolled-right.png"));
-            scroll.ScrollToLeftEnd();
+            Require(scroll.ScrollableWidth < 1 && Descendants<OutlineTitleViewport>(tree).Any(t => t.IsClipped), "Long title did not stay inside bounded viewport");
+            Capture(window, Path.Combine(output, "outline-vector-clipping-window.png"));
 
             editor.Document.Text = editor.Text.Replace("TODO", "DONE").Replace("FIXME", "DONE").Replace("\\todo{核对求和公式}", "核对完毕");
             editor.NavigateTo(new SourceLocation(main, 5));
             await CallAsync(window, "SaveAsync"); await Settle();
             Require(!root.HasTodo && root.Children.All(node => !node.HasTodo) && !leaf.HasTodo, "Resolved TODO dots remained stale");
             Require(formulaNode.HasCaret, "Saving edits lost the caret marker");
-            Console.WriteLine("PASS: caret pen, TODO aggregation, native vector math, bounded formula rows and horizontal outline scrolling");
+            Console.WriteLine("PASS: caret pen, TODO aggregation, native vector math, bounded formula rows and clipped title viewports");
         }
         finally { column.Width = oldWidth; await CallAsync(window, "OpenAsync", previousPath); }
     }

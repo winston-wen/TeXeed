@@ -165,6 +165,7 @@ internal static partial class Program
         SystemCommands.RestoreWindow(window);
         await WaitUntilAsync(() => window.WindowState == WindowState.Normal, "Window did not restore after minimizing");
         await SettleAsync();
+        if (!menu.IsVisible) throw new Exception("Restoring minimized window hid the persistent menu");
         captionScreen = title.PointToScreen(new Point(title.ActualWidth - 180, 20));
         CaptionMessage(hwnd, 0xA3, 2, CaptionPoint(captionScreen));
         await WaitUntilAsync(() => window.WindowState == WindowState.Maximized, "Native caption double-click did not maximize");

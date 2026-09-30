@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using System.Windows.Media;
 using TeXeed.App;
 using TeXeed.App.Controls;
 
@@ -14,6 +15,7 @@ internal static partial class Program
     [StructLayout(LayoutKind.Sequential)] private struct TestMonitor { public int Size; public MenuRect Monitor, Work; public int Flags; }
     [DllImport("user32.dll")] private static extern nint MonitorFromWindow(nint hwnd, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetMonitorInfo(nint monitor, ref TestMonitor info);
+    [DllImport("user32.dll")] private static extern nint GetWindow(nint hwnd, uint command);
     private static void CheckWindowBottom(MainWindow window, bool fullscreen)
     {
         var hwnd = new WindowInteropHelper(window).Handle;
@@ -51,7 +53,15 @@ internal static partial class Program
             if (!key.Handled || title.IsVisible || !item.IsChecked || !toast.IsVisible || workspace.TranslatePoint(new Point(), window).Y > 1)
                 throw new Exception("F11 failed to hide caption, show toast, check menu and fill fullscreen");
             CheckWindowBottom(window, true);
+            if (!(bool)Field(window, "_shellFullscreenMarked")!) throw new Exception("Fullscreen was not explicitly registered with Windows Shell");
             await Task.Delay(240);
+            if (window.IsActive)
+            {
+                var tray = FindWindow("Shell_TrayWnd", null);
+                var hwnd = new WindowInteropHelper(window).Handle;
+                for (var above = GetWindow(hwnd, 3); above != 0; above = GetWindow(above, 3))
+                    if (above == tray) throw new Exception("Taskbar remained above active fullscreen window");
+            }
             if (toast.Opacity < .9) throw new Exception("Fullscreen toast did not fade in");
             Capture(window, Path.Combine(output, "fullscreen-" + prior + ".png"));
             // Alt still provides access to the View/Fullscreen command without a title bar.
@@ -62,6 +72,7 @@ internal static partial class Program
             Descendants<Button>(panel).Single(button => ReferenceEquals(button.Tag, item)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Settle();
             if (window.WindowState != prior || !title.IsVisible || item.IsChecked || !toast.IsVisible || popup.IsOpen)
                 throw new Exception("Menu exit did not restore previous window state");
+            if ((bool)Field(window, "_shellFullscreenMarked")!) throw new Exception("Leaving fullscreen did not clear Shell marking");
             if (Math.Abs(window.RestoreBounds.Width - bounds.Width) > 1 || Math.Abs(window.RestoreBounds.Height - bounds.Height) > 1)
                 throw new Exception("Fullscreen lost restored window dimensions");
             if (prior == WindowState.Maximized) CheckWindowBottom(window, false);
@@ -69,7 +80,7 @@ internal static partial class Program
         await Task.Delay(2800);
         if (toast.IsVisible) throw new Exception("Fullscreen toast did not fade out and hide");
         window.WindowState = WindowState.Normal; await Settle();
-        Console.WriteLine("PASS: work-area maximize, fullscreen monitor bounds, F11/menu exit, normal/maximized state restoration, toast fades and Alt access");
+        Console.WriteLine("PASS: work-area maximize, fullscreen Shell/taskbar registration and active z-order, F11/menu exit, window state restoration, toast fades and Alt access");
     }
     private static async Task CheckZoomControlsAsync(MainWindow window, string output)
     {
@@ -86,6 +97,10 @@ internal static partial class Program
         auto.IsChecked = false; auto.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         if (preview.IsAutoWidth) throw new Exception("Auto width toggle-off failed to freeze zoom");
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        var selectedInk = (SolidColorBrush)input.SelectionTextBrush;
+        if (selectedInk.Color != ((SolidColorBrush)input.Foreground).Color || selectedInk.Color == ((SolidColorBrush)input.SelectionBrush).Color)
+            throw new Exception("Selected zoom percentage is unreadable in current theme");
+        Capture(window, Path.Combine(output, "zoom-percentage-selected.png"));
         input.Text = "137.62%";
         input.RaiseEvent(CreateKey(window, Key.Enter, Keyboard.KeyDownEvent));
         if (input.IsVisible || Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Click-to-enter zoom percentage failed");

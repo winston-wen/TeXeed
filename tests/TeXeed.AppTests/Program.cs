@@ -504,151 +504,60 @@ internal static partial class Program
 
     private static async Task CheckNavigationAsync(MainWindow window, string output)
     {
-        var menu = (Menu)window.FindName("MainMenu");
+        var rail = (FrameworkElement)window.FindName("WorkspaceRail");
         var sidebar = (FrameworkElement)window.FindName("SidebarPanel");
         var column = (ColumnDefinition)window.FindName("SidebarColumn");
-        var splitterColumn = (ColumnDefinition)window.FindName("SidebarSplitterColumn");
-        var splitter = (GridSplitter)window.FindName("SidebarSplitter");
-        var rail = (FrameworkElement)window.FindName("WorkspaceRail");
-        var visibilityItem = (MenuItem)window.FindName("WorkspaceVisibilityMenuItem");
+        var menu = (Menu)window.FindName("MainMenu");
         var editor = (LatexEditor)window.FindName("Editor");
         var search = (TextBox)window.FindName("SearchBox");
-        var results = (ListBox)window.FindName("IndexList");
-        var workspace = (FrameworkElement)window.FindName("Workspace");
+        var buttons = Descendants<Button>(rail).ToArray();
         window.UpdateLayout();
-        if (Math.Abs(workspace.TranslatePoint(new Point(), (Grid)window.Content).Y - 40) > 1) throw new Exception("Workspace must begin directly below the title bar");
-
-        // Collapsing layout must not rebuild the search view or replace the editor's document/selection.
-        Descendants<Button>(rail).Single(button => Equals(button.Tag, "search")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        search.Text = "section";
-        column.Width = new GridLength(315);
-        editor.Select(3, Math.Min(9, Math.Max(0, editor.Text.Length - 3)));
-        window.UpdateLayout();
-        var rememberedWidth = column.ActualWidth;
-        var rememberedPath = editor.CurrentFilePath;
-        var rememberedSelection = editor.SelectedText;
-        var rememberedResults = results.ItemsSource;
-        ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        window.UpdateLayout();
-        if (sidebar.Visibility != Visibility.Collapsed || rail.Visibility != Visibility.Visible || splitter.Visibility != Visibility.Collapsed || visibilityItem.IsChecked)
-            throw new Exception("Sidebar collapse did not switch panel, splitter, rail and menu state together");
-        if (Math.Abs(column.ActualWidth - 42) > 1 || splitterColumn.ActualWidth > 1)
-            throw new Exception("Collapsed workspace must leave only its 42 px icon rail");
-        await WaitForPreviewRenderedAsync(window);
-        Capture(window, Path.Combine(output, "workspace-collapsed.png"));
-        var sidebarKey = CreateKey(window, Key.B, Keyboard.PreviewKeyDownEvent);
-        await CallAsync(window, "HandleShortcutAsync", sidebarKey, ModifierKeys.Control);
-        window.UpdateLayout();
-        if (!sidebarKey.Handled || sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Visible || !visibilityItem.IsChecked || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
-            throw new Exception("Ctrl+B did not restore the sidebar's user-selected width");
-        if ((string?)Field(window, "_sidebar") != "search" || search.Text != "section" || !ReferenceEquals(rememberedResults, results.ItemsSource) ||
-            editor.CurrentFilePath != rememberedPath || editor.SelectedText != rememberedSelection)
-            throw new Exception("Collapsing the sidebar discarded search mode, filter, source location or selection");
-
-        visibilityItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-        var restore = Descendants<Button>(rail).Single(button => Equals(button.Tag, "search"));
-        restore.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        window.UpdateLayout();
-        if (sidebar.Visibility != Visibility.Visible || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
-            throw new Exception("The collapsed rail did not restore the sidebar");
-
-        // Every collapsed icon must open its own panel with a single activation,
-        // including the already-selected mode; preserve source and search state.
-        foreach (var mode in new[] { "outline", "files", "search", "labels", "todos", "todos" })
-        {
-            ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Descendants<Button>(rail).Single(button => Equals(button.Tag, mode)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            window.UpdateLayout();
-            if (sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Visible ||
-                (string?)Field(window, "_sidebar") != mode || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
-                throw new Exception($"Collapsed {mode} icon did not open its panel and restore width");
-            var visiblePanel = mode switch { "outline" => "OutlineTree", "files" => "FileTree", _ => "IndexList" };
-            if (!((FrameworkElement)window.FindName(visiblePanel)).IsVisible)
-                throw new Exception($"The {mode} panel is not visible after activating its icon");
-            if (mode == "search" && !search.IsKeyboardFocusWithin)
-                throw new Exception("Opening search from the rail did not focus its input");
-            if (search.Text != "section" || editor.CurrentFilePath != rememberedPath || editor.SelectedText != rememberedSelection)
-                throw new Exception("Switching panels through the rail discarded search or editor state");
-        }
-        Descendants<Button>(rail).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        column.Width = new GridLength(242); window.UpdateLayout();
-        var iconBar = (FrameworkElement)window.FindName("WorkspaceIconBar");
-        foreach (var icon in Descendants<System.Windows.Shapes.Path>(iconBar))
-        {
-            var origin = icon.TranslatePoint(new Point(), iconBar);
-            if (origin.X < 0 || origin.Y < 0 || origin.X + icon.ActualWidth > iconBar.ActualWidth || origin.Y + icon.ActualHeight > iconBar.ActualHeight)
-                throw new Exception("Workspace icon clipped at minimum sidebar width");
-        }
-        CaptureOutline(sidebar, Path.Combine(output, "workspace-icons-narrow.png"));
-        column.Width = new GridLength(rememberedWidth); window.UpdateLayout();
-        CaptureOutline(sidebar, Path.Combine(output, "workspace-icons-expanded.png"));
-        ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        window.UpdateLayout();
-        CaptureOutline(rail, Path.Combine(output, "workspace-icons-rail.png"));
-        Invoke(window, "ToggleWorkspace");
-
-        foreach (var collapsed in new[] { false, true })
+        if (buttons.Length != 5 || window.FindName("CollapseWorkspaceButton") is not null)
+            throw new Exception("Permanent rail must contain exactly five functions and no collapse button");
+        var positions = buttons.ToDictionary(b => b, b => b.TranslatePoint(new Point(), window));
+        var path = editor.CurrentFilePath; var text = editor.Text;
+        column.Width = new GridLength(315); window.UpdateLayout();
         foreach (var mode in new[] { "outline", "files", "search", "labels", "todos" })
         {
-            if (collapsed) Invoke(window, "ToggleWorkspace");
-            window.UpdateLayout();
-            var surface = rail;
-            var icon = Descendants<Button>(surface).Single(button => Equals(button.Tag, mode));
-            var position = icon.TranslatePoint(new Point(10, 10), window);
-            var timestamp = Environment.TickCount;
-            Invoke(window, "HandleWorkspaceIconPress", icon, position, timestamp, MouseButton.Left);
-            icon.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            window.UpdateLayout();
-            // On the rail the icon has now moved. The second press may hit content.
-            if (!(bool)Invoke(window, "HandleWorkspaceIconPress", sidebar, position, timestamp + 50, MouseButton.Left)!
-                || sidebar.Visibility != Visibility.Collapsed)
-                throw new Exception($"Double click on {mode} (collapsed={collapsed}) failed to collapse");
-            Invoke(window, "ToggleWorkspace");
+            if ((bool)Field(window, "_workspaceExpanded")!) Invoke(window, "ToggleWorkspace");
+            var button = buttons.Single(b => Equals(b.Tag, mode));
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
+            if (!sidebar.IsVisible || (string)Field(window, "_sidebar")! != mode || Math.Abs(column.ActualWidth - 315) > 1)
+                throw new Exception(mode + " single click did not expand its panel");
+            if (mode == "search") search.Text = "section";
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
+            if (sidebar.IsVisible || !rail.IsVisible || Math.Abs(column.ActualWidth - 42) > 1)
+                throw new Exception(mode + " second single click did not collapse its panel");
+            if (buttons.Any(b => (b.TranslatePoint(new Point(), window) - positions[b]).Length > 1))
+                throw new Exception("Function icons moved during collapse/expand");
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
         }
-
-        // Routed Alt events exercise the actual XAML key handlers without changing desktop keyboard state.
-        Invoke(window, "HideMainMenu", false);
-        editor.Focus();
-        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
-        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));
-        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-        if (menu.Visibility != Visibility.Visible) throw new Exception("Alt did not reveal the main menu");
-        if (!menu.IsKeyboardFocusWithin) throw new Exception("Alt did not move keyboard focus into the main menu");
-        await WaitForPreviewRenderedAsync(window);
-        Capture(window, Path.Combine(output, "menu-visible.png"));
-        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
-        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));
-        if (menu.Visibility != Visibility.Collapsed) throw new Exception("A second Alt did not hide the main menu");
-        if (!editor.IsKeyboardFocusWithin) throw new Exception("Hiding the main menu did not restore editor focus");
-        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
-        window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));
-        window.RaiseEvent(CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent));
-        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Escape did not leave the revealed menu");
-        // Modifier state cannot be synthesized by routed events; exercise the same gesture state machine for chords.
-        Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt);
-        if ((bool)Invoke(window, "ProcessMenuKeyDown", Key.Tab, ModifierKeys.Alt)!) throw new Exception("Menu handler consumed Alt+Tab");
-        Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
-        Invoke(window, "ProcessMenuKeyDown", Key.RightAlt, ModifierKeys.Control | ModifierKeys.Alt);
-        Invoke(window, "ProcessMenuKeyUp", Key.RightAlt, ModifierKeys.Control);
-        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Alt+Tab or AltGr unexpectedly revealed the menu");
-        Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt);
-        editor.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
-            { RoutedEvent = UIElement.PreviewMouseDownEvent });
-        Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
-        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Alt+mouse editor gesture unexpectedly revealed the main menu on release");
-        var firstMenu = (MenuItem)window.FindName("FirstMenuItem");
-        Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt);
-        Invoke(window, "ProcessMenuKeyDown", Key.F, ModifierKeys.Alt);
-        Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
-        if (menu.Visibility != Visibility.Visible || !firstMenu.IsSubmenuOpen) throw new Exception("Alt+F did not retain the open File menu after Alt release");
-        if ((bool)Invoke(window, "ProcessMenuKeyDown", Key.Escape, ModifierKeys.None)!) throw new Exception("Escape should let WPF close an open submenu first");
-        firstMenu.IsSubmenuOpen = false;
-        Invoke(window, "ProcessMenuKeyDown", Key.Escape, ModifierKeys.None);
-        if (menu.Visibility != Visibility.Collapsed) throw new Exception("Escape did not close menu activation after submenu dismissal");
+        buttons.Single(b => Equals(b.Tag, "search")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.UpdateLayout();
+        if (!sidebar.IsVisible || search.Text != "section" || editor.CurrentFilePath != path || editor.Text != text)
+            throw new Exception("Switching functions discarded source or search state");
+        var ctrlB = CreateKey(window, Key.B, Keyboard.PreviewKeyDownEvent);
+        await CallAsync(window, "HandleShortcutAsync", ctrlB, ModifierKeys.Control);
+        if (!ctrlB.Handled || sidebar.IsVisible) throw new Exception("Ctrl+B did not collapse sidebar");
+        await CallAsync(window, "HandleShortcutAsync", CreateKey(window, Key.B, Keyboard.PreviewKeyDownEvent), ModifierKeys.Control);
+        if (!sidebar.IsVisible) throw new Exception("Ctrl+B did not expand sidebar");
+        foreach (var iteration in new[] { 0, 1, 2 })
+        {
+            window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyDownEvent));
+            window.RaiseEvent(CreateKey(window, Key.LeftAlt, Keyboard.PreviewKeyUpEvent));
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            if (!menu.IsVisible) throw new Exception("Alt hid the persistent main menu");
+        }
+        Invoke(window, "HideMainMenu", true);
+        if (!menu.IsVisible) throw new Exception("Closing menus hid the main menu bar");
+        editor.TextArea.Focus();
+        if ((bool)Invoke(window, "ProcessMenuKeyDown", Key.Escape, ModifierKeys.None, false)!)
+            throw new Exception("Persistent menu consumed editor Escape with no menu active");
+        Capture(window, Path.Combine(output, "permanent-rail-menu.png"));
         await CheckZoomControlsAsync(window, output);
-        Console.WriteLine("PASS: permanent five-icon rail, Alt menus, Ctrl+B/double-click collapse, preserved width and editor/search state");
+        Console.WriteLine("PASS: persistent menu, five stationary single-click function toggles, Ctrl+B and preserved source/search state");
         search.Clear();
-        Descendants<Button>(rail).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        buttons.Single(b => Equals(b.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
 
     private static async Task CheckViewportFollowingAsync(MainWindow window, string root, string output)
