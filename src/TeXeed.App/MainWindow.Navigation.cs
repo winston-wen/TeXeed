@@ -92,12 +92,13 @@ public partial class MainWindow
         if (modifiers == ModifierKeys.Alt && FindMenuAccessKey(key) is { } menu)
         {
             ShowMainMenu(menu);
-            menu.IsSubmenuOpen = true;
+            OpenTitleSubmenu(menu);
             return true;
         }
 
         if (key == Key.Escape && modifiers == ModifierKeys.None && (MainMenu.Visibility == Visibility.Visible || _compactMenu.IsOpen))
         {
+            if (_compactMenu.IsOpen && _compactPanel.GoBack()) return true;
             // The menu's own keyboard handler closes the innermost popup first.
             if (_titleMenus.Any(item => item.IsSubmenuOpen)) return false;
             HideMainMenu(restoreFocus: true);
@@ -136,7 +137,7 @@ public partial class MainWindow
         { e.Handled = true; return; }
         _menuAltAlone = false;
         if (!IsWithin(e.OriginalSource as DependencyObject, MainMenu)
-            && !IsWithin(e.OriginalSource as DependencyObject, _compactMenu)
+            && !IsWithin(e.OriginalSource as DependencyObject, _compactPanel)
             && !IsWithin(e.OriginalSource as DependencyObject, CompactMenuButton)) CloseTitleMenus();
     }
 
@@ -174,10 +175,12 @@ public partial class MainWindow
             if (!_compactMenu.IsOpen)
             {
                 _menuReturnFocus = Keyboard.FocusedElement;
+                UpdateCompactMenuSize();
+                _compactPanel.Open();
                 _compactMenu.IsOpen = true;
-                _compactMenu.UpdateLayout();
+                _compactPanel.UpdateLayout();
             }
-            selectedItem.Focus();
+            _compactPanel.FocusItem(selectedItem);
             return;
         }
         if (!IsWithin(Keyboard.FocusedElement as DependencyObject, MainMenu))

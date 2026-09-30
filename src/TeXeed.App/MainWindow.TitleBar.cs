@@ -4,34 +4,39 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shell;
+using TeXeed.App.Controls;
 
 namespace TeXeed.App;
 
 public partial class MainWindow
 {
     private MenuItem[] _titleMenus = [];
-    private readonly ContextMenu _compactMenu = new();
+    private readonly System.Windows.Controls.Primitives.Popup _compactMenu = new() { AllowsTransparency = true, StaysOpen = false };
+    private CompactMenuPanel _compactPanel = null!;
     private bool _compactTitleBar;
     private double _wideMenuWidth;
 
     private void InitializeTitleBar()
     {
         _titleMenus = MainMenu.Items.OfType<MenuItem>().ToArray();
-        _compactMenu.PlacementTarget = CompactMenuButton;
-        _compactMenu.Placement = PlacementMode.Bottom;
-        _compactMenu.SetResourceReference(Control.BackgroundProperty, "SidebarBackground");
-        _compactMenu.SetResourceReference(Control.ForegroundProperty, "Ink");
-        _compactMenu.SetResourceReference(Control.BorderBrushProperty, "Line");
+        _compactPanel = new CompactMenuPanel(_titleMenus, (Style)FindResource("CompactMenuRow"));
+        _compactPanel.CloseRequested += (_, _) => HideMainMenu(true);
+        _compactMenu.Child = _compactPanel;
+        _compactMenu.PlacementTarget = TitleBar;
+        _compactMenu.Placement = PlacementMode.Relative;
+        _compactMenu.HorizontalOffset = 6;
+        _compactMenu.VerticalOffset = 40;
         _compactMenu.Closed += (_, _) => { if (_menuReturnFocus is not null) RestoreMenuFocus(); };
-        // ContextMenu popups have their own input route. Preserve the window's
+        // Popup panels have their own input route. Preserve the window's
         // menu activation and document shortcuts while focus is in that HWND.
-        _compactMenu.PreviewKeyDown += Window_KeyDown;
-        _compactMenu.PreviewKeyUp += Window_KeyUp;
-        CompactMenuButton.ContextMenu = _compactMenu;
+        _compactPanel.PreviewKeyDown += Window_KeyDown;
+        _compactPanel.PreviewKeyUp += Window_KeyUp;
         TitleBar.SizeChanged += (_, _) => UpdateTitleBarLayout();
+        WindowRoot.SizeChanged += (_, _) => UpdateCompactMenuSize();
         Loaded += (_, _) => UpdateTitleBarLayout();
         StateChanged += (_, _) => UpdateCaptionState();
         UpdateCaptionState();
+        InitializeWindowMenu();
     }
 
     private void UpdateTitleBarLayout()
@@ -43,21 +48,18 @@ public partial class MainWindow
             if (MainMenu.DesiredSize.Width > 0) _wideMenuWidth = MainMenu.DesiredSize.Width;
         }
         // Reserve the logo, caption buttons and a draggable gap before switching
-        // modes. Keep the same menu items so checks, recent projects and handlers
-        // remain live in both presentations.
+        // modes. The compact panel reads the same live menu items; it never opens
+        // their cascading popups or changes their logical ownership.
         var compact = TitleBar.ActualWidth < 12 + 44 + _wideMenuWidth + 138 + 80;
         if (compact != _compactTitleBar)
         {
             CloseTitleMenus();
-            var source = _compactTitleBar ? _compactMenu.Items : MainMenu.Items;
-            var destination = compact ? _compactMenu.Items : MainMenu.Items;
-            source.Clear();
-            foreach (var item in _titleMenus) destination.Add(item);
             _compactTitleBar = compact;
             MainMenu.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         }
         CompactMenuButton.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         CaptionTitle.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        UpdateCompactMenuSize();
     }
 
     private void UpdateCaptionState()
@@ -78,7 +80,7 @@ public partial class MainWindow
         foreach (var menu in _titleMenus) menu.IsSubmenuOpen = false;
         _compactMenu.IsOpen = false;
         if (IsWithin(Mouse.Captured as DependencyObject, MainMenu)
-            || IsWithin(Mouse.Captured as DependencyObject, _compactMenu)) Mouse.Capture(null);
+            || IsWithin(Mouse.Captured as DependencyObject, _compactPanel)) Mouse.Capture(null);
     }
 
     private void RestoreMenuFocus()
@@ -97,16 +99,23 @@ public partial class MainWindow
         else ShowMainMenu(FirstMenuItem);
     }
 
-    private void AppIcon_Click(object sender, RoutedEventArgs e)
+    private void UpdateCompactMenuSize()
     {
         if (_closing || _allowClose) return;
-        SystemCommands.ShowSystemMenu(this, AppIconButton.PointToScreen(new Point(0, AppIconButton.ActualHeight)));
+        _compactPanel.Width = Math.Min(420, Math.Max(1, TitleBar.ActualWidth - 12));
+        var available = Math.Max(1, WindowRoot.ActualHeight - TitleBar.ActualHeight - 6);
+        if (IsLoaded && PresentationSource.FromVisual(TitleBar) is not null)
+        {
+            var screen = TitleBar.PointToScreen(new Point(6, TitleBar.ActualHeight));
+            available = Math.Min(available, WindowMenuSpaceBelow(screen) / VisualTreeHelper.GetDpi(this).DpiScaleY);
+        }
+        _compactPanel.MaxHeight = Math.Max(1, available);
     }
 
-    private void AppIcon_DoubleClick(object sender, MouseButtonEventArgs e)
+    private void OpenTitleSubmenu(MenuItem menu)
     {
-        e.Handled = true;
-        Close();
+        if (_compactTitleBar) _compactPanel.NavigateTo(menu);
+        else menu.IsSubmenuOpen = true;
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);

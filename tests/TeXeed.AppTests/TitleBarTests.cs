@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -71,17 +72,19 @@ internal static partial class Program
         CheckBounds();
         compact.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await SettleAsync();
-        var popup = compact.ContextMenu!;
-        if (!popup.IsOpen || !popup.Items.OfType<MenuItem>().SequenceEqual(menus))
+        var popup = (Popup)Field(window, "_compactMenu")!;
+        var panel = (CompactMenuPanel)popup.Child;
+        if (!popup.IsOpen || !menu.Items.OfType<MenuItem>().SequenceEqual(menus))
             throw new Exception("Compact menu must reuse all live menu commands");
         var view = menus[2];
-        view.IsSubmenuOpen = true;
+        panel.NavigateTo(view);
         await SettleAsync();
         var workspaceMenu = (MenuItem)window.FindName("WorkspaceVisibilityMenuItem");
         var previous = workspaceMenu.IsChecked;
-        workspaceMenu.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        Descendants<Button>(panel).Single(b => ReferenceEquals(b.Tag, workspaceMenu)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         if (workspaceMenu.IsChecked == previous) throw new Exception("Compact View menu command did not execute");
-        workspaceMenu.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        compact.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); panel.NavigateTo(view); await SettleAsync();
+        Descendants<Button>(panel).Single(b => ReferenceEquals(b.Tag, workspaceMenu)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Invoke(window, "HideMainMenu", true);
         window.Width = 100;
         await SettleAsync();
@@ -93,12 +96,45 @@ internal static partial class Program
         await SettleAsync();
         if (!popup.IsOpen) throw new Exception("Alt must open the compact menu");
         var escape = CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent);
-        popup.RaiseEvent(escape);
+        panel.RaiseEvent(escape);
         await SettleAsync();
         if (!escape.Handled || popup.IsOpen) throw new Exception("Compact popup must route Escape to the window and return focus");
         Invoke(window, "ProcessMenuKeyDown", Key.V, ModifierKeys.Alt, false);
         await SettleAsync();
-        if (!popup.IsOpen || !view.IsSubmenuOpen) throw new Exception("Alt+V must open compact View menu");
+        if (!popup.IsOpen || panel.CurrentMenu != view) throw new Exception("Alt+V must open compact View menu");
+        var themes = (MenuItem)window.FindName("ThemeMenu");
+        Descendants<Button>(panel).Single(b => ReferenceEquals(b.Tag, themes)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await SettleAsync();
+        if (panel.Depth != 2 || panel.CurrentMenu != themes || themes.IsSubmenuOpen)
+            throw new Exception("Third compact menu level must replace the panel without a cascading popup");
+        CaptureOutline(panel, Path.Combine(output, "compact-third-level.png"));
+        foreach (var expectedDepth in new[] { 1, 0 })
+        {
+            panel.RaiseEvent(CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent)); await SettleAsync();
+            if (!popup.IsOpen || panel.Depth != expectedDepth) throw new Exception("Escape must return exactly one compact menu level");
+        }
+        panel.RaiseEvent(CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent)); await SettleAsync();
+        if (popup.IsOpen) throw new Exception("Escape at root must close the compact menu");
+        compact.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); panel.NavigateTo(view); await SettleAsync();
+        Descendants<Button>(panel).Single(b => ReferenceEquals(b.Tag, themes)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await SettleAsync();
+        var lightTheme = themes.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, "github-light-default"));
+        Descendants<Button>(panel).Single(b => ReferenceEquals(b.Tag, lightTheme)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await SettleAsync();
+        if (popup.IsOpen || ThemeManager.Current.Id != "github-light-default") throw new Exception("Compact third-level theme command did not execute and dismiss the menu");
+        Invoke(window, "SelectTheme", originalTheme, true);
+        var savedHeight = window.Height; window.Height = window.MinHeight; await SettleAsync();
+        compact.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); panel.NavigateTo(menus[0]); await SettleAsync();
+        var menuScroll = Descendants<ScrollViewer>(panel).Single();
+        if (menuScroll.ScrollableHeight <= 1) throw new Exception("Crowded compact File menu must scroll");
+        var wheel = new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = Mouse.PreviewMouseWheelEvent };
+        menuScroll.RaiseEvent(wheel); await SettleAsync();
+        if (!wheel.Handled || menuScroll.VerticalOffset <= 1) throw new Exception("Mouse wheel did not scroll compact menu down");
+        CaptureOutline(panel, Path.Combine(output, "compact-scrolled.png"));
+        menuScroll.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, 120) { RoutedEvent = Mouse.PreviewMouseWheelEvent }); await SettleAsync();
+        if (menuScroll.VerticalOffset > 1) throw new Exception("Mouse wheel did not scroll compact menu up");
+        // A real preview input route on background content must close every level.
+        editor.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent });
+        await SettleAsync(); if (popup.IsOpen) throw new Exception("Outside click did not close all compact menu levels");
+        window.Height = savedHeight;
 
         foreach (var width in new[] { 1100d, 280, 900, 340, 1440 })
         {
@@ -118,8 +154,11 @@ internal static partial class Program
         await WaitUntilAsync(() => window.WindowState == WindowState.Maximized, "Caption maximize did not work");
         await SettleAsync(); CheckBounds();
         Capture(window, Path.Combine(output, "titlebar-maximized.png"));
+        await CheckNativeWindowMenuAsync(window, title, menu, compact);
         ((Button)window.FindName("MaximizeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await WaitUntilAsync(() => window.WindowState == WindowState.Normal, "Caption restore did not work");
+        await SettleAsync();
+        await CheckNativeWindowMenuAsync(window, title, menu, compact);
         ((Button)window.FindName("MinimizeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await WaitUntilAsync(() => window.WindowState == WindowState.Minimized, "Caption minimize did not work");
         SystemCommands.RestoreWindow(window);
@@ -129,6 +168,6 @@ internal static partial class Program
         CaptionMessage(hwnd, 0xA3, 2, CaptionPoint(captionScreen));
         await WaitUntilAsync(() => window.WindowState == WindowState.Maximized, "Native caption double-click did not maximize");
         SystemCommands.RestoreWindow(window); await SettleAsync();
-        Console.WriteLine("PASS: themed native title bar, caption hit tests, compact live menus/Alt shortcuts, minimum width, resizing, maximize/restore/minimize and double-click");
+        Console.WriteLine("PASS: themed title bar, compact third-level commands, wheel scrolling, per-level Escape/outside dismissal, Alt shortcuts, minimum width and native window controls");
     }
 }

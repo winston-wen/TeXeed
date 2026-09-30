@@ -5,11 +5,11 @@
  <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="WorkspaceIcons.xaml"/><ResourceDictionary Source="TitleBar.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary></Window.Resources>
  <Grid x:Name="WindowRoot" ClipToBounds="True" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}">
   <Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-  <Border x:Name="TitleBar" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
+  <Border x:Name="TitleBar" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" PreviewMouseRightButtonUp="TitleBar_RightButtonUp">
    <Grid Margin="6,6,6,0"><Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="138"/></Grid.ColumnDefinitions>
-    <Button x:Name="AppIconButton" Style="{StaticResource TitleIconButton}" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="TeXeed · 窗口菜单" AutomationProperties.Name="窗口菜单" Click="AppIcon_Click" MouseDoubleClick="AppIcon_DoubleClick">
+    <Border x:Name="AppIconButton" Background="Transparent" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="TeXeed" AutomationProperties.Name="TeXeed">
      <Border Width="24" Height="24" CornerRadius="5" Background="{DynamicResource Accent}"><Path Width="14" Height="16" Stretch="Fill" Fill="{DynamicResource SidebarBackground}" Data="M0,0 H14 V3 H9 V16 H5 V3 H0 Z"/></Border>
-    </Button>
+    </Border>
     <Grid Grid.Column="1" shell:WindowChrome.IsHitTestVisibleInChrome="True">
      <Button x:Name="CompactMenuButton" Visibility="Collapsed" Style="{StaticResource TitleIconButton}" Width="36" ToolTip="主菜单 (Alt)" AutomationProperties.Name="主菜单" Click="CompactMenu_Click"><Path Width="18" Height="14" Stretch="Fill" Data="M0,1 H18 M0,7 H18 M0,13 H18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
   <Menu x:Name="MainMenu" IsMainMenu="False" Background="Transparent" Padding="0" FontSize="14" VerticalAlignment="Center"><Menu.ItemContainerStyle><Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}"><Setter Property="Padding" Value="10,7"/><Setter Property="Foreground" Value="{DynamicResource Muted}"/></Style></Menu.ItemContainerStyle>
