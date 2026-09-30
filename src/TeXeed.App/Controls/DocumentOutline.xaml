@@ -36,7 +36,7 @@
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
      <Border x:Name="Row" Background="Transparent" CornerRadius="4" MinHeight="30">
       <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <Button x:Name="HeadingButton" Grid.ColumnSpan="2" Padding="0,0,26,0" Style="{StaticResource OutlineHeading}" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" Foreground="{TemplateBinding Foreground}" FontWeight="{TemplateBinding FontWeight}" Click="Heading_Click" PreviewMouseLeftButtonDown="Heading_LeftDown" PreviewMouseRightButtonDown="Heading_RightDown" PreviewMouseRightButtonUp="Heading_RightUp" LostMouseCapture="Heading_LostCapture" AutomationProperties.Name="{Binding Title}"/>
+       <Button x:Name="HeadingButton" Grid.ColumnSpan="2" Padding="0,0,26,0" Style="{StaticResource OutlineHeading}" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" Foreground="{TemplateBinding Foreground}" FontWeight="{TemplateBinding FontWeight}" Click="Heading_Click" PreviewMouseLeftButtonDown="Heading_LeftDown" PreviewMouseLeftButtonUp="Heading_LeftUp" PreviewMouseRightButtonDown="Heading_RightDown" PreviewMouseRightButtonUp="Heading_RightUp" LostMouseCapture="Heading_LostCapture" AutomationProperties.Name="{Binding Title}"/>
        <ToggleButton x:Name="Expander" Grid.Column="1" IsHitTestVisible="False" Style="{StaticResource OutlineExpander}" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" AutomationProperties.Name="展开或折叠子标题"/>
       </Grid>
      </Border>

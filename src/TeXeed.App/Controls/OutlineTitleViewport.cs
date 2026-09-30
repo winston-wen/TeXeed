@@ -6,8 +6,8 @@ using System.Windows.Threading;
 namespace TeXeed.App.Controls;
 
 /// <summary>A bounded rich title: formulas remain vector content clipped at the
-/// right edge, while the expander stays outside this viewport. Holding the right
-/// button temporarily moves the full title back and forth inside the same row.</summary>
+/// right edge, while the expander stays outside this viewport. Holding either
+/// mouse button temporarily moves the full title inside the same row.</summary>
 public sealed class OutlineTitleViewport : FrameworkElement
 {
     public static readonly DependencyProperty LatexProperty = DependencyProperty.Register(nameof(Latex), typeof(string), typeof(OutlineTitleViewport),
@@ -18,7 +18,7 @@ public sealed class OutlineTitleViewport : FrameworkElement
     public static readonly DependencyProperty LeaderBrushProperty = DependencyProperty.Register(nameof(LeaderBrush), typeof(Brush), typeof(OutlineTitleViewport), new FrameworkPropertyMetadata(Brushes.Gray, FrameworkPropertyMetadataOptions.AffectsRender));
     public Brush LeaderBrush { get => (Brush)GetValue(LeaderBrushProperty); set => SetValue(LeaderBrushProperty, value); }
     private readonly LatexTitleBlock _title = new() { TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.None, IsHitTestVisible = false, HorizontalAlignment = HorizontalAlignment.Left };
-    private readonly Border _clip;
+    private readonly Canvas _clip;
     private readonly TextBlock _ellipsis = new() { Text = "…", IsHitTestVisible = false };
     private readonly VisualCollection _visuals;
     private readonly TranslateTransform _translate = new();
@@ -34,7 +34,11 @@ public sealed class OutlineTitleViewport : FrameworkElement
     {
         ClipToBounds = true;
         _title.RenderTransform = _translate;
-        _clip = new Border { ClipToBounds = true, Child = _title, IsHitTestVisible = false };
+        // Canvas arranges the child at its full desired width. A Border would
+        // impose a layout clip on the title itself; translating that clip along
+        // with the text leaves the trailing part permanently invisible.
+        _clip = new Canvas { ClipToBounds = true, IsHitTestVisible = false };
+        _clip.Children.Add(_title);
         _visuals = new VisualCollection(this) { _clip, _ellipsis };
         _timer.Tick += (_, _) => AdvanceMarquee();
         Unloaded += (_, _) => StopMarquee();
@@ -43,7 +47,6 @@ public sealed class OutlineTitleViewport : FrameworkElement
     protected override Visual GetVisualChild(int index) => _visuals[index];
     protected override Size MeasureOverride(Size availableSize)
     {
-        _title.Width = double.NaN;
         _title.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         _naturalWidth = _title.DesiredSize.Width;
         _ellipsis.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -54,7 +57,7 @@ public sealed class OutlineTitleViewport : FrameworkElement
     {
         var ellipsis = _naturalWidth > finalSize.Width + .5 && !IsMarqueeActive;
         var width = Math.Max(0, finalSize.Width - (ellipsis ? _ellipsis.DesiredSize.Width : 0));
-        _title.Width = _naturalWidth;
+        Canvas.SetTop(_title, (finalSize.Height - _title.DesiredSize.Height) / 2);
         _clip.Measure(new Size(width, finalSize.Height));
         _clip.Arrange(new Rect(0, 0, width, finalSize.Height));
         _ellipsis.Visibility = ellipsis ? Visibility.Visible : Visibility.Hidden;
@@ -68,10 +71,11 @@ public sealed class OutlineTitleViewport : FrameworkElement
         var pen = new Pen(LeaderBrush, 1) { DashStyle = new DashStyle(new double[] { 1, 3 }, 0), DashCap = PenLineCap.Round };
         context.DrawLine(pen, new Point(_naturalWidth + 6, ActualHeight / 2), new Point(ActualWidth, ActualHeight / 2));
     }
-    public void StartMarquee()
+    public void StartMarquee(int initialPauseMilliseconds = 400)
     {
         if (!IsClipped) return;
-        _offset = 0; _direction = 1; _lastTick = Environment.TickCount64; _pauseUntil = _lastTick + 400;
+        _offset = 0; _translate.X = 0; _direction = 1;
+        _lastTick = Environment.TickCount64; _pauseUntil = _lastTick + initialPauseMilliseconds;
         _timer.Start(); InvalidateArrange();
     }
     private void AdvanceMarquee()

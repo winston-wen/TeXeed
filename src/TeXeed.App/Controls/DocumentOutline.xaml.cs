@@ -6,12 +6,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using TeXeed.Core;
 
 namespace TeXeed.App.Controls;
 
 public partial class DocumentOutline : UserControl
 {
+    private const int HoldDelayMilliseconds = 400;
     private readonly ObservableCollection<OutlineNode> _roots = [];
     private Dictionary<NodeKey, OutlineNode> _nodes = [];
     private string? _mainPath;
@@ -22,12 +24,24 @@ public partial class DocumentOutline : UserControl
     private OutlineNode? _lastClickedNode;
     private bool _beforeSingleClickExpanded;
     private Button? _marqueeButton;
+    private MouseButton _marqueeMouseButton;
+    private bool _leftHoldStarted;
+    private long _holdStartedAt;
+    private readonly DispatcherTimer _leftHoldTimer = new() { Interval = TimeSpan.FromMilliseconds(HoldDelayMilliseconds) };
     public event EventHandler<SourceLocation>? NavigateRequested;
 
     public DocumentOutline()
     {
         InitializeComponent();
         Tree.ItemsSource = _roots;
+        _leftHoldTimer.Tick += (_, _) =>
+        {
+            _leftHoldTimer.Stop();
+            if (_marqueeButton is not { } button) return;
+            _leftHoldStarted = true;
+            FindTitle(button)?.StartMarquee(0);
+        };
+        Unloaded += (_, _) => StopHeadingMarquee();
     }
 
     public void SetAllExpanded(bool expanded)
@@ -201,8 +215,19 @@ public partial class DocumentOutline : UserControl
 
     private void Heading_LeftDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2 || sender is not Button { DataContext: OutlineNode node }) return;
+        if (sender is not Button { DataContext: OutlineNode node } button) return;
+        if (e.ClickCount != 2)
+        {
+            if (BeginHeadingHold(button, MouseButton.Left))
+            {
+                e.Handled = true;
+                button.Focus();
+                _leftHoldTimer.Start();
+            }
+            return;
+        }
         e.Handled = true;
+        StopHeadingMarquee();
         // Single-click feedback is immediate. Undo the first click's fold when
         // it becomes a double click, so navigation does not alter the hierarchy.
         if (ReferenceEquals(_lastClickedNode, node)) node.IsExpanded = _beforeSingleClickExpanded;
@@ -210,27 +235,63 @@ public partial class DocumentOutline : UserControl
         node.IsSelected = true;
         Navigate(node);
     }
+    private void Heading_LeftUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!ReferenceEquals(sender, _marqueeButton) || _marqueeMouseButton != MouseButton.Left) return;
+        e.Handled = true;
+        var button = _marqueeButton!;
+        CompleteHeadingLeftHold(button, e.GetPosition(button));
+    }
+    private void CompleteHeadingLeftHold(Button button, Point releasePosition)
+    {
+        var click = !_leftHoldStarted && Environment.TickCount64 - _holdStartedAt < HoldDelayMilliseconds
+            && new Rect(button.RenderSize).Contains(releasePosition);
+        StopHeadingMarquee();
+        // We own capture for clipped titles, so a completed hold cannot become
+        // a Button.Click when the left button is released.
+        if (click) Heading_Click(button, new RoutedEventArgs(Button.ClickEvent));
+    }
     private void Heading_RightDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is not Button button) return;
         e.Handled = true;
+        if (BeginHeadingHold(button, MouseButton.Right)) FindTitle(button)?.StartMarquee();
+    }
+    private bool BeginHeadingHold(Button button, MouseButton mouseButton)
+    {
         StopHeadingMarquee();
         var title = FindTitle(button);
-        if (title is null || !title.IsClipped) return;
+        if (title is null || !title.IsClipped) return false;
         _marqueeButton = button;
+        _marqueeMouseButton = mouseButton;
+        _leftHoldStarted = false;
+        _holdStartedAt = Environment.TickCount64;
         ToolTipService.SetIsEnabled(button, false);
-        button.CaptureMouse(); title.StartMarquee();
+        ToolTipService.SetIsEnabled(title, false);
+        if (button.CaptureMouse()) return true;
+        StopHeadingMarquee();
+        return false;
     }
-    private void Heading_RightUp(object sender, MouseButtonEventArgs e) { e.Handled = true; StopHeadingMarquee(); }
+    private void Heading_RightUp(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (_marqueeMouseButton == MouseButton.Right) StopHeadingMarquee();
+    }
     private void Heading_LostCapture(object sender, MouseEventArgs e)
     {
         if (ReferenceEquals(sender, _marqueeButton)) StopHeadingMarquee();
     }
     private void StopHeadingMarquee()
     {
+        _leftHoldTimer.Stop();
         var button = _marqueeButton; _marqueeButton = null;
         if (button is null) return;
-        FindTitle(button)?.StopMarquee(); ToolTipService.SetIsEnabled(button, true);
+        if (FindTitle(button) is { } title)
+        {
+            title.StopMarquee();
+            ToolTipService.SetIsEnabled(title, true);
+        }
+        ToolTipService.SetIsEnabled(button, true);
         if (button.IsMouseCaptured) button.ReleaseMouseCapture();
     }
     private static OutlineTitleViewport? FindTitle(DependencyObject parent)
