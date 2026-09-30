@@ -43,6 +43,9 @@ public sealed class PdfPreview : UserControl, IDisposable
     public event EventHandler<string>? StatusChanged;
     public int PageCount => _document?.Pages.Count ?? 0;
     public double Zoom => _zoom;
+    public bool IsAutoWidth => _fit;
+    public double MaximumZoom => _autoCrop ? 8 : 3;
+    public event EventHandler? ZoomChanged;
     private bool _autoCrop;
     public bool AutoCrop
     {
@@ -52,7 +55,7 @@ public sealed class PdfPreview : UserControl, IDisposable
             if (_disposed || _autoCrop == value) return;
             var anchor = CaptureAnchor(ViewportCenter);
             _autoCrop = value;
-            if (value) _fit = true;
+            _zoom = Math.Clamp(_zoom, .2, MaximumZoom);
             RebuildCropLayout(anchor);
             if (value && _document is { Crops: null } document) StartCropAnalysis(document);
         }
@@ -62,6 +65,7 @@ public sealed class PdfPreview : UserControl, IDisposable
     {
         _layoutZoom = double.NaN; _anchorPadding = new Thickness();
         UpdatePageSizes(); RestoreAnchor(anchor, horizontal: !_fit);
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
         if (_fit) _scroll.ScrollToHorizontalOffset(0);
     }
 
@@ -183,6 +187,7 @@ public sealed class PdfPreview : UserControl, IDisposable
         _fit = true; _anchorPadding = new Thickness(); UpdatePageSizes();
         RestoreAnchor(anchor, horizontal: false);
         _scroll.ScrollToHorizontalOffset(0);
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Toolbar zoom retains the content nearest the viewport center.</summary>
@@ -196,12 +201,13 @@ public sealed class PdfPreview : UserControl, IDisposable
     public void SetZoom(double zoom, Point viewportAnchor)
     {
         if (_disposed || !double.IsFinite(zoom) || !double.IsFinite(viewportAnchor.X) || !double.IsFinite(viewportAnchor.Y)) return;
-        var nextZoom = Math.Clamp(zoom, .35, _autoCrop ? 8 : 3);
+        var nextZoom = Math.Clamp(zoom, .2, MaximumZoom);
         _fit = false;
-        if (_zoom == nextZoom) return;
+        if (_zoom == nextZoom) { ZoomChanged?.Invoke(this, EventArgs.Empty); return; }
         var anchor = CaptureAnchor(viewportAnchor);
         _zoom = nextZoom; _anchorPadding = new Thickness(); UpdatePageSizes();
         RestoreAnchor(anchor);
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Clear()
@@ -282,6 +288,7 @@ public sealed class PdfPreview : UserControl, IDisposable
             // Symmetric 20-DIP gutters plus the two page-border pixels. Overlay
             // scrollbars do not subtract width from just the right-hand side.
             _zoom = Math.Clamp((ActualWidth - 42) / (sizes.Max(s => s.Width) * 96 / 72), .2, _autoCrop ? 8 : 3);
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
         if (_layoutZoom == _zoom && _layouts.Count == document.Pages.Count) { ScheduleRender(); return; }
         _layoutZoom = _zoom;
         _renderVersion++;

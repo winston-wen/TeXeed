@@ -39,7 +39,7 @@ internal static partial class Program
         }
         void CheckBounds()
         {
-            var controls = new[] { "AppIconButton", "CompactMenuButton", "MinimizeButton", "MaximizeButton", "CloseButton" };
+            var controls = new[] { "CompactMenuButton", "MinimizeButton", "MaximizeButton", "CloseButton" };
             var previousRight = 0d;
             foreach (var name in controls)
             {
@@ -59,8 +59,9 @@ internal static partial class Program
         var captionScreen = title.PointToScreen(new Point(title.ActualWidth - 180, 20));
         if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(captionScreen)) != 2)
             throw new Exception("Empty caption must return native HTCAPTION for dragging");
-        var icon = (FrameworkElement)window.FindName("AppIconButton");
-        if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(icon.PointToScreen(new Point(20, 20)))) != 1)
+        if (window.FindName("AppIconButton") is not null) throw new Exception("Removed titlebar icon is still present");
+        var icon = (FrameworkElement)window.FindName("MaximizeButton");
+        if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(icon.PointToScreen(new Point(20, 15)))) != 1)
             throw new Exception("Caption controls must remain clickable client elements");
         if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(window.PointToScreen(new Point(2, 2)))) != 13)
             throw new Exception("Window corner must retain native diagonal resize hit testing");
@@ -152,7 +153,7 @@ internal static partial class Program
         ThemeManager.Apply(originalTheme);
         ((Button)window.FindName("MaximizeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await WaitUntilAsync(() => window.WindowState == WindowState.Maximized, "Caption maximize did not work");
-        await SettleAsync(); CheckBounds();
+        await SettleAsync(); CheckBounds(); CheckWindowBottom(window, false);
         Capture(window, Path.Combine(output, "titlebar-maximized.png"));
         await CheckNativeWindowMenuAsync(window, title, menu, compact);
         ((Button)window.FindName("MaximizeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -168,6 +169,7 @@ internal static partial class Program
         CaptionMessage(hwnd, 0xA3, 2, CaptionPoint(captionScreen));
         await WaitUntilAsync(() => window.WindowState == WindowState.Maximized, "Native caption double-click did not maximize");
         SystemCommands.RestoreWindow(window); await SettleAsync();
+        await CheckFullscreenAsync(window, output);
         Console.WriteLine("PASS: themed title bar, compact third-level commands, wheel scrolling, per-level Escape/outside dismissal, Alt shortcuts, minimum width and native window controls");
     }
 }

@@ -509,7 +509,7 @@ internal static partial class Program
         var column = (ColumnDefinition)window.FindName("SidebarColumn");
         var splitterColumn = (ColumnDefinition)window.FindName("SidebarSplitterColumn");
         var splitter = (GridSplitter)window.FindName("SidebarSplitter");
-        var rail = (FrameworkElement)window.FindName("CollapsedWorkspaceRail");
+        var rail = (FrameworkElement)window.FindName("WorkspaceRail");
         var visibilityItem = (MenuItem)window.FindName("WorkspaceVisibilityMenuItem");
         var editor = (LatexEditor)window.FindName("Editor");
         var search = (TextBox)window.FindName("SearchBox");
@@ -519,7 +519,7 @@ internal static partial class Program
         if (Math.Abs(workspace.TranslatePoint(new Point(), (Grid)window.Content).Y - 40) > 1) throw new Exception("Workspace must begin directly below the title bar");
 
         // Collapsing layout must not rebuild the search view or replace the editor's document/selection.
-        Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "search")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Descendants<Button>(rail).Single(button => Equals(button.Tag, "search")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         search.Text = "section";
         column.Width = new GridLength(315);
         editor.Select(3, Math.Min(9, Math.Max(0, editor.Text.Length - 3)));
@@ -539,14 +539,14 @@ internal static partial class Program
         var sidebarKey = CreateKey(window, Key.B, Keyboard.PreviewKeyDownEvent);
         await CallAsync(window, "HandleShortcutAsync", sidebarKey, ModifierKeys.Control);
         window.UpdateLayout();
-        if (!sidebarKey.Handled || sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Collapsed || !visibilityItem.IsChecked || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
+        if (!sidebarKey.Handled || sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Visible || !visibilityItem.IsChecked || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
             throw new Exception("Ctrl+B did not restore the sidebar's user-selected width");
         if ((string?)Field(window, "_sidebar") != "search" || search.Text != "section" || !ReferenceEquals(rememberedResults, results.ItemsSource) ||
             editor.CurrentFilePath != rememberedPath || editor.SelectedText != rememberedSelection)
             throw new Exception("Collapsing the sidebar discarded search mode, filter, source location or selection");
 
         visibilityItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-        var restore = rail as Button ?? Descendants<Button>(rail).FirstOrDefault() ?? throw new Exception("Collapsed rail has no restore button");
+        var restore = Descendants<Button>(rail).Single(button => Equals(button.Tag, "search"));
         restore.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         window.UpdateLayout();
         if (sidebar.Visibility != Visibility.Visible || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
@@ -559,7 +559,7 @@ internal static partial class Program
             ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Descendants<Button>(rail).Single(button => Equals(button.Tag, mode)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             window.UpdateLayout();
-            if (sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Collapsed ||
+            if (sidebar.Visibility != Visibility.Visible || rail.Visibility != Visibility.Visible ||
                 (string?)Field(window, "_sidebar") != mode || Math.Abs(column.ActualWidth - rememberedWidth) > 1)
                 throw new Exception($"Collapsed {mode} icon did not open its panel and restore width");
             var visiblePanel = mode switch { "outline" => "OutlineTree", "files" => "FileTree", _ => "IndexList" };
@@ -570,8 +570,8 @@ internal static partial class Program
             if (search.Text != "section" || editor.CurrentFilePath != rememberedPath || editor.SelectedText != rememberedSelection)
                 throw new Exception("Switching panels through the rail discarded search or editor state");
         }
-        Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        column.Width = new GridLength(200); window.UpdateLayout();
+        Descendants<Button>(rail).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        column.Width = new GridLength(242); window.UpdateLayout();
         var iconBar = (FrameworkElement)window.FindName("WorkspaceIconBar");
         foreach (var icon in Descendants<System.Windows.Shapes.Path>(iconBar))
         {
@@ -585,14 +585,14 @@ internal static partial class Program
         ((Button)window.FindName("CollapseWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         window.UpdateLayout();
         CaptureOutline(rail, Path.Combine(output, "workspace-icons-rail.png"));
-        ((Button)window.FindName("ExpandWorkspaceButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Invoke(window, "ToggleWorkspace");
 
         foreach (var collapsed in new[] { false, true })
         foreach (var mode in new[] { "outline", "files", "search", "labels", "todos" })
         {
             if (collapsed) Invoke(window, "ToggleWorkspace");
             window.UpdateLayout();
-            var surface = collapsed ? rail : sidebar;
+            var surface = rail;
             var icon = Descendants<Button>(surface).Single(button => Equals(button.Tag, mode));
             var position = icon.TranslatePoint(new Point(10, 10), window);
             var timestamp = Environment.TickCount;
@@ -645,9 +645,10 @@ internal static partial class Program
         firstMenu.IsSubmenuOpen = false;
         Invoke(window, "ProcessMenuKeyDown", Key.Escape, ModifierKeys.None);
         if (menu.Visibility != Visibility.Collapsed) throw new Exception("Escape did not close menu activation after submenu dismissal");
-        Console.WriteLine("PASS: toolbar removal, Alt menu toggle, Ctrl+B/rail sidebar restoration, preserved width and editor/search state");
+        await CheckZoomControlsAsync(window, output);
+        Console.WriteLine("PASS: permanent five-icon rail, Alt menus, Ctrl+B/double-click collapse, preserved width and editor/search state");
         search.Clear();
-        Descendants<Button>(sidebar).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Descendants<Button>(rail).Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
 
     private static async Task CheckViewportFollowingAsync(MainWindow window, string root, string output)
@@ -690,6 +691,7 @@ internal static partial class Program
             if (pdf == null || preview.PageCount != 8)
                 throw new Exception("Viewport fixture must produce eight real PDF pages: " + ((TextBox)window.FindName("LogText")).Text);
             await CheckPdfColorsAsync(window, output);
+            await CheckZoomControlsAsync(window, output);
             var sync = new SyncTexService();
             void SelectMode(PreviewFollowMode mode)
             {
@@ -907,9 +909,10 @@ internal static partial class Program
             Console.WriteLine("PASS: manual PDF scrolling cancels a pending automatic follow; a later source scroll resumes following");
 
             var topLine = 145;
-            foreach (var command in new[] { "ZoomIn_Click", "ZoomOut_Click", "Fit_Click" })
+            foreach (var command in new[] { "ZoomIn_Click", "ZoomOut_Click", "AutoWidth_Click" })
             {
                 await ScrollSourceAsync(topLine);
+                if (command == "AutoWidth_Click") ((System.Windows.Controls.Primitives.ToggleButton)window.FindName("AutoWidthButton")).IsChecked = true;
                 Invoke(window, command, window, new RoutedEventArgs());
                 await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
                 await AssertPdfOffsetStableAsync(pdfScroll, pdfScroll.VerticalOffset,
@@ -930,7 +933,7 @@ internal static partial class Program
         var preview = (PdfPreview)window.FindName("Preview");
         var panel = (Grid)VisualTreeHelper.GetParent(preview);
         var modes = (ComboBox)window.FindName("FollowModeBox");
-        var toolbar = (DockPanel)modes.Parent;
+        var toolbar = (Grid)modes.Parent;
         try
         {
             column.Width = new GridLength(300);

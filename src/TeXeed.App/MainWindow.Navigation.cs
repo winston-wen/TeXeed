@@ -13,8 +13,8 @@ public partial class MainWindow
     private bool _consumeMenuAltRelease;
     private IInputElement? _menuReturnFocus;
     private bool _workspaceExpanded = true;
-    private double _expandedWorkspaceWidth = 252;
-    private double _expandedWorkspaceMinimum = 200;
+    private double _expandedWorkspaceWidth = 294;
+    private double _expandedWorkspaceMinimum = 242;
     private GridLength _expandedSplitterWidth = new(2);
     private Point? _workspaceIconPress;
     private int _workspaceIconPressTime;
@@ -27,8 +27,7 @@ public partial class MainWindow
 
     private bool HandleWorkspaceIconPress(DependencyObject? source, Point position, int timestamp, MouseButton button)
     {
-        // The first click can turn the vertical rail into a horizontal bar. Match
-        // the second click in window coordinates even if the icon moved away.
+        // The permanent rail keeps every function at the same position.
         var dpi = VisualTreeHelper.GetDpi(this);
         var doubleClick = button == MouseButton.Left && _workspaceIconClickCompleted && _workspaceIconPress is { } previous
             && unchecked((uint)(timestamp - _workspaceIconPressTime)) <= GetDoubleClickTime()
@@ -42,7 +41,7 @@ public partial class MainWindow
             return true;
         }
         if (button != MouseButton.Left) return false;
-        foreach (var icon in WorkspaceIconBar.Children.OfType<Button>().Concat(WorkspaceRailIcons.Children.OfType<Button>()))
+        foreach (var icon in WorkspaceIconBar.Children.OfType<Button>())
         {
             if (icon.Tag is not string || !IsWithin(source, icon)) continue;
             _workspaceIconPress = position;
@@ -222,22 +221,20 @@ public partial class MainWindow
             _expandedWorkspaceMinimum = SidebarColumn.MinWidth;
             _expandedWorkspaceWidth = Math.Max(_expandedWorkspaceMinimum,
                 SidebarColumn.ActualWidth > 0 ? SidebarColumn.ActualWidth
-                    : SidebarColumn.Width.IsAbsolute ? SidebarColumn.Width.Value : 252);
+                    : SidebarColumn.Width.IsAbsolute ? SidebarColumn.Width.Value : 294);
             _expandedSplitterWidth = SidebarSplitterColumn.Width;
             SidebarPanel.Visibility = Visibility.Collapsed;
             SidebarSplitter.Visibility = Visibility.Collapsed;
             SidebarSplitterColumn.Width = new GridLength(0);
             SidebarColumn.MinWidth = 42;
             SidebarColumn.Width = new GridLength(42);
-            CollapsedWorkspaceRail.Visibility = Visibility.Visible;
             _workspaceExpanded = false;
             if (returnFocusWasInSidebar) _menuReturnFocus = Editor.TextArea;
             if ((focusWasInSidebar || returnFocusWasInSidebar) && Editor.IsVisible && Editor.IsEnabled) Editor.TextArea.Focus();
         }
         else
         {
-            var focusWasOnRail = CollapsedWorkspaceRail.IsKeyboardFocusWithin;
-            CollapsedWorkspaceRail.Visibility = Visibility.Collapsed;
+            var focusWasOnRail = WorkspaceRail.IsKeyboardFocusWithin;
             SidebarColumn.MinWidth = _expandedWorkspaceMinimum;
             SidebarColumn.Width = new GridLength(_expandedWorkspaceWidth);
             SidebarSplitterColumn.Width = _expandedSplitterWidth;
@@ -247,6 +244,7 @@ public partial class MainWindow
             if (focusWasOnRail) SidebarPanel.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
         }
         WorkspaceVisibilityMenuItem.IsChecked = _workspaceExpanded;
+        UpdateWorkspaceIcons();
     }
 
     private static bool IsWithin(DependencyObject? element, DependencyObject ancestor)

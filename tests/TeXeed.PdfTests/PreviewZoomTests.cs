@@ -37,7 +37,7 @@ internal static partial class Program
             Near(preview.Zoom, 3, "Maximum zoom clamp");
             SamePoint(PagePointOnViewport(preview, 2, point), pointer, "Repeated maximum zoom");
             preview.SetZoom(.01, pointer); window.UpdateLayout();
-            Near(preview.Zoom, .35, "Minimum zoom clamp");
+            Near(preview.Zoom, .2, "Minimum zoom clamp");
             SamePoint(PagePointOnViewport(preview, 2, point), pointer, "Minimum zoom preserves the pointer anchor");
             var settled = PagePointOnViewport(preview, 2, point);
             preview.SetZoom(double.NaN, pointer);

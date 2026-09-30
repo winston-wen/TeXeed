@@ -38,6 +38,23 @@ public partial class MainWindow
     }
     private nint WindowMenuHook(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
     {
+        if (message == 0x24) // WM_GETMINMAXINFO: monitor-relative physical pixels.
+        {
+            var monitor = MonitorFromWindow(hwnd, 2);
+            var info = new MonitorBounds { Size = Marshal.SizeOf<MonitorBounds>() };
+            if (GetMonitorInfo(monitor, ref info))
+            {
+                var target = _fullscreen ? info.Monitor : info.Work;
+                var limits = Marshal.PtrToStructure<MinMaxBounds>(lParam);
+                limits.MaxPosition = new NativePoint { X = target.Left - info.Monitor.Left, Y = target.Top - info.Monitor.Top };
+                limits.MaxSize = new NativePoint { X = target.Right - target.Left, Y = target.Bottom - target.Top };
+                var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
+                limits.MinTrackSize = new NativePoint { X = (int)Math.Ceiling(MinWidth * dpi.DpiScaleX), Y = (int)Math.Ceiling(MinHeight * dpi.DpiScaleY) };
+                Marshal.StructureToPtr(limits, lParam, false);
+                handled = true;
+            }
+            return 0;
+        }
         // Caption areas use non-client messages, whereas the logo and window
         // buttons route WPF right clicks. Consume WindowChrome's default menu
         // invocation so both paths use the same physical screen coordinates.
@@ -68,6 +85,8 @@ public partial class MainWindow
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
     [StructLayout(LayoutKind.Sequential)] private struct MonitorBounds { public int Size; public NativeRect Monitor, Work; public int Flags; }
+    [StructLayout(LayoutKind.Sequential)] private struct MinMaxBounds { public NativePoint Reserved, MaxSize, MaxPosition, MinTrackSize, MaxTrackSize; }
+    [DllImport("user32.dll")] private static extern nint MonitorFromWindow(nint hwnd, uint flags);
     [DllImport("user32.dll")] private static extern nint GetSystemMenu(nint hwnd, [MarshalAs(UnmanagedType.Bool)] bool revert);
     [DllImport("user32.dll", EntryPoint = "TrackPopupMenuEx")] private static extern uint TrackWindowMenu(nint menu, uint flags, int x, int y, nint hwnd, nint parameters);
     [DllImport("user32.dll", EntryPoint = "PostMessageW")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool PostWindowMessage(nint hwnd, uint message, nint wParam, nint lParam);

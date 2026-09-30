@@ -15,11 +15,6 @@ internal static partial class Program
 
     private static async Task CheckNativeWindowMenuAsync(MainWindow window, FrameworkElement title, Menu menu, Button compact)
     {
-        var icon = (FrameworkElement)window.FindName("AppIconButton");
-        if (icon is Button) throw new Exception("App icon must be inert rather than a clickable button");
-        icon.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.MouseDownEvent });
-        icon.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.MouseUpEvent });
-        if (FindWindow("#32768", null) != 0 || !window.IsVisible) throw new Exception("Left icon click unexpectedly opened a system menu or closed the window");
         if ((bool)Invoke(window, "IsWindowMenuPoint", menu.PointToScreen(new Point(20, 15)))!)
             throw new Exception("Alt menu area must be excluded from titlebar system menu");
         var click = title.PointToScreen(new Point(title.ActualWidth - 200, 20));
@@ -42,6 +37,6 @@ internal static partial class Program
         if (Math.Abs(rect.Left - click.X) > 2 || Math.Abs(rect.Top - click.Y) > 2)
             throw new Exception($"Native menu top-left was ({rect.Left},{rect.Top}), expected physical click ({click.X:F1},{click.Y:F1})");
         await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-        Console.WriteLine("PASS: inert left icon, excluded Alt menu area, and native system menu top-left at physical right-click coordinates");
+        Console.WriteLine("PASS: excluded Alt menu area, and native system menu top-left at physical right-click coordinates");
     }
 }

@@ -41,16 +41,16 @@ public partial class MainWindow
 
     private void UpdateTitleBarLayout()
     {
-        if (_closing || _allowClose || TitleBar.ActualWidth <= 0) return;
+        if (_closing || _allowClose || (!_fullscreen && TitleBar.ActualWidth <= 0)) return;
         if (!_compactTitleBar)
         {
             MainMenu.Measure(new Size(double.PositiveInfinity, 40));
             if (MainMenu.DesiredSize.Width > 0) _wideMenuWidth = MainMenu.DesiredSize.Width;
         }
-        // Reserve the logo, caption buttons and a draggable gap before switching
+        // Reserve caption buttons and a draggable gap before switching
         // modes. The compact panel reads the same live menu items; it never opens
         // their cascading popups or changes their logical ownership.
-        var compact = TitleBar.ActualWidth < 12 + 44 + _wideMenuWidth + 138 + 80;
+        var compact = _fullscreen || TitleBar.ActualWidth < 12 + _wideMenuWidth + 138 + 80;
         if (compact != _compactTitleBar)
         {
             CloseTitleMenus();
@@ -65,9 +65,9 @@ public partial class MainWindow
     private void UpdateCaptionState()
     {
         var maximized = WindowState == WindowState.Maximized;
-        // The maximized HWND includes its resize frame outside the work area.
-        // Inset client controls so the buttons remain visible on every edge.
-        WindowRoot.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness();
+        // WM_GETMINMAXINFO bounds the HWND to the monitor work area; a second
+        // client inset would duplicate that correction and waste edge space.
+        WindowRoot.Margin = new Thickness();
         MaximizeButton.ToolTip = maximized ? "还原" : "最大化";
         System.Windows.Automation.AutomationProperties.SetName(MaximizeButton, maximized ? "还原" : "最大化");
         MaximizeGlyph.Data = Geometry.Parse(maximized
@@ -102,11 +102,13 @@ public partial class MainWindow
     private void UpdateCompactMenuSize()
     {
         if (_closing || _allowClose) return;
-        _compactPanel.Width = Math.Min(420, Math.Max(1, TitleBar.ActualWidth - 12));
-        var available = Math.Max(1, WindowRoot.ActualHeight - TitleBar.ActualHeight - 6);
+        _compactMenu.PlacementTarget = _fullscreen ? WindowRoot : TitleBar;
+        _compactMenu.VerticalOffset = _fullscreen ? 0 : 40;
+        _compactPanel.Width = Math.Min(420, Math.Max(1, WindowRoot.ActualWidth - 12));
+        var available = Math.Max(1, WindowRoot.ActualHeight - (_fullscreen ? 0 : TitleBar.ActualHeight) - 6);
         if (IsLoaded && PresentationSource.FromVisual(TitleBar) is not null)
         {
-            var screen = TitleBar.PointToScreen(new Point(6, TitleBar.ActualHeight));
+            var screen = WindowRoot.PointToScreen(new Point(6, _fullscreen ? 0 : TitleBar.ActualHeight));
             available = Math.Min(available, WindowMenuSpaceBelow(screen) / VisualTreeHelper.GetDpi(this).DpiScaleY);
         }
         _compactPanel.MaxHeight = Math.Max(1, available);
@@ -121,6 +123,7 @@ public partial class MainWindow
     private void Minimize_Click(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
     private void Maximize_Click(object sender, RoutedEventArgs e)
     {
+        if (_fullscreen) { ToggleFullscreen(); return; }
         if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this);
         else SystemCommands.MaximizeWindow(this);
     }

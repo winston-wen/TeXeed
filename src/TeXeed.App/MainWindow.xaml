@@ -4,18 +4,15 @@
  <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/></shell:WindowChrome.WindowChrome>
  <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="WorkspaceIcons.xaml"/><ResourceDictionary Source="TitleBar.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary></Window.Resources>
  <Grid x:Name="WindowRoot" ClipToBounds="True" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}">
-  <Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Grid.RowDefinitions><RowDefinition x:Name="TitleBarRow" Height="40"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <Border x:Name="TitleBar" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" PreviewMouseRightButtonUp="TitleBar_RightButtonUp">
-   <Grid Margin="6,6,6,0"><Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="138"/></Grid.ColumnDefinitions>
-    <Border x:Name="AppIconButton" Background="Transparent" shell:WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="TeXeed" AutomationProperties.Name="TeXeed">
-     <Border Width="24" Height="24" CornerRadius="5" Background="{DynamicResource Accent}"><Path Width="14" Height="16" Stretch="Fill" Fill="{DynamicResource SidebarBackground}" Data="M0,0 H14 V3 H9 V16 H5 V3 H0 Z"/></Border>
-    </Border>
+   <Grid Margin="6,6,6,0"><Grid.ColumnDefinitions><ColumnDefinition Width="0"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="138"/></Grid.ColumnDefinitions>
     <Grid Grid.Column="1" shell:WindowChrome.IsHitTestVisibleInChrome="True">
      <Button x:Name="CompactMenuButton" Visibility="Collapsed" Style="{StaticResource TitleIconButton}" Width="36" ToolTip="主菜单 (Alt)" AutomationProperties.Name="主菜单" Click="CompactMenu_Click"><Path Width="18" Height="14" Stretch="Fill" Data="M0,1 H18 M0,7 H18 M0,13 H18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
   <Menu x:Name="MainMenu" IsMainMenu="False" Background="Transparent" Padding="0" FontSize="14" VerticalAlignment="Center"><Menu.ItemContainerStyle><Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}"><Setter Property="Padding" Value="10,7"/><Setter Property="Foreground" Value="{DynamicResource Muted}"/></Style></Menu.ItemContainerStyle>
    <MenuItem x:Name="FirstMenuItem" Header="文件(_F)"><MenuItem Header="新建文档…" InputGestureText="Ctrl+N" Click="New_Click"/><MenuItem Header="打开主文件…" InputGestureText="Ctrl+O" Click="Open_Click"/><MenuItem x:Name="RecentMenu" Header="最近打开"/><Separator/><MenuItem Header="保存并编译" InputGestureText="Ctrl+S" Click="Save_Click"/><MenuItem Header="重新加载项目" Click="Refresh_Click"/><MenuItem Header="导出 PDF…" Click="Export_Click"/><Separator/><MenuItem Header="退出" Click="Exit_Click"/></MenuItem>
    <MenuItem Header="编辑(_E)"><MenuItem Header="查找" InputGestureText="Ctrl+F" Tag="find" Click="EditorCommand_Click"/><MenuItem Header="替换" InputGestureText="Ctrl+H" Tag="replace" Click="EditorCommand_Click"/><MenuItem Header="切换注释" InputGestureText="Ctrl+/" Tag="comment" Click="EditorCommand_Click"/><MenuItem Header="增加缩进" Tag="indent" Click="EditorCommand_Click"/><MenuItem Header="减少缩进" Tag="outdent" Click="EditorCommand_Click"/><MenuItem Header="格式化文档" InputGestureText="Ctrl+Shift+F" Tag="format" Click="EditorCommand_Click"/></MenuItem>
-   <MenuItem Header="视图(_V)"><MenuItem x:Name="ThemeMenu" Header="主题" SubmenuOpened="ThemeMenu_Opened"/><MenuItem x:Name="WorkspaceVisibilityMenuItem" Header="工作区" IsCheckable="True" IsChecked="True" InputGestureText="Ctrl+B" Click="ToggleWorkspace_Click"/></MenuItem>
+   <MenuItem Header="视图(_V)"><MenuItem x:Name="ThemeMenu" Header="主题" SubmenuOpened="ThemeMenu_Opened"/><MenuItem x:Name="WorkspaceVisibilityMenuItem" Header="工作区" IsCheckable="True" IsChecked="True" InputGestureText="Ctrl+B" Click="ToggleWorkspace_Click"/><MenuItem x:Name="FullscreenMenuItem" Header="全屏" IsCheckable="True" InputGestureText="F11" Click="Fullscreen_Click"/></MenuItem>
    <MenuItem Header="排版(_B)"><MenuItem Header="编译文档" InputGestureText="Ctrl+Enter" Click="Build_Click"/><MenuItem x:Name="CancelBuildMenuItem" Header="停止编译" IsEnabled="False" Click="Cancel_Click"/><MenuItem Header="定位到 PDF" InputGestureText="Ctrl+J" Click="Sync_Click"/><Separator/><MenuItem x:Name="LiveMenuItem" Header="实时预览" IsCheckable="True" ToolTip="修改后自动保存并编译" Click="Live_Click"/><MenuItem Header="设置…" Click="Settings_Click"/></MenuItem>
    <MenuItem Header="帮助(_H)"><MenuItem Header="快捷键与使用说明" Click="Help_Click"/><MenuItem Header="关于 TeXeed" Click="About_Click"/></MenuItem>
   </Menu>
@@ -29,40 +26,32 @@
    </Grid>
   </Border>
   <Grid Grid.Row="1" x:Name="Workspace" Visibility="Collapsed">
-   <Grid.ColumnDefinitions><ColumnDefinition x:Name="SidebarColumn" Width="252" MinWidth="200"/><ColumnDefinition x:Name="SidebarSplitterColumn" Width="2"/><ColumnDefinition Width="*" MinWidth="300"/><ColumnDefinition Width="2"/><ColumnDefinition Width="0.95*" MinWidth="300"/></Grid.ColumnDefinitions>
-   <Border x:Name="SidebarPanel" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}">
-    <Grid><Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-     <UniformGrid x:Name="WorkspaceIconBar" Columns="6" Margin="5,3">
-      <Button x:Name="CollapseWorkspaceButton" Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceCollapseIcon}" ToolTip="折叠工作区 (Ctrl+B)" AutomationProperties.Name="折叠工作区" Click="ToggleWorkspace_Click"/>
+   <Grid.ColumnDefinitions><ColumnDefinition x:Name="SidebarColumn" Width="294" MinWidth="242"/><ColumnDefinition x:Name="SidebarSplitterColumn" Width="2"/><ColumnDefinition Width="*" MinWidth="300"/><ColumnDefinition Width="2"/><ColumnDefinition Width="0.95*" MinWidth="300"/></Grid.ColumnDefinitions>
+   <Grid x:Name="SidebarHost"><Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border x:Name="WorkspaceRail" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">     <UniformGrid x:Name="WorkspaceIconBar" Columns="1" Margin="3" VerticalAlignment="Top">
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceOutlineIcon}" Tag="outline" ToolTip="大纲" AutomationProperties.Name="大纲" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceFilesIcon}" Tag="files" ToolTip="文件" AutomationProperties.Name="文件" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceSearchIcon}" Tag="search" ToolTip="搜索" AutomationProperties.Name="搜索" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceLabelsIcon}" Tag="labels" ToolTip="标签" AutomationProperties.Name="标签" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceTodosIcon}" Tag="todos" ToolTip="待办" AutomationProperties.Name="待办" Click="SidebarMode_Click"/>
-     </UniformGrid>
-     <StackPanel Grid.Row="1" Margin="14,10,14,8">
+     </UniformGrid></Border>
+   <Border Grid.Column="1" x:Name="SidebarPanel" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}">
+    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+     <StackPanel Margin="14,10,14,8">
       <Grid Height="26"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBlock x:Name="SidebarTitle" Text="文档大纲" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-       <StackPanel Grid.Column="1" Orientation="Horizontal" Visibility="{Binding Visibility, ElementName=OutlineTree}">
+       <StackPanel Grid.Column="1" Orientation="Horizontal"><Button x:Name="CollapseWorkspaceButton" Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceCollapseIcon}" Width="26" Height="26" Margin="2,0,0,0" ToolTip="折叠工作区 (Ctrl+B)" AutomationProperties.Name="折叠工作区" Click="ToggleWorkspace_Click"/><StackPanel Orientation="Horizontal" Visibility="{Binding Visibility, ElementName=OutlineTree}">
         <Button x:Name="ExpandOutlineButton" Style="{StaticResource OutlineActionButton}" Content="{StaticResource OutlineExpandAllIcon}" Width="26" Height="26" Margin="2,0,0,0" Click="ExpandOutline_Click" ToolTip="全部展开" AutomationProperties.Name="全部展开大纲"/>
         <Button x:Name="CollapseOutlineButton" Style="{StaticResource OutlineActionButton}" Content="{StaticResource OutlineCollapseAllIcon}" Width="26" Height="26" Margin="2,0,0,0" Click="CollapseOutline_Click" ToolTip="全部收起" AutomationProperties.Name="全部收起大纲"/>
-       </StackPanel>
+       </StackPanel></StackPanel>
       </Grid>
       <TextBox x:Name="SearchBox" Margin="0,10,0,0" Visibility="Collapsed" TextChanged="Search_Changed" ToolTip="搜索项目中的文字或标签"/>
      </StackPanel>
-     <Grid Grid.Row="2"><controls:DocumentOutline x:Name="OutlineTree" NavigateRequested="Outline_NavigateRequested"/><TreeView x:Name="FileTree" Background="Transparent" BorderThickness="0" Margin="8" Visibility="Collapsed" SelectedItemChanged="FileTree_Selected"/><ListBox x:Name="IndexList" SelectionChanged="Index_Selected"><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}"/><TextBlock Text="{Binding Location}" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox><TextBlock x:Name="EmptyIndex" Text="暂无条目" Margin="18,15" Foreground="{DynamicResource Muted}" IsHitTestVisible="False" Visibility="Collapsed"/></Grid>
+     <Grid Grid.Row="1"><controls:DocumentOutline x:Name="OutlineTree" NavigateRequested="Outline_NavigateRequested"/><TreeView x:Name="FileTree" Background="Transparent" BorderThickness="0" Margin="8" Visibility="Collapsed" SelectedItemChanged="FileTree_Selected"/><ListBox x:Name="IndexList" SelectionChanged="Index_Selected"><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}"/><TextBlock Text="{Binding Location}" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox><TextBlock x:Name="EmptyIndex" Text="暂无条目" Margin="18,15" Foreground="{DynamicResource Muted}" IsHitTestVisible="False" Visibility="Collapsed"/></Grid>
     </Grid>
    </Border>
-   <Border x:Name="CollapsedWorkspaceRail" Visibility="Collapsed" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,2,0">
-    <UniformGrid x:Name="WorkspaceRailIcons" Columns="1" Margin="3" VerticalAlignment="Top">
-      <Button x:Name="ExpandWorkspaceButton" Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceExpandIcon}" ToolTip="展开工作区 (Ctrl+B)" AutomationProperties.Name="展开工作区" Click="ToggleWorkspace_Click"/>
-      <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceOutlineIcon}" Tag="outline" ToolTip="大纲" AutomationProperties.Name="大纲" Click="SidebarMode_Click"/>
-      <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceFilesIcon}" Tag="files" ToolTip="文件" AutomationProperties.Name="文件" Click="SidebarMode_Click"/>
-      <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceSearchIcon}" Tag="search" ToolTip="搜索" AutomationProperties.Name="搜索" Click="SidebarMode_Click"/>
-      <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceLabelsIcon}" Tag="labels" ToolTip="标签" AutomationProperties.Name="标签" Click="SidebarMode_Click"/>
-      <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceTodosIcon}" Tag="todos" ToolTip="待办" AutomationProperties.Name="待办" Click="SidebarMode_Click"/>
-    </UniformGrid>
-   </Border>
+   </Grid>
    <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Style="{StaticResource PaneSplitter}"/>
    <Grid x:Name="EditorPane" controls:ScrollActivity.IsScope="True" Grid.Column="2" Background="{DynamicResource EditorBackground}">
     <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="28"/></Grid.RowDefinitions>
@@ -87,7 +76,21 @@
    <GridSplitter x:Name="PreviewSplitter" Grid.Column="3" Style="{StaticResource PaneSplitter}"/>
    <Grid x:Name="PreviewPane" controls:ScrollActivity.IsScope="True" Grid.Column="4" Background="{DynamicResource PreviewBackground}">
     <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
-    <Border Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"><DockPanel Margin="8,0"><StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button Content="−" Padding="8,2" Margin="2,5" Click="ZoomOut_Click"/><Button x:Name="ZoomButton" Content="适合宽度" Padding="7,2" Margin="2,5" Click="Fit_Click"/><Button Content="+" Padding="8,2" Margin="2,5" Click="ZoomIn_Click"/><Button Content="导出" Padding="8,2" Margin="2,5" Click="Export_Click"/></StackPanel><ComboBox x:Name="FollowModeBox" Width="92" HorizontalAlignment="Left" Margin="2,6,4,6" Padding="4,0" FontSize="12" VerticalContentAlignment="Center" DisplayMemberPath="Label" SelectedValuePath="Value" ToolTip="PDF 跟随模式：不跟随、跟随光标或跟随视图。Ctrl+J 始终可手动定位到光标。" AutomationProperties.Name="PDF 跟随模式" SelectionChanged="FollowMode_Changed"/></DockPanel></Border>
+    <Border Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
+     <Grid Margin="6,0"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <ComboBox x:Name="FollowModeBox" Margin="2,6,4,6" Padding="4,0" FontSize="12" VerticalContentAlignment="Center" DisplayMemberPath="Label" SelectedValuePath="Value" ToolTip="PDF 跟随模式" AutomationProperties.Name="PDF 跟随模式" SelectionChanged="FollowMode_Changed"/>
+      <Grid Grid.Column="1" MinWidth="100"><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
+       <Button Style="{StaticResource TitleIconButton}" ToolTip="缩小" AutomationProperties.Name="缩小 PDF" Click="ZoomOut_Click"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" Data="M13,7 A6,6 0 1 1 1,7 A6,6 0 1 1 13,7 M11,11 L18,18 M4,7 H10"/></Button>
+       <Grid Grid.Column="1"><Grid.RowDefinitions><RowDefinition Height="24"/><RowDefinition Height="12"/></Grid.RowDefinitions>
+        <Button x:Name="ZoomButton" Style="{StaticResource TitleIconButton}" FontSize="11" Content="100.00%" Click="ZoomPercent_Click" ToolTip="输入缩放百分比" AutomationProperties.Name="PDF 缩放百分比"/>
+        <TextBox x:Name="ZoomInput" Visibility="Collapsed" Padding="2,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" KeyDown="ZoomInput_KeyDown" LostKeyboardFocus="ZoomInput_LostFocus" AutomationProperties.Name="输入 PDF 缩放百分比"/>
+        <Slider x:Name="ZoomSlider" Grid.Row="1" Minimum="20" Maximum="300" Value="100" ValueChanged="ZoomSlider_Changed" Style="{StaticResource PdfZoomSlider}" AutomationProperties.Name="PDF 缩放滑块"/>
+       </Grid>
+       <Button Grid.Column="2" Style="{StaticResource TitleIconButton}" ToolTip="放大" AutomationProperties.Name="放大 PDF" Click="ZoomIn_Click"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" Data="M13,7 A6,6 0 1 1 1,7 A6,6 0 1 1 13,7 M11,11 L18,18 M4,7 H10 M7,4 V10"/></Button>
+      </Grid>
+      <StackPanel Grid.Column="2" Orientation="Horizontal"><ToggleButton x:Name="AutoWidthButton" Content="自动宽度" FontSize="11" Style="{StaticResource AutoWidthToggle}" Margin="3,5" Padding="4,2" IsChecked="True" Click="AutoWidth_Click" ToolTip="自动随预览区宽度缩放" AutomationProperties.Name="PDF 自动宽度"/><Button Content="导出" FontSize="11" Padding="4,2" Margin="2,5" Click="Export_Click"/></StackPanel>
+     </Grid>
+    </Border>
     <controls:PdfPreview x:Name="Preview" Grid.Row="1"/>
     <Border x:Name="PreviewStatusBar" Grid.Row="2" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><DockPanel Margin="12,0"><CheckBox x:Name="InvertPdfBox" Content="反色" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="11" ToolTip="反转 PDF 预览颜色：暖棕黑纸张、柔和米白文字，内容同步映射为深色配色；导出 PDF 保持原色。" AutomationProperties.Name="PDF 反色" Click="InvertPdf_Click"/><CheckBox x:Name="AutoCropPdfBox" Content="裁边" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="11" ToolTip="自动裁掉四周空白、压缩页内大段纵向空白，按内容适合宽度连续滚动；导出保持完整页面。" AutomationProperties.Name="PDF 自动裁边" Click="AutoCropPdf_Click"/><TextBlock x:Name="PdfStatus" ToolTip="右键双击或 Ctrl+左键返回源码" Text="等待首次编译" FontSize="11" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></DockPanel></Border>
    </Grid>
@@ -99,5 +102,6 @@
     <StackPanel><TextBlock Text="你的下一篇，正在酝酿" FontSize="20" FontWeight="SemiBold"/><TextBlock Text="原生 Windows 工作区 · 为 LaTeX 而设计" Foreground="{DynamicResource Muted}" Margin="0,10,0,24"/><Border Background="{DynamicResource EditorBackground}" Padding="24" CornerRadius="8"><StackPanel><TextBlock Text="\section{A new beginning}" FontFamily="Consolas" Foreground="{DynamicResource Accent}" FontSize="14"/><TextBlock Text="Every idea deserves a little space." FontFamily="Consolas" FontSize="13" Margin="0,12,0,0"/><TextBlock Text="E = mc²" FontFamily="Cambria Math" FontSize="30" HorizontalAlignment="Center" Margin="0,28,0,18"/></StackPanel></Border><TextBlock Text="最近打开" FontSize="12" FontWeight="SemiBold" Margin="0,28,0,8"/><StackPanel x:Name="RecentList"/><TextBlock x:Name="NoRecent" Text="打开第一份文档，开始积累你的想法。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="12"/></StackPanel>
    </Border>
   </Grid>
+  <Border x:Name="FullscreenToast" Grid.RowSpan="2" Panel.ZIndex="100" Visibility="Collapsed" Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,54,0,0" Padding="20,10" CornerRadius="6" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1"><TextBlock x:Name="FullscreenToastText" Foreground="{DynamicResource Ink}"/></Border>
  </Grid>
 </Window>

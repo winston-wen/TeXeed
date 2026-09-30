@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         { ThemeManager.UseDefault(); _settings = _settings with { ThemeId = ThemeManager.DefaultId }; }
         InitializeComponent();
         InitializeTitleBar();
+        InitializeZoomControls();
         RefreshThemeMenu();
         UpdateWorkspaceIcons();
         WindowTheme.Attach(this);
@@ -581,8 +582,8 @@ public partial class MainWindow : Window
 
     private void UpdateWorkspaceIcons()
     {
-        foreach (var button in WorkspaceIconBar.Children.OfType<Button>().Concat(WorkspaceRailIcons.Children.OfType<Button>()))
-            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, Equals(button.Tag, _sidebar));
+        foreach (var button in WorkspaceIconBar.Children.OfType<Button>())
+            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, _workspaceExpanded && Equals(button.Tag, _sidebar));
     }
     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (e.NewValue is TreeViewItem { Tag: string path }) ActivateFile(path); }
@@ -606,9 +607,8 @@ public partial class MainWindow : Window
         ActivateFile(item.Path); Editor.NavigateTo(new SourceLocation(item.Path, Math.Max(1, item.Line))); DiagnosticsList.SelectedItem = null;
     }
     private void EditorCommand_Click(object sender, RoutedEventArgs e) { if (!_transitioning && !_closing) Editor.ExecuteCommand((string)((MenuItem)sender).Tag); }
-    private void ZoomOut_Click(object sender, RoutedEventArgs e) { CancelPendingNavigation(); Preview.SetZoom(Preview.Zoom / 1.15); ZoomButton.Content = $"{Preview.Zoom:P0}"; }
-    private void ZoomIn_Click(object sender, RoutedEventArgs e) { CancelPendingNavigation(); Preview.SetZoom(Preview.Zoom * 1.15); ZoomButton.Content = $"{Preview.Zoom:P0}"; }
-    private void Fit_Click(object sender, RoutedEventArgs e) { CancelPendingNavigation(); Preview.FitWidth(); ZoomButton.Content = "适合宽度"; }
+    private void ZoomOut_Click(object sender, RoutedEventArgs e) => SetManualZoom(Preview.Zoom / 1.15);
+    private void ZoomIn_Click(object sender, RoutedEventArgs e) => SetManualZoom(Preview.Zoom * 1.15);
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_pdfPath == null || !File.Exists(_pdfPath)) { Status("请先编译成功，再导出 PDF。"); return; }
@@ -668,6 +668,8 @@ public partial class MainWindow : Window
     }
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
+        if (e.Key == Key.F11 && modifiers == ModifierKeys.None)
+        { e.Handled = true; if (!e.IsRepeat) ToggleFullscreen(); return; }
         if (modifiers != ModifierKeys.Control) return;
         if (e.Key is not (Key.O or Key.N or Key.S or Key.Enter or Key.J or Key.B or Key.H)) return;
         e.Handled = true;
