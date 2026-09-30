@@ -55,6 +55,8 @@ public sealed partial class LatexEditor : TextEditor
         Options.ConvertTabsToSpaces = true;
         Options.IndentationSize = 2;
         Options.HighlightCurrentLine = true;
+        // Keep room below EOF so the final lines can scroll through the view center.
+        Options.AllowScrollBelowDocument = true;
         Options.EnableHyperlinks = false;
         Options.EnableEmailHyperlinks = false;
         TextArea.SelectionBrush = Brush("Selection");

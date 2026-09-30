@@ -62,6 +62,10 @@ internal static partial class Program
             var anchor = editor.ViewportLocation ?? throw new Exception("Document end has no viewport anchor");
             if (anchor.Line != editor.Document.LineCount)
                 throw new Exception($"Source scrolled to bottom but anchor is line {anchor.Line}, expected {editor.Document.LineCount}");
+            var view = editor.TextArea.TextView;
+            var finalRowY = view.VisualLines[^1].VisualTop - view.ScrollOffset.Y;
+            if (finalRowY < -1 || finalRowY > view.ActualHeight / 4)
+                throw new Exception($"Final source row must be in the top quarter after overscrolling (y={finalRowY:F1})");
             // Observe the normal debounced follow event, rather than forcing a forward request.
             await WaitUntilAsync(() => Math.Abs(scroll.VerticalOffset - PdfOffset(preview, endPoint, .5)) < 2,
                 $"Source bottom did not reveal final PDF page {endPoint.Page} (crop={crop})");
@@ -69,6 +73,6 @@ internal static partial class Program
         }
         if (editor.CaretOffset != caret) throw new Exception("Source scroll moved the caret");
         Console.WriteLine("PASS: existing PDF follows source lines 68-84 in both directions across page 1/2, with/without cropping, without backward jumps or caret movement");
-        Console.WriteLine("PASS: scrolling source to bottom automatically reveals final PDF page, with/without cropping and without caret movement");
+        Console.WriteLine("PASS: native overscroll brings final source row near the top and automatically reveals final PDF page, with/without cropping and without caret movement");
     }
 }

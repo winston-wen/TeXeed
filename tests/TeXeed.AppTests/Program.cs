@@ -796,11 +796,16 @@ internal static partial class Program
                 anchor = editor.ViewportLocation!;
                 if (anchor.Line != editor.Document.LineCount || (await MapAsync(anchor)).Page != preview.PageCount)
                     throw new Exception("Bottom viewport anchor cannot reach final source line / final PDF page");
+                var textView = editor.TextArea.TextView;
+                var finalRowY = textView.VisualLines[^1].VisualTop - textView.ScrollOffset.Y;
+                if (finalRowY < -1 || finalRowY > textView.ActualHeight / 4)
+                    throw new Exception($"Overscrolling must bring the final source row into the top quarter of the editor (y={finalRowY:F1})");
                 await AwaitAnchorAsync(anchor);
                 await AssertPdfOffsetStableAsync(pdfScroll, pdfScroll.VerticalOffset, "Final page automatic follow did not stay at document end");
                 if (editor.CaretOffset != originalCaret) throw new Exception("Document-end follow moved the caret");
             }
-            Console.WriteLine("PASS: follow anchor advances through final screen to the last source line and PDF page, with/without cropping");
+            Capture(window, Path.Combine(output, "editor-overscroll.png"));
+            Console.WriteLine("PASS: native overscroll brings final source row near the top and keeps final PDF page visible, with/without cropping");
 
             SelectMode(PreviewFollowMode.Cursor);
             await AwaitLocationAsync(editor.CurrentLocation!, .5, centerBounds: true);
