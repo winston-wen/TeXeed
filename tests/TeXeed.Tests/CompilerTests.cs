@@ -217,6 +217,44 @@ public static class CompilerTests
         var source = await sync.InverseAsync(project, pdf, new(1, 101, 192), settings);
         Check.True(source is { Line: 12, Column: 4 }, "Native inverse must identify the nearest source node");
         Check.True(await sync.InverseAsync(project, pdf, new(4, 10, 20), settings) is null, "Missing pages must not map to arbitrary source lines");
+
+        // Output routines may stamp the previous page's footer with the source line
+        // currently being read on the next page. Those kerns are not source text.
+        var boundary = $$"""
+            SyncTeX Version:1
+            Input:1:{{project.MainPath}}
+            Output:pdf
+            Magnification:1000
+            Unit:1
+            X Offset:0
+            Y Offset:0
+            Content:
+            {1
+            (1,30:6578176,46047232:13156352,657818,0
+            k1,30:6578176,46047232:6000000
+            )
+            }1
+            {2
+            (1,29:6578176,6578176:13156352,657818,0
+            x1,29:6578176,6578176
+            )
+            (1,31:6578176,7893811:13156352,657818,0
+            g1,30:6578176,7893811
+            x1,31:7000000,7893811
+            )
+            }2
+            Postamble:
+            Count:12
+            Post Scriptum:
+            """;
+        await File.WriteAllTextAsync(Path.ChangeExtension(pdf, ".synctex"), boundary);
+        foreach (var line in new[] { 29, 30, 31, 32, 31, 30, 29 })
+        {
+            var point = await sync.ForwardViewportAsync(project, pdf, new(project.MainPath, line), settings);
+            Check.True(point?.Page == 2, $"Viewport source {line} must not jump to the previous page's shipout kern");
+        }
+        var fallback = await sync.ForwardAsync(project, pdf, new(project.MainPath, 30), settings);
+        Check.True(fallback?.Page == 2, "Native forward fallback must prefer source content over same-line positioning kerns");
     }
 
     private static async Task BibliographyPassesAsync(TexProject project, string testExecutable)

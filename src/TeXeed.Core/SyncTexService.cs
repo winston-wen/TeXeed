@@ -27,6 +27,21 @@ public sealed class SyncTexService
             var result = ParseForwardOutput(output);
             if (result is not null) return result;
         }
+        return await NativeForwardAsync(project, pdfPath, valid, ct, contentOnly: false);
+    }
+
+    /// <summary>Follow source text, excluding shipout boxes, rules and positioning kerns
+    /// that can inherit a later source line while still belonging to the previous page.</summary>
+    public async Task<PdfLocation?> ForwardViewportAsync(TexProject project, string pdfPath, SourceLocation source, AppSettings settings, CancellationToken ct = default)
+    {
+        var valid = ValidateSource(project, source);
+        if (valid is null || !ValidOutput(project, pdfPath)) return null;
+        return await NativeForwardAsync(project, pdfPath, valid, ct, contentOnly: true)
+            ?? await ForwardAsync(project, pdfPath, source, settings, ct);
+    }
+
+    private async Task<PdfLocation?> NativeForwardAsync(TexProject project, string pdfPath, SourceLocation valid, CancellationToken ct, bool contentOnly)
+    {
         var nodes = await GetNodesAsync(pdfPath, ct);
         var files = new Dictionary<string, ValidatedFile?>();
         SyncNode? best = null;
@@ -34,10 +49,11 @@ public sealed class SyncTexService
         foreach (var node in nodes)
         {
             ct.ThrowIfCancellationRequested();
+            if (contentOnly && !node.IsContent) continue;
             var nodeSource = ResolveCachedSource(project, files, node);
             if (nodeSource is null || !PathsEqual(nodeSource.Path, valid.Path)) continue;
             // Prefer precise leaf records to large paragraph boxes on the same line.
-            var distance = Math.Abs(node.Line - valid.Line) * 1_000_000d + (node.IsBox ? 100_000 : 0)
+            var distance = Math.Abs(node.Line - valid.Line) * 1_000_000d + (node.IsContent ? 0 : node.IsBox ? 200_000 : 100_000)
                 + (node.Column > 0 ? Math.Abs(node.Column - valid.Column) : 0);
             if (distance < bestDistance) { best = node; bestDistance = distance; }
         }
@@ -211,8 +227,8 @@ public sealed class SyncTexService
 
     private static bool PathsEqual(string left, string right) => string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-    private sealed record SyncNode(string Input, int Line, int Column, PdfLocation Box, bool IsBox);
-    private sealed record RawNode(int Page, int Tag, int Line, int Column, double X, double Y, double Width, double Height, double Depth, bool IsBox);
+    private sealed record SyncNode(string Input, int Line, int Column, PdfLocation Box, bool IsBox, bool IsContent);
+    private sealed record RawNode(int Page, int Tag, int Line, int Column, double X, double Y, double Width, double Height, double Depth, bool IsBox, bool IsContent);
 
     private async Task<IReadOnlyList<SyncNode>> GetNodesAsync(string pdfPath, CancellationToken ct)
     {
@@ -332,7 +348,8 @@ public sealed class SyncTexService
                 var parent = stack.FirstOrDefault(item => item.Kind == '(').Box;
                 if (parent is not null) { height = parent.Height; depth = parent.Depth; }
             }
-            var node = new RawNode(page, inputTag, sourceLine, column, x, y, width, height, depth, isBox);
+            var isContent = record[0] is 'x' or 'g' or '$' && height + depth > 0;
+            var node = new RawNode(page, inputTag, sourceLine, column, x, y, width, height, depth, isBox, isContent);
             if (record[0] is '[' or '(') stack.Push((record[0], node));
             if (record[0] != '[' && sourceLine > 0) raw.Add(node);
             if (raw.Count > 1_000_000) break;
@@ -346,7 +363,7 @@ public sealed class SyncTexService
             var height = Math.Abs((n.Height + n.Depth) * scale);
             var x = n.X * scale + offsetX + Math.Min(0, n.Width * scale);
             var y = (n.Y - n.Height) * scale + offsetY;
-            return new SyncNode(inputs[n.Tag], n.Line, n.Column, new(n.Page, x, y, Math.Max(3, width), Math.Max(6, height)), n.IsBox);
+            return new SyncNode(inputs[n.Tag], n.Line, n.Column, new(n.Page, x, y, Math.Max(3, width), Math.Max(6, height)), n.IsBox, n.IsContent);
         }).Where(n => double.IsFinite(n.Box.X) && double.IsFinite(n.Box.Y) && double.IsFinite(n.Box.Width) && double.IsFinite(n.Box.Height)).ToList();
     }
 

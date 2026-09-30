@@ -374,7 +374,9 @@ public partial class MainWindow : Window
         _forwardSyncCancellation = cancellation;
         try
         {
-            var point = await _sync.ForwardAsync(_project, _pdfPath, location, _settings, cancellation.Token);
+            var point = !explicitRequest && mode == PreviewFollowMode.Viewport
+                ? await _sync.ForwardViewportAsync(_project, _pdfPath, location, _settings, cancellation.Token)
+                : await _sync.ForwardAsync(_project, _pdfPath, location, _settings, cancellation.Token);
             if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration ||
                 _pdfRevision != revision || _building || _transitioning || _closing || _externalChangePending ||
                 (explicitRequest ? Editor.CurrentLocation : AutomaticSyncLocation) != location ||

@@ -53,6 +53,13 @@ internal static partial class Program
                 if (editor.CurrentFilePath != main) throw new Exception("Main editor did not open fixture");
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
+                var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (existingFollow >= 0)
+                {
+                    await CheckExistingFollowAsync(window, Path.GetFullPath(args[existingFollow + 1]), output);
+                    await CloseAndObserveAsync(window, "existing follow regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--layout-only"))
                 {
                     await CheckLayoutMetadataAsync(window, root, output);
@@ -685,7 +692,9 @@ internal static partial class Program
                 if (persisted?.FollowMode != mode) throw new Exception("Toolbar follow mode was not persisted immediately: " + mode);
             }
             async Task<PdfLocation> MapAsync(SourceLocation source) =>
-                await sync.ForwardAsync(project, pdf, source, settings) ?? throw new Exception($"No SyncTeX mapping for {source.Line}");
+                await (Equals(modeBox.SelectedValue, PreviewFollowMode.Viewport)
+                    ? sync.ForwardViewportAsync(project, pdf, source, settings)
+                    : sync.ForwardAsync(project, pdf, source, settings)) ?? throw new Exception($"No SyncTeX mapping for {source.Line}");
             async Task<SourceLocation> ScrollSourceAsync(int topLine)
             {
                 editor.ScrollToVerticalOffset((topLine - 1) * editor.TextArea.TextView.DefaultLineHeight);
