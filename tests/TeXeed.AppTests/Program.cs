@@ -773,6 +773,35 @@ internal static partial class Program
             await AssertPdfOffsetStableAsync(pdfScroll, pdfScroll.VerticalOffset, "An earlier scroll request overwrote the latest viewport position");
             Console.WriteLine("PASS: rapid source scrolling settles at the final viewport, without stale jumps");
 
+            originalCaret = editor.CaretOffset;
+            foreach (var crop in new[] { true, false })
+            {
+                preview.AutoCrop = crop;
+                await WaitForPreviewRenderedAsync(window);
+                var maxOffset = editor.ExtentHeight - editor.ViewportHeight;
+                var start = Math.Max(0, maxOffset - editor.ViewportHeight);
+                var previousLine = 0;
+                for (var step = 0; step <= 20; step++)
+                {
+                    editor.ScrollToVerticalOffset(start + (maxOffset - start) * step / 20);
+                    await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                    window.UpdateLayout();
+                    anchor = editor.ViewportLocation!;
+                    if (anchor.Line < previousLine) throw new Exception("Document-end follow anchor moved backward while scrolling down");
+                    previousLine = anchor.Line;
+                }
+                editor.ScrollToVerticalOffset(editor.ExtentHeight);
+                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+                window.UpdateLayout();
+                anchor = editor.ViewportLocation!;
+                if (anchor.Line != editor.Document.LineCount || (await MapAsync(anchor)).Page != preview.PageCount)
+                    throw new Exception("Bottom viewport anchor cannot reach final source line / final PDF page");
+                await AwaitAnchorAsync(anchor);
+                await AssertPdfOffsetStableAsync(pdfScroll, pdfScroll.VerticalOffset, "Final page automatic follow did not stay at document end");
+                if (editor.CaretOffset != originalCaret) throw new Exception("Document-end follow moved the caret");
+            }
+            Console.WriteLine("PASS: follow anchor advances through final screen to the last source line and PDF page, with/without cropping");
+
             SelectMode(PreviewFollowMode.Cursor);
             await AwaitLocationAsync(editor.CurrentLocation!, .5, centerBounds: true);
             pdfOffset = pdfScroll.VerticalOffset;

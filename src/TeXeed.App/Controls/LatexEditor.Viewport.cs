@@ -26,7 +26,8 @@ public sealed partial class LatexEditor
     }
 
     /// <summary>
-    /// Source position at the start of the display row nearest the viewport's vertical center.
+    /// Source position near the viewport's vertical center, easing toward the final
+    /// visible row near the scroll limit so following can reach the document's end.
     /// Returns null until layout is current; does not depend on or move the caret.
     /// </summary>
     public SourceLocation? ViewportLocation
@@ -41,9 +42,23 @@ public sealed partial class LatexEditor
 
             var first = view.VisualLines[0];
             var last = view.VisualLines[^1];
+            var anchorY = view.ScrollOffset.Y + view.ActualHeight / 2;
+            var scrollableHeight = ExtentHeight - ViewportHeight;
+            if (scrollableHeight > 0)
+            {
+                // In the final half-screen of scrolling, move the anchor continuously
+                // toward the bottom edge. Otherwise the last half-screen of source
+                // can never reach a center-only anchor (e.g. a short final PDF page).
+                // Use scroll geometry rather than line counts for wrapped/folded text.
+                var transition = Math.Min(view.ActualHeight / 2, scrollableHeight);
+                // Target the final display row's center, not the empty space below
+                // its baseline. This also handles fractional rows at the lower edge.
+                var remaining = Math.Max(0, scrollableHeight - VerticalOffset - view.DefaultLineHeight / 2);
+                anchorY += view.ActualHeight / 2 * Math.Clamp(1 - remaining / transition, 0, 1);
+            }
             // Keep short documents and the blank space after the final line anchored
             // to rendered text. AvalonEdit's hit testing handles wrapping and folding.
-            var y = Math.Clamp(view.ScrollOffset.Y + view.ActualHeight / 2,
+            var y = Math.Clamp(anchorY,
                 first.VisualTop, Math.Max(first.VisualTop, last.VisualTop + last.Height - 0.001));
             var position = view.GetPosition(new Point(0, y));
             if (position is not { } source) return null;

@@ -46,7 +46,29 @@ internal static partial class Program
                 previous = offset;
             }
         }
+        var project = (TexProject)Field(window, "_project")!;
+        var sync = new SyncTexService();
+        var end = new SourceLocation(main, editor.Document.LineCount);
+        var endPoint = await sync.ForwardViewportAsync(project, pdf, end, settings)
+            ?? throw new Exception("Document end has no SyncTeX mapping");
+        if (endPoint.Page != preview.PageCount) throw new Exception("Fixture must map its last source line to its last PDF page");
+        foreach (var crop in new[] { true, false })
+        {
+            preview.AutoCrop = crop; await WaitForPreviewRenderedAsync(window);
+            editor.ScrollToVerticalOffset(0);
+            window.UpdateLayout(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            editor.ScrollToVerticalOffset(editor.ExtentHeight);
+            window.UpdateLayout(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+            var anchor = editor.ViewportLocation ?? throw new Exception("Document end has no viewport anchor");
+            if (anchor.Line != editor.Document.LineCount)
+                throw new Exception($"Source scrolled to bottom but anchor is line {anchor.Line}, expected {editor.Document.LineCount}");
+            // Observe the normal debounced follow event, rather than forcing a forward request.
+            await WaitUntilAsync(() => Math.Abs(scroll.VerticalOffset - PdfOffset(preview, endPoint, .5)) < 2,
+                $"Source bottom did not reveal final PDF page {endPoint.Page} (crop={crop})");
+            await AssertPdfOffsetStableAsync(scroll, scroll.VerticalOffset, "Final page follow was overwritten");
+        }
         if (editor.CaretOffset != caret) throw new Exception("Source scroll moved the caret");
         Console.WriteLine("PASS: existing PDF follows source lines 68-84 in both directions across page 1/2, with/without cropping, without backward jumps or caret movement");
+        Console.WriteLine("PASS: scrolling source to bottom automatically reveals final PDF page, with/without cropping and without caret movement");
     }
 }
