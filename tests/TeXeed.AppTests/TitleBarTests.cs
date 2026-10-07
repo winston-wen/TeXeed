@@ -66,6 +66,9 @@ internal static partial class Program
         if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(window.PointToScreen(new Point(2, 2)))) != 13)
             throw new Exception("Window corner must retain native diagonal resize hit testing");
         Capture(window, Path.Combine(output, "titlebar-wide.png"));
+        foreach (var control in new FrameworkElement[] { menus[0], (Button)window.FindName("MinimizeButton"), (Button)window.FindName("CloseButton") })
+            if (Math.Abs(control.TranslatePoint(new Point(), title).Y) > .1)
+                throw new Exception("Titlebar control still has a blank strip above it");
 
         window.Width = window.MinWidth;
         await SettleAsync();

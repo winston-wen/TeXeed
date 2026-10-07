@@ -20,6 +20,7 @@ internal static partial class Program
     [StructLayout(LayoutKind.Sequential)] private struct CoveragePoint { public int X, Y; }
     [DllImport("user32.dll")] private static extern nint WindowFromPoint(CoveragePoint point);
     [DllImport("user32.dll")] private static extern nint GetAncestor(nint hwnd, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(nint hwnd, System.Text.StringBuilder name, int capacity);
     [DllImport("user32.dll")] private static extern int GetWindowRgn(nint hwnd, nint region);
     [DllImport("gdi32.dll")] private static extern nint CreateRectRgn(int left, int top, int right, int bottom);
     [DllImport("gdi32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool PtInRegion(nint region, int x, int y);
@@ -95,19 +96,55 @@ internal static partial class Program
             CheckActiveFullscreenCoverage(window);
             if (toast.Opacity < .9) throw new Exception("Fullscreen toast did not fade in");
             Capture(window, Path.Combine(output, "fullscreen-" + prior + ".png"));
+            void PressAlt()
+            {
+                Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt, false);
+                Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
+            }
+            PressAlt(); await Settle();
+            if (!title.IsVisible || !((Button)window.FindName("MinimizeButton")).IsVisible || !((Button)window.FindName("CloseButton")).IsVisible)
+                throw new Exception("Fullscreen Alt did not reveal the complete titlebar and caption buttons");
+            if (WindowChrome.GetWindowChrome(window) is not null || !(bool)Field(window, "_fullscreen")!)
+                throw new Exception("Revealing fullscreen titlebar reattached chrome or left fullscreen");
+            var root = (FrameworkElement)window.FindName("WindowRoot");
+            foreach (var name in new[] { "MinimizeButton", "MaximizeButton", "CloseButton" })
+            {
+                var button = (Button)window.FindName(name);
+                var hit = root.InputHitTest(button.TranslatePoint(new Point(button.ActualWidth / 2, button.ActualHeight / 2), root)) as DependencyObject;
+                while (hit is not null && hit is not Button) hit = VisualTreeHelper.GetParent(hit);
+                if (!ReferenceEquals(hit, button)) throw new Exception("Fullscreen caption button is not clickable: " + name);
+            }
+            CheckWindowBottom(window, true); CheckActiveFullscreenCoverage(window);
+            Capture(window, Path.Combine(output, "fullscreen-alt-titlebar-" + prior + ".png"));
+            PressAlt(); await Settle();
+            if (title.IsVisible) throw new Exception("Second fullscreen Alt did not hide the titlebar");
+            PressAlt(); await Settle();
+            if (!(bool)Invoke(window, "ProcessMenuKeyDown", Key.Escape, ModifierKeys.None, false)! || title.IsVisible)
+                throw new Exception("Fullscreen Escape did not hide the revealed titlebar");
+            PressAlt(); await Settle();
+            ((LatexEditor)window.FindName("Editor")).RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent });
+            await Settle();
+            if (title.IsVisible) throw new Exception("Clicking source content did not dismiss fullscreen titlebar");
+            PressAlt(); await Settle();
+            if (!title.IsVisible) throw new Exception("Fullscreen Alt failed to reveal titlebar after clicking source content");
             // Shell reactivation and WPF state restoration must not recreate
             // the work-area clip after a full-screen minimize/restore cycle.
-            window.WindowState = WindowState.Minimized; await Settle();
+            ((Button)window.FindName("MinimizeButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitUntilAsync(() => window.WindowState == WindowState.Minimized, "Fullscreen titlebar minimize did not minimize the window");
+            await Settle();
             SystemCommands.RestoreWindow(window); window.Activate(); await Settle();
             await Task.Delay(160);
             CheckWindowBottom(window, true);
             CheckActiveFullscreenCoverage(window);
-            // Alt still provides access to the View/Fullscreen command without a title bar.
+            // Alt+V reveals the titlebar and opens its normal View menu.
             Invoke(window, "ProcessMenuKeyDown", Key.V, ModifierKeys.Alt, false); await Settle();
             var popup = (Popup)Field(window, "_compactMenu")!;
             var panel = (CompactMenuPanel)popup.Child;
-            if (!popup.IsOpen) throw new Exception("Fullscreen Alt+V did not show menu");
-            Descendants<Button>(panel).Single(button => ReferenceEquals(button.Tag, item)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Settle();
+            var view = (MenuItem)((Menu)window.FindName("MainMenu")).Items[2];
+            if (!title.IsVisible || (!popup.IsOpen && !view.IsSubmenuOpen)) throw new Exception("Fullscreen Alt+V did not show titlebar and View menu");
+            if (popup.IsOpen) Descendants<Button>(panel).Single(button => ReferenceEquals(button.Tag, item)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            else item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            await Settle();
             if (window.WindowState != prior || !title.IsVisible || item.IsChecked || !toast.IsVisible || popup.IsOpen)
                 throw new Exception("Menu exit did not restore previous window state");
             if ((bool)Field(window, "_shellFullscreenMarked")!) throw new Exception("Leaving fullscreen did not clear Shell marking");
@@ -137,7 +174,10 @@ internal static partial class Program
         var point = new CoveragePoint { X = (monitor.Monitor.Left + monitor.Monitor.Right) / 2, Y = monitor.Monitor.Bottom - 2 };
         var hit = WindowFromPoint(point);
         if (GetAncestor(hit, 2) != hwnd) // GA_ROOT
-            throw new Exception($"Fullscreen does not cover the bottom of the monitor: hit HWND={hit}, expected={hwnd}");
+        {
+            var name = new System.Text.StringBuilder(256); GetClassName(hit, name, name.Capacity);
+            throw new Exception($"Fullscreen does not cover the bottom of the monitor: hit HWND={hit} ({name}), expected={hwnd}");
+        }
     }
     private static async Task CheckZoomControlsAsync(MainWindow window, string output)
     {

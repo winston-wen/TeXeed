@@ -57,6 +57,10 @@ internal static partial class Program
                 if (args.Contains("--titlebar-only"))
                 {
                     await CheckTitleBarAsync(window, output);
+                    Invoke(window, "ToggleFullscreen");
+                    Invoke(window, "ProcessMenuKeyDown", Key.LeftAlt, ModifierKeys.Alt, false);
+                    Invoke(window, "ProcessMenuKeyUp", Key.LeftAlt, ModifierKeys.None);
+                    if (!((FrameworkElement)window.FindName("TitleBar")).IsVisible) throw new Exception("Fullscreen titlebar was unavailable for closing");
                     ((Button)window.FindName("CloseButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     await WaitUntilAsync(() => !window.IsVisible, "Caption close button did not close the window");
                     result = 0; return;

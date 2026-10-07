@@ -51,7 +51,7 @@ public partial class MainWindow
         // Reserve caption buttons and a draggable gap before switching
         // modes. The compact panel reads the same live menu items; it never opens
         // their cascading popups or changes their logical ownership.
-        var compact = _fullscreen || TitleBar.ActualWidth < 12 + _wideMenuWidth + 138 + 80;
+        var compact = (_fullscreen && !_fullscreenTitleBarVisible) || TitleBar.ActualWidth < 12 + _wideMenuWidth + 138 + 80;
         if (compact != _compactTitleBar)
         {
             CloseTitleMenus();
@@ -103,13 +103,14 @@ public partial class MainWindow
     private void UpdateCompactMenuSize()
     {
         if (_closing || _allowClose) return;
-        _compactMenu.PlacementTarget = _fullscreen ? WindowRoot : TitleBar;
-        _compactMenu.VerticalOffset = _fullscreen ? 0 : 40;
+        var titleHeight = TitleBar.IsVisible ? TitleBar.ActualHeight : 0;
+        _compactMenu.PlacementTarget = titleHeight > 0 ? TitleBar : WindowRoot;
+        _compactMenu.VerticalOffset = titleHeight;
         _compactPanel.Width = Math.Min(420, Math.Max(1, WindowRoot.ActualWidth - 12));
-        var available = Math.Max(1, WindowRoot.ActualHeight - (_fullscreen ? 0 : TitleBar.ActualHeight) - 6);
+        var available = Math.Max(1, WindowRoot.ActualHeight - titleHeight - 6);
         if (IsLoaded && PresentationSource.FromVisual(TitleBar) is not null)
         {
-            var screen = WindowRoot.PointToScreen(new Point(6, _fullscreen ? 0 : TitleBar.ActualHeight));
+            var screen = WindowRoot.PointToScreen(new Point(6, titleHeight));
             available = Math.Min(available, WindowMenuSpaceBelow(screen) / VisualTreeHelper.GetDpi(this).DpiScaleY);
         }
         _compactPanel.MaxHeight = Math.Max(1, available);
@@ -121,7 +122,11 @@ public partial class MainWindow
         else menu.IsSubmenuOpen = true;
     }
 
-    private void Minimize_Click(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
+    private void Minimize_Click(object sender, RoutedEventArgs e)
+    {
+        if (_fullscreen) WindowState = WindowState.Minimized;
+        else SystemCommands.MinimizeWindow(this);
+    }
     private void Maximize_Click(object sender, RoutedEventArgs e)
     {
         if (_fullscreen) { ToggleFullscreen(); return; }

@@ -61,12 +61,13 @@ public partial class MainWindow
             return true;
         }
 
-        if (key == Key.Escape && modifiers == ModifierKeys.None && (MainMenu.IsKeyboardFocusWithin || _compactMenu.IsOpen || _titleMenus.Any(item => item.IsSubmenuOpen)))
+        if (key == Key.Escape && modifiers == ModifierKeys.None && (MainMenu.IsKeyboardFocusWithin || _compactMenu.IsOpen || _titleMenus.Any(item => item.IsSubmenuOpen) || _fullscreenTitleBarVisible))
         {
             if (_compactMenu.IsOpen && _compactPanel.GoBack()) return true;
             // The menu's own keyboard handler closes the innermost popup first.
             if (_titleMenus.Any(item => item.IsSubmenuOpen)) return false;
             HideMainMenu(restoreFocus: true);
+            SetFullscreenTitleBarVisible(false);
             return true;
         }
         return false;
@@ -81,7 +82,12 @@ public partial class MainWindow
         ResetMenuAltGesture();
         if (toggle)
         {
-            if (MainMenu.IsKeyboardFocusWithin || _compactMenu.IsOpen) HideMainMenu(restoreFocus: true);
+            if (_fullscreen)
+            {
+                if (_fullscreenTitleBarVisible) { HideMainMenu(restoreFocus: true); SetFullscreenTitleBarVisible(false); }
+                else ShowMainMenu(FirstMenuItem);
+            }
+            else if (MainMenu.IsKeyboardFocusWithin || _compactMenu.IsOpen) HideMainMenu(restoreFocus: true);
             else ShowMainMenu(FirstMenuItem);
         }
         return handled;
@@ -102,6 +108,8 @@ public partial class MainWindow
         if (!IsWithin(e.OriginalSource as DependencyObject, MainMenu)
             && !IsWithin(e.OriginalSource as DependencyObject, _compactPanel)
             && !IsWithin(e.OriginalSource as DependencyObject, CompactMenuButton)) CloseTitleMenus();
+        if (!IsWithin(e.OriginalSource as DependencyObject, TitleBar)
+            && !IsWithin(e.OriginalSource as DependencyObject, _compactPanel)) SetFullscreenTitleBarVisible(false);
     }
 
     private void ResetMenuAltGesture()
@@ -132,6 +140,7 @@ public partial class MainWindow
     private void ShowMainMenu(MenuItem selectedItem)
     {
         if (_closing || _allowClose || !IsLoaded || !IsVisible) return;
+        SetFullscreenTitleBarVisible(true);
         MainMenu.IsMainMenu = false;
         if (_compactTitleBar)
         {

@@ -9,6 +9,7 @@ namespace TeXeed.App;
 public partial class MainWindow
 {
     private bool _fullscreen;
+    private bool _fullscreenTitleBarVisible;
     private Rect _beforeFullscreenBounds;
     private WindowState _beforeFullscreenState;
     private WindowChrome? _beforeFullscreenChrome;
@@ -30,6 +31,7 @@ public partial class MainWindow
             _beforeFullscreenChrome = WindowChrome.GetWindowChrome(this);
             WindowState = WindowState.Normal;
             _fullscreen = true;
+            _fullscreenTitleBarVisible = false;
             // Even a zero-sized WindowChrome clips a maximized HWND's native
             // region to rcWork, leaving the taskbar strip uncovered despite
             // our full-monitor WM_GETMINMAXINFO and Shell fullscreen marking.
@@ -38,13 +40,16 @@ public partial class MainWindow
             WindowChrome.SetWindowChrome(this, null);
             TitleBar.Visibility = Visibility.Collapsed;
             TitleBarRow.Height = new GridLength(0);
-            ResizeMode = ResizeMode.NoResize;
+            // Keep native minimize enabled for the Alt-revealed caption, while
+            // retaining a borderless, non-resizable fullscreen window.
+            ResizeMode = ResizeMode.CanMinimize;
             WindowState = WindowState.Maximized;
         }
         else
         {
             WindowState = WindowState.Normal;
             _fullscreen = false;
+            _fullscreenTitleBarVisible = false;
             ResizeMode = ResizeMode.CanResize;
             WindowChrome.SetWindowChrome(this, _beforeFullscreenChrome);
             TitleBar.Visibility = Visibility.Visible;
@@ -57,6 +62,17 @@ public partial class MainWindow
         MarkShellFullscreen(_fullscreen);
         UpdateCaptionState(); UpdateTitleBarLayout(); UpdateCompactMenuSize();
         ShowFullscreenToast(_fullscreen ? "已进入全屏 · 按 F11 退出" : "已退出全屏");
+    }
+    private void SetFullscreenTitleBarVisible(bool visible)
+    {
+        if (!_fullscreen || _fullscreenTitleBarVisible == visible) return;
+        _fullscreenTitleBarVisible = visible;
+        // Reveal client content without reinstating WindowChrome's work-area clip.
+        TitleBar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        TitleBarRow.Height = new GridLength(visible ? 40 : 0);
+        UpdateLayout();
+        UpdateTitleBarLayout();
+        UpdateCompactMenuSize();
     }
     private void MarkShellFullscreen(bool fullscreen)
     {
