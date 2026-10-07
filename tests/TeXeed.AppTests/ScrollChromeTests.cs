@@ -41,6 +41,7 @@ internal static partial class Program
         var editorBar = Descendants<ScrollBar>(editor).First(b => b.IsVisible && b.Orientation == Orientation.Vertical);
         var previewBar = Descendants<ScrollBar>(previewPane).First(b => b.IsVisible && b.Orientation == Orientation.Vertical);
         var oldOffset = editor.VerticalOffset;
+        var oldWrap = editor.WordWrap;
         AssertEditorScrollEdges(editor);
         // Previous modal/menu tests can leave the real pointer over a scrollbar.
         // Park it on the test window's title bar so idle assertions test idle input.
@@ -115,6 +116,11 @@ internal static partial class Program
                         throw new Exception("Long-document thumb is too short to grab");
                 }
             }
+            if (oldWrap && Descendants<ScrollBar>(editor).Any(b => b.IsVisible && b.Orientation == Orientation.Horizontal))
+                throw new Exception("Wrapped editor must not show a horizontal scrollbar");
+            // Exercise the horizontal track in the explicitly unwrapped mode.
+            editor.SetWordWrap(false); editor.ScrollToHorizontalOffset(0); window.UpdateLayout();
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
             var horizontal = Descendants<ScrollBar>(editor).First(b => b.IsVisible && b.Orientation == Orientation.Horizontal);
             if (horizontal.ActualHeight != 12) throw new Exception("Horizontal scrollbar must be 12 DIP");
             var hTrack = (Track)horizontal.Template.FindName("PART_Track", horizontal);
@@ -122,6 +128,7 @@ internal static partial class Program
             ((RoutedCommand)hTrack.IncreaseRepeatButton.Command).Execute(null, hTrack.IncreaseRepeatButton);
             await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
             if (horizontal.Value <= x) throw new Exception("Horizontal track click did not scroll");
+            editor.SetWordWrap(oldWrap); window.UpdateLayout();
             editor.ScrollToHorizontalOffset(0); editor.ScrollToVerticalOffset(oldOffset);
 
             double? rightEdge = null;
@@ -147,6 +154,7 @@ internal static partial class Program
             SetCursorPos(previousPointer.X, previousPointer.Y);
             log.IsExpanded = false; tabs.SelectedIndex = 0;
             diagnostics.ItemsSource = null; logText.Clear();
+            editor.SetWordWrap(oldWrap);
             editor.ScrollToHorizontalOffset(0); editor.ScrollToVerticalOffset(oldOffset);
             window.UpdateLayout(); MouseActionIn(pane); MouseActionIn(previewPane);
         }

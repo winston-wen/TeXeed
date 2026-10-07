@@ -25,10 +25,13 @@ internal static partial class Program
         var editor = new LatexEditor { FontFamily = new FontFamily("Arial"), FontSize = 22 };
         editor.ShowFile(File("grid-colors.tex", source), source);
         editor.SyntaxHighlighting = null;
-        editor.Foreground = foreground;
         var window = HostEditor(editor);
         try
         {
+            // Loaded applies the active theme. Test mutable glyph colors after
+            // that initialization, as a live color change in the real editor.
+            editor.Foreground = foreground;
+            editor.TextArea.TextView.Redraw(); SettleLayout(window);
             (int Red, int Blue) CountInk()
             {
                 var view = editor.TextArea.TextView;

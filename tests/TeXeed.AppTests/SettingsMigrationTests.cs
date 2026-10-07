@@ -68,6 +68,15 @@ internal static class SettingsMigrationTests
             var restoredColors = (AppSettings)load.Invoke(null, null)!;
             if (restoredColors.InvertPdfColors || restoredColors.AutoCropPdf)
                 throw new InvalidOperationException("Original PDF color preference did not persist");
+            File.WriteAllText(path, "{\"FontSize\":19}");
+            if (!((AppSettings)load.Invoke(null, null)!).WordWrap)
+                throw new InvalidOperationException("Existing settings without a wrap preference must enable soft wrapping");
+            foreach (var wrap in new[] { true, false })
+            {
+                save.Invoke(null, [new AppSettings { WordWrap = wrap }]);
+                if (((AppSettings)load.Invoke(null, null)!).WordWrap != wrap)
+                    throw new InvalidOperationException("Word-wrap preference did not round-trip");
+            }
             Console.WriteLine("PASS: all preview follow modes round-trip, with legacy migration, key priority and invalid-value defaults");
         }
         finally { Environment.SetEnvironmentVariable("TEXEED_HOME", previous); }

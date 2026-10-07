@@ -36,6 +36,7 @@ public sealed record AppSettings
     public int DebounceMs { get; init; } = 1000;
     public double FontSize { get; init; } = 15;
     public string EditorFontFamily { get; init; } = "Cascadia Code, Consolas";
+    public bool WordWrap { get; init; } = true;
     public string[] RecentProjects { get; init; } = [];
 }
 public sealed record Diagnostic(string Message, string Path, int Line, bool IsWarning = false);

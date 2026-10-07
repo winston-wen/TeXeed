@@ -92,6 +92,12 @@ internal static partial class Program
                     await CloseAndObserveAsync(window, "workspace icons regression");
                     result = 0; return;
                 }
+                if (args.Contains("--word-wrap-only"))
+                {
+                    await CheckWordWrapAsync(window, output);
+                    await CloseAndObserveAsync(window, "word wrap regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--crop-only"))
                 {
                     await CheckPdfCropAsync(window, root, output);

@@ -63,6 +63,7 @@ public partial class MainWindow : Window
         Preview.AutoCrop = _settings.AutoCropPdf;
         Editor.FontSize = _settings.FontSize;
         Editor.FontFamily = new FontFamily(_settings.EditorFontFamily);
+        ApplyWordWrap();
         _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
         _liveTimer.Tick += async (_, _) =>
         {
@@ -667,6 +668,8 @@ public partial class MainWindow : Window
     }
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
+        if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Z && modifiers == ModifierKeys.Alt)
+        { e.Handled = true; if (!e.IsRepeat) ToggleWordWrap(); return; }
         if (e.Key == Key.F11 && modifiers == ModifierKeys.None)
         { e.Handled = true; if (!e.IsRepeat) ToggleFullscreen(); return; }
         if (modifiers != ModifierKeys.Control) return;

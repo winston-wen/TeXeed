@@ -8,6 +8,9 @@
     <ProjectReference Include="../../src/TeXeed.Core/TeXeed.Core.csproj" />
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
     <Compile Include="../../src/TeXeed.App/Controls/LatexEditor*.cs" Link="%(Filename)%(Extension)" />
+    <Compile Include="../../src/TeXeed.App/Services/ThemeManager.cs" Link="Services/ThemeManager.cs" />
+    <Compile Include="../../src/TeXeed.App/Services/WindowTheme.cs" Link="Services/WindowTheme.cs" />
+    <EmbeddedResource Include="../../src/TeXeed.App/Themes/*.json" LogicalName="TeXeed.App.Themes.%(Filename)%(Extension)" />
     <Page Include="../../src/TeXeed.App/Controls/EditorSearchTheme.xaml" Link="Controls/EditorSearchTheme.xaml" />
   </ItemGroup>
 </Project>
