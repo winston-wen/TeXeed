@@ -221,16 +221,16 @@ public sealed class PdfPreview : UserControl, IDisposable
         _pages.Width = 0; _pages.Height = 0; _empty.Visibility = Visibility.Visible;
     }
 
-    public void ShowLocation(PdfLocation location, bool highlight = true, double viewportFraction = .35, bool centerBounds = false)
+    public void ShowLocation(PdfLocation location, bool highlight = true, double viewportFraction = .35, bool centerBounds = false, bool pageStart = false)
     {
         if (_disposed || _document is null || location.Page < 1 || location.Page > _layouts.Count
             || !double.IsFinite(location.X) || !double.IsFinite(location.Y) || !double.IsFinite(viewportFraction)) return;
         UpdatePageSizes(); ClearHighlights();
         if (highlight) _highlight = location;
         var index = location.Page - 1;
-        var target = new Point(location.X + (centerBounds && double.IsFinite(location.Width) ? Math.Max(0, location.Width) / 2 : 0),
+        var target = pageStart ? DisplayToPage(index, new Point()) : new Point(location.X + (centerBounds && double.IsFinite(location.Width) ? Math.Max(0, location.Width) / 2 : 0),
             location.Y + (centerBounds && double.IsFinite(location.Height) ? Math.Max(0, location.Height) / 2 : 0));
-        RestoreAnchor(new ZoomAnchor(index, target, new Point()), horizontal: false, viewportFraction: Math.Clamp(viewportFraction, 0, 1));
+        RestoreAnchor(new ZoomAnchor(index, target, new Point()), horizontal: false, viewportFraction: pageStart ? 0 : Math.Clamp(viewportFraction, 0, 1));
         _highlightTimer.Stop();
         if (highlight) _highlightTimer.Start();
         ScheduleRender();

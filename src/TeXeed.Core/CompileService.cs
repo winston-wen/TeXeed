@@ -466,6 +466,12 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             if (accepted < read) truncated = true;
         }
         var bytes = captured.ToArray();
+        var text = DecodeToolText(bytes);
+        return truncated ? text + "\n[日志超过 4 MB，已截断]" : text;
+    }
+
+    internal static string DecodeToolText(byte[] bytes)
+    {
         string text;
         try { text = new UTF8Encoding(false, true).GetString(bytes); }
         catch (DecoderFallbackException)
@@ -475,7 +481,7 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             text = OperatingSystem.IsWindows() ? Encoding.GetEncoding((int)GetACP()).GetString(bytes) : Encoding.UTF8.GetString(bytes);
         }
-        return truncated ? text + "\n[日志超过 4 MB，已截断]" : text;
+        return text;
     }
 
     [DllImport("kernel32.dll")]

@@ -37,6 +37,7 @@ internal static partial class Program
             Run("single navigation centers nearby and repeated targets without a second click", CenteredNavigation);
             Run("viewport anchor refreshes on resize and file changes", ViewportResizeAndFiles);
             Run("viewport anchor uses rendered rows for wrapped and folded text", ViewportWrapAndFold);
+            Run("viewport follow uses file start at the top and notifies boundary crossings", ViewportTopBoundary);
             Run("word wrap reflows without editing text, losing selection or undo", WordWrapToggle);
             RunFixedGridTests();
             RunMultiCaretTests();

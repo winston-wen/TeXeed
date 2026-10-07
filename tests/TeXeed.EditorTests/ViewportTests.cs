@@ -184,4 +184,27 @@ internal static partial class Program
         }
         finally { window.Close(); }
     }
+    private static void ViewportTopBoundary()
+    {
+        var editor = new LatexEditor { WordWrap = true };
+        var text = "\\chapter{Chapter}\n% comment\n\n" + string.Join(' ', Enumerable.Repeat("long wrapped text", 300));
+        editor.ShowFile(File("chapter.tex", text), text);
+        var window = HostEditor(editor, width: 350, height: 280);
+        try
+        {
+            var center = Anchor(editor);
+            Require(center.Line > 1, "Top-boundary fixture must have a center below its chapter heading.");
+            Require(editor.ViewportFollowLocation == new SourceLocation("chapter.tex", 1, 1), "File start was unreachable when source was at the top.");
+            var events = 0;
+            editor.ViewportLocationChanged += (_, _) => events++;
+            editor.ScrollToVerticalOffset(.1); SettleLayout(window);
+            Require(editor.ViewportFollowLocation == editor.ViewportLocation && events == 1,
+                "Leaving the top edge must notify follow even if the center row is unchanged.");
+            editor.ScrollToVerticalOffset(0); SettleLayout(window);
+            Require(editor.ViewportFollowLocation == new SourceLocation("chapter.tex", 1, 1) && events == 2,
+                "Returning to the top edge did not resume following the chapter's beginning.");
+            Require(editor.CaretOffset == 0 && editor.Text == text, "Top-boundary tracking altered source or caret.");
+        }
+        finally { window.Close(); }
+    }
 }

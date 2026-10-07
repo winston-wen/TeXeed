@@ -348,7 +348,7 @@ public partial class MainWindow : Window
     private SourceLocation? AutomaticSyncLocation => _settings.FollowMode switch
     {
         PreviewFollowMode.Cursor => Editor.CurrentLocation,
-        PreviewFollowMode.Viewport => Editor.ViewportLocation,
+        PreviewFollowMode.Viewport => Editor.ViewportFollowLocation,
         _ => null
     };
 
@@ -387,7 +387,8 @@ public partial class MainWindow : Window
                 !explicitRequest && (_settings.FollowMode != mode || _inverseNavigationOwner != 0)) return;
             if (point != null) Preview.ShowLocation(point, highlight: explicitRequest,
                 viewportFraction: explicitRequest && mode != PreviewFollowMode.Cursor ? .35 : .5,
-                centerBounds: mode == PreviewFollowMode.Cursor);
+                centerBounds: mode == PreviewFollowMode.Cursor,
+                pageStart: !explicitRequest && mode == PreviewFollowMode.Viewport && Editor.VerticalOffset <= .01);
             else if (explicitRequest) Status("此处没有对应的 PDF 位置；请检查 SyncTeX 设置。");
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }

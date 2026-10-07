@@ -54,6 +54,13 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                var chapterFollow = Array.IndexOf(args, "--follow-chapters");
+                if (chapterFollow >= 0)
+                {
+                    await CheckChapterFollowAsync(window, Path.GetFullPath(args[chapterFollow + 1]), output);
+                    await CloseAndObserveAsync(window, "chapter start follow regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--titlebar-only"))
                 {
                     await CheckTitleBarAsync(window, output);

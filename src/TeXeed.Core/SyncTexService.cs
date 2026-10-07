@@ -243,16 +243,17 @@ public sealed class SyncTexService
             if (info.Length > 64 * 1024 * 1024) return [];
             await using var file = File.OpenRead(path);
             using var stream = path.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) ? (Stream)new GZipStream(file, CompressionMode.Decompress) : file;
-            using var reader = new StreamReader(stream, Encoding.UTF8, true);
-            var text = new StringBuilder();
-            var buffer = new char[8192];
+            using var text = new MemoryStream();
+            var buffer = new byte[8192];
             int count;
-            while ((count = await reader.ReadAsync(buffer.AsMemory(), ct)) > 0)
+            while ((count = await stream.ReadAsync(buffer.AsMemory(), ct)) > 0)
             {
                 if (text.Length + count > 64 * 1024 * 1024) return [];
-                text.Append(buffer, 0, count);
+                text.Write(buffer, 0, count);
             }
-            var nativeText = text.ToString();
+            // Windows TeX Live writes ANSI input filenames into SyncTeX; UTF-8
+            // replacement characters would make every Chinese path unresolvable.
+            var nativeText = CompileService.DecodeToolText(text.ToArray()).TrimStart('\uFEFF');
             var nodes = await Task.Run(() => ParseNative(nativeText), ct);
             cachedPath = path;
             cachedTime = info.LastWriteTimeUtc;

@@ -8,6 +8,8 @@ namespace TeXeed.Tests;
 
 public static class CompilerTests
 {
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "GetACP")]
+    private static extern uint SyncTestCodePage();
     public static async Task<int> RunRealEngineAsync(string executable, string mainPath)
     {
         var project = await new ProjectService().LoadAsync(Path.GetFullPath(mainPath));
@@ -221,6 +223,23 @@ public static class CompilerTests
         var source = await sync.InverseAsync(project, pdf, new(1, 101, 192), settings);
         Check.True(source is { Line: 12, Column: 4 }, "Native inverse must identify the nearest source node");
         Check.True(await sync.InverseAsync(project, pdf, new(4, 10, 20), settings) is null, "Missing pages must not map to arbitrary source lines");
+
+        if (OperatingSystem.IsWindows())
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            var encoding = Encoding.GetEncoding((int)SyncTestCodePage());
+            var encoded = encoding.GetBytes(raw);
+            if (encoding.GetString(encoded) == raw)
+            {
+                await using (var output = File.Create(Path.ChangeExtension(pdf, ".synctex.gz")))
+                await using (var gzip = new GZipStream(output, CompressionMode.Compress)) await gzip.WriteAsync(encoded);
+                var ansiSync = new SyncTexService();
+                var ansiPoint = await ansiSync.ForwardViewportAsync(project, pdf, new(project.MainPath, 12, 4), settings);
+                Check.True(ansiPoint is { Page: 1 }, "ANSI-encoded SyncTeX must retain Chinese source paths for native viewport following");
+                var ansiSource = await ansiSync.InverseAsync(project, pdf, new(1, 101, 192), settings);
+                Check.True(ansiSource?.Path == project.MainPath && ansiSource.Line == 12, "ANSI SyncTeX inverse lost the trusted source path");
+            }
+        }
 
         // Output routines may stamp the previous page's footer with the source line
         // currently being read on the next page. Those kerns are not source text.

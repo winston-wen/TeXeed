@@ -8,9 +8,16 @@ public sealed partial class LatexEditor
 {
     private DispatcherOperation? _viewportNotification;
     private SourceLocation? _lastViewportLocation;
+    private SourceLocation? _lastViewportFollowLocation;
 
     public event EventHandler<SourceLocation>? ViewportLocationChanged;
     public event EventHandler? VisibleRangeChanged;
+
+    /// <summary>At the top edge, follow the file's beginning rather than text
+    /// halfway down the viewport, which could hide a chapter's opening page.</summary>
+    public SourceLocation? ViewportFollowLocation => ViewportLocation is { } location
+        ? TextArea.TextView.ScrollOffset.Y <= .01 ? location with { Line = 1, Column = 1 } : location
+        : null;
 
     public (string Path, int FirstLine, int LastLine)? VisibleSourceRange
     {
@@ -71,8 +78,11 @@ public sealed partial class LatexEditor
         {
             _viewportNotification = null;
             VisibleRangeChanged?.Invoke(this, EventArgs.Empty);
-            if (ViewportLocation is not { } location || location == _lastViewportLocation) return;
+            if (ViewportLocation is not { } location) return;
+            var follow = ViewportFollowLocation;
+            if (location == _lastViewportLocation && follow == _lastViewportFollowLocation) return;
             _lastViewportLocation = location;
+            _lastViewportFollowLocation = follow;
             ViewportLocationChanged?.Invoke(this, location);
         }));
     }
@@ -82,5 +92,6 @@ public sealed partial class LatexEditor
         _viewportNotification?.Abort();
         _viewportNotification = null;
         _lastViewportLocation = null;
+        _lastViewportFollowLocation = null;
     }
 }
