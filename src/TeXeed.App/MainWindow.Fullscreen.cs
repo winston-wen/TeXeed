@@ -30,7 +30,12 @@ public partial class MainWindow
             _beforeFullscreenChrome = WindowChrome.GetWindowChrome(this);
             WindowState = WindowState.Normal;
             _fullscreen = true;
-            WindowChrome.SetWindowChrome(this, new WindowChrome { CaptionHeight = 0, ResizeBorderThickness = new Thickness(), GlassFrameThickness = new Thickness(), UseAeroCaptionButtons = false });
+            // Even a zero-sized WindowChrome clips a maximized HWND's native
+            // region to rcWork, leaving the taskbar strip uncovered despite
+            // our full-monitor WM_GETMINMAXINFO and Shell fullscreen marking.
+            // WindowStyle=None already provides the borderless fullscreen
+            // frame. Remove the chrome worker entirely until we leave it.
+            WindowChrome.SetWindowChrome(this, null);
             TitleBar.Visibility = Visibility.Collapsed;
             TitleBarRow.Height = new GridLength(0);
             ResizeMode = ResizeMode.NoResize;
