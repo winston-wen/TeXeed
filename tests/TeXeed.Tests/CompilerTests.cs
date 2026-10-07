@@ -74,6 +74,10 @@ public static class CompilerTests
             var arguments = await File.ReadAllLinesAsync(Path.Combine(build, "fake-arguments"));
             Check.True(arguments.Contains("-no-shell-escape"), "Engine shell escape must be disabled");
             var driver = arguments.Last();
+            Check.True(!Path.IsPathRooted(driver), "Engine input must be relative to the project working directory");
+            var outputPath = arguments.Single(a => a.StartsWith("-output-directory=", StringComparison.Ordinal))["-output-directory=".Length..];
+            Check.True(!Path.IsPathRooted(outputPath) && outputPath.All(c => c < 128), "Output argument must stay ASCII even under a Unicode project root");
+            driver = Path.GetFullPath(driver, root);
             Check.Equal(Path.GetFileName(main), Path.GetFileName(driver));
             Check.True(File.Exists(driver) && (await File.ReadAllTextAsync(driver)).Contains(main.Replace('\\', '/')), "Layout driver must retain the original source path with spaces and shell metacharacters");
             Check.True(arguments.Contains("-recorder"), "Direct engines must record active generated files");

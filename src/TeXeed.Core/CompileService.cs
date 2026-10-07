@@ -81,7 +81,13 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             // Tectonic resolves project assets relative to the primary input. Keep its original entry;
             // its SyncTeX page container supplies the typeset width without moving that search root.
             var driver = engine.Name == "tectonic" ? project.MainPath : await PrepareLayoutDriverAsync(project, buildDirectory, token);
-            var arguments = BuildArguments(engine.Name, driver, buildDirectory, toolchain);
+            // TeX Live on Windows can fail putenv(TEXMF_OUTPUT_DIRECTORY=...)
+            // when its output argument is an absolute path containing Unicode.
+            // Engines already run in project.Root; keep TeX paths relative to
+            // that working directory, including spaces as single arguments.
+            var inputArgument = engine.Name == "tectonic" ? driver : Path.GetRelativePath(project.Root, driver).Replace(Path.DirectorySeparatorChar, '/');
+            var outputArgument = engine.Name == "tectonic" ? buildDirectory : Path.GetRelativePath(project.Root, buildDirectory).Replace(Path.DirectorySeparatorChar, '/');
+            var arguments = BuildArguments(engine.Name, inputArgument, outputArgument, toolchain);
             if (disableMiKTeXInstaller && engine.Name != "tectonic")
                 arguments = [.. arguments[..^1], engine.Name == "latexmk" ? "-latexoption=--disable-installer" : "--disable-installer", arguments[^1]];
             log.AppendLine($"引擎：{engine.Name}  |  {engine.Path}");
