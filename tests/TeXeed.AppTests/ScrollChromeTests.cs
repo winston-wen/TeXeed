@@ -56,6 +56,9 @@ internal static partial class Program
         logText.Text = string.Join("\n", Enumerable.Range(1, 300).Select(n => $"Log {n}: " + new string('x', 100)));
         try
         {
+            CheckZoomDragCursor(window);
+            foreach (var bar in new[] { editorBar, previewBar })
+                AssertHandThumb((Track)bar.Template.FindName("PART_Track", bar), bar == editorBar ? "Editor vertical" : "PDF vertical");
             // Scope input must reveal only that pane; geometry is stable throughout fading.
             await WaitForBarsHiddenAsync(editorBar, previewBar);
             if (editorBar.Opacity > .01 || previewBar.Opacity > .01) throw new Exception($"Idle bars did not fade out: editor={editorBar.Opacity}, preview={previewBar.Opacity}, over={editorBar.IsMouseOver}/{previewBar.IsMouseOver}, capture={Mouse.Captured}");
@@ -86,6 +89,8 @@ internal static partial class Program
             foreach (var name in new[] { "SidebarSplitter", "PreviewSplitter" })
             {
                 var splitter = (GridSplitter)window.FindName(name);
+                if (QueryCursorFor(splitter) != Cursors.SizeWE)
+                    throw new Exception("Divider lost its resize cursor");
                 var column = workspace.ColumnDefinitions[Grid.GetColumn(splitter)];
                 if (column.ActualWidth != 2 || Math.Abs(splitter.ActualWidth - 8) > .1)
                     throw new Exception("Splitter visual gap/hit target is not 2/8 DIP");
@@ -124,6 +129,7 @@ internal static partial class Program
             var horizontal = Descendants<ScrollBar>(editor).First(b => b.IsVisible && b.Orientation == Orientation.Horizontal);
             if (horizontal.ActualHeight != 12) throw new Exception("Horizontal scrollbar must be 12 DIP");
             var hTrack = (Track)horizontal.Template.FindName("PART_Track", horizontal);
+            AssertHandThumb(hTrack, "Editor horizontal");
             var x = horizontal.Value;
             ((RoutedCommand)hTrack.IncreaseRepeatButton.Command).Execute(null, hTrack.IncreaseRepeatButton);
             await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
@@ -137,6 +143,7 @@ internal static partial class Program
                 tabs.SelectedIndex = tab; window.UpdateLayout();
                 await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
                 var bar = Descendants<ScrollBar>(tabs).First(b => b.IsVisible && b.Orientation == Orientation.Vertical);
+                AssertHandThumb((Track)bar.Template.FindName("PART_Track", bar), tab == 0 ? "Problems" : "Log");
                 var edge = bar.TranslatePoint(new Point(bar.ActualWidth, 0), pane).X;
                 if (rightEdge is { } previous && Math.Abs(previous - edge) > .1 || Math.Abs(edge - pane.ActualWidth) > .1)
                     throw new Exception("Problems/log scrollbars do not align with the pane edge");
@@ -146,7 +153,7 @@ internal static partial class Program
             }
             log.IsExpanded = false; window.UpdateLayout();
             if (!((TextBlock)window.FindName("LogToggleHint")).Text.Contains("展开")) throw new Exception("Missing expand output hint");
-            Console.WriteLine($"PASS: {theme} activity fade, capture retention, pane isolation, thin divider hit targets, long-document thumb bounds and output alignment");
+            Console.WriteLine($"PASS: {theme} scrollbar/zoom hand cursors, unchanged splitter resize cursors, activity fade, capture retention, pane isolation, divider hit targets, thumb bounds and output alignment");
         }
         finally
         {

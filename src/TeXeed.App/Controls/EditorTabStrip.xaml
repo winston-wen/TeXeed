@@ -3,8 +3,11 @@
  FontSize="13" FontFamily="Segoe UI, Microsoft YaHei UI" Focusable="False">
  <UserControl.Resources>
   <Style x:Key="TabButton" TargetType="Button">
-   <Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Margin" Value="0"/>
+   <Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="Cursor" Value="Hand"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource Selection}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="TabTitleButton" TargetType="Button" BasedOn="{StaticResource TabButton}">
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="ButtonChrome" Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/></Border></ControlTemplate></Setter.Value></Setter>
   </Style>
  </UserControl.Resources>
  <Grid x:Name="Root" ClipToBounds="True" Background="{DynamicResource SidebarBackground}">

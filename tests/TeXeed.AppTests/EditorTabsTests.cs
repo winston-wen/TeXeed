@@ -43,16 +43,54 @@ internal static partial class Program
         Capture(window, Path.Combine(output, "tabs-overflow-light.png"));
         ThemeManager.Apply("ristretto"); await Settle();
 
+        // Hovering a title must not paint an inner rounded highlight, in either theme.
+        GetCursorPos(out var previousPointer);
+        try
+        {
+            strip.ScrollBy(-100000); await Settle();
+            window.Activate();
+            foreach (var theme in new[] { "ristretto", "github-light-default" })
+            {
+                ThemeManager.Apply(theme); await Settle();
+                foreach (var path in new[] { main, files[0] })
+                {
+                    Invoke(window, "ActivateFile", path); await Settle();
+                    var row = View(path);
+                    var title = (Button)((Grid)row.Child).Children[0];
+                    var point = title.PointToScreen(new Point(title.ActualWidth / 2, title.ActualHeight / 2));
+                    SetCursorPos((int)point.X, (int)point.Y); await Task.Delay(120);
+                    var chrome = (Border)title.Template.FindName("ButtonChrome", title);
+                    if (!title.IsMouseOver || row.Background is not SolidColorBrush { Color.A: 0 }
+                        || chrome.Background is not SolidColorBrush { Color.A: 0 } || row.BorderBrush is not LinearGradientBrush)
+                        throw new Exception("Hovered selected tab still has a highlight fill or lost its selected outline: " + theme);
+                    var other = View(path == main ? files[0] : main);
+                    other.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseEnterEvent });
+                    if (other.Background is not SolidColorBrush { Color.A: 0 })
+                        throw new Exception("Inactive tab hover still paints a highlight fill");
+                }
+                Capture(window, Path.Combine(output, "tabs-no-highlight-" + theme + ".png"));
+            }
+        }
+        finally { SetCursorPos(previousPointer.X, previousPointer.Y); ThemeManager.Apply("ristretto"); }
+        Invoke(window, "ActivateFile", files[^1]); await Settle();
+
         // Move a real tab using the same coordinates used by drag handling.
         strip.ScrollBy(-100000); await Settle();
         var orderBefore = tabs.ToArray();
         var dragged = files[0];
         strip.GetType().GetField("_dragPath", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(strip, dragged);
+        if (!(bool)Invoke(strip, "BeginDrag")! || QueryCursorFor(strip) != Cursors.Hand)
+            throw new Exception("Tab drag did not capture the pointer with a hand cursor");
         var target = View(files[2]);
         var x = target.TranslatePoint(new Point(target.ActualWidth * .8, 0), strip).X;
-        Invoke(strip, "DragTo", x); await Settle();
+        Invoke(strip, "DragTo", x);
+        Invoke(strip, "EndDrag"); await Settle();
         if (tabs.IndexOf(dragged) != 3 || editor.CurrentFilePath != files[^1]) throw new Exception("Dragging did not reorder without switching the editor");
-        Invoke(strip, "EndDrag");
+        if (strip.IsMouseCaptured || QueryCursorFor(strip) == Cursors.Hand)
+            throw new Exception("Tab drag left capture/hand cursor behind after release");
+        Invoke(strip, "BeginDrag"); Mouse.Capture(null);
+        if ((bool)Field(strip, "_dragging")! || QueryCursorFor(strip) == Cursors.Hand)
+            throw new Exception("Tab drag left a hand cursor behind after losing capture");
         if (tabs.Except(orderBefore).Any() || tabs.Count != orderBefore.Length) throw new Exception("Drag lost/duplicated a document");
 
         Invoke(window, "ActivateFile", files[0]); await Settle();
@@ -93,6 +131,6 @@ internal static partial class Program
         if (!editor.IsVisible || editor.Text != text || ((FrameworkElement)window.FindName("NoOpenFile")).IsVisible)
             throw new Exception("Sidebar reopening after close-all did not restore the file");
         Capture(window, Path.Combine(output, "tabs-content-fit.png"));
-        Console.WriteLine("PASS: close cross/Ctrl+F4, draft and undo retention, four bulk scopes, drag order, overflow wheel/arrows/fades, dark/light tabs and empty-pane reopening");
+        Console.WriteLine("PASS: no tab highlight in dark/light themes, drag hand cursor and release/capture-loss restoration, close cross/Ctrl+F4, draft and undo retention, bulk scopes, drag order, overflow and empty-pane reopening");
     }
 }

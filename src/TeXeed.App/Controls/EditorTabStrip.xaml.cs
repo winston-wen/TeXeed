@@ -36,6 +36,11 @@ public partial class EditorTabStrip : UserControl
         Unloaded += (_, _) => { ThemeManager.Changed -= ThemeChanged; EndDrag(); };
         PreviewMouseMove += Drag_Move;
         PreviewMouseLeftButtonUp += Drag_Up;
+        AddHandler(Mouse.QueryCursorEvent, new QueryCursorEventHandler((_, e) =>
+        {
+            if (!_dragging) return;
+            e.Cursor = Cursors.Hand; e.Handled = true;
+        }), true);
         LostMouseCapture += (_, e) => { if (ReferenceEquals(e.OriginalSource, this)) EndDrag(); };
         _dragScroll.Tick += (_, _) =>
         {
@@ -68,7 +73,7 @@ public partial class EditorTabStrip : UserControl
     private Border CreateTab(string path)
     {
         var grid = new Grid(); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var select = new Button { Style = (Style)Resources["TabButton"], Padding = new Thickness(11, 0, 7, 0), Content = new TextBlock { VerticalAlignment = VerticalAlignment.Center }, Tag = path };
+        var select = new Button { Style = (Style)Resources["TabTitleButton"], Padding = new Thickness(11, 0, 7, 0), Content = new TextBlock { VerticalAlignment = VerticalAlignment.Center }, Tag = path };
         select.Click += (_, _) => Selected?.Invoke(path);
         var close = new Button { Style = (Style)Resources["TabButton"], Width = 20, Height = 20, Margin = new Thickness(0, 0, 7, 0), ToolTip = "关闭标签 (Ctrl+F4)", Focusable = false };
         AutomationProperties.SetName(close, "关闭 " + System.IO.Path.GetFileName(path));
@@ -76,15 +81,13 @@ public partial class EditorTabStrip : UserControl
         ((Path)close.Content).SetResourceReference(Shape.StrokeProperty, "Ink");
         close.Click += (_, e) => { e.Handled = true; CloseRequested?.Invoke(path, TabCloseScope.This); };
         grid.Children.Add(select); Grid.SetColumn(close, 1); grid.Children.Add(close);
-        var view = new Border { Child = grid, Height = 32, CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(1.5), Margin = new Thickness(3, 4, 3, 4), Tag = path };
+        var view = new Border { Child = grid, Background = Brushes.Transparent, Height = 32, CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(1.5), Margin = new Thickness(3, 4, 3, 4), Tag = path };
         view.PreviewMouseLeftButtonDown += (_, e) =>
         {
             if (IsInside(e.OriginalSource as DependencyObject, close)) return;
             _dragPath = path; _dragStart = e.GetPosition(this); _dragging = false;
         };
         view.PreviewMouseRightButtonUp += (_, e) => { e.Handled = true; ShowTabMenu(view, path); };
-        view.MouseEnter += (_, _) => { if (!string.Equals(path, _active, StringComparison.OrdinalIgnoreCase)) view.SetResourceReference(Border.BackgroundProperty, "Hover"); };
-        view.MouseLeave += (_, _) => UpdateChrome();
         return view;
     }
     private static bool IsInside(DependencyObject? target, DependencyObject parent)
@@ -97,7 +100,6 @@ public partial class EditorTabStrip : UserControl
         foreach (var (path, view) in _views)
         {
             var selected = string.Equals(path, _active, StringComparison.OrdinalIgnoreCase);
-            view.SetResourceReference(Border.BackgroundProperty, selected ? "EditorBackground" : "SidebarBackground");
             view.BorderBrush = selected ? new LinearGradientBrush(ThemeManager.Brush("SyntaxCommand").Color, ThemeManager.Brush("Accent").Color, 0) : Brushes.Transparent;
         }
         UpdateOverflow();
@@ -147,12 +149,19 @@ public partial class EditorTabStrip : UserControl
         if (!_dragging)
         {
             if (Math.Abs(point.X - _dragStart.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(point.Y - _dragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
-            _dragging = CaptureMouse(); if (!_dragging) return;
-            _dragScroll.Start();
+            if (!BeginDrag()) return;
         }
         e.Handled = true;
         _dragX = point.X;
         DragTo(point.X);
+    }
+    private bool BeginDrag()
+    {
+        _dragging = CaptureMouse();
+        if (!_dragging) return false;
+        Mouse.UpdateCursor();
+        _dragScroll.Start();
+        return true;
     }
     private void DragTo(double x)
     {
@@ -169,5 +178,11 @@ public partial class EditorTabStrip : UserControl
         if (target >= 0 && target != from) ReorderRequested?.Invoke(_dragPath, target);
     }
     private void Drag_Up(object sender, MouseButtonEventArgs e) { if (_dragging) e.Handled = true; EndDrag(); }
-    private void EndDrag() { _dragScroll.Stop(); _dragPath = null; _dragging = false; if (IsMouseCaptured) ReleaseMouseCapture(); }
+    private void EndDrag()
+    {
+        _dragScroll.Stop(); _dragPath = null;
+        var wasDragging = _dragging; _dragging = false;
+        if (IsMouseCaptured) ReleaseMouseCapture();
+        if (wasDragging) Mouse.UpdateCursor();
+    }
 }
