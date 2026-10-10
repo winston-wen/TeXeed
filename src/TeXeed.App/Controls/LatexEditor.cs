@@ -132,6 +132,20 @@ public sealed partial class LatexEditor : TextEditor
         ResetViewportTracking();
     }
 
+    /// <summary>Close the visible document without discarding its buffer or undo stack.</summary>
+    public void CloseView()
+    {
+        CaptureSession(); ResetMultiCaret(); CloseCompletion();
+        _changingDocument = true;
+        try
+        {
+            CurrentFilePath = null; Document = new TextDocument(); SyntaxHighlighting = null;
+            _search.Close(); ResetReplacementUi();
+        }
+        finally { _changingDocument = false; }
+        ResetViewportTracking();
+    }
+
     public void ShowFile(ProjectFile file, string content)
     {
         // Saving/live compilation reactivates the current file. Keep the exact

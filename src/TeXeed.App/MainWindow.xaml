@@ -51,8 +51,9 @@
    <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Style="{StaticResource PaneSplitter}"/>
    <Grid x:Name="EditorPane" controls:ScrollActivity.IsScope="True" Grid.Column="2" Background="{DynamicResource EditorBackground}">
     <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="28"/></Grid.RowDefinitions>
-    <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Background="{DynamicResource SidebarBackground}"><ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"><StackPanel x:Name="FileTabs" Orientation="Horizontal"/></ScrollViewer></Border>
+    <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Background="{DynamicResource SidebarBackground}"><controls:EditorTabStrip x:Name="FileTabs"/></Border>
     <controls:LatexEditor x:Name="Editor" Grid.Row="1"/>
+    <TextBlock x:Name="NoOpenFile" Grid.Row="1" Visibility="Collapsed" Text="从左侧选择文件继续编辑" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
     <Expander x:Name="LogExpander" Grid.Row="2" Header="编译输出" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" MaxHeight="260">
      <Expander.Template><ControlTemplate TargetType="Expander"><Border x:Name="LogBody" Visibility="Collapsed" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="LogBody" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Expander.Template>
      <TabControl x:Name="LogTabs" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}" BorderThickness="0" Padding="0" Height="205">

@@ -1,0 +1,18 @@
+<UserControl x:Class="TeXeed.App.Controls.EditorTabStrip"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ FontSize="13" FontFamily="Segoe UI, Microsoft YaHei UI" Focusable="False">
+ <UserControl.Resources>
+  <Style x:Key="TabButton" TargetType="Button">
+   <Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Margin" Value="0"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource Selection}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+ </UserControl.Resources>
+ <Grid x:Name="Root" ClipToBounds="True" Background="{DynamicResource SidebarBackground}">
+  <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" CanContentScroll="False" Focusable="False" PreviewMouseWheel="Tabs_Wheel" ScrollChanged="Tabs_Scrolled">
+   <ScrollViewer.Template><ControlTemplate TargetType="ScrollViewer"><ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" CanContentScroll="False" ClipToBounds="True"/></ControlTemplate></ScrollViewer.Template>
+   <StackPanel x:Name="Items" Orientation="Horizontal"/>
+  </ScrollViewer>
+  <Button x:Name="LeftButton" Visibility="Collapsed" Width="28" Margin="0,4" HorizontalAlignment="Left" Style="{StaticResource TabButton}" Background="{DynamicResource SidebarBackground}" ToolTip="还有左侧标签 · 向左浏览" AutomationProperties.Name="向左浏览标签" Click="Left_Click"><Path Width="12" Height="12" Data="M6,1 L1,6 L6,11 M11,1 L6,6 L11,11" Stroke="{DynamicResource Ink}" StrokeThickness="1.5" StrokeLineJoin="Round"/></Button>
+  <Button x:Name="RightButton" Visibility="Collapsed" Width="28" Margin="0,4" HorizontalAlignment="Right" Style="{StaticResource TabButton}" Background="{DynamicResource SidebarBackground}" ToolTip="还有右侧标签 · 向右浏览" AutomationProperties.Name="向右浏览标签" Click="Right_Click"><Path Width="12" Height="12" Data="M1,1 L6,6 L1,11 M6,1 L11,6 L6,11" Stroke="{DynamicResource Ink}" StrokeThickness="1.5" StrokeLineJoin="Round"/></Button>
+ </Grid>
+</UserControl>

@@ -18,6 +18,7 @@ internal static partial class Program
         {
             _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             Run("tab switching preserves documents, undo, selection and cursor", PersistentTabs);
+            Run("closing a document view retains drafts, cursor and undo when reopened", ClosedViewSession);
             Run("programmatic loads are silent and external changes refresh content", ExternalRefresh);
             Run("comment and indent commands retain reversible edits", CommentIndent);
             Run("formatting is undoable and navigation clamps positions", FormatNavigation);
@@ -69,6 +70,18 @@ internal static partial class Program
         Require(editor.Document.UndoStack.CanUndo, "Tab switch discarded undo.");
         editor.Undo();
         Require(editor.Text == first.Content, "Undo after switching did not restore original text.");
+    }
+    private static void ClosedViewSession()
+    {
+        var editor = new LatexEditor(); var file = File("closed.tex", "original");
+        editor.ShowFile(file, file.Content); editor.Document.Insert(8, " draft");
+        editor.Select(2, 3); var caret = editor.CaretOffset; var document = editor.Document;
+        editor.CloseView();
+        Require(editor.CurrentFilePath is null && editor.Text == "", "Closing last tab retained an active editing document");
+        editor.ShowFile(file, "original draft");
+        Require(ReferenceEquals(document, editor.Document) && editor.CaretOffset == caret && editor.SelectionStart == 2 && editor.SelectionLength == 3,
+            "Reopening a closed view lost its document, caret or selection");
+        editor.Undo(); Require(editor.Text == file.Content, "Closing a view lost the preceding edit's undo history");
     }
 
     private static void ExternalRefresh()

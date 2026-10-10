@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using TeXeed.App.Services;
 using TeXeed.Core;
+using TeXeed.App.Controls;
 
 namespace TeXeed.App;
 public partial class MainWindow : Window
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
         InitializeTitleBar();
         InitializeFullscreen();
         InitializeZoomControls();
+        InitializeTabs();
         RefreshThemeMenu();
         UpdateWorkspaceIcons();
         WindowTheme.Attach(this);
@@ -197,6 +199,7 @@ public partial class MainWindow : Window
         if (file == null) return;
         if (!file.IsEditable) { Status("此文件是项目资源或不可编辑的编码：" + file.RelativePath); return; }
         if (!_tabs.Contains(path, StringComparer.OrdinalIgnoreCase)) _tabs.Add(path);
+        Editor.Visibility = Visibility.Visible; NoOpenFile.Visibility = Visibility.Collapsed;
         Editor.SetProjectFiles(CurrentFiles()); Editor.ShowFile(file, file.Content);
         UpdateCursorStatus();
         RefreshTabs();
@@ -209,15 +212,7 @@ public partial class MainWindow : Window
     }
     private void RefreshTabs()
     {
-        FileTabs.Children.Clear();
-        foreach (var path in _tabs)
-        {
-            var active = string.Equals(path, Editor.CurrentFilePath, StringComparison.OrdinalIgnoreCase);
-            var button = new Button { Content = Path.GetFileName(path) + (_changes.ContainsKey(path) ? "  ●" : ""), ToolTip = path, Margin = new Thickness(0), Padding = new Thickness(16, 10, 16, 10), BorderBrush = Brushes.Transparent, Background = active ? (Brush)FindResource("EditorBackground") : Brushes.Transparent, Foreground = active ? (Brush)FindResource("Accent") : (Brush)FindResource("Muted") };
-            button.SetResourceReference(Control.ForegroundProperty, active ? "Accent" : "Muted");
-            if (active) button.SetResourceReference(Control.BackgroundProperty, "EditorBackground");
-            button.Click += (_, _) => ActivateFile(path); FileTabs.Children.Add(button);
-        }
+        FileTabs.SetTabs(_tabs.Select(path => new EditorTab(path, Path.GetFileName(path), _changes.ContainsKey(path))).ToArray(), Editor.CurrentFilePath);
         Title = (_changes.Count > 0 ? "● " : "") + (_project?.Name ?? "") + " — TeXeed";
     }
     private void OnEdited()
@@ -575,7 +570,7 @@ public partial class MainWindow : Window
             }
             _revision++;
             _tabs.RemoveAll(p => !updated.Files.Any(f => f.Path.Equals(p, StringComparison.OrdinalIgnoreCase)));
-            ActivateFile(updated.Files.Any(f => f.Path == Editor.CurrentFilePath) ? Editor.CurrentFilePath! : updated.MainPath);
+            if (_tabs.Count > 0) ActivateFile(updated.Files.Any(f => f.Path == Editor.CurrentFilePath) ? Editor.CurrentFilePath! : _tabs[0]);
             RefreshIndex(); Status("已同步外部文件修改");
             if (_settings.LivePreview) ScheduleLiveBuild();
         }
@@ -706,6 +701,8 @@ public partial class MainWindow : Window
     }
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
+        if (e.Key == Key.F4 && modifiers == ModifierKeys.Control)
+        { e.Handled = true; if (!e.IsRepeat && Editor.CurrentFilePath is { } tab) CloseTabs(tab, TabCloseScope.This); return; }
         if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Z && modifiers == ModifierKeys.Alt)
         { e.Handled = true; if (!e.IsRepeat) ToggleWordWrap(); return; }
         if (e.Key == Key.F11 && modifiers == ModifierKeys.None)
