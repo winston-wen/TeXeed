@@ -114,6 +114,10 @@ public sealed class PdfPreview : UserControl, IDisposable
         _scroll.Content = _pages;
         _scroll.ScrollChanged += (_, e) =>
         {
+            // Retire an old viewport's queued pages as soon as the reader
+            // moves. A slow cover scan must not render its neighbors before
+            // the newly requested chapter gets a turn.
+            if (e.VerticalChange != 0 || e.HorizontalChange != 0) _renderVersion++;
             if (!_updatingLayout)
             {
                 if (e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0) ResizePages();
@@ -225,6 +229,7 @@ public sealed class PdfPreview : UserControl, IDisposable
     {
         if (_disposed || _document is null || location.Page < 1 || location.Page > _layouts.Count
             || !double.IsFinite(location.X) || !double.IsFinite(location.Y) || !double.IsFinite(viewportFraction)) return;
+        _renderVersion++;
         UpdatePageSizes(); ClearHighlights();
         if (highlight) _highlight = location;
         var index = location.Page - 1;

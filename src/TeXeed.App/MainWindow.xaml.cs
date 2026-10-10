@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private FileSystemWatcher? _watcher;
     private Task<CompileResult>? _compileTask;
     private CancellationTokenSource? _forwardSyncCancellation;
+    private CancellationTokenSource? _syncPreparationCancellation;
     private string _sidebar = "outline";
     private string? _pdfPath;
     private int _session, _revision, _pdfRevision = -1, _buildEpoch, _navigationRequest, _pdfGeneration, _inverseNavigationOwner;
@@ -159,6 +160,7 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    if (cached.IsCurrent) PrepareSync(cached.PdfPath);
                     await Preview.LoadAsync(cached.PdfPath);
                     _pdfPath = cached.PdfPath;
                     _pdfRevision = cached.IsCurrent ? _revision : -1;
@@ -183,6 +185,7 @@ public partial class MainWindow : Window
         _liveTimer.Stop(); _syncTimer.Stop(); _watchTimer.Stop();
         _scheduledBuildExplicit = false; _buildAgainExplicit = false;
         CancelForwardSync();
+        _syncPreparationCancellation?.Cancel();
         _buildAgain = false; _buildEpoch++; _navigationRequest++; _compiler.Cancel();
         if (_compileTask is { } compilation) await compilation;
         // Finish any in-flight save before asking whether the remaining buffers should be discarded.
@@ -338,6 +341,7 @@ public partial class MainWindow : Window
             if (result.Success && result.PdfPath != null)
             {
                 _pdfGeneration++; _pdfRevision = -1;
+                PrepareSync(result.PdfPath);
                 await Preview.LoadAsync(result.PdfPath);
                 if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
                 _pdfPath = result.PdfPath; _pdfRevision = revision;
@@ -365,6 +369,13 @@ public partial class MainWindow : Window
         }
     }
     private void CancelForwardSync() => _forwardSyncCancellation?.Cancel();
+    private void PrepareSync(string pdfPath)
+    {
+        _syncPreparationCancellation?.Cancel();
+        _syncPreparationCancellation?.Dispose();
+        _syncPreparationCancellation = new CancellationTokenSource();
+        _ = _sync.PrepareAsync(pdfPath, _syncPreparationCancellation.Token);
+    }
 
     private void CancelPendingNavigation()
     {

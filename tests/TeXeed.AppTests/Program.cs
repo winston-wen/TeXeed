@@ -54,6 +54,13 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                var startupSync = Array.IndexOf(args, "--startup-sync");
+                if (startupSync >= 0)
+                {
+                    await CheckStartupSyncAsync(window, Path.GetFullPath(args[startupSync + 1]), output);
+                    await CloseAndObserveAsync(window, "startup sync regression");
+                    result = 0; return;
+                }
                 var cachedBook = Array.IndexOf(args, "--cache-book");
                 if (cachedBook >= 0)
                 {

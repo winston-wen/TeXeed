@@ -12,7 +12,7 @@ public sealed class SyncTexService
     private string? cachedPath;
     private DateTime cachedTime;
     private long cachedSize;
-    private IReadOnlyList<SyncNode> cachedNodes = [];
+    private SyncIndex cachedIndex = SyncIndex.Empty;
     private readonly SemaphoreSlim cacheGate = new(1, 1);
 
     public async Task<PdfLocation?> ForwardAsync(TexProject project, string pdfPath, SourceLocation source, AppSettings settings, CancellationToken ct = default)
@@ -42,22 +42,41 @@ public sealed class SyncTexService
 
     private async Task<PdfLocation?> NativeForwardAsync(TexProject project, string pdfPath, SourceLocation valid, CancellationToken ct, bool contentOnly)
     {
-        var nodes = await GetNodesAsync(pdfPath, ct);
-        var files = new Dictionary<string, ValidatedFile?>();
+        var index = await GetIndexAsync(pdfPath, ct).ConfigureAwait(false);
         SyncNode? best = null;
         var bestDistance = double.PositiveInfinity;
-        foreach (var node in nodes)
+        foreach (var (input, file) in index.Files)
         {
             ct.ThrowIfCancellationRequested();
-            if (contentOnly && !node.IsContent) continue;
-            var nodeSource = ResolveCachedSource(project, files, node);
-            if (nodeSource is null || !PathsEqual(nodeSource.Path, valid.Path)) continue;
-            // Prefer precise leaf records to large paragraph boxes on the same line.
-            var distance = Math.Abs(node.Line - valid.Line) * 1_000_000d + (node.IsContent ? 0 : node.IsBox ? 200_000 : 100_000)
-                + (node.Column > 0 ? Math.Abs(node.Column - valid.Column) : 0);
-            if (distance < bestDistance) { best = node; bestDistance = distance; }
+            try { if (!PathsEqual(Path.GetFullPath(input.Trim('"'), project.Root), valid.Path)) continue; }
+            catch (Exception ex) when (ex is ArgumentException or IOException) { continue; }
+            var boundary = Array.BinarySearch(file.Lines, valid.Line);
+            if (boundary < 0) boundary = ~boundary;
+            var left = boundary - 1; var right = boundary;
+            while (left >= 0 || right < file.Lines.Length)
+            {
+                ct.ThrowIfCancellationRequested();
+                var row = right >= file.Lines.Length || left >= 0 && valid.Line - file.Lines[left] <= file.Lines[right] - valid.Line ? left-- : right++;
+                var lineDistance = Math.Abs(file.Lines[row] - valid.Line) * 1_000_000d;
+                if (lineDistance > bestDistance) break;
+                foreach (var node in file.Rows[row])
+                {
+                    if (contentOnly && !node.IsContent) continue;
+                    var distance = lineDistance + (node.IsContent ? 0 : node.IsBox ? 200_000 : 100_000)
+                        + (node.Column > 0 ? Math.Abs(node.Column - valid.Column) : 0);
+                    if (distance < bestDistance || distance == bestDistance && (best is null || node.Order < best.Order))
+                    { best = node; bestDistance = distance; }
+                }
+            }
         }
         return best?.Box;
+    }
+
+    /// <summary>Prepare the immutable native index while the PDF is loading.</summary>
+    public async Task PrepareAsync(string pdfPath, CancellationToken ct = default)
+    {
+        try { await GetIndexAsync(pdfPath, ct).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
     }
 
     public async Task<SourceLocation?> InverseAsync(TexProject project, string pdfPath, PdfLocation point, AppSettings settings, CancellationToken ct = default)
@@ -71,11 +90,11 @@ public sealed class SyncTexService
             var result = ParseInverseOutput(output, project);
             if (result is not null) return result;
         }
-        var nodes = await GetNodesAsync(pdfPath, ct);
+        var index = await GetIndexAsync(pdfPath, ct).ConfigureAwait(false);
         var files = new Dictionary<string, ValidatedFile?>();
         SourceLocation? best = null;
         var bestDistance = double.PositiveInfinity;
-        foreach (var node in nodes.Where(n => n.Box.Page == point.Page))
+        foreach (var node in index.Pages.GetValueOrDefault(point.Page) ?? [])
         {
             ct.ThrowIfCancellationRequested();
             var source = ResolveCachedSource(project, files, node);
@@ -227,48 +246,62 @@ public sealed class SyncTexService
 
     private static bool PathsEqual(string left, string right) => string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-    private sealed record SyncNode(string Input, int Line, int Column, PdfLocation Box, bool IsBox, bool IsContent);
+    private sealed record SyncNode(string Input, int Line, int Column, PdfLocation Box, bool IsBox, bool IsContent, int Order);
+    private sealed record FileIndex(int[] Lines, SyncNode[][] Rows);
+    private sealed record SyncIndex(Dictionary<string, FileIndex> Files, Dictionary<int, SyncNode[]> Pages)
+    {
+        public static SyncIndex Empty { get; } = new([], []);
+        public static SyncIndex Build(IReadOnlyList<SyncNode> nodes)
+        {
+            var files = nodes.GroupBy(n => n.Input).ToDictionary(g => g.Key, g =>
+            {
+                var rows = g.GroupBy(n => n.Line).OrderBy(row => row.Key).ToArray();
+                return new FileIndex(rows.Select(row => row.Key).ToArray(), rows.Select(row => row.ToArray()).ToArray());
+            });
+            return new(files, nodes.GroupBy(n => n.Box.Page).ToDictionary(g => g.Key, g => g.ToArray()));
+        }
+    }
     private sealed record RawNode(int Page, int Tag, int Line, int Column, double X, double Y, double Width, double Height, double Depth, bool IsBox, bool IsContent);
 
-    private async Task<IReadOnlyList<SyncNode>> GetNodesAsync(string pdfPath, CancellationToken ct)
+    private async Task<SyncIndex> GetIndexAsync(string pdfPath, CancellationToken ct)
     {
-        await cacheGate.WaitAsync(ct);
+        await cacheGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             var plain = Path.ChangeExtension(pdfPath, ".synctex");
             var path = new[] { plain, plain + ".gz" }.Where(File.Exists).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
-            if (path is null) return [];
+            if (path is null) return SyncIndex.Empty;
             var info = new FileInfo(path);
-            if (cachedPath == path && cachedTime == info.LastWriteTimeUtc && cachedSize == info.Length) return cachedNodes;
-            if (info.Length > 64 * 1024 * 1024) return [];
+            if (cachedPath == path && cachedTime == info.LastWriteTimeUtc && cachedSize == info.Length) return cachedIndex;
+            if (info.Length > 64 * 1024 * 1024) return SyncIndex.Empty;
             await using var file = File.OpenRead(path);
             using var stream = path.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) ? (Stream)new GZipStream(file, CompressionMode.Decompress) : file;
             using var text = new MemoryStream();
             var buffer = new byte[8192];
             int count;
-            while ((count = await stream.ReadAsync(buffer.AsMemory(), ct)) > 0)
+            while ((count = await stream.ReadAsync(buffer.AsMemory(), ct).ConfigureAwait(false)) > 0)
             {
-                if (text.Length + count > 64 * 1024 * 1024) return [];
+                if (text.Length + count > 64 * 1024 * 1024) return SyncIndex.Empty;
                 text.Write(buffer, 0, count);
             }
             // Windows TeX Live writes ANSI input filenames into SyncTeX; UTF-8
             // replacement characters would make every Chinese path unresolvable.
             var nativeText = CompileService.DecodeToolText(text.ToArray()).TrimStart('\uFEFF');
-            var nodes = await Task.Run(() => ParseNative(nativeText), ct);
+            var index = await Task.Run(() => SyncIndex.Build(ParseNative(nativeText, ct)), ct).ConfigureAwait(false);
             cachedPath = path;
             cachedTime = info.LastWriteTimeUtc;
             cachedSize = info.Length;
-            cachedNodes = nodes;
-            return nodes;
+            cachedIndex = index;
+            return index;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException) { return []; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException) { return SyncIndex.Empty; }
         finally { cacheGate.Release(); }
     }
 
     // The native fallback handles ordinary boxes and glyph/glue/math records, including
     // compressed coordinates. The official CLI remains preferred for PDF form objects
     // and the complete SyncTeX matching algorithm.
-    private static IReadOnlyList<SyncNode> ParseNative(string text)
+    private static IReadOnlyList<SyncNode> ParseNative(string text, CancellationToken ct = default)
     {
         if (!text.StartsWith("SyncTeX Version:", StringComparison.Ordinal) || !text.Contains("Postamble:", StringComparison.Ordinal)) return [];
         var inputs = new Dictionary<int, string>();
@@ -282,6 +315,7 @@ public sealed class SyncTexService
         var inForm = false;
         foreach (var record in text.Replace("\r", "").Split('\n'))
         {
+            ct.ThrowIfCancellationRequested();
             if (record.Length == 0) continue;
             if (record == "Post Scriptum:") { postScriptum = true; continue; }
             if (record.StartsWith("Input:", StringComparison.Ordinal))
@@ -358,13 +392,13 @@ public sealed class SyncTexService
         var scale = unit / 65781.76 * magnification / 1000 * postMagnification;
         var offsetX = postX ?? xOffset * unit / 65781.76;
         var offsetY = postY ?? yOffset * unit / 65781.76;
-        return raw.Where(n => inputs.ContainsKey(n.Tag)).Select(n =>
+        return raw.Where(n => inputs.ContainsKey(n.Tag)).Select((n, order) =>
         {
             var width = Math.Abs(n.Width * scale);
             var height = Math.Abs((n.Height + n.Depth) * scale);
             var x = n.X * scale + offsetX + Math.Min(0, n.Width * scale);
             var y = (n.Y - n.Height) * scale + offsetY;
-            return new SyncNode(inputs[n.Tag], n.Line, n.Column, new(n.Page, x, y, Math.Max(3, width), Math.Max(6, height)), n.IsBox, n.IsContent);
+            return new SyncNode(inputs[n.Tag], n.Line, n.Column, new(n.Page, x, y, Math.Max(3, width), Math.Max(6, height)), n.IsBox, n.IsContent, order);
         }).Where(n => double.IsFinite(n.Box.X) && double.IsFinite(n.Box.Y) && double.IsFinite(n.Box.Width) && double.IsFinite(n.Box.Height)).ToList();
     }
 
