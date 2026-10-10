@@ -154,7 +154,20 @@ public partial class MainWindow : Window
             _settings = _settings with { RecentProjects = new[] { project.MainPath }.Concat(_settings.RecentProjects.Where(p => !p.Equals(project.MainPath, StringComparison.OrdinalIgnoreCase))).Take(10).ToArray() };
             PersistSettings(); UpdateRecent();
             Status(project.Warnings.Count > 0 ? string.Join("；", project.Warnings) : $"已打开 {project.Name} · {project.Files.Count} 个文件");
-            if (_settings.LivePreview) ScheduleLiveBuild();
+            var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
+            if (cached is not null)
+            {
+                try
+                {
+                    await Preview.LoadAsync(cached.PdfPath);
+                    _pdfPath = cached.PdfPath;
+                    _pdfRevision = cached.IsCurrent ? _revision : -1;
+                    Status(cached.IsCurrent ? "已加载本地编译缓存 · 无需重新编译"
+                        : _settings.LivePreview ? "已恢复上次预览 · 正在后台更新…" : "已恢复上次预览 · 可手动编译更新");
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException)
+                { Preview.Clear(); Status("本地预览无法读取 · 等待编译更新"); }
+            }
         }
         catch (Exception ex) { Error(ex); }
         finally
@@ -162,6 +175,7 @@ public partial class MainWindow : Window
             _transitioning = false; Editor.IsEnabled = true;
             QueueExternalRefresh();
             if (_settings.LivePreview && _project != null && (_changes.Count > 0 || _pdfRevision != _revision)) ScheduleLiveBuild();
+            else if (_pdfRevision == _revision && _pdfPath is not null) QueueFollowSync();
         }
     }
     private async Task PauseWorkAsync()
@@ -303,6 +317,18 @@ public partial class MainWindow : Window
             if (_changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
             var revision = _revision; var project = _project;
             _activeBuildRevision = revision; _activeBuildSettings = _settings;
+            if (!explicitRequest)
+            {
+                var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
+                if (revision != _revision || _changes.Count > 0) { _buildAgain = true; return; }
+                if (cached is { IsCurrent: true })
+                {
+                    if (_pdfPath != cached.PdfPath) { _pdfGeneration++; await Preview.LoadAsync(cached.PdfPath); }
+                    _pdfPath = cached.PdfPath; _pdfRevision = revision;
+                    Status("已复用本地编译缓存"); QueueFollowSync();
+                    return;
+                }
+            }
             Status("正在排版，仍可继续编辑…");
             _compileTask = _compiler.CompileAsync(project, _settings);
             var result = await _compileTask;

@@ -69,6 +69,7 @@ public static class CompilerTests
             Check.True(success.Success, success.Log);
             Check.True(success.PdfPath is not null && File.Exists(success.PdfPath), "Successful output must be published");
             Check.True(success.SynctexAvailable, "SyncTeX must accompany a successful PDF");
+            Check.True((await new CompileService().GetCachedPreviewAsync(project, settings)) is { IsCurrent: true }, "Successful output must be reusable after restarting the service");
             var publishedContents = await File.ReadAllTextAsync(success.PdfPath!);
             var build = Path.Combine(root, ".texeed", "build");
             var runCount = int.Parse(await File.ReadAllTextAsync(Path.Combine(build, "fake-run-count")), CultureInfo.InvariantCulture);
@@ -87,6 +88,7 @@ public static class CompilerTests
             var warm = await new CompileService().CompileAsync(project, settings);
             Check.True(warm.Success, warm.Log);
             Check.Equal(1, int.Parse(await File.ReadAllTextAsync(Path.Combine(build, "fake-run-count")), CultureInfo.InvariantCulture));
+            await PreviewCacheChecks.RunAsync(project, settings);
 
             await ConvergencePassesAsync(project.Root, executable);
             await BibliographyPassesAsync(project, executable);
@@ -507,6 +509,9 @@ public static class CompilerTests
         var log = mode == "rerun" ? "LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right."
             : mode == "undefined" ? "LaTeX Warning: There were undefined references." : "Output written successfully.";
         await File.WriteAllTextAsync(Path.Combine(outputDirectory, job + ".log"), log);
+        var recorderInput = Path.Combine(outputDirectory, "fake-recorder-input");
+        if (File.Exists(recorderInput))
+            await File.WriteAllTextAsync(Path.Combine(outputDirectory, job + ".fls"), "INPUT " + await File.ReadAllTextAsync(recorderInput) + "\n");
         var keyPath = Path.Combine(outputDirectory, "fake-citation-key");
         var key = File.Exists(keyPath) ? await File.ReadAllTextAsync(keyPath) : "alpha";
         var stylePath = Path.Combine(outputDirectory, "fake-style-name");

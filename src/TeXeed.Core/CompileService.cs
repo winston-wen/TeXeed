@@ -62,6 +62,13 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             var job = Path.GetFileNameWithoutExtension(project.MainPath);
             var generatedPdf = Path.Combine(buildDirectory, job + ".pdf");
             var generatedLog = Path.Combine(buildDirectory, job + ".log");
+            var cacheStarted = DateTime.UtcNow;
+            Dictionary<string, string>? cacheInputs = null;
+            try { cacheInputs = await CaptureCacheInputsAsync(project, Path.Combine(buildDirectory, job + ".fls"), token, scanProject: engine.Name == "tectonic"); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { }
+            // An unsuccessful newer build must never leave a previous manifest
+            // claiming that its old PDF represents the current sources.
+            File.Delete(CachePath(project));
 
             // An engine that exits successfully without producing a new PDF must never
             // cause a failed or stale build to be published. Aux files stay for speed.
@@ -203,6 +210,9 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             var publishedLayout = Path.Combine(previewDirectory, job + TexPageLayout.Extension);
             if (File.Exists(generatedLayout)) File.Copy(generatedLayout, publishedLayout, true);
             else File.Delete(publishedLayout);
+
+            if (cacheInputs is not null)
+                await WritePreviewCacheAsync(project, settings, engine, Path.Combine(buildDirectory, job + ".fls"), cacheInputs, cacheStarted, token);
 
             return new(true, publishedPdf, log.ToString(), ParseDiagnostics(diagnosticLog, project), watch.Elapsed, engineName, synctexAvailable);
         }

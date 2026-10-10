@@ -121,6 +121,8 @@ dotnet run --project tests/TeXeed.AppTests -c Release
 
 编译中间文件放在项目的 `.texeed/build`，最后成功的 PDF 和 SyncTeX 保存在 `.texeed/preview`。应用设置与最近项目默认保存在 `%LOCALAPPDATA%\TeXeed\settings.json`；可用 `TEXEED_HOME` 环境变量指定独立配置目录。
 
+打开项目优先恢复上次成功的本地预览。缓存记录匹配源码、图片、文献、实际编译依赖和引擎时直接使用，不启动编译；修改后保留旧预览并在后台更新，继续复用辅助文件与文献结果。旧版本没有缓存记录的 PDF 也先显示，开启实时预览时后台编译一次建立记录。手动编译仍可明确刷新结果。
+
 TeX Live／MiKTeX 编译器从项目目录运行，输入和输出参数使用相对路径与正斜杠，兼容 TeX Live 在中文目录下的编译。Windows 上若同时安装 MiKTeX 和 TeX Live，可在设置中明确选择 XeLaTeX 并填写所需发行版的 `xelatex.exe`、`synctex.exe` 路径；不必更改系统 PATH。
 
 ## 当前边界
