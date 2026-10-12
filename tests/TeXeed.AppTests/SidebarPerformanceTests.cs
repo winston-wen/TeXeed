@@ -19,7 +19,7 @@ internal static partial class Program
         Console.WriteLine($"PERF discovery={watch.Elapsed.TotalMilliseconds:F1}ms files={project.Files.Count} chars={project.Files.Sum(file => file.Content.Length)}");
         watch.Restart(); var index = LatexIndexer.Build(project.Files);
         results["indexMs"] = watch.Elapsed.TotalMilliseconds;
-        Console.WriteLine($"PERF index={watch.Elapsed.TotalMilliseconds:F1}ms headings={index.Outline.Count} labels={index.Labels.Count} todos={index.Todos.Count}");
+        Console.WriteLine($"PERF index={watch.Elapsed.TotalMilliseconds:F1}ms headings={index.Outline.Count} labels={index.Labels.Count} bookmarks={index.Bookmarks.Count} todos={index.Todos.Count}");
         watch.Restart(); await CallAsync(window, "OpenAsync", path);
         results["openMs"] = watch.Elapsed.TotalMilliseconds;
         await window.Dispatcher.InvokeAsync(() => window.UpdateLayout(), DispatcherPriority.ContextIdle);
@@ -29,7 +29,7 @@ internal static partial class Program
         Console.WriteLine($"PERF open={results["openMs"]:F1}ms firstFrame={results["firstFrameMs"]:F1}ms containers={results["outlineContainers"]}");
         Capture(window, Path.Combine(output, "book-initial.png"));
         var icons = ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().ToArray();
-        foreach (var mode in new[] { "files", "labels", "outline", "files", "outline" })
+        foreach (var mode in new[] { "files", "labels", "outline", "files", "outline", "bookmarks" })
         {
             watch.Restart(); icons.Single(button => Equals(button.Tag, mode)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var sync = watch.Elapsed.TotalMilliseconds;
@@ -42,6 +42,7 @@ internal static partial class Program
                 Console.WriteLine($"PERF file tree containers={Descendants<TreeViewItem>((FrameworkElement)window.FindName("FileTree")).Count()}");
                 Capture(window, Path.Combine(output, key + ".png"));
             }
+            if (mode == "bookmarks") Capture(window, Path.Combine(output, "bookmarks-book.png"));
         }
         watch.Restart(); Invoke(window, "RefreshIndex");
         var refresh = watch.Elapsed.TotalMilliseconds;

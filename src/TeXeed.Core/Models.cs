@@ -18,9 +18,17 @@ public sealed record SourceLocation(string Path, int Line, int Column = 1);
 public sealed record IndexEntry(string Title, string Path, int Line, string Detail = "", int Level = 0)
 {
     public string? Latex { get; init; }
+    internal bool BookmarkRelativeLevel { get; init; }
+    internal int BookmarkLevelOffset { get; init; }
+    internal bool BookmarkKeepLevel { get; init; }
     public string Location => $"{System.IO.Path.GetFileName(Path)}:{Line}";
 }
-public sealed record ProjectIndex(IReadOnlyList<IndexEntry> Outline, IReadOnlyList<IndexEntry> Labels, IReadOnlyList<IndexEntry> Citations, IReadOnlyList<IndexEntry> Todos);
+public sealed record ProjectIndex(IReadOnlyList<IndexEntry> Outline, IReadOnlyList<IndexEntry> Labels, IReadOnlyList<IndexEntry> Citations, IReadOnlyList<IndexEntry> Todos)
+{
+    public IReadOnlyList<IndexEntry> Bookmarks { get; init; } = [];
+    internal IReadOnlyList<BookmarkEvent> BookmarkEvents { get; init; } = [];
+}
+internal sealed record BookmarkEvent(string Path, IndexEntry? Entry, string? Input);
 public enum TexEngine { Auto, Latexmk, XeLaTeX, PdfLaTeX, LuaLaTeX, Tectonic }
 public enum PreviewFollowMode { None = 0, Cursor = 1, Viewport = 2 }
 public sealed record AppSettings

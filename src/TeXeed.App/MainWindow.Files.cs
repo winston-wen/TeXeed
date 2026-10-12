@@ -20,6 +20,7 @@ public partial class MainWindow
     private void SetSidebarTreeExpanded(bool expanded)
     {
         if (_sidebar == "outline") OutlineTree.SetAllExpanded(expanded);
+        else if (_sidebar == "bookmarks") BookmarkTree.SetAllExpanded(expanded);
         else if (_sidebar == "files")
             foreach (var item in FileTreeNodes(FileTree.Items).Where(item => item.Tag is null)) item.IsExpanded = expanded;
     }

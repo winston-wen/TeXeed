@@ -2,7 +2,8 @@
  <Geometry x:Key="WorkspaceOutlineIcon">M 3,4 L 5,4 M 8,4 L 17,4 M 5,10 L 7,10 M 10,10 L 17,10 M 7,16 L 9,16 M 12,16 L 17,16</Geometry>
  <Geometry x:Key="WorkspaceFilesIcon">M 2,5 L 8,5 10,7 18,7 18,16 2,16 Z M 2,8 L 18,8</Geometry>
  <Geometry x:Key="WorkspaceSearchIcon">M 14,8 A 6,6 0 1 1 2,8 A 6,6 0 1 1 14,8 M 12.5,12.5 L 18,18</Geometry>
- <Geometry x:Key="WorkspaceLabelsIcon">M 2,3 L 10,3 18,11 11,18 2,9 Z M 6,6 L 6,7</Geometry>
+ <Geometry x:Key="WorkspaceBookmarksIcon">M 2,3 L 10,3 18,11 11,18 2,9 Z M 6,6 L 6,7</Geometry>
+ <Geometry x:Key="WorkspaceLabelsIcon">M 12,3 A 2,2 0 1 1 8,3 A 2,2 0 1 1 12,3 M 10,5 V18 M 5,8 H15 M 3,12 C 3,20 17,20 17,12 M 3,12 L1,14 M 3,12 L5,14 M 17,12 L15,14 M 17,12 L19,14</Geometry>
  <Geometry x:Key="WorkspaceTodosIcon">M 2,4 L 4,6 7,2 M 10,4 L 18,4 M 2,10 L 4,12 7,8 M 10,10 L 18,10 M 3,16 L 6,16 M 10,16 L 18,16</Geometry>
  <Geometry x:Key="ExpandAllIcon">M 4,4 L 10,10 16,4 M 4,10 L 10,16 16,10</Geometry>
  <Geometry x:Key="CollapseAllIcon">M 4,10 L 10,4 16,10 M 4,16 L 10,10 16,16</Geometry>

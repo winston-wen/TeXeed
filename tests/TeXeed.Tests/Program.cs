@@ -7,6 +7,7 @@ if (args.Length == 3 && args[0] == "--real-tex")
 try
 {
     IndexCacheTests.Run();
+    BookmarkTests.Run();
     if (args.Contains("--index-only"))
     {
         await TitleTests.RunAsync(); await ProjectTests.RunAsync();

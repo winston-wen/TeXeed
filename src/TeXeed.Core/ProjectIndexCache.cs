@@ -26,14 +26,17 @@ public sealed class ProjectIndexCache
         foreach (var path in _files.Keys.Where(path => !retained.Contains(path)).ToArray()) _files.Remove(path);
         var outline = new List<IndexEntry>(); var labels = new List<IndexEntry>();
         var citations = new List<IndexEntry>(); var todos = new List<IndexEntry>();
+        var bookmarkEvents = new List<BookmarkEvent>();
         foreach (var path in order)
         {
             var index = _files[path].Index;
             outline.AddRange(index.Outline); labels.AddRange(index.Labels);
             citations.AddRange(index.Citations); todos.AddRange(index.Todos);
+            bookmarkEvents.AddRange(index.BookmarkEvents);
         }
         _order = order;
-        return _snapshot = new ProjectIndex(outline, labels, citations, todos);
+        return _snapshot = new ProjectIndex(outline, labels, citations, todos)
+            { Bookmarks = LatexIndexer.OrderBookmarks(editable, bookmarkEvents), BookmarkEvents = bookmarkEvents };
     }
     public void Clear() { _files.Clear(); _order = []; _snapshot = null; LastParsedFileCount = 0; }
 }

@@ -83,6 +83,7 @@ public partial class MainWindow : Window
         Editor.CursorLocationChanged += (_, location) =>
         {
             OutlineTree.MarkCaret(location);
+            BookmarkTree.MarkCaret(location);
             UpdateCursorStatus();
             if (_settings.FollowMode == PreviewFollowMode.Cursor) QueueFollowSync();
         };
@@ -90,7 +91,7 @@ public partial class MainWindow : Window
         {
             if (_settings.FollowMode == PreviewFollowMode.Viewport) QueueFollowSync();
         };
-        Editor.VisibleRangeChanged += (_, _) => OutlineTree.HighlightViewport(Editor.VisibleSourceRange);
+        Editor.VisibleRangeChanged += (_, _) => { OutlineTree.HighlightViewport(Editor.VisibleSourceRange); BookmarkTree.HighlightViewport(Editor.VisibleSourceRange); };
         Preview.ViewInteracted += (_, _) => CancelPendingNavigation();
         Preview.InverseRequested += async (_, location) => await InverseAsync(location);
         Preview.StatusChanged += (_, status) => PdfStatus.Text = status;
@@ -469,6 +470,9 @@ public partial class MainWindow : Window
         if (_project.Warnings.Count > 0) SidebarTitle.ToolTip += "\n" + string.Join(Environment.NewLine, _project.Warnings);
         FileTree.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
         OutlineTree.Visibility = _sidebar == "outline" ? Visibility.Visible : Visibility.Collapsed;
+        BookmarkTree.Visibility = _sidebar == "bookmarks" ? Visibility.Visible : Visibility.Collapsed;
+        BookmarkSearchPanel.Visibility = _sidebar == "bookmarks" ? Visibility.Visible : Visibility.Collapsed;
+        RefreshBookmarks(index);
         if (!ReferenceEquals(_outlineIndex, index))
         {
             OutlineTree.Update(index.Outline, _project.MainPath, index.Todos);
@@ -476,12 +480,13 @@ public partial class MainWindow : Window
         }
         OutlineTree.MarkCaret(Editor.CurrentLocation);
         OutlineTree.HighlightViewport(Editor.VisibleSourceRange);
-        IndexList.Visibility = _sidebar is "files" or "outline" ? Visibility.Collapsed : Visibility.Visible;
+        IndexList.Visibility = _sidebar is "files" or "outline" or "bookmarks" ? Visibility.Collapsed : Visibility.Visible;
         SearchBox.Visibility = _sidebar is "search" or "labels" ? Visibility.Visible : Visibility.Collapsed;
         FileSearchPanel.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
-        SidebarTreeActions.Visibility = _sidebar is "outline" or "files" ? Visibility.Visible : Visibility.Collapsed;
-        SidebarTitle.Text = _sidebar switch { "files" => "项目文件", "search" => "全文搜索", "labels" => "标签与引用", "todos" => "待办事项", _ => "文档大纲" };
+        SidebarTreeActions.Visibility = _sidebar is "outline" or "files" or "bookmarks" ? Visibility.Visible : Visibility.Collapsed;
+        SidebarTitle.Text = _sidebar switch { "files" => "项目文件", "search" => "全文搜索", "bookmarks" => "书签", "labels" => "标签与引用", "todos" => "待办事项", _ => "文档大纲" };
         if (_sidebar == "files") { BuildFileTree(files); return; }
+        if (_sidebar == "bookmarks") { UpdateBookmarkEmptyState(); return; }
         if (_sidebar == "outline")
         {
             EmptyIndex.Text = "添加章节标题后，大纲会显示在这里";

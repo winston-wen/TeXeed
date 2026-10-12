@@ -54,6 +54,12 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--bookmarks-only"))
+                {
+                    await CheckBookmarksAsync(window, output);
+                    await CloseAndObserveAsync(window, "bookmark sidebar regression");
+                    result = 0; return;
+                }
                 var sidebarPerformance = Array.IndexOf(args, "--sidebar-performance");
                 if (sidebarPerformance >= 0)
                 {
@@ -574,12 +580,12 @@ internal static partial class Program
         var search = (TextBox)window.FindName("SearchBox");
         var buttons = Descendants<Button>(rail).ToArray();
         window.UpdateLayout();
-        if (buttons.Length != 5 || window.FindName("CollapseWorkspaceButton") is not null)
-            throw new Exception("Permanent rail must contain exactly five functions and no collapse button");
+        if (buttons.Length != 6 || window.FindName("CollapseWorkspaceButton") is not null)
+            throw new Exception("Permanent rail must contain exactly six functions and no collapse button");
         var positions = buttons.ToDictionary(b => b, b => b.TranslatePoint(new Point(), window));
         var path = editor.CurrentFilePath; var text = editor.Text;
         column.Width = new GridLength(315); window.UpdateLayout();
-        foreach (var mode in new[] { "outline", "files", "search", "labels", "todos" })
+        foreach (var mode in new[] { "outline", "files", "search", "bookmarks", "labels", "todos" })
         {
             if ((bool)Field(window, "_workspaceExpanded")!) Invoke(window, "ToggleWorkspace");
             var button = buttons.Single(b => Equals(b.Tag, mode));
@@ -617,7 +623,7 @@ internal static partial class Program
             throw new Exception("Persistent menu consumed editor Escape with no menu active");
         Capture(window, Path.Combine(output, "permanent-rail-menu.png"));
         await CheckZoomControlsAsync(window, output);
-        Console.WriteLine("PASS: persistent menu, five stationary single-click function toggles, Ctrl+B and preserved source/search state");
+        Console.WriteLine("PASS: persistent menu, six stationary single-click function toggles, Ctrl+B and preserved source/search state");
         search.Clear();
         buttons.Single(b => Equals(b.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }

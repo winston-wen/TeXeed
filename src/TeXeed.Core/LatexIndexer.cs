@@ -2,14 +2,16 @@ using System.Text.RegularExpressions;
 
 namespace TeXeed.Core;
 
-public static class LatexIndexer
+public static partial class LatexIndexer
 {
     private static readonly Dictionary<string, int> SectionLevels = new(StringComparer.Ordinal)
     {
         ["part"] = 0, ["chapter"] = 1, ["section"] = 2, ["subsection"] = 3,
         ["subsubsection"] = 4, ["paragraph"] = 5, ["subparagraph"] = 6
     };
-    private static readonly HashSet<string> IndexCommands = new(SectionLevels.Keys.Concat(new[] { "label", "bibitem", "todo" }), StringComparer.Ordinal);
+    private static readonly HashSet<string> IndexCommands = new(SectionLevels.Keys.Concat(new[]
+        { "label", "bibitem", "todo", "pdfbookmark", "currentpdfbookmark", "subpdfbookmark", "belowpdfbookmark", "bookmark",
+          "input", "include", "subfile", "import", "subimport", "inputfrom", "subinputfrom", "includefrom", "subincludefrom" }), StringComparer.Ordinal);
 
     public static ProjectIndex Build(IEnumerable<ProjectFile> files)
     {
@@ -17,7 +19,9 @@ public static class LatexIndexer
         var labels = new List<IndexEntry>();
         var citations = new List<IndexEntry>();
         var todos = new List<IndexEntry>();
-        foreach (var file in files.Where(f => f.IsEditable))
+        var editable = files.Where(f => f.IsEditable).ToArray();
+        var bookmarkEvents = new List<BookmarkEvent>();
+        foreach (var file in editable)
         {
             var scan = LatexSyntax.Analyze(file.Content);
             var lines = new LatexSyntax.LineCursor(file.Content);
@@ -38,6 +42,11 @@ public static class LatexIndexer
                     citations.Add(new(value, file.Path, line, "bibitem"));
                 else if (command.Name == "todo")
                     todos.Add(new(Readable(value), file.Path, line, "TODO"));
+                else if (command.Name is "pdfbookmark" or "currentpdfbookmark" or "subpdfbookmark" or "belowpdfbookmark" or "bookmark")
+                    bookmarkEvents.Add(new(file.Path, Bookmark(command, file, line, value), null));
+                else if (command.Name is "input" or "include" or "subfile") bookmarkEvents.Add(new(file.Path, null, value));
+                else if (command.Name is "import" or "subimport" or "inputfrom" or "subinputfrom" or "includefrom" or "subincludefrom" && command.Arguments.Count > 1)
+                    bookmarkEvents.Add(new(file.Path, null, value.TrimEnd('/') + "/" + command.Arguments[1]));
             }
             var commentLines = new LatexSyntax.LineCursor(file.Content);
             foreach (var comment in scan.Comments)
@@ -50,7 +59,57 @@ public static class LatexIndexer
             if (file.Kind == ProjectFileKind.Bibliography)
                 IndexBibliography(file, scan.Code, citations);
         }
-        return new(outline, labels, citations, todos);
+        return new ProjectIndex(outline, labels, citations, todos)
+            { Bookmarks = OrderBookmarks(editable, bookmarkEvents), BookmarkEvents = bookmarkEvents };
+    }
+
+    private static IndexEntry Bookmark(LatexCommand command, ProjectFile file, int line, string title)
+    {
+        var level = 0; var relative = false; var offset = 0; var keep = false;
+        var destination = command.Arguments.Count > 1 ? command.Arguments[1].Trim() : "";
+        if (command.Name == "pdfbookmark") level = BookmarkLevel(command.OptionalArguments.FirstOrDefault() ?? "0");
+        else if (command.Name == "bookmark")
+        {
+            var options = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var block in command.OptionalArguments)
+            {
+                var start = 0; var depth = 0;
+                for (var i = 0; i <= block.Length; i++)
+                {
+                    if (i < block.Length && !LatexSyntax.IsEscaped(block, i))
+                    { if (block[i] == '{') depth++; else if (block[i] == '}') depth--; }
+                    if (i != block.Length && (block[i] != ',' || depth != 0)) continue;
+                    var option = block[start..i].Trim(); var equals = option.IndexOf('=');
+                    if (option.Length != 0) options[equals < 0 ? option : option[..equals].Trim()] = equals < 0 ? "true" : option[(equals + 1)..].Trim().Trim('{', '}');
+                    start = i + 1;
+                }
+            }
+            destination = options.GetValueOrDefault("dest", "");
+            relative = !options.ContainsKey("level");
+            if (options.TryGetValue("level", out var absolute)) level = BookmarkLevel(absolute);
+            if (options.TryGetValue("rellevel", out var delta)) { relative = true; offset = BookmarkLevel(delta); }
+            keep = options.GetValueOrDefault("keeplevel") == "true";
+        }
+        else
+        {
+            relative = true; offset = command.Name == "currentpdfbookmark" ? 0 : 1;
+            keep = command.Name == "belowpdfbookmark";
+        }
+        return new IndexEntry(LatexTitle.PlainText(title), file.Path, line, destination, level)
+            { Latex = title, BookmarkRelativeLevel = relative, BookmarkLevelOffset = offset, BookmarkKeepLevel = keep };
+    }
+    private static int BookmarkLevel(string value) => int.TryParse(value.Trim(), out var level) ? Math.Clamp(level, -32, 32) : value.Trim() switch
+    { "part" => -1, "chapter" => 0, "section" => 1, "subsection" => 2, "subsubsection" => 3, "paragraph" => 4, "subparagraph" => 5, _ => 0 };
+    internal static IReadOnlyList<IndexEntry> ResolveBookmarkLevels(IEnumerable<IndexEntry> entries)
+    {
+        var current = 0; var resolved = new List<IndexEntry>();
+        foreach (var entry in entries)
+        {
+            var level = Math.Clamp(entry.BookmarkRelativeLevel ? current + entry.BookmarkLevelOffset : entry.Level, -32, 32);
+            resolved.Add(level == entry.Level ? entry : entry with { Level = level });
+            if (!entry.BookmarkKeepLevel) current = level;
+        }
+        return resolved;
     }
 
     public static IReadOnlyList<IndexEntry> Search(IEnumerable<ProjectFile> files, string query)
@@ -117,7 +176,10 @@ public static class LatexIndexer
         Regex.Replace(value, @"\\(?:[A-Za-z@]+\*?\s*|([%&_#$]))", "$1").Replace("{", "").Replace("}", ""), @"\s+", " ").Trim();
 }
 
-internal sealed record LatexCommand(string Name, int Index, int End, IReadOnlyList<string> Arguments);
+internal sealed record LatexCommand(string Name, int Index, int End, IReadOnlyList<string> Arguments)
+{
+    internal IReadOnlyList<string> OptionalArguments { get; init; } = [];
+}
 internal sealed record LatexComment(int Index, string Text);
 internal sealed record LatexRange(int Start, int End);
 internal sealed record LatexScan(string Code, IReadOnlyList<LatexComment> Comments, IReadOnlyList<LatexRange> LiteralRanges);
@@ -186,13 +248,17 @@ internal static class LatexSyntax
             if (names is not null && !names.GetAlternateLookup<ReadOnlySpan<char>>().Contains(match.Groups[1].ValueSpan)) continue;
             var name = match.Groups[1].Value;
             var args = new List<string>();
+            List<string>? optional = null;
             SkipSpace(code, ref pos);
             while (pos < code.Length && code[pos] == '[')
             {
-                if (ReadGroup(code, ref pos, '[', ']') is null) break;
+                var option = ReadGroup(code, ref pos, '[', ']');
+                if (option is null) break;
+                (optional ??= []).Add(option);
                 SkipSpace(code, ref pos);
             }
-            var argumentCount = name is "import" or "subimport" or "inputfrom" or "subinputfrom" or "includefrom" or "subincludefrom" ? 2 : 1;
+            var argumentCount = name is "import" or "subimport" or "inputfrom" or "subinputfrom" or "includefrom" or "subincludefrom"
+                or "pdfbookmark" or "currentpdfbookmark" or "subpdfbookmark" or "belowpdfbookmark" ? 2 : 1;
             while (args.Count < argumentCount)
             {
                 var arg = ReadGroup(code, ref pos, '{', '}');
@@ -206,7 +272,7 @@ internal static class LatexSyntax
                 while (pos < code.Length && !char.IsWhiteSpace(code[pos]) && code[pos] is not ('{' or '}' or '\\')) pos++;
                 if (pos > start) args.Add(code[start..pos]);
             }
-            yield return new(name, match.Index, pos, args);
+            yield return new LatexCommand(name, match.Index, pos, args) { OptionalArguments = optional ?? (IReadOnlyList<string>)Array.Empty<string>() };
         }
     }
 

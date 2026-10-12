@@ -15,6 +15,13 @@ public partial class DocumentOutline : UserControl
 {
     private const int HoldDelayMilliseconds = 400;
     private readonly ObservableCollection<OutlineNode> _roots = [];
+    private readonly ObservableCollection<OutlineNode> _displayRoots = [];
+    private readonly Dictionary<OutlineNode, bool> _filterFolds = [];
+    private string _filter = "";
+    public bool JoinFiles { get; set; }
+    public static readonly DependencyProperty ShowLevelBadgesProperty = DependencyProperty.Register(nameof(ShowLevelBadges), typeof(bool), typeof(DocumentOutline), new PropertyMetadata(true));
+    public bool ShowLevelBadges { get => (bool)GetValue(ShowLevelBadgesProperty); set => SetValue(ShowLevelBadgesProperty, value); }
+    public int FilteredItemCount => _nodes.Values.Count(node => node.IsSearchVisible);
     private Dictionary<NodeKey, OutlineNode> _nodes = [];
     private string? _mainPath;
     private (string Path, int FirstLine, int LastLine)? _visibleRange;
@@ -33,7 +40,7 @@ public partial class DocumentOutline : UserControl
     public DocumentOutline()
     {
         InitializeComponent();
-        Tree.ItemsSource = _roots;
+        Tree.ItemsSource = _displayRoots;
         _leftHoldTimer.Tick += (_, _) =>
         {
             _leftHoldTimer.Stop();
@@ -52,6 +59,36 @@ public partial class DocumentOutline : UserControl
         RefreshHighlights();
         RefreshMarkers();
     }
+    public void SetFilter(string query)
+    {
+        query = query.Trim();
+        if (_filter == query) return;
+        _filter = query; RefreshFilter(); RefreshHighlights(); RefreshMarkers();
+    }
+    private void RefreshFilter()
+    {
+        var updating = _updating; _updating = true;
+        if (_filter.Length != 0)
+            foreach (var node in _nodes.Values) _filterFolds.TryAdd(node, node.IsExpanded);
+        else
+        {
+            foreach (var (node, expanded) in _filterFolds) node.IsExpanded = expanded;
+            _filterFolds.Clear();
+        }
+        bool Visit(OutlineNode node)
+        {
+            var children = node.Children.Where(child => Visit(child)).ToList();
+            node.IsSearchVisible = _filter.Length == 0 || children.Count > 0
+                || node.Title.Contains(_filter, StringComparison.OrdinalIgnoreCase) || node.Entry.Detail.Contains(_filter, StringComparison.OrdinalIgnoreCase);
+            Reconcile(node.VisibleChildren, children);
+            if (_filter.Length != 0 && children.Count > 0) node.IsExpanded = true;
+            return node.IsSearchVisible;
+        }
+        Reconcile(_displayRoots, _roots.Where(node => Visit(node)).ToList());
+        var retained = _nodes.Values.ToHashSet();
+        foreach (var node in _filterFolds.Keys.Where(node => !retained.Contains(node)).ToArray()) _filterFolds.Remove(node);
+        _updating = updating;
+    }
 
     public void MarkCaret(SourceLocation? caret)
     {
@@ -68,10 +105,10 @@ public partial class DocumentOutline : UserControl
             foreach (var node in nodes)
             {
                 visible.Add(node);
-                if (node.IsExpanded) Visit(node.Children);
+                if (node.IsExpanded) Visit(node.VisibleChildren);
             }
         }
-        Visit(_roots);
+        Visit(_displayRoots);
         var files = visible.GroupBy(node => node.Entry.Path, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.OrderBy(node => node.Entry.Line).ToArray(), StringComparer.OrdinalIgnoreCase);
         OutlineNode? Owner(string path, int line)
@@ -117,10 +154,10 @@ public partial class DocumentOutline : UserControl
                 foreach (var node in nodes)
                 {
                     if (string.Equals(node.Entry.Path, range.Path, StringComparison.OrdinalIgnoreCase)) visible.Add((node, ancestors));
-                    if (node.IsExpanded) Visit(node.Children, [.. ancestors, node]);
+                    if (node.IsExpanded) Visit(node.VisibleChildren, [.. ancestors, node]);
                 }
             }
-            Visit(_roots, []);
+            Visit(_displayRoots, []);
             // Each visible heading owns the following source up to the next visible
             // heading. Collapsed descendants therefore belong to their visible parent.
             var ordered = visible.OrderBy(item => item.Node.Entry.Line).ToArray();
@@ -142,7 +179,7 @@ public partial class DocumentOutline : UserControl
         foreach (var node in _nodes.Values) node.PropertyChanged -= NodeChanged;
         if (!string.Equals(mainPath, _mainPath, StringComparison.OrdinalIgnoreCase))
         {
-            _roots.Clear(); _nodes.Clear(); _mainPath = mainPath;
+            _roots.Clear(); _nodes.Clear(); _filterFolds.Clear(); _mainPath = mainPath;
         }
         var next = new Dictionary<NodeKey, OutlineNode>();
         var occurrences = new Dictionary<(string Path, int Level, string Title), int>();
@@ -163,7 +200,7 @@ public partial class DocumentOutline : UserControl
         {
             // The index lists files separately, not expanded TeX input order. Do not
             // attach the next file's headings to an unrelated previous file's section.
-            if (!string.Equals(previousFile, entry.Path, StringComparison.OrdinalIgnoreCase)) parents.Clear();
+            if (!JoinFiles && !string.Equals(previousFile, entry.Path, StringComparison.OrdinalIgnoreCase)) parents.Clear();
             previousFile = entry.Path;
             // Line numbers deliberately do not identify nodes: editing above a heading
             // must update navigation without resetting its collapsed state.
@@ -185,6 +222,7 @@ public partial class DocumentOutline : UserControl
         foreach (var pair in children) Reconcile(pair.Key.Children, pair.Value);
         Reconcile(_roots, roots);
         _nodes = next;
+        RefreshFilter();
         foreach (var node in _nodes.Values) node.PropertyChanged += NodeChanged;
         _updating = false;
         RefreshHighlights();
@@ -323,6 +361,8 @@ public sealed class OutlineNode : INotifyPropertyChanged
     public bool IsRoot { get; private set; }
     public string LevelLabel { get; private set; } = "h1";
     public ObservableCollection<OutlineNode> Children { get; } = [];
+    public ObservableCollection<OutlineNode> VisibleChildren { get; } = [];
+    internal bool IsSearchVisible { get; set; } = true;
     private bool _isExpanded = true, _isSelected, _isViewportHighlighted;
     private bool _hasCaret, _hasTodo;
     public bool HasCaret { get => _hasCaret; internal set { if (_hasCaret != value) { _hasCaret = value; Changed(); } } }

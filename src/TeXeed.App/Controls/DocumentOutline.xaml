@@ -54,7 +54,7 @@
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
   </Style>
-  <HierarchicalDataTemplate DataType="{x:Type local:OutlineNode}" ItemsSource="{Binding Children}">
+  <HierarchicalDataTemplate DataType="{x:Type local:OutlineNode}" ItemsSource="{Binding VisibleChildren}">
    <DockPanel LastChildFill="True" VerticalAlignment="Center" Background="Transparent">
     <Grid DockPanel.Dock="Left" Margin="0,0,5,0" VerticalAlignment="Center">
     <Border x:Name="LevelBadge" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}" BorderThickness="1" CornerRadius="3" Width="20" Height="16" ToolTip="标题层级">
@@ -63,9 +63,10 @@
      <Ellipse x:Name="TodoDot" Width="6" Height="6" Fill="{DynamicResource Todo}" Stroke="{DynamicResource SidebarBackground}" StrokeThickness="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Visibility="Collapsed" ToolTip="此章节有待办事项"/>
     </Grid>
     <Path x:Name="CaretPen" DockPanel.Dock="Left" Width="13" Height="13" Margin="0,0,4,0" VerticalAlignment="Center" Data="M 2,9 L 9,2 12,5 5,12 1,13 Z M 7,4 L 10,7" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" StrokeThickness="1.3" StrokeLineJoin="Round" Visibility="Collapsed" ToolTip="光标所在章节"/>
-    <local:OutlineTitleViewport x:Name="HeadingText" Latex="{Binding Latex}" ChildCount="{Binding Children.Count}" LeaderBrush="{DynamicResource Subtle}" VerticalAlignment="Center" Margin="0,2,6,2" ToolTip="{Binding Tooltip}" ToolTipService.ShowDuration="20000"/>
+    <local:OutlineTitleViewport x:Name="HeadingText" Latex="{Binding Latex}" ChildCount="{Binding VisibleChildren.Count}" LeaderBrush="{DynamicResource Subtle}" VerticalAlignment="Center" Margin="0,2,6,2" ToolTip="{Binding Tooltip}" ToolTipService.ShowDuration="20000"/>
    </DockPanel>
    <HierarchicalDataTemplate.Triggers>
+    <DataTrigger Binding="{Binding ShowLevelBadges, RelativeSource={RelativeSource AncestorType=local:DocumentOutline}}" Value="False"><Setter TargetName="LevelBadge" Property="Visibility" Value="Collapsed"/></DataTrigger>
     <DataTrigger Binding="{Binding HasCaret}" Value="True"><Setter TargetName="CaretPen" Property="Visibility" Value="Visible"/></DataTrigger>
     <DataTrigger Binding="{Binding HasTodo}" Value="True"><Setter TargetName="TodoDot" Property="Visibility" Value="Visible"/></DataTrigger>
    </HierarchicalDataTemplate.Triggers>
