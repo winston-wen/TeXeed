@@ -16,6 +16,8 @@ public partial class MainWindow : Window
     private readonly ProjectService _projects = new();
     private readonly CompileService _compiler = new();
     private readonly SyncTexService _sync = new();
+    private ProjectIndexCache _sidebarIndex = new();
+    private ProjectIndex? _outlineIndex;
     private AppSettings _settings = SettingsStore.Load();
     private TexProject? _project;
     private readonly Dictionary<string, string> _changes = new(StringComparer.OrdinalIgnoreCase);
@@ -143,10 +145,13 @@ public partial class MainWindow : Window
             await PauseWorkAsync();
             if (!await ConfirmLeaveAsync()) return;
             if (createNew) await File.WriteAllTextAsync(path, NewDocument);
-            var project = await _projects.LoadAsync(path);
+            var project = await Task.Run(() => _projects.LoadAsync(path));
+            var preparedIndex = new ProjectIndexCache();
+            await Task.Run(() => preparedIndex.Update(project.Files));
             _session++; _revision = 0; _pdfRevision = -1; _pdfGeneration++; _navigationRequest++;
             _externalChangePending = false; _assetChangePending = false;
             _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null;
+            _sidebarIndex = preparedIndex; _outlineIndex = null;
             Editor.ClearSession(); Preview.Clear();
             Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;
             Title = project.Name + " — TeXeed";
@@ -184,6 +189,7 @@ public partial class MainWindow : Window
     }
     private async Task PauseWorkAsync()
     {
+        _indexTimer.Stop();
         _liveTimer.Stop(); _syncTimer.Stop(); _watchTimer.Stop();
         _scheduledBuildExplicit = false; _buildAgainExplicit = false;
         CancelForwardSync();
@@ -457,13 +463,17 @@ public partial class MainWindow : Window
     private void RefreshIndex()
     {
         if (_project == null) return;
-        var files = CurrentFiles().ToArray(); var index = LatexIndexer.Build(files);
+        var files = CurrentFiles().ToArray(); var index = _sidebarIndex.Update(files);
         Editor.SetProjectFiles(files);
         SidebarTitle.ToolTip = $"{files.Length} 个文件 · {index.Labels.Count} 个标签\n{index.Citations.Count} 条参考文献";
         if (_project.Warnings.Count > 0) SidebarTitle.ToolTip += "\n" + string.Join(Environment.NewLine, _project.Warnings);
         FileTree.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
         OutlineTree.Visibility = _sidebar == "outline" ? Visibility.Visible : Visibility.Collapsed;
-        OutlineTree.Update(index.Outline, _project.MainPath, index.Todos);
+        if (!ReferenceEquals(_outlineIndex, index))
+        {
+            OutlineTree.Update(index.Outline, _project.MainPath, index.Todos);
+            _outlineIndex = index;
+        }
         OutlineTree.MarkCaret(Editor.CurrentLocation);
         OutlineTree.HighlightViewport(Editor.VisibleSourceRange);
         IndexList.Visibility = _sidebar is "files" or "outline" ? Visibility.Collapsed : Visibility.Visible;

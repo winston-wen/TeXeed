@@ -6,6 +6,12 @@ if (args.Length == 3 && args[0] == "--real-tex")
     return await CompilerTests.RunRealEngineAsync(args[1], args[2]);
 try
 {
+    IndexCacheTests.Run();
+    if (args.Contains("--index-only"))
+    {
+        await TitleTests.RunAsync(); await ProjectTests.RunAsync();
+        Console.WriteLine("PASS: indexing, project discovery, title semantics and save/conflict regressions"); return 0;
+    }
     LayoutTests.Run();
     await TitleTests.RunAsync();
     await ProjectTests.RunAsync();

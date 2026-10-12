@@ -9,6 +9,12 @@ public sealed class ProjectService
     private const long MaximumProjectTextBytes = 32 * 1024 * 1024;
     private static readonly StringComparer PathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     private static readonly string[] ImageExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".eps", ".svg", ".tif", ".tiff", ".bmp"];
+    private static readonly HashSet<string> DependencyCommands = new(StringComparer.Ordinal)
+    {
+        "input", "include", "subfile", "import", "subimport", "inputfrom", "subinputfrom", "includefrom", "subincludefrom",
+        "bibliography", "addbibresource", "addglobalbib", "addsectionbib", "usepackage", "RequirePackage",
+        "documentclass", "LoadClass", "bibliographystyle", "includegraphics", "graphicspath"
+    };
 
     public async Task<TexProject> LoadAsync(string mainPath, CancellationToken ct = default)
     {
@@ -50,7 +56,7 @@ public sealed class ProjectService
                 files.Add(new(entry.Path, relativePath, entry.Kind, document.Text));
                 if (entry.Kind == ProjectFileKind.Bibliography) continue;
                 var code = LatexSyntax.Analyze(document.Text).Code;
-                var commands = LatexSyntax.Commands(code).ToList();
+                var commands = LatexSyntax.Commands(code, DependencyCommands).ToList();
                 var graphicPaths = commands.Where(c => c.Name == "graphicspath" && c.Arguments.Count > 0)
                     .SelectMany(c => ReadGraphicPaths(c.Arguments[0])).ToArray();
                 foreach (var command in commands)

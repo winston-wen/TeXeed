@@ -96,6 +96,7 @@ public partial class DocumentOutline : UserControl
 
     public void HighlightViewport((string Path, int FirstLine, int LastLine)? range)
     {
+        if (_visibleRange == range) return;
         _visibleRange = range;
         RefreshHighlights();
     }

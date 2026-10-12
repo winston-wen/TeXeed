@@ -23,6 +23,7 @@ public sealed partial class LatexEditor : TextEditor
     private readonly Dictionary<string, FileSession> _sessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly SearchPanel _search;
     private IReadOnlyList<ProjectFile> _files = [];
+    private readonly ProjectIndexCache _completionIndex = new();
     private CompletionWindow? _completion;
     private bool _changingDocument;
     private static readonly Regex CommandPrefix = new(@"\\(?<name>[a-zA-Z@]*)$", RegexOptions.Compiled);
@@ -116,6 +117,7 @@ public sealed partial class LatexEditor : TextEditor
 
     public void ClearSession()
     {
+        _completionIndex.Clear();
         ResetMultiCaret();
         CloseCompletion();
         _changingDocument = true;
@@ -381,7 +383,7 @@ public sealed partial class LatexEditor : TextEditor
             startOffset = lookBehind + keys.Index + suffixStart;
             var liveFiles = _files.Select(f => string.Equals(f.Path, CurrentFilePath, StringComparison.OrdinalIgnoreCase)
                 ? f with { Content = Text } : f);
-            var index = LatexIndexer.Build(liveFiles);
+            var index = _completionIndex.Update(liveFiles);
             var entries = reference.Groups["command"].Value.Contains("cite", StringComparison.OrdinalIgnoreCase)
                 ? index.Citations : index.Labels;
             var alreadyChosen = keys.Value.Split(',').SkipLast(1).Select(x => x.Trim()).ToHashSet(StringComparer.Ordinal);

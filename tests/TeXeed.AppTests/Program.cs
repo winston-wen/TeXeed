@@ -54,6 +54,13 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                var sidebarPerformance = Array.IndexOf(args, "--sidebar-performance");
+                if (sidebarPerformance >= 0)
+                {
+                    await CheckSidebarPerformanceAsync(window, Path.GetFullPath(args[sidebarPerformance + 1]), output);
+                    await CloseAndObserveAsync(window, "sidebar performance regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--grab-only"))
                 {
                     await CheckGrabGesturesAsync(window, output);

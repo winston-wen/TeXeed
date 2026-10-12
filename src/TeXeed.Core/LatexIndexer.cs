@@ -9,6 +9,7 @@ public static class LatexIndexer
         ["part"] = 0, ["chapter"] = 1, ["section"] = 2, ["subsection"] = 3,
         ["subsubsection"] = 4, ["paragraph"] = 5, ["subparagraph"] = 6
     };
+    private static readonly HashSet<string> IndexCommands = new(SectionLevels.Keys.Concat(new[] { "label", "bibitem", "todo" }), StringComparer.Ordinal);
 
     public static ProjectIndex Build(IEnumerable<ProjectFile> files)
     {
@@ -19,12 +20,13 @@ public static class LatexIndexer
         foreach (var file in files.Where(f => f.IsEditable))
         {
             var scan = LatexSyntax.Analyze(file.Content);
+            var lines = new LatexSyntax.LineCursor(file.Content);
             var heading = "";
-            foreach (var command in LatexSyntax.Commands(scan.Code))
+            foreach (var command in LatexSyntax.Commands(scan.Code, IndexCommands))
             {
                 if (command.Arguments.Count == 0) continue;
                 var value = command.Arguments[0].Trim();
-                var line = LatexSyntax.LineAt(file.Content, command.Index);
+                var line = lines.LineAt(command.Index);
                 if (SectionLevels.TryGetValue(command.Name, out var level))
                 {
                     heading = LatexTitle.PlainText(value);
@@ -37,12 +39,13 @@ public static class LatexIndexer
                 else if (command.Name == "todo")
                     todos.Add(new(Readable(value), file.Path, line, "TODO"));
             }
+            var commentLines = new LatexSyntax.LineCursor(file.Content);
             foreach (var comment in scan.Comments)
             {
                 var marker = Regex.Match(comment.Text, @"\b(TODO|FIXME)\b\s*:?\s*(.*)", RegexOptions.IgnoreCase);
                 if (marker.Success)
                     todos.Add(new(marker.Groups[2].Value.Trim() is { Length: > 0 } text ? text : marker.Groups[1].Value,
-                        file.Path, LatexSyntax.LineAt(file.Content, comment.Index), marker.Groups[1].Value.ToUpperInvariant()));
+                        file.Path, commentLines.LineAt(comment.Index), marker.Groups[1].Value.ToUpperInvariant()));
             }
             if (file.Kind == ProjectFileKind.Bibliography)
                 IndexBibliography(file, scan.Code, citations);
@@ -66,6 +69,7 @@ public static class LatexIndexer
 
     private static void IndexBibliography(ProjectFile file, string code, List<IndexEntry> citations)
     {
+        var lines = new LatexSyntax.LineCursor(file.Content);
         // Consume whole entries so an @ sign inside a title cannot create a spurious key.
         for (var i = 0; i < code.Length; i++)
         {
@@ -105,7 +109,7 @@ public static class LatexIndexer
             var key = body[..comma].Trim();
             if (key.Length == 0 || key.Any(char.IsWhiteSpace) || key.IndexOfAny(['{', '}', '=']) >= 0) continue;
             var title = Regex.Match(body[(comma + 1)..], "\\btitle\\s*=\\s*[\\{\\\"]([^\\}\"\\r\\n]+)", RegexOptions.IgnoreCase);
-            citations.Add(new(key, file.Path, LatexSyntax.LineAt(file.Content, start), title.Success ? Readable(title.Groups[1].Value) : type));
+            citations.Add(new(key, file.Path, lines.LineAt(start), title.Success ? Readable(title.Groups[1].Value) : type));
         }
     }
 
@@ -136,6 +140,7 @@ internal static class LatexSyntax
         }
         for (var i = 0; i < source.Length; i++)
         {
+            if (source[i] is not ('%' or '\\')) continue;
             if (IsEscaped(source, i)) continue;
             if (source[i] == '%')
             {
@@ -146,10 +151,12 @@ internal static class LatexSyntax
             }
             else if (source[i] == '\\')
             {
-                var command = CommandPattern.Match(source, i);
-                if (!command.Success || command.Index != i) continue;
-                var after = i + command.Length;
-                if (command.Groups[1].Value == "verb" && after < source.Length && !char.IsWhiteSpace(source[after]))
+                var after = i + 1;
+                while (after < source.Length && (char.IsAsciiLetter(source[after]) || source[after] == '@')) after++;
+                if (after == i + 1) continue;
+                var name = source.AsSpan(i + 1, after - i - 1);
+                if (after < source.Length && source[after] == '*') after++;
+                if (name.SequenceEqual("verb") && after < source.Length && !char.IsWhiteSpace(source[after]))
                 {
                     var delimiter = source[after];
                     var end = after + 1;
@@ -157,7 +164,7 @@ internal static class LatexSyntax
                     if (end < source.Length && source[end] == delimiter) end++;
                     Mask(i, end); literals.Add(new(i, end)); i = end - 1;
                 }
-                else if (command.Groups[1].Value == "begin")
+                else if (name.SequenceEqual("begin"))
                 {
                     var arg = ReadGroup(source, ref after, '{', '}');
                     if (arg is null || !LiteralEnvironments.Contains(arg)) continue;
@@ -170,12 +177,13 @@ internal static class LatexSyntax
         return new(new string(chars), comments, literals);
     }
 
-    internal static IEnumerable<LatexCommand> Commands(string code)
+    internal static IEnumerable<LatexCommand> Commands(string code, HashSet<string>? names = null)
     {
         foreach (Match match in CommandPattern.Matches(code))
         {
             if (IsEscaped(code, match.Index)) continue;
             var pos = match.Index + match.Length;
+            if (names is not null && !names.GetAlternateLookup<ReadOnlySpan<char>>().Contains(match.Groups[1].ValueSpan)) continue;
             var name = match.Groups[1].Value;
             var args = new List<string>();
             SkipSpace(code, ref pos);
@@ -239,5 +247,19 @@ internal static class LatexSyntax
         var line = 1;
         for (var i = 0; i < Math.Min(index, source.Length); i++) if (source[i] == '\n') line++;
         return line;
+    }
+    // Commands/comments arrive in source order. Each character is counted at most
+    // once per pass instead of rescanning the prefix for every command: O(N + K).
+    internal sealed class LineCursor(string source)
+    {
+        private int _position, _line = 1;
+        internal int LineAt(int index)
+        {
+            index = Math.Clamp(index, 0, source.Length);
+            if (index < _position) { _position = 0; _line = 1; }
+            _line += source.AsSpan(_position, index - _position).Count('\n');
+            _position = index;
+            return _line;
+        }
     }
 }

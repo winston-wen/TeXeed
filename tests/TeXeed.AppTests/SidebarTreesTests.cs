@@ -44,6 +44,11 @@ internal static partial class Program
             throw new Exception("File-name filter lost case-insensitive matches or their directory context");
         var selected = Items(files.Items).Single(item => item.Tag is string path && path.EndsWith("AlphaNotes.tex")); selected.IsSelected = true;
         if (editor.CurrentFilePath != Path.Combine(folder, "chapters", "AlphaNotes.tex")) throw new Exception("Filtered file does not open its source");
+        var retainedRoot = files.Items[0]; Mode("outline"); Mode("files");
+        if (!ReferenceEquals(retainedRoot, files.Items[0])) throw new Exception("Unchanged file tree was rebuilt on sidebar switching");
+        Invoke(window, "ActivateFile", main);
+        selected.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseUpEvent });
+        if (editor.CurrentFilePath != Path.Combine(folder, "chapters", "AlphaNotes.tex")) throw new Exception("Retained selected file cannot be reopened after another tab became active");
         search.Text = "第三"; window.UpdateLayout();
         if (!Paths().SequenceEqual(new[] { "第三节.tex" })) throw new Exception("Chinese file-name filter failed");
         Capture(window, Path.Combine(output, "project-files-search.png"));
