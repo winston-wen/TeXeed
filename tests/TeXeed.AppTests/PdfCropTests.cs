@@ -46,9 +46,9 @@ internal static partial class Program
         Environment.SetEnvironmentVariable("TECTONIC_CACHE_DIR", Path.Combine(root, ".tools", "tectonic", "cache"));
         var preview = (PdfPreview)window.FindName("Preview");
         var editor = (LatexEditor)window.FindName("Editor");
-        var toggle = (CheckBox)window.FindName("AutoCropPdfBox");
-        ((ComboBox)window.FindName("FollowModeBox")).SelectedValue = PreviewFollowMode.None;
-        toggle.IsChecked = true; toggle.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
+
+        Invoke(window, "ChangeFollowMode", PreviewFollowMode.None);
+        Invoke(window, "ApplyPreviewOptions", new PreviewOptions(preview.Zoom, preview.IsAutoWidth, PreviewFollowMode.None, preview.InvertColors, true));
         try
         {
             await CallAsync(window, "OpenAsync", main); await CallAsync(window, "BuildAsync");
@@ -77,10 +77,10 @@ internal static partial class Program
             ScrollBar.PageDownCommand.Execute(null, verticalBar); window.UpdateLayout();
             if (scroll.VerticalOffset <= oldY) throw new Exception("Overlay scrollbar track did not scroll the PDF");
             scroll.ScrollToVerticalOffset(oldY); window.UpdateLayout();
-            toggle.IsChecked = false; toggle.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
+            Invoke(window, "ApplyPreviewOptions", new PreviewOptions(preview.Zoom, preview.IsAutoWidth, PreviewFollowMode.None, preview.InvertColors, false));
             await WaitForPreviewRenderedAsync(window); AssertPdfPagesCentered(preview); Capture(window, Path.Combine(output, "pdf-full-page.png"));
             if (scroll.ScrollableWidth > 1) throw new Exception("Restoring a full page retained stale horizontal anchor padding");
-            toggle.IsChecked = true; toggle.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
+            Invoke(window, "ApplyPreviewOptions", new PreviewOptions(preview.Zoom, preview.IsAutoWidth, PreviewFollowMode.None, preview.InvertColors, true));
             await WaitForPreviewRenderedAsync(window);
             AssertPdfPagesCentered(preview);
             var previousWidth = preview.Width;

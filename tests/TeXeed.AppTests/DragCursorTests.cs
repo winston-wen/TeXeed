@@ -34,13 +34,6 @@ internal static partial class Program
         finally { track.Thumb.ReleaseMouseCapture(); }
     }
 
-    private static void CheckZoomDragCursor(MainWindow window)
-    {
-        var slider = (Slider)window.FindName("ZoomSlider");
-        slider.ApplyTemplate();
-        AssertHandThumb((Track)slider.Template.FindName("PART_Track", slider), "Zoom slider");
-    }
-
     private static void SaveCursor(Cursor cursor, string path)
     {
         var handle = (SafeHandle)typeof(Cursor).GetProperty("Handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(cursor)!;
@@ -58,12 +51,10 @@ internal static partial class Program
         var strip = (EditorTabStrip)window.FindName("FileTabs");
         var title = (Button)((StackPanel)strip.FindName("Items")).Children.Cast<Border>()
             .Select(row => ((Grid)row.Child).Children[0]).First();
-        var slider = (Slider)window.FindName("ZoomSlider"); slider.ApplyTemplate();
-        var zoom = ((Track)slider.Template.FindName("PART_Track", slider)).Thumb;
         var scrollThumbs = Descendants<ScrollBar>(window).Where(bar => bar.IsVisible)
             .Select(bar => ((Track)bar.Template.FindName("PART_Track", bar)).Thumb).ToArray();
         if (scrollThumbs.Length < 3) throw new Exception("Gesture fixture needs both editor scrollbars and the PDF scrollbar");
-        var owners = new[] { (Owner: (FrameworkElement)title, Label: "tab"), (Owner: (FrameworkElement)zoom, Label: "zoom") }
+        var owners = new[] { (Owner: (FrameworkElement)title, Label: "tab") }
             .Concat(scrollThumbs.Select((thumb, index) => (Owner: (FrameworkElement)thumb, Label: "scroll-" + index)));
         var property = (DependencyProperty)typeof(GrabCursor).GetField("StateProperty", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null)!;
         foreach (var (owner, label) in owners)
@@ -100,6 +91,6 @@ internal static partial class Program
         SaveCursor(DragCursors.Grabbing, Path.Combine(output, "cursor-grabbing.png"));
         Capture(window, Path.Combine(output, "grab-gesture-layout.png"));
         await CallAsync(window, "SaveAsync");
-        Console.WriteLine("PASS: WPF capture with hover/short press/hold/drag/capture loss/release transitions on tabs, zoom and both scrollbar axes; custom open/closed hand cursors loaded by Windows");
+        Console.WriteLine("PASS: WPF capture with hover/short press/hold/drag/capture loss/release transitions on tabs and both scrollbar axes; custom open/closed hand cursors loaded by Windows");
     }
 }

@@ -6,7 +6,7 @@ public partial class MainWindow
 {
     private void ApplyWordWrap()
     {
-        Editor.SetWordWrap(_settings.WordWrap);
+        foreach (var sourceEditor in Editors) sourceEditor.SetWordWrap(_settings.WordWrap);
         WordWrapMenuItem.IsChecked = _settings.WordWrap;
     }
     private void WordWrap_Click(object sender, RoutedEventArgs e) => ToggleWordWrap();

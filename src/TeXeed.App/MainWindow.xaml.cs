@@ -49,25 +49,14 @@ public partial class MainWindow : Window
         InitializeComponent();
         InitializeTitleBar();
         InitializeFullscreen();
-        InitializeZoomControls();
         InitializeTabs();
         RefreshThemeMenu();
         UpdateWorkspaceIcons();
         WindowTheme.Attach(this);
         LiveMenuItem.IsChecked = _settings.LivePreview;
-        FollowModeBox.ItemsSource = new[]
-        {
-            new { Label = "不跟随", Value = PreviewFollowMode.None },
-            new { Label = "跟随光标", Value = PreviewFollowMode.Cursor },
-            new { Label = "跟随视图", Value = PreviewFollowMode.Viewport }
-        };
-        FollowModeBox.SelectedValue = _settings.FollowMode;
-        InvertPdfBox.IsChecked = _settings.InvertPdfColors;
         Preview.InvertColors = _settings.InvertPdfColors;
-        AutoCropPdfBox.IsChecked = _settings.AutoCropPdf;
         Preview.AutoCrop = _settings.AutoCropPdf;
-        Editor.FontSize = _settings.FontSize;
-        Editor.FontFamily = new FontFamily(_settings.EditorFontFamily);
+        foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); }
         ApplyWordWrap();
         _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
         _liveTimer.Tick += async (_, _) =>
@@ -79,19 +68,25 @@ public partial class MainWindow : Window
         _indexTimer.Tick += (_, _) => { _indexTimer.Stop(); RefreshIndex(); };
         _syncTimer.Tick += async (_, _) => { _syncTimer.Stop(); await ForwardAsync(false); };
         _watchTimer.Tick += async (_, _) => { _watchTimer.Stop(); await ReloadExternalAsync(); };
-        Editor.ContentEdited += (_, _) => OnEdited();
-        Editor.CursorLocationChanged += (_, location) =>
+        foreach (var sourceEditor in Editors)
         {
+        var owner = sourceEditor;
+        owner.ContentEdited += (_, _) => { _activeEditor = owner; OnEdited(); };
+        owner.CursorLocationChanged += (_, location) =>
+        {
+            if (_updatingWorkspace || !ReferenceEquals(owner, Editor)) return;
             OutlineTree.MarkCaret(location);
             BookmarkTree.MarkCaret(location);
             UpdateCursorStatus();
             if (_settings.FollowMode == PreviewFollowMode.Cursor) QueueFollowSync();
         };
-        Editor.ViewportLocationChanged += (_, _) =>
+        owner.ViewportLocationChanged += (_, _) =>
         {
+            if (_updatingWorkspace || !ReferenceEquals(owner, Editor)) return;
             if (_settings.FollowMode == PreviewFollowMode.Viewport) QueueFollowSync();
         };
-        Editor.VisibleRangeChanged += (_, _) => { OutlineTree.HighlightViewport(Editor.VisibleSourceRange); BookmarkTree.HighlightViewport(Editor.VisibleSourceRange); };
+        owner.VisibleRangeChanged += (_, _) => { if (!_updatingWorkspace && ReferenceEquals(owner, Editor)) { OutlineTree.HighlightViewport(Editor.VisibleSourceRange); BookmarkTree.HighlightViewport(Editor.VisibleSourceRange); } };
+        }
         Preview.ViewInteracted += (_, _) => CancelPendingNavigation();
         Preview.InverseRequested += async (_, location) => await InverseAsync(location);
         Preview.StatusChanged += (_, status) => PdfStatus.Text = status;
@@ -140,7 +135,7 @@ public partial class MainWindow : Window
     private async Task SwitchProjectAsync(string path, bool createNew)
     {
         if (_transitioning || _closing) return;
-        _transitioning = true; Editor.IsEnabled = false;
+        _transitioning = true; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = false;
         try
         {
             await PauseWorkAsync();
@@ -153,12 +148,13 @@ public partial class MainWindow : Window
             _externalChangePending = false; _assetChangePending = false;
             _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null;
             _sidebarIndex = preparedIndex; _outlineIndex = null;
-            Editor.ClearSession(); Preview.Clear();
+            foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
             Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;
             Title = project.Name + " — TeXeed";
             LogText.Text = ""; DiagnosticsList.ItemsSource = null; LogExpander.IsExpanded = false;
             PdfStatus.Text = "等待首次编译";
             var main = project.Files.First(f => string.Equals(f.Path, project.MainPath, StringComparison.OrdinalIgnoreCase));
+            _workspaceTabs.Reset(main.Path); _activeEditor = LeftEditor;
             ActivateFile(main.Path); RefreshIndex(); SetupWatcher();
             _settings = _settings with { RecentProjects = new[] { project.MainPath }.Concat(_settings.RecentProjects.Where(p => !p.Equals(project.MainPath, StringComparison.OrdinalIgnoreCase))).Take(10).ToArray() };
             PersistSettings(); UpdateRecent();
@@ -182,7 +178,7 @@ public partial class MainWindow : Window
         catch (Exception ex) { Error(ex); }
         finally
         {
-            _transitioning = false; Editor.IsEnabled = true;
+            _transitioning = false; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = true;
             QueueExternalRefresh();
             if (_settings.LivePreview && _project != null && (_changes.Count > 0 || _pdfRevision != _revision)) ScheduleLiveBuild();
             else if (_pdfRevision == _revision && _pdfPath is not null) QueueFollowSync();
@@ -205,21 +201,23 @@ public partial class MainWindow : Window
         var file = CurrentFiles().FirstOrDefault(f => f.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
         if (file == null) return;
         if (!file.IsEditable) { Status("此文件是项目资源或不可编辑的编码：" + file.RelativePath); return; }
-        if (!_tabs.Contains(path, StringComparer.OrdinalIgnoreCase)) _tabs.Add(path);
-        Editor.Visibility = Visibility.Visible; NoOpenFile.Visibility = Visibility.Collapsed;
-        Editor.SetProjectFiles(CurrentFiles()); Editor.ShowFile(file, file.Content);
-        UpdateCursorStatus();
+        _workspaceTabs.Open(path); _activeEditor = SourceEditor(_workspaceTabs.Owner(path)!.Value);
         RefreshTabs();
+        QueueFollowSync();
     }
     private void UpdateCursorStatus()
     {
-        var format = Path.GetExtension(Editor.CurrentFilePath ?? "").Equals(".bib", StringComparison.OrdinalIgnoreCase) ? "BibTeX" : "LaTeX";
-        var location = Editor.CurrentLocation;
-        CursorStatus.Text = $"行 {location?.Line ?? 1}，列 {location?.Column ?? 1}  ·  {format}";
+        foreach (var sourceEditor in Editors)
+        {
+            var format = Path.GetExtension(sourceEditor.CurrentFilePath ?? "").Equals(".bib", StringComparison.OrdinalIgnoreCase) ? "BibTeX" : "LaTeX";
+            var location = sourceEditor.CurrentLocation;
+            var status = ReferenceEquals(sourceEditor, LeftEditor) ? CursorStatus : RightCursorStatus;
+            status.Text = location is null ? "未打开文件" : $"行 {location.Line}，列 {location.Column}  ·  {format}";
+        }
     }
     private void RefreshTabs()
     {
-        FileTabs.SetTabs(_tabs.Select(path => new EditorTab(path, Path.GetFileName(path), _changes.ContainsKey(path))).ToArray(), Editor.CurrentFilePath);
+        RefreshWorkspaceViews();
         Title = (_changes.Count > 0 ? "● " : "") + (_project?.Name ?? "") + " — TeXeed";
     }
     private void OnEdited()
@@ -384,7 +382,7 @@ public partial class MainWindow : Window
         _navigationRequest++; _syncTimer.Stop(); CancelForwardSync();
     }
 
-    private SourceLocation? AutomaticSyncLocation => _settings.FollowMode switch
+    private SourceLocation? AutomaticSyncLocation => !Editor.IsVisible ? null : _settings.FollowMode switch
     {
         PreviewFollowMode.Cursor => Editor.CurrentLocation,
         PreviewFollowMode.Viewport => Editor.ViewportFollowLocation,
@@ -465,7 +463,7 @@ public partial class MainWindow : Window
     {
         if (_project == null) return;
         var files = CurrentFiles().ToArray(); var index = _sidebarIndex.Update(files);
-        Editor.SetProjectFiles(files);
+        foreach (var sourceEditor in Editors) sourceEditor.SetProjectFiles(files);
         SidebarTitle.ToolTip = $"{files.Length} 个文件 · {index.Labels.Count} 个标签\n{index.Citations.Count} 条参考文献";
         if (_project.Warnings.Count > 0) SidebarTitle.ToolTip += "\n" + string.Join(Environment.NewLine, _project.Warnings);
         FileTree.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
@@ -567,7 +565,8 @@ public partial class MainWindow : Window
                 return;
             }
             _revision++;
-            _tabs.RemoveAll(p => !updated.Files.Any(f => f.Path.Equals(p, StringComparison.OrdinalIgnoreCase)));
+            foreach (var path in _workspaceTabs.Sources.Where(p => !updated.Files.Any(f => f.Path.Equals(p, StringComparison.OrdinalIgnoreCase))).ToArray())
+                CloseTabs(path, TabCloseScope.This);
             if (_tabs.Count > 0) ActivateFile(updated.Files.Any(f => f.Path == Editor.CurrentFilePath) ? Editor.CurrentFilePath! : _tabs[0]);
             RefreshIndex(); Status("已同步外部文件修改");
             if (_settings.LivePreview) ScheduleLiveBuild();
@@ -648,27 +647,15 @@ public partial class MainWindow : Window
         try { if (!Path.GetFullPath(dialog.FileName).Equals(Path.GetFullPath(_pdfPath), StringComparison.OrdinalIgnoreCase)) File.Copy(_pdfPath, dialog.FileName, true); Status("PDF 已导出：" + dialog.FileName); }
         catch (Exception ex) { Error(ex); }
     }
-    private void FollowMode_Changed(object sender, SelectionChangedEventArgs e)
-    {
-        if (FollowModeBox.SelectedValue is not PreviewFollowMode mode || _settings.FollowMode == mode) return;
-        _settings = _settings with { FollowMode = mode };
-        PersistSettings();
-        CancelPendingNavigation();
-        QueueFollowSync();
-    }
-
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SettingsWindow(_settings, _project is null ? null : _project with { Files = CurrentFiles().ToArray() }) { Owner = this };
         if (dialog.ShowDialog() != true) return;
         if (_project is not null) { _project = _project with { ConfiguredName = dialog.ProjectName }; RefreshTabs(); }
-        _settings = dialog.Settings; PersistSettings(); LiveMenuItem.IsChecked = _settings.LivePreview; Editor.FontSize = _settings.FontSize;
-        Editor.FontFamily = new FontFamily(_settings.EditorFontFamily);
-        InvertPdfBox.IsChecked = _settings.InvertPdfColors;
+        _settings = dialog.Settings; PersistSettings(); LiveMenuItem.IsChecked = _settings.LivePreview;
+        foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); }
         Preview.InvertColors = _settings.InvertPdfColors;
-        AutoCropPdfBox.IsChecked = _settings.AutoCropPdf;
         Preview.AutoCrop = _settings.AutoCropPdf;
-        FollowModeBox.SelectedValue = _settings.FollowMode;
         CancelPendingNavigation();
         QueueFollowSync();
         _liveTimer.Stop(); _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
@@ -676,31 +663,20 @@ public partial class MainWindow : Window
         if (_scheduledBuildExplicit) ScheduleBuildAt(Environment.TickCount64, true);
         else if (_settings.LivePreview && _project != null) ScheduleLiveBuild();
     }
-    private void InvertPdf_Click(object sender, RoutedEventArgs e)
-    {
-        _settings = _settings with { InvertPdfColors = InvertPdfBox.IsChecked == true };
-        Preview.InvertColors = _settings.InvertPdfColors;
-        PersistSettings();
-    }
-    private void AutoCropPdf_Click(object sender, RoutedEventArgs e)
-    {
-        _settings = _settings with { AutoCropPdf = AutoCropPdfBox.IsChecked == true };
-        CancelPendingNavigation();
-        Preview.AutoCrop = _settings.AutoCropPdf;
-        PersistSettings();
-    }
     private void Help_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this,
         "打开主 .tex 文件会自动加载项目依赖。\n\nAlt　激活菜单（菜单栏常驻）\nF11　进入 / 退出全屏\nCtrl+B　折叠 / 展开工作区\nCtrl+S　保存全部文件并编译\nCtrl+Enter　编译文档\nCtrl+Space　自动补全\nCtrl+/　切换注释\nTab / Shift+Tab　缩进 / 取消缩进\nCtrl+Shift+F　格式化\nCtrl+F　文件内查找\nCtrl+H　文件内替换\nAlt+左键单击　添加光标\nAlt+左键拖动 / 中键拖动　列框选\nEsc　返回单光标\nCtrl+J　按光标定位 PDF\nPDF 右键双击或 Ctrl+左键　返回源码\nPDF Ctrl+滚轮　以鼠标下的内容为中心缩放\n\n编辑器字体可在设置中选择，固定按英文一格、中文两格排版。\nPDF 预览栏可选择不跟随、跟随光标或跟随视图，选择会自动保存；跟随光标时，对应内容始终垂直居中。\n实时预览开启时，修改会在短暂延迟后自动保存并编译。\n编译需要安装 TeX Live 或 MiKTeX，也支持配置 Tectonic。\n中文文档建议使用 ctex 宏包及 XeLaTeX。\n动态生成的文件路径、外部目录引用需要手动整理到主文件目录内。", "TeXeed 使用说明", MessageBoxButton.OK, MessageBoxImage.Information);
     private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, $"TeXeed {typeof(MainWindow).Assembly.GetName().Version?.ToString(3)}\n原生 Windows LaTeX 工作区\n\nC# · .NET 10 · WPF\nAvalonEdit / WpfMath (MIT) · PDFiumCore (Apache-2.0) · PDFium\n\n第三方许可随发行包提供。", "关于 TeXeed", MessageBoxButton.OK, MessageBoxImage.Information);
     private async void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && (FileTabs.IsDraggingTab || RightFileTabs.IsDraggingTab))
+        { FileTabs.CancelDrag(); RightFileTabs.CancelDrag(); DockDropCue.Visibility = Visibility.Collapsed; e.Handled = true; return; }
         if (HandleMenuKeyDown(e)) return;
         await HandleShortcutAsync(e, Keyboard.Modifiers);
     }
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
         if (e.Key == Key.F4 && modifiers == ModifierKeys.Control)
-        { e.Handled = true; if (!e.IsRepeat && Editor.CurrentFilePath is { } tab) CloseTabs(tab, TabCloseScope.This); return; }
+        { e.Handled = true; if (!e.IsRepeat && _workspaceTabs.FocusedTab is { } tab && tab != TabWorkspace.PreviewKey) CloseTabs(tab, TabCloseScope.This); return; }
         if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Z && modifiers == ModifierKeys.Alt)
         { e.Handled = true; if (!e.IsRepeat) ToggleWordWrap(); return; }
         if (e.Key == Key.F11 && modifiers == ModifierKeys.None)
@@ -727,7 +703,7 @@ public partial class MainWindow : Window
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (_allowClose) return;
-        e.Cancel = true; if (_closing || _transitioning) return; _closing = true; Editor.IsEnabled = false;
+        e.Cancel = true; if (_closing || _transitioning) return; _closing = true; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = false;
         try
         {
             // Even idle/save-free shutdown must leave WPF's Closing callback before
@@ -743,7 +719,7 @@ public partial class MainWindow : Window
         {
             if (!_allowClose)
             {
-                _closing = false; Editor.IsEnabled = true; QueueExternalRefresh();
+                _closing = false; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = true; QueueExternalRefresh();
                 if (_settings.LivePreview && (_changes.Count > 0 || _pdfRevision != _revision)) ScheduleLiveBuild();
             }
         }

@@ -67,17 +67,19 @@
    </Grid>
    <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Style="{StaticResource PaneSplitter}"/>
    <Grid x:Name="EditorPane" controls:ScrollActivity.IsScope="True" Grid.Column="2" Background="{DynamicResource EditorBackground}">
-    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Background="{DynamicResource SidebarBackground}"><controls:EditorTabStrip x:Name="FileTabs"/></Border>
-    <controls:LatexEditor x:Name="Editor" Grid.Row="1"/>
-    <TextBlock x:Name="NoOpenFile" Grid.Row="1" Visibility="Collapsed" Text="从左侧选择文件继续编辑" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
-    <Expander x:Name="LogExpander" Grid.Row="2" Header="编译输出" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" MaxHeight="260">
+    <Grid x:Name="LeftGroupBody" Grid.Row="1">
+     <Grid x:Name="LeftSourceView"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+    <controls:LatexEditor x:Name="LeftEditor" Grid.Row="0"/>
+    <TextBlock x:Name="NoOpenFile" Grid.Row="0" Visibility="Collapsed" Text="从左侧选择文件继续编辑" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+    <Expander x:Name="LogExpander" Grid.Row="1" Header="编译输出" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" MaxHeight="260">
      <Expander.Template><ControlTemplate TargetType="Expander"><Border x:Name="LogBody" Visibility="Collapsed" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="LogBody" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Expander.Template>
      <TabControl x:Name="LogTabs" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}" BorderThickness="0" Padding="0" Height="205">
       <TabControl.Template><ControlTemplate TargetType="TabControl"><Grid ClipToBounds="True"><Grid.RowDefinitions><RowDefinition Height="32"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Background="{DynamicResource PanelBackground}"><TabPanel IsItemsHost="True"/></Border><ContentPresenter Grid.Row="1" x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"/></Grid></ControlTemplate></TabControl.Template>
       <TabControl.Resources><Style TargetType="TabItem"><Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="Padding" Value="12,5"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border x:Name="TabChrome" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter ContentSource="Header" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="TabChrome" Property="Background" Value="{DynamicResource SidebarBackground}"/><Setter TargetName="TabChrome" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Ink}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></TabControl.Resources><TabItem Header="问题"><ListBox x:Name="DiagnosticsList" Padding="0" Margin="0" BorderThickness="0" SelectionChanged="Diagnostic_Selected"><ListBox.Template><ControlTemplate TargetType="ListBox"><ScrollViewer Padding="0" CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ItemsPresenter/></ScrollViewer></ControlTemplate></ListBox.Template><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Message}" TextWrapping="Wrap"/><TextBlock Text="{Binding Line, StringFormat=行 {0}}" Foreground="{DynamicResource Muted}" FontSize="11"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox></TabItem><TabItem Header="完整日志"><TextBox x:Name="LogText" Padding="10,8,0,8" Margin="0" IsReadOnly="True" FontFamily="Consolas" FontSize="11" BorderThickness="0" Background="Transparent" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"><TextBox.Template><ControlTemplate TargetType="TextBox"><ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}"/></ControlTemplate></TextBox.Template></TextBox></TabItem></TabControl>
     </Expander>
-    <Border x:Name="EditorStatusBar" Grid.Row="3" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0">
+    <Border x:Name="EditorStatusBar" Grid.Row="2" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0">
      <DockPanel Margin="10,0">
       <TextBlock x:Name="CursorStatus" Text="行 1，列 1  ·  LaTeX" DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="11"/>
       <ToggleButton x:Name="LogToggle" IsChecked="{Binding IsExpanded, ElementName=LogExpander, Mode=TwoWay}" ToolTip="显示或隐藏编译输出" AutomationProperties.Name="编译输出" Foreground="{DynamicResource Muted}" MinWidth="0">
@@ -86,28 +88,29 @@
       </ToggleButton>
      </DockPanel>
     </Border>
+
+     </Grid>
+    </Grid>
    </Grid>
    <GridSplitter x:Name="PreviewSplitter" Grid.Column="3" Style="{StaticResource PaneSplitter}"/>
-   <Grid x:Name="PreviewPane" controls:ScrollActivity.IsScope="True" Grid.Column="4" Background="{DynamicResource PreviewBackground}">
-    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
-    <Border Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
-     <Grid Margin="6,0"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <ComboBox x:Name="FollowModeBox" Margin="2,6,4,6" Padding="4,0" FontSize="12" VerticalContentAlignment="Center" DisplayMemberPath="Label" SelectedValuePath="Value" ToolTip="PDF 跟随模式" AutomationProperties.Name="PDF 跟随模式" SelectionChanged="FollowMode_Changed"/>
-      <Grid Grid.Column="1" MinWidth="100"><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
-       <Button Style="{StaticResource TitleIconButton}" ToolTip="缩小" AutomationProperties.Name="缩小 PDF" Click="ZoomOut_Click"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" Data="M13,7 A6,6 0 1 1 1,7 A6,6 0 1 1 13,7 M11,11 L18,18 M4,7 H10"/></Button>
-       <Grid Grid.Column="1"><Grid.RowDefinitions><RowDefinition Height="24"/><RowDefinition Height="12"/></Grid.RowDefinitions>
-        <Button x:Name="ZoomButton" Style="{StaticResource TitleIconButton}" FontSize="11" Content="100.00%" Click="ZoomPercent_Click" ToolTip="输入缩放百分比" AutomationProperties.Name="PDF 缩放百分比"/>
-        <TextBox x:Name="ZoomInput" Visibility="Collapsed" Padding="2,0" Foreground="{DynamicResource Ink}" Background="{DynamicResource EditorBackground}" CaretBrush="{DynamicResource Ink}" SelectionTextBrush="{DynamicResource Ink}" SelectionBrush="{DynamicResource Selection}" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" KeyDown="ZoomInput_KeyDown" LostKeyboardFocus="ZoomInput_LostFocus" AutomationProperties.Name="输入 PDF 缩放百分比"/>
-        <Slider x:Name="ZoomSlider" Grid.Row="1" Minimum="20" Maximum="300" Value="100" ValueChanged="ZoomSlider_Changed" Style="{StaticResource PdfZoomSlider}" AutomationProperties.Name="PDF 缩放滑块"/>
-       </Grid>
-       <Button Grid.Column="2" Style="{StaticResource TitleIconButton}" ToolTip="放大" AutomationProperties.Name="放大 PDF" Click="ZoomIn_Click"><Path Width="18" Height="18" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" Data="M13,7 A6,6 0 1 1 1,7 A6,6 0 1 1 13,7 M11,11 L18,18 M4,7 H10 M7,4 V10"/></Button>
-      </Grid>
-      <StackPanel Grid.Column="2" Orientation="Horizontal"><ToggleButton x:Name="AutoWidthButton" Content="自动宽度" FontSize="11" Style="{StaticResource AutoWidthToggle}" Margin="3,5" Padding="4,2" IsChecked="True" Click="AutoWidth_Click" ToolTip="自动随预览区宽度缩放" AutomationProperties.Name="PDF 自动宽度"/><Button Content="导出" FontSize="11" Padding="4,2" Margin="2,5" Click="Export_Click"/></StackPanel>
+   <Grid x:Name="PreviewPane" controls:ScrollActivity.IsScope="True" Grid.Column="4" Background="{DynamicResource EditorBackground}">
+    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Background="{DynamicResource SidebarBackground}"><controls:EditorTabStrip x:Name="RightFileTabs"/></Border>
+    <Grid x:Name="RightGroupBody" Grid.Row="1">
+     <Grid x:Name="RightSourceView" Visibility="Collapsed"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+      <controls:LatexEditor x:Name="RightEditor"/>
+      <Border x:Name="RightEditorStatusBar" Grid.Row="2" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><DockPanel Margin="10,0">
+       <TextBlock x:Name="RightCursorStatus" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0"/>
+       <ToggleButton IsChecked="{Binding IsExpanded, ElementName=LogExpander, Mode=TwoWay}" Click="RightLog_Click" ToolTip="编译输出" Foreground="{DynamicResource Muted}"><ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"><TextBlock Text="{Binding Text, ElementName=StatusText}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></Border></ControlTemplate></ToggleButton.Template></ToggleButton>
+      </DockPanel></Border>
      </Grid>
-    </Border>
-    <controls:PdfPreview x:Name="Preview" Grid.Row="1"/>
-    <Border x:Name="PreviewStatusBar" Grid.Row="2" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><DockPanel Margin="12,0"><CheckBox x:Name="InvertPdfBox" Content="反色" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="11" ToolTip="反转 PDF 预览颜色：暖棕黑纸张、柔和米白文字，内容同步映射为深色配色；导出 PDF 保持原色。" AutomationProperties.Name="PDF 反色" Click="InvertPdf_Click"/><CheckBox x:Name="AutoCropPdfBox" Content="裁边" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="11" ToolTip="自动裁掉四周空白、压缩页内大段纵向空白，按内容适合宽度连续滚动；导出保持完整页面。" AutomationProperties.Name="PDF 自动裁边" Click="AutoCropPdf_Click"/><TextBlock x:Name="PdfStatus" ToolTip="右键双击或 Ctrl+左键返回源码" Text="等待首次编译" FontSize="11" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/></DockPanel></Border>
+     <Grid x:Name="PreviewContent" Background="{DynamicResource PreviewBackground}"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+      <controls:PdfPreview x:Name="Preview"/>
+      <Border x:Name="PreviewStatusBar" Grid.Row="1" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><TextBlock x:Name="PdfStatus" Text="等待首次编译" Margin="12,0" Foreground="{DynamicResource Muted}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="右键双击或 Ctrl+左键返回源码；预览设置在标签齿轮中"/></Border>
+     </Grid>
+    </Grid>
    </Grid>
+   <Canvas x:Name="DockDropOverlay" Grid.Column="2" Grid.ColumnSpan="3" Panel.ZIndex="100" IsHitTestVisible="False"><Border x:Name="DockDropCue" Visibility="Collapsed" Background="{DynamicResource Accent}" Opacity="0.18" BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="4"/></Canvas>
   </Grid>
   <Grid Grid.Row="1" x:Name="Welcome">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

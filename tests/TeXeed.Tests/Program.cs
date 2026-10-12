@@ -8,6 +8,7 @@ try
 {
     IndexCacheTests.Run();
     BookmarkTests.Run();
+    TabWorkspaceTests.Run();
     if (args.Contains("--index-only"))
     {
         await TitleTests.RunAsync(); await ProjectTests.RunAsync();

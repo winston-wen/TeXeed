@@ -182,41 +182,22 @@ internal static partial class Program
     private static async Task CheckZoomControlsAsync(MainWindow window, string output)
     {
         var preview = (PdfPreview)window.FindName("Preview");
-        var slider = (Slider)window.FindName("ZoomSlider");
-        var button = (Button)window.FindName("ZoomButton");
-        var input = (TextBox)window.FindName("ZoomInput");
-        var auto = (ToggleButton)window.FindName("AutoWidthButton");
-        slider.Value = 123.45;
-        if (Math.Abs(preview.Zoom - 1.2345) > .00001 || auto.IsChecked == true || !button.Content.ToString()!.Contains("123.45"))
-            throw new Exception("Slider did not update exact zoom and disable auto width");
-        auto.IsChecked = true; auto.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        if (!preview.IsAutoWidth || auto.IsChecked != true) throw new Exception("Auto width failed to enable");
-        auto.IsChecked = false; auto.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-        if (preview.IsAutoWidth) throw new Exception("Auto width toggle-off failed to freeze zoom");
-        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        var selectedInk = (SolidColorBrush)input.SelectionTextBrush;
-        if (selectedInk.Color != ((SolidColorBrush)input.Foreground).Color || selectedInk.Color == ((SolidColorBrush)input.SelectionBrush).Color)
-            throw new Exception("Selected zoom percentage is unreadable in current theme");
-        Capture(window, Path.Combine(output, "zoom-percentage-selected.png"));
-        input.Text = "137.62%";
-        input.RaiseEvent(CreateKey(window, Key.Enter, Keyboard.KeyDownEvent));
-        if (input.IsVisible || Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Click-to-enter zoom percentage failed");
-        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); input.Text = "NaN";
-        input.RaiseEvent(CreateKey(window, Key.Enter, Keyboard.KeyDownEvent));
-        if (!input.IsVisible || Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Invalid zoom input was accepted");
-        input.RaiseEvent(CreateKey(window, Key.Escape, Keyboard.KeyDownEvent));
-        preview.SetZoom(1.1); // The wheel also calls SetZoom directly: toolbar must update from the preview event.
-        if (Math.Abs(slider.Value - 110) > .00001 || button.Content.ToString() != "110.00%") throw new Exception($"External preview zoom did not update toolbar: {slider.Value}, {button.Content}");
-        preview.FitWidth(); window.UpdateLayout();
-        var before = preview.Zoom;
-        window.Width += 120; window.UpdateLayout();
+        var dialog = (PreviewSettingsWindow)Invoke(window, "CreatePreviewSettings")!;
+        dialog.Show(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+        var input = (TextBox)dialog.FindName("ZoomInput");
+        ((RadioButton)dialog.FindName("ManualZoom")).IsChecked = true; input.Text = "137.62%";
+        ((Button)dialog.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        if (Math.Abs(preview.Zoom - 1.3762) > .00001 || preview.IsAutoWidth) throw new Exception("Preview settings failed to apply precise manual zoom");
+        input.Text = "NaN"; ((Button)dialog.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        if (Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Invalid preview zoom was accepted");
+        ((RadioButton)dialog.FindName("AutoWidthBox")).IsChecked = true;
+        ((Button)dialog.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        if (!preview.IsAutoWidth) throw new Exception("Preview settings failed to enable auto width");
+        Capture(dialog, Path.Combine(output, "preview-zoom-settings.png")); dialog.Close();
+        var before = preview.Zoom; window.Width += 120; window.UpdateLayout();
         await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-        if (!preview.IsAutoWidth || Math.Abs(slider.Value - preview.Zoom * 100) > .001)
-            throw new Exception("Resize fit zoom disagrees with actual percentage");
-        if (preview.PageCount > 0 && Math.Abs(before - preview.Zoom) < .001)
-            throw new Exception("Auto width did not actually resize loaded PDF pages");
-        Capture(window, Path.Combine(output, "zoom-slider.png"));
+        if (!preview.IsAutoWidth || preview.PageCount > 0 && Math.Abs(before - preview.Zoom) < .001) throw new Exception("Auto width did not respond to pane resize");
         window.Width -= 120;
-        Console.WriteLine("PASS: zoom slider, exact percentage entry/validation, auto-width toggle and resize/wheel synchronization");
+        Console.WriteLine("PASS: gear-dialog precise zoom/validation and automatic width on resize");
     }
 }

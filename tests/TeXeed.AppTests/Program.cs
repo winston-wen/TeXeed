@@ -54,6 +54,12 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--dock-only"))
+                {
+                    await CheckDockingAsync(window, output);
+                    await CloseAndObserveAsync(window, "docking workspace regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--bookmarks-only"))
                 {
                     await CheckBookmarksAsync(window, output);
@@ -659,9 +665,7 @@ internal static partial class Program
             await CallAsync(window, "BuildAsync");
             var editor = (LatexEditor)window.FindName("Editor");
             var preview = (PdfPreview)window.FindName("Preview");
-            var modeBox = (ComboBox)window.FindName("FollowModeBox");
-            if (modeBox.Items.Count != 3 || !Equals(modeBox.SelectedValue, PreviewFollowMode.Viewport))
-                throw new Exception("Preview toolbar must expose three follow modes and show the current viewport mode");
+            if (((AppSettings)Field(window, "_settings")!).FollowMode != PreviewFollowMode.Viewport) throw new Exception("Incorrect follow mode");
             var pdfScroll = (ScrollViewer)Field(preview, "_scroll")!;
             var project = (TexProject)Field(window, "_project")!;
             var pdf = (string?)Field(window, "_pdfPath");
@@ -672,7 +676,7 @@ internal static partial class Program
             var sync = new SyncTexService();
             void SelectMode(PreviewFollowMode mode)
             {
-                modeBox.SelectedValue = mode;
+                Invoke(window, "ChangeFollowMode", mode);
                 if (((AppSettings)settingsField.GetValue(window)!).FollowMode != mode)
                     throw new Exception("Preview follow mode did not take effect from its toolbar: " + mode);
                 var profile = Environment.GetEnvironmentVariable("TEXEED_HOME") ?? throw new Exception("Test settings profile is not isolated");
@@ -680,7 +684,7 @@ internal static partial class Program
                 if (persisted?.FollowMode != mode) throw new Exception("Toolbar follow mode was not persisted immediately: " + mode);
             }
             async Task<PdfLocation> MapAsync(SourceLocation source) =>
-                await (Equals(modeBox.SelectedValue, PreviewFollowMode.Viewport)
+                await (((AppSettings)Field(window, "_settings")!).FollowMode == PreviewFollowMode.Viewport
                     ? sync.ForwardViewportAsync(project, pdf, source, settings)
                     : sync.ForwardAsync(project, pdf, source, settings)) ?? throw new Exception($"No SyncTeX mapping for {source.Line}");
             async Task<SourceLocation> ScrollSourceAsync(int topLine)
@@ -905,37 +909,21 @@ internal static partial class Program
 
     private static async Task CheckPreviewModeToolbarAsync(MainWindow window, string output)
     {
-        var column = ((Grid)window.FindName("Workspace")).ColumnDefinitions[4];
-        var originalWidth = column.Width;
-        var preview = (PdfPreview)window.FindName("Preview");
-        var panel = (Grid)VisualTreeHelper.GetParent(preview);
-        var modes = (ComboBox)window.FindName("FollowModeBox");
-        var toolbar = (Grid)modes.Parent;
+        var column = WorkspaceColumn(window, 4); var original = column.Width;
         try
         {
-            column.Width = new GridLength(300);
+            column.Width = new GridLength(300); window.UpdateLayout();
             await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-            window.UpdateLayout();
-            if (Math.Abs(panel.ActualWidth - 300) > 1 || Math.Abs(panel.RowDefinitions[0].ActualHeight - 42) > 1)
-                throw new Exception("Narrow preview toolbar regression requires a 300-DIP column and the existing 42-DIP toolbar row");
-            var buttons = Descendants<Button>(toolbar).ToArray();
-            if (buttons.Length != 4) throw new Exception("Narrow preview toolbar lost zoom, fit-width or export controls");
-            var toolbarBounds = new Rect(0, 0, panel.ActualWidth, panel.RowDefinitions[0].ActualHeight);
-            foreach (var control in new FrameworkElement[] { modes }.Concat(buttons))
-            {
-                var bounds = control.TransformToAncestor(panel).TransformBounds(new Rect(new Point(), control.RenderSize));
-                var visible = Rect.Intersect(VisibleBounds(control, panel), toolbarBounds);
-                if (!control.IsVisible || bounds.Width < 15 || bounds.Height < 16 || visible.IsEmpty ||
-                    visible.Width < bounds.Width - 1 || visible.Height < bounds.Height - 1)
-                    throw new Exception($"Preview toolbar control is clipped at 300 DIP: {control.Name} ({bounds}, visible {visible})");
-            }
-            await WaitForPreviewRenderedAsync(window);
-            Capture(window, Path.Combine(output, "follow-mode-toolbar-narrow.png"));
-            Console.WriteLine("PASS: follow-mode dropdown and all preview toolbar buttons remain visible in a 300-DIP preview column");
+            var strip = (EditorTabStrip)window.FindName("RightFileTabs");
+            var row = ((StackPanel)strip.FindName("Items")).Children.Cast<Border>().Single();
+            var bounds = row.TransformToAncestor(strip).TransformBounds(new Rect(row.RenderSize));
+            if (bounds.Right > strip.ActualWidth || !row.IsVisible) throw new Exception("Preview tab/gear are clipped at 300 DIP");
+            Capture(window, Path.Combine(output, "preview-tab-narrow.png"));
+            Console.WriteLine("PASS: preview tab and gear fit a narrow group");
         }
-        finally { column.Width = originalWidth; window.UpdateLayout(); }
+        finally { column.Width = original; window.UpdateLayout(); }
     }
-
+    private static ColumnDefinition WorkspaceColumn(MainWindow window, int index) => ((Grid)window.FindName("Workspace")).ColumnDefinitions[index];
     private static void CheckSettingsFollowModes(MainWindow owner, string output)
     {
         var dialog = new SettingsWindow(new AppSettings { FollowMode = PreviewFollowMode.Cursor, LivePreview = false, EditorFontFamily = "Arial" }) { Owner = owner };

@@ -120,8 +120,8 @@ internal static partial class Program
             if (!tabs.SequenceEqual(expected)) throw new Exception("Incorrect batch close scope: " + scope);
         }
         Invoke(window, "CloseTabs", files[7], TabCloseScope.All); await Settle();
-        if (tabs.Count != 0 || editor.CurrentFilePath != null || editor.IsVisible || !((FrameworkElement)window.FindName("NoOpenFile")).IsVisible)
-            throw new Exception("Closing all tabs did not leave an empty editing pane");
+        if (tabs.Count != 0 || editor.CurrentFilePath != null || editor.IsVisible || ((FrameworkElement)window.FindName("EditorPane")).IsVisible)
+            throw new Exception("Closing all source tabs did not remove the empty editing pane");
         await CallAsync(window, "SaveAsync");
         if (tabs.Count != 0) throw new Exception("Saving after close-all reopened the main file");
         Invoke(window, "ActivateFile", files[0]); await Settle();

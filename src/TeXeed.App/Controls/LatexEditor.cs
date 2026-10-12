@@ -114,6 +114,12 @@ public sealed partial class LatexEditor : TextEditor
     }
 
     public void SetProjectFiles(IEnumerable<ProjectFile> files) => _files = files.ToArray();
+    public void TransferSessionTo(LatexEditor target, string path)
+    {
+        if (ReferenceEquals(this, target)) return;
+        if (string.Equals(CurrentFilePath, path, StringComparison.OrdinalIgnoreCase)) CloseView();
+        if (_sessions.Remove(path, out var session)) target._sessions[path] = session;
+    }
 
     public void ClearSession()
     {

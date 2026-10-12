@@ -1,53 +1,195 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using TeXeed.App.Controls;
+using TeXeed.Core;
 
 namespace TeXeed.App;
 
 public partial class MainWindow
 {
+    private readonly TabWorkspace _workspaceTabs = new();
+    private LatexEditor? _activeEditor;
+    private bool _updatingWorkspace;
+    private bool _wasSplit = true;
+    private GridLength _splitLeftWidth = new(1, GridUnitType.Star), _splitRightWidth = new(.95, GridUnitType.Star);
+    private LatexEditor Editor => _activeEditor ?? LeftEditor;
+    private LatexEditor SourceEditor(TabSide side) => side == TabSide.Left ? LeftEditor : RightEditor;
+    private Grid SourceView(TabSide side) => side == TabSide.Left ? LeftSourceView : RightSourceView;
+    private Grid GroupBody(TabSide side) => side == TabSide.Left ? LeftGroupBody : RightGroupBody;
+    private Grid GroupPane(TabSide side) => side == TabSide.Left ? EditorPane : PreviewPane;
+    private EditorTabStrip GroupStrip(TabSide side) => side == TabSide.Left ? FileTabs : RightFileTabs;
+    private IEnumerable<LatexEditor> Editors => new[] { LeftEditor, RightEditor };
     private void InitializeTabs()
     {
-        FileTabs.Selected += path => { ActivateFile(path); Editor.TextArea.Focus(); };
-        FileTabs.CloseRequested += CloseTabs;
-        FileTabs.ReorderRequested += MoveTab;
+        RegisterName("Editor", LeftEditor); // Compatibility for source-editor accessibility/test clients.
+        foreach (var side in new[] { TabSide.Left, TabSide.Right })
+        {
+            var strip = GroupStrip(side); var editor = SourceEditor(side);
+            strip.Selected += key => SelectWorkspaceTab(side, key);
+            strip.CloseRequested += CloseTabs;
+            strip.ReorderRequested += (key, target) => MoveTab(key, target);
+            strip.SettingsRequested += OpenPreviewSettings;
+            strip.DockDragMoved = UpdateDockDrag;
+            strip.DockDropped += DropWorkspaceTab;
+            strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
+            GroupPane(side).PreviewMouseDown += (_, _) => { if (!_updatingWorkspace) _workspaceTabs.Focus(side); };
+            editor.GotKeyboardFocus += (_, _) => SetActiveSource(editor);
+        }
+        LogToggle.Click += (_, _) => MoveLogTo(TabSide.Left);
+    }
+    private void SetActiveSource(LatexEditor editor)
+    {
+        if (_updatingWorkspace) return;
+        _activeEditor = editor;
+        _workspaceTabs.Focus(ReferenceEquals(editor, LeftEditor) ? TabSide.Left : TabSide.Right);
+        OutlineTree.MarkCaret(editor.CurrentLocation); BookmarkTree.MarkCaret(editor.CurrentLocation);
+        OutlineTree.HighlightViewport(editor.VisibleSourceRange); BookmarkTree.HighlightViewport(editor.VisibleSourceRange);
+        MoveLogTo(ReferenceEquals(editor, LeftEditor) ? TabSide.Left : TabSide.Right);
+        QueueFollowSync();
+    }
+    private void MoveLogTo(TabSide side)
+    {
+        var source = SourceView(side);
+        if (LogExpander.Parent is Panel parent && parent != source) { parent.Children.Remove(LogExpander); source.Children.Add(LogExpander); Grid.SetRow(LogExpander, 1); }
+    }
+    private void RightLog_Click(object sender, RoutedEventArgs e) => MoveLogTo(TabSide.Right);
+    private void SelectWorkspaceTab(TabSide side, string key)
+    {
+        if (_transitioning || _closing) return;
+        _workspaceTabs.Select(side, key); RefreshWorkspaceViews();
+        if (key != TabWorkspace.PreviewKey) SourceEditor(side).TextArea.Focus();
     }
     private void CloseTabs(string path, TabCloseScope scope)
     {
         if (_transitioning || _closing || _allowClose) return;
-        var index = _tabs.FindIndex(tab => string.Equals(tab, path, StringComparison.OrdinalIgnoreCase));
-        if (index < 0) return;
-        var active = Editor.CurrentFilePath;
-        var activeIndex = _tabs.FindIndex(tab => string.Equals(tab, active, StringComparison.OrdinalIgnoreCase));
-        var close = scope switch
-        {
-            TabCloseScope.All => _tabs.ToArray(),
-            TabCloseScope.Others => _tabs.Where(tab => !string.Equals(tab, path, StringComparison.OrdinalIgnoreCase)).ToArray(),
-            TabCloseScope.Left => _tabs.Take(index).ToArray(),
-            TabCloseScope.Right => _tabs.Skip(index + 1).ToArray(),
-            _ => new[] { path }
-        };
-        var closed = close.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _tabs.RemoveAll(tab => closed.Contains(tab));
-        if (active is not null && closed.Contains(active))
-        {
-            _syncTimer.Stop(); CancelForwardSync();
-            if (_tabs.Count > 0) ActivateFile(_tabs[Math.Clamp(activeIndex, 0, _tabs.Count - 1)]);
-            else
-            {
-                Editor.CloseView(); Editor.Visibility = Visibility.Collapsed; NoOpenFile.Visibility = Visibility.Visible;
-                CursorStatus.Text = "未打开文件";
-                OutlineTree.MarkCaret(null); OutlineTree.HighlightViewport(null);
-            }
-        }
+        var range = scope switch { TabCloseScope.All => TabCloseRange.All, TabCloseScope.Others => TabCloseRange.Others,
+            TabCloseScope.Left => TabCloseRange.Before, TabCloseScope.Right => TabCloseRange.After, _ => TabCloseRange.This };
+        var closed = _workspaceTabs.Close(path, range);
+        foreach (var editor in Editors)
+            if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
         RefreshTabs();
-        if (_tabs.Count > 0) Editor.TextArea.Focus();
+        if (_workspaceTabs.FocusedTab is { } active && active != TabWorkspace.PreviewKey) SourceEditor(_workspaceTabs.FocusedSide).TextArea.Focus();
         if (closed.Any(tab => _changes.ContainsKey(tab))) Status("标签已关闭 · 未保存内容仍保留，重新打开可继续编辑");
     }
     private void MoveTab(string path, int target)
     {
-        if (_transitioning || _closing || _allowClose) return;
-        var from = _tabs.FindIndex(tab => string.Equals(tab, path, StringComparison.OrdinalIgnoreCase));
-        if (from < 0 || target < 0 || target >= _tabs.Count || from == target) return;
-        var tab = _tabs[from]; _tabs.RemoveAt(from); _tabs.Insert(target, tab); RefreshTabs();
+        if (_transitioning || _closing || _allowClose || _workspaceTabs.Owner(path) is not { } side) return;
+        var active = _workspaceTabs.Active(side); var focused = _workspaceTabs.FocusedSide;
+        _workspaceTabs.Move(path, side, target);
+        if (active is not null) _workspaceTabs.Select(side, active);
+        _workspaceTabs.Focus(focused); RefreshTabs();
+    }
+    private void MoveWorkspaceTab(string key, TabSide side, int index = int.MaxValue, bool split = false)
+    {
+        if (_transitioning || _closing || _workspaceTabs.Owner(key) is null) return;
+        CancelPendingNavigation();
+        var before = _workspaceTabs.Sources.ToDictionary(path => path, path => _workspaceTabs.Owner(path)!.Value, StringComparer.OrdinalIgnoreCase);
+        _updatingWorkspace = true;
+        try
+        {
+            if (split) _workspaceTabs.Split(key, side); else _workspaceTabs.Move(key, side, index);
+            foreach (var (path, oldSide) in before)
+                if (_workspaceTabs.Owner(path) is { } newSide && oldSide != newSide) SourceEditor(oldSide).TransferSessionTo(SourceEditor(newSide), path);
+        }
+        finally { _updatingWorkspace = false; }
+        if (key != TabWorkspace.PreviewKey) _activeEditor = SourceEditor(side);
+        RefreshTabs();
+        if (key != TabWorkspace.PreviewKey) SourceEditor(side).TextArea.Focus();
+    }
+    private void RefreshWorkspaceViews()
+    {
+        if (_updatingWorkspace) return;
+        _updatingWorkspace = true;
+        try
+        {
+            var grid = Workspace;
+            var split = _workspaceTabs.Has(TabSide.Left) && _workspaceTabs.Has(TabSide.Right);
+            if (_wasSplit && !split)
+            { _splitLeftWidth = grid.ColumnDefinitions[2].Width; _splitRightWidth = grid.ColumnDefinitions[4].Width; }
+            else if (!_wasSplit && split)
+            { grid.ColumnDefinitions[2].Width = _splitLeftWidth; grid.ColumnDefinitions[4].Width = _splitRightWidth; }
+            foreach (var side in new[] { TabSide.Left, TabSide.Right })
+            {
+                var has = _workspaceTabs.Has(side); var pane = GroupPane(side); var source = SourceView(side); var editor = SourceEditor(side);
+                pane.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+                var column = grid.ColumnDefinitions[side == TabSide.Left ? 2 : 4];
+                column.MinWidth = has ? 240 : 0;
+                if (!has) column.Width = new GridLength(0);
+                else if (!split) column.Width = new GridLength(1, GridUnitType.Star);
+                else if (column.Width.IsAbsolute && column.Width.Value == 0) column.Width = new GridLength(1, GridUnitType.Star);
+                var active = _workspaceTabs.Active(side);
+                var isSource = active is not null && active != TabWorkspace.PreviewKey;
+                source.Visibility = isSource ? Visibility.Visible : Visibility.Collapsed;
+                editor.Visibility = isSource ? Visibility.Visible : Visibility.Collapsed;
+                if (isSource)
+                {
+                    var file = CurrentFiles().FirstOrDefault(item => string.Equals(item.Path, active, StringComparison.OrdinalIgnoreCase));
+                    if (file is not null)
+                    {
+                        var other = SourceEditor(side == TabSide.Left ? TabSide.Right : TabSide.Left);
+                        other.TransferSessionTo(editor, file.Path);
+                        editor.SetProjectFiles(CurrentFiles());
+                        if (!string.Equals(editor.CurrentFilePath, file.Path, StringComparison.OrdinalIgnoreCase) || editor.Text != file.Content) editor.ShowFile(file, file.Content);
+                    }
+                }
+                if (active == TabWorkspace.PreviewKey)
+                {
+                    if (PreviewContent.Parent is Panel old && old != GroupBody(side)) { old.Children.Remove(PreviewContent); GroupBody(side).Children.Add(PreviewContent); }
+                    PreviewContent.Visibility = Visibility.Visible;
+                }
+                GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(path => new EditorTab(path,
+                    path == TabWorkspace.PreviewKey ? "预览" : System.IO.Path.GetFileName(path), _changes.ContainsKey(path), path == TabWorkspace.PreviewKey)).ToArray(), active);
+            }
+            var previewSide = _workspaceTabs.Owner(TabWorkspace.PreviewKey)!.Value;
+            PreviewContent.Visibility = _workspaceTabs.Active(previewSide) == TabWorkspace.PreviewKey ? Visibility.Visible : Visibility.Collapsed;
+            _wasSplit = split;
+            PreviewSplitter.Visibility = split ? Visibility.Visible : Visibility.Collapsed;
+            Workspace.ColumnDefinitions[3].Width = new GridLength(split ? 2 : 0);
+            NoOpenFile.Visibility = Visibility.Collapsed;
+            _tabs.Clear(); _tabs.AddRange(_workspaceTabs.Sources);
+            if (_workspaceTabs.FocusedTab is { } selected && selected != TabWorkspace.PreviewKey) _activeEditor = SourceEditor(_workspaceTabs.FocusedSide);
+            UpdateCursorStatus();
+        }
+        finally { _updatingWorkspace = false; }
+        if (!Editor.IsVisible && Editors.FirstOrDefault(editor => editor.IsVisible) is { } visible) _activeEditor = visible;
+        OutlineTree.MarkCaret(Editor.CurrentLocation); BookmarkTree.MarkCaret(Editor.CurrentLocation);
+        OutlineTree.HighlightViewport(Editor.IsVisible ? Editor.VisibleSourceRange : null); BookmarkTree.HighlightViewport(Editor.IsVisible ? Editor.VisibleSourceRange : null);
+    }
+    private (TabSide Side, bool Split, Rect Bounds)? DockTarget(Point screen)
+    {
+        var point = DockDropOverlay.PointFromScreen(screen);
+        if (point.Y < 0 || point.Y > DockDropOverlay.ActualHeight || point.X < 0 || point.X > DockDropOverlay.ActualWidth) return null;
+        var single = !_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right);
+        if (single && (point.X < 52 || point.X > DockDropOverlay.ActualWidth - 52))
+        {
+            var left = point.X < 52;
+            return (left ? TabSide.Left : TabSide.Right, true, new Rect(left ? 0 : DockDropOverlay.ActualWidth / 2, 0, DockDropOverlay.ActualWidth / 2, DockDropOverlay.ActualHeight));
+        }
+        foreach (var side in new[] { TabSide.Left, TabSide.Right })
+        {
+            if (!_workspaceTabs.Has(side)) continue;
+            var pane = GroupPane(side); var bounds = pane.TransformToVisual(DockDropOverlay).TransformBounds(new Rect(pane.RenderSize));
+            if (bounds.Contains(point)) return (side, false, bounds);
+        }
+        return null;
+    }
+    private bool UpdateDockDrag(string key, Point screen)
+    {
+        var target = DockTarget(screen);
+        if (target is null || !target.Value.Split && target.Value.Side == _workspaceTabs.Owner(key)) { DockDropCue.Visibility = Visibility.Collapsed; return false; }
+        var box = target.Value.Bounds;
+        Canvas.SetLeft(DockDropCue, box.X + 3); Canvas.SetTop(DockDropCue, box.Y + 3);
+        DockDropCue.Width = Math.Max(0, box.Width - 6); DockDropCue.Height = Math.Max(0, box.Height - 6); DockDropCue.Visibility = Visibility.Visible;
+        return true;
+    }
+    private void DropWorkspaceTab(string key, Point screen)
+    {
+        DockDropCue.Visibility = Visibility.Collapsed;
+        if (DockTarget(screen) is not { } target || !target.Split && target.Side == _workspaceTabs.Owner(key)) return;
+        var strip = GroupStrip(target.Side);
+        var point = strip.IsVisible ? strip.PointFromScreen(screen) : new Point();
+        var index = strip.IsVisible && point.Y <= strip.ActualHeight ? strip.InsertionIndex(screen) : int.MaxValue;
+        MoveWorkspaceTab(key, target.Side, index, target.Split);
     }
 }

@@ -17,7 +17,7 @@ internal static partial class Program
         var font = ((AppSettings)Field(window, "_settings")!).EditorFontFamily;
         foreach (var inverted in new[] { true, false, true })
         {
-            toggle.IsChecked = inverted; toggle.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
+            Invoke(window, "ApplyPreviewOptions", new PreviewOptions(preview.Zoom, preview.IsAutoWidth, ((AppSettings)Field(window, "_settings")!).FollowMode, inverted, preview.AutoCrop));
             await WaitForPreviewRenderedAsync(window);
             if (preview.InvertColors != inverted) throw new Exception("PDF color toggle did not apply");
             var persisted = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path.Combine(Environment.GetEnvironmentVariable("TEXEED_HOME")!, "settings.json")))!;
@@ -31,16 +31,6 @@ internal static partial class Program
             Capture(window, Path.Combine(output, inverted ? "pdf-inverted.png" : "pdf-original.png"));
         }
         if (!File.ReadAllBytes(pdf).SequenceEqual(original)) throw new Exception("Preview colors modified the exported source PDF");
-        var workspace = (Grid)window.FindName("Workspace"); var width = workspace.ColumnDefinitions[4].Width;
-        try
-        {
-            workspace.ColumnDefinitions[4].Width = new GridLength(300); window.UpdateLayout();
-            var parent = (FrameworkElement)toggle.Parent;
-            var bounds = toggle.TransformToAncestor(parent).TransformBounds(new Rect(toggle.RenderSize));
-            if (bounds.Left < 0 || bounds.Right > parent.ActualWidth + 1 || toggle.ActualWidth < 30)
-                throw new Exception("PDF color switch is clipped at narrow preview width");
-        }
-        finally { workspace.ColumnDefinitions[4].Width = width; window.UpdateLayout(); }
-        Console.WriteLine("PASS: PDF inversion toolbar, persistent preference, original file preservation and narrow layout");
+        Console.WriteLine("PASS: PDF inversion settings, persistent preference, original file preservation");
     }
 }

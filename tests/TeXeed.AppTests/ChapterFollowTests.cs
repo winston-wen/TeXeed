@@ -62,23 +62,34 @@ internal static partial class Program
             await WaitUntilAsync(() => Math.Abs(pages.TranslatePoint(new Point(0, top + 1), scroll).Y) < 2,
                 "Automatic follow did not return to the chapter page start");
         }
-        var modeBox = (ComboBox)window.FindName("FollowModeBox");
-        modeBox.SelectedValue = PreviewFollowMode.Cursor;
+        Invoke(window, "ChangeFollowMode", PreviewFollowMode.Cursor);
         var caretPoint = await sync.ForwardAsync(project, pdf, editor.CurrentLocation!, settings) ?? throw new Exception("Cursor has no SyncTeX mapping");
         await CallAsync(window, "ForwardAsync", false);
         await WaitUntilAsync(() => Math.Abs(scroll.VerticalOffset - PdfOffset(preview, caretPoint with { Y = caretPoint.Y + caretPoint.Height / 2 }, .5)) < 2,
             "Source-top rule incorrectly overrode cursor mode centering");
-        modeBox.SelectedValue = PreviewFollowMode.None;
+        Invoke(window, "ChangeFollowMode", PreviewFollowMode.None);
         var heldOffset = scroll.VerticalOffset;
         editor.ScrollToVerticalOffset(20); window.UpdateLayout();
         await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
         editor.ScrollToVerticalOffset(0); window.UpdateLayout();
         await AssertPdfOffsetStableAsync(scroll, heldOffset, "Source-top rule ignored disabled following");
-        modeBox.SelectedValue = PreviewFollowMode.Viewport;
+        Invoke(window, "ChangeFollowMode", PreviewFollowMode.Viewport);
         await CallAsync(window, "ForwardAsync", true);
         await WaitUntilAsync(() => Math.Abs(scroll.VerticalOffset - PdfOffset(preview, caretPoint, .35)) < 2,
             "Source-top rule overrode explicit Ctrl+J positioning");
         Console.WriteLine("PASS: existing chapter 01/02 starts, cropped/full page tops, wrapped center following and automatic return to source top");
         Console.WriteLine("PASS: source-top rule preserves cursor mode, disabled following and explicit source navigation");
+        var movedPath = editor.CurrentFilePath!;
+        Invoke(window, "MoveWorkspaceTab", TabWorkspace.PreviewKey, TabSide.Left, int.MaxValue, false);
+        Invoke(window, "MoveWorkspaceTab", movedPath, TabSide.Right, 0, false);
+        var right = (LatexEditor)window.FindName("RightEditor"); right.ScrollToVerticalOffset(0);
+        window.UpdateLayout(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+        var rightStart = await sync.ForwardViewportAsync(project, pdf, new(movedPath, 1, 1), settings) ?? throw new Exception("Moved source has no mapping");
+        await CallAsync(window, "ForwardAsync", false); window.UpdateLayout();
+        var rightLayout = ((IList)Field(preview, "_layouts")!)[rightStart.Page - 1]!;
+        var rightTop = (double)rightLayout.GetType().GetProperty("Top")!.GetValue(rightLayout)!;
+        await WaitUntilAsync(() => Math.Abs(pages.TranslatePoint(new Point(0, rightTop + 1), scroll).Y) < 2, "Right-source/left-preview follow did not show the chapter beginning");
+        Capture(window, Path.Combine(output, "chapter-follow-right-source.png"));
+        Console.WriteLine("PASS: real cached chapter follows right source and left preview after tab transfer");
     }
 }

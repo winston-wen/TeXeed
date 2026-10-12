@@ -56,7 +56,6 @@ internal static partial class Program
         logText.Text = string.Join("\n", Enumerable.Range(1, 300).Select(n => $"Log {n}: " + new string('x', 100)));
         try
         {
-            CheckZoomDragCursor(window);
             foreach (var bar in new[] { editorBar, previewBar })
                 AssertHandThumb((Track)bar.Template.FindName("PART_Track", bar), bar == editorBar ? "Editor vertical" : "PDF vertical");
             // Scope input must reveal only that pane; geometry is stable throughout fading.

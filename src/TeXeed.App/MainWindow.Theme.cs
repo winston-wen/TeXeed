@@ -43,7 +43,6 @@ public partial class MainWindow
             ThemeManager.Apply(id);
             _settings = _settings with { ThemeId = id, InvertPdfColors = changePdfMode ? ThemeManager.Current.IsDark : _settings.InvertPdfColors };
             Preview.InvertColors = _settings.InvertPdfColors;
-            InvertPdfBox.IsChecked = _settings.InvertPdfColors;
             PersistSettings(); RefreshThemeMenu();
             Status("主题：" + ThemeManager.Current.Name);
         }
