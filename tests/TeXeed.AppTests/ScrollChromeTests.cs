@@ -153,7 +153,7 @@ internal static partial class Program
             }
             log.IsExpanded = false; window.UpdateLayout();
             if (!((TextBlock)window.FindName("LogToggleHint")).Text.Contains("展开")) throw new Exception("Missing expand output hint");
-            Console.WriteLine($"PASS: {theme} scrollbar/zoom hand cursors, unchanged splitter resize cursors, activity fade, capture retention, pane isolation, divider hit targets, thumb bounds and output alignment");
+            Console.WriteLine($"PASS: {theme} scrollbar/zoom arrow cursors before hold, unchanged splitter resize cursors, activity fade, capture retention, pane isolation, divider hit targets, thumb bounds and output alignment");
         }
         finally
         {

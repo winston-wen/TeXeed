@@ -39,7 +39,7 @@ public partial class EditorTabStrip : UserControl
         AddHandler(Mouse.QueryCursorEvent, new QueryCursorEventHandler((_, e) =>
         {
             if (!_dragging) return;
-            e.Cursor = Cursors.Hand; e.Handled = true;
+            e.Cursor = DragCursors.Grabbing; e.Handled = true;
         }), true);
         LostMouseCapture += (_, e) => { if (ReferenceEquals(e.OriginalSource, this)) EndDrag(); };
         _dragScroll.Tick += (_, _) =>

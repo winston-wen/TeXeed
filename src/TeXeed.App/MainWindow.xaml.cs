@@ -468,8 +468,10 @@ public partial class MainWindow : Window
         OutlineTree.HighlightViewport(Editor.VisibleSourceRange);
         IndexList.Visibility = _sidebar is "files" or "outline" ? Visibility.Collapsed : Visibility.Visible;
         SearchBox.Visibility = _sidebar is "search" or "labels" ? Visibility.Visible : Visibility.Collapsed;
+        FileSearchPanel.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
+        SidebarTreeActions.Visibility = _sidebar is "outline" or "files" ? Visibility.Visible : Visibility.Collapsed;
         SidebarTitle.Text = _sidebar switch { "files" => "项目文件", "search" => "全文搜索", "labels" => "标签与引用", "todos" => "待办事项", _ => "文档大纲" };
-        if (_sidebar == "files") { BuildFileTree(files); EmptyIndex.Visibility = Visibility.Collapsed; return; }
+        if (_sidebar == "files") { BuildFileTree(files); return; }
         if (_sidebar == "outline")
         {
             EmptyIndex.Text = "添加章节标题后，大纲会显示在这里";
@@ -486,25 +488,6 @@ public partial class MainWindow : Window
         IndexList.ItemsSource = entries;
         EmptyIndex.Text = _sidebar == "search" && string.IsNullOrWhiteSpace(SearchBox.Text) ? "输入文字，在整个项目中查找" : "暂无条目";
         EmptyIndex.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-    }
-    private void BuildFileTree(IEnumerable<ProjectFile> files)
-    {
-        FileTree.Items.Clear();
-        var root = new TreeViewItem { Header = _project!.Name, IsExpanded = true, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 0) };
-        foreach (var file in files.OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase))
-        {
-            var segments = file.RelativePath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries); var parent = root;
-            foreach (var directory in segments.SkipLast(1))
-            {
-                var child = parent.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag == null && Equals(x.Header, directory));
-                if (child == null) { child = new TreeViewItem { Header = directory, IsExpanded = true, FontWeight = FontWeights.Normal, Margin = new Thickness(0, 4, 0, 0) }; parent.Items.Add(child); }
-                parent = child;
-            }
-            var item = new TreeViewItem { Header = file.Name + (file.Path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase) ? "  · 主文件" : ""), Tag = file.Path, ToolTip = file.RelativePath, FontWeight = FontWeights.Normal, Margin = new Thickness(0, 4, 0, 0) };
-            item.SetResourceReference(Control.ForegroundProperty, file.IsEditable ? "Ink" : "Muted");
-            parent.Items.Add(item);
-        }
-        FileTree.Items.Add(root);
     }
     private void SetupWatcher()
     {

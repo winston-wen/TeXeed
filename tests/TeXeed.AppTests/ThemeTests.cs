@@ -83,7 +83,7 @@ internal static partial class Program
                 if (ThemeManager.Brush("Accent").Color != Color.FromRgb(18, 52, 86)) throw new Exception("Invalid theme partially replaced the palette");
             }
             finally { File.Delete(custom); }
-            Console.WriteLine("PASS: pane footers, sidebar title alignment, removed fold icons, log toggle and pane layout");
+            Console.WriteLine("PASS: pane footers, sidebar title alignment, bulk tree actions, log toggle and pane layout");
             Console.WriteLine("PASS: live dark/light/custom themes, persistent selection, unchanged editor state, PDF appearance and translucent scrollbars");
         }
         finally
@@ -118,8 +118,10 @@ internal static partial class Program
             y = next;
         }
         if ((string)Field(window, "_sidebar")! != "outline") ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Single(button => Equals(button.Tag, "outline")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        if (window.FindName("CollapseOutlineButton") is not null || window.FindName("ExpandOutlineButton") is not null || window.FindName("CollapseWorkspaceButton") is not null)
-            throw new Exception("Redundant sidebar fold icons are still present");
+        if (window.FindName("CollapseWorkspaceButton") is not null
+            || !((FrameworkElement)window.FindName("ExpandAllButton")).IsVisible
+            || !((FrameworkElement)window.FindName("CollapseAllButton")).IsVisible)
+            throw new Exception("Sidebar bulk actions are missing or the old panel-collapse control returned");
         var log = (Expander)window.FindName("LogExpander");
         ((ToggleButton)window.FindName("LogToggle")).IsChecked = true; window.UpdateLayout();
         if (!log.IsExpanded || log.ActualHeight < 100) throw new Exception("Status bar cannot open compiler output");
