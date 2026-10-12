@@ -18,12 +18,10 @@ public static class DragCursors
     private static Cursor Create(bool closed)
     {
         var outline = Geometry.Parse(closed
-            ? "M8,24 L6,18 C5,15 6,12 8,12 L10,12 L10,10 C10,8 14,8 14,10 C14,7 18,7 18,10 C18,8 22,8 22,11 C22,9 26,10 26,13 L26,20 C26,23 23,25 23,28 L11,28 C11,26 9,26 8,24 Z"
+            ? "M10.5,28 L10.1,25.7 C8.3,24.6 6.8,22.8 6.1,20.7 L4.9,16.8 C4.4,15.2 5.2,13.7 6.6,13.3 C7.4,13.1 8.1,13.4 8.7,14 L8.7,10.6 C8.7,8.6 9.7,7.5 11.1,7.5 C12.3,7.5 13.1,8.3 13.3,9.6 L13.3,8.5 C13.3,6.6 14.3,5.6 15.7,5.6 C17.1,5.6 18.1,6.6 18.1,8.5 L18.1,9.3 C18.3,7.9 19.3,7 20.6,7 C22,7 22.9,8.1 22.9,10 L22.9,11 C23.1,9.9 24,9.2 25.1,9.4 C26.6,9.6 27.3,10.9 27.1,12.7 L26.5,19.2 C26.3,21.8 25.2,23.8 23.2,25.6 L23.1,28 Z"
             : "M11,28 C11,25 9,24 7,21 L3,16 C2,14 4,12 6,14 L10,18 L8,8 C8,5 11,4 12,7 L14,14 L13,4 C13,1 17,1 17,4 L18,14 L19,5 C19,2 23,3 22,6 L22,15 L24,9 C25,6 28,7 27,10 L26,21 C25,24 23,25 23,28 Z");
-        var folds = Geometry.Parse(closed
-            ? "M10,12 L10,17 M14,11 L14,15 M18,11 L18,15 M22,12 L22,16 M10,19 C14,17 19,18 21,21"
-            : "M12,18 C15,16 21,17 23,19");
-        var images = new[] { 32, 48, 64 }.Select(size => (Size: size, Data: Render(size, outline, folds))).ToArray();
+        // The four staggered knuckle peaks define the fist. Keep the palm blank.
+        var images = new[] { 32, 48, 64 }.Select(size => (Size: size, Data: Render(size, outline))).ToArray();
         using var stream = new MemoryStream();
         using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
         {
@@ -41,7 +39,7 @@ public static class DragCursors
         return new Cursor(stream, scaleWithDpi: true);
     }
 
-    private static byte[] Render(int size, Geometry outline, Geometry folds)
+    private static byte[] Render(int size, Geometry outline)
     {
         var visual = new DrawingVisual();
         using (var drawing = visual.RenderOpen())
@@ -49,7 +47,6 @@ public static class DragCursors
             drawing.PushTransform(new ScaleTransform(size / 32d, size / 32d));
             var edge = new Pen(Brushes.Black, 1.4) { LineJoin = PenLineJoin.Round };
             drawing.DrawGeometry(Brushes.White, edge, outline);
-            drawing.DrawGeometry(null, new Pen(Brushes.Black, 1) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, folds);
             drawing.Pop();
         }
         var bitmap = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual);

@@ -103,6 +103,8 @@ PDF 缩放滑块及百分比显示订阅预览的实际缩放变化，包含滚�
 
 `DragCursors` 用自有矢量路径生成 32、48、64 像素的 CUR 图像和掌心热点，保留 Alpha 与透明蒙版，再以 DPI 缩放方式加载。光标由应用缓存，不替换用户的系统指针方案。WPF API 依据：[Cursor(Stream, Boolean)](https://learn.microsoft.com/en-us/dotnet/api/system.windows.input.cursor.-ctor?view=windowsdesktop-10.0#system-windows-input-cursor-ctor(system-io-stream-system-boolean))。
 
+自 0.1.49 起，两种手形光标均去掉内部掌纹；握拳轮廓用四个错落的指关节拳峰和侧面拇指表现抓握，保留白色填充、黑色外边线、原掌心热点及 DPI 尺寸。
+
 回归使用 WPF 捕获和相同输入状态转换验证悬停、短按、长按、移动、松开及捕获丢失；读取 Windows 已加载的光标图像验证资源。独立桌面指针会受同时使用鼠标的用户干扰，不作为自动回归的输入依赖。
 
 ## 大项目侧栏性能（0.1.47）
