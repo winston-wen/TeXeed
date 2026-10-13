@@ -17,6 +17,20 @@ internal static class AiLiveProbe
             var saved = AiCredentials.Load();
             if (saved.UseApiKey || saved.Active is null) throw new InvalidOperationException("No active ChatGPT account; live probe will not use API billing.");
             using var connection = new AiConnection(new CountRequests());
+            if (args.Contains("--catalog-only"))
+            {
+                using var catalogRequest = new HttpRequestMessage(HttpMethod.Get, ChatGptLogin.Resource + "/models");
+                catalogRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await connection.BearerAsync(token));
+                using var catalogResponse = await connection.Http.SendAsync(catalogRequest, token);
+                var catalog = JsonNode.Parse(await catalogResponse.Content.ReadAsStringAsync(token))!;
+                foreach (var item in catalog["models"]!.AsArray().Where(m => m?["visibility"]?.ToString() == "list"))
+                {
+                    Console.WriteLine("Model metadata: " + item?["slug"] + " fields=" + string.Join(",", item!.AsObject().Select(p => p.Key)));
+                    foreach (var field in item.AsObject().Where(p => p.Key.Contains("reason", StringComparison.OrdinalIgnoreCase)))
+                        Console.WriteLine(field.Key + ": " + field.Value);
+                }
+                return 0;
+            }
             var models = await connection.ModelsAsync(token);
             var model = models.FirstOrDefault(m => m.Id == "gpt-6-luna") ?? models.FirstOrDefault(m => m.Id.EndsWith("-luna"));
             if (model is null) throw new InvalidOperationException("No Luna model available; refusing to substitute another model.");
@@ -27,7 +41,8 @@ internal static class AiLiveProbe
                 var useTools = args.Contains("--tools");
                 var question = useTools ? "请调用 project.search_source 查找 hello，回复所在文件名和行号。" : "请只回复：你好。";
                 TeXeed.Core.ProjectFile[] files = useTools ? [new("C:/fixture/main.tex", "main.tex", TeXeed.Core.ProjectFileKind.Tex, "first\nhello world\nlast")] : [];
-                await new AiResponses(connection).RunAsync(model.Id, [new AiEntry { Question = question }], [new("一加一是多少？", "二。")], files, Console.Write, Console.WriteLine, token);
+                var effort = args.Contains("--low") ? "low" : "";
+                await new AiResponses(connection).RunAsync(model.Id, [new AiEntry { Question = question }], [new("一加一是多少？", "二。")], files, Console.Write, Console.WriteLine, token, effort);
                 Console.WriteLine("\nCompleted application request.");
                 return 0;
             }
@@ -61,11 +76,12 @@ internal static class AiLiveProbe
         {
             if (request.Method == HttpMethod.Post && request.RequestUri?.AbsolutePath == "/v1/responses")
             {
-                var path = Path.Combine(AiStorage.Home, "live-test-0.3.1.count");
+                var version = typeof(AiConnection).Assembly.GetName().Version!.ToString(3);
+                var path = Path.Combine(AiStorage.Home, $"live-test-{version}.count");
                 using (await AiCredentials.LockAsync(token))
                 {
                     var count = File.Exists(path) ? int.Parse(File.ReadAllText(path)) : 0;
-                    if (count >= 20) throw new InvalidOperationException("Version 0.3.1 live-message budget exhausted (20).");
+                    if (count >= 20) throw new InvalidOperationException($"Version {version} live-message budget exhausted (20).");
                     File.WriteAllText(path, (count + 1).ToString()); Console.WriteLine($"Live Luna request {count + 1}/20");
                 }
             }

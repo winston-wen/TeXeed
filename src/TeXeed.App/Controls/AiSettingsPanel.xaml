@@ -9,6 +9,7 @@
     <CheckBox x:Name="UseKey" Content="使用 API Key（备用，单独计费）" Click="UseKey_Click"/>
     <DockPanel Margin="0,6"><Button DockPanel.Dock="Right" Content="保存 Key" Click="SaveKey_Click"/><Button DockPanel.Dock="Right" Content="清除" Click="ClearKey_Click"/><PasswordBox Background="{DynamicResource SidebarBackground}" Foreground="{DynamicResource Ink}" CaretBrush="{DynamicResource Ink}" Padding="8,6" x:Name="ApiKeyBox" ToolTip="API Key 以 Windows 当前用户身份加密保存" MinWidth="60"/></DockPanel>
     <DockPanel><Button DockPanel.Dock="Right" Content="刷新模型" Click="Models_Click"/><ComboBox x:Name="Models" SelectionChanged="Model_Changed" ToolTip="从当前账号读取可用模型"/></DockPanel>
+    <DockPanel Margin="0,8"><TextBlock DockPanel.Dock="Left" Text="推理强度" VerticalAlignment="Center" Margin="0,0,12,0"/><ComboBox x:Name="Reasoning" SelectionChanged="Reasoning_Changed" ToolTip="仅显示当前模型支持的推理强度；默认由服务决定"/></DockPanel>
     <TextBlock x:Name="AccountStatus" TextWrapping="Wrap" Margin="0,6" Foreground="{DynamicResource Muted}"/>
    </StackPanel>
 

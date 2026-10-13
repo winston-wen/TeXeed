@@ -46,6 +46,6 @@ internal static class SettingsStore
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
         var temporary = SettingsPath + ".tmp";
         File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, SettingsPath, true);
+        AtomicFile.Replace(temporary, SettingsPath);
     }
 }

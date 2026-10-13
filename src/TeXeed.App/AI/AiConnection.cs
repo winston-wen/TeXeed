@@ -70,10 +70,9 @@ internal sealed class AiConnection : IDisposable
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"读取模型失败（HTTP {(int)response.StatusCode}）。请检查登录、网络或 API Key。");
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token)); var root = json.RootElement;
         if (root.TryGetProperty("models", out var models)) return models.EnumerateArray().Where(m => m.TryGetProperty("visibility", out var v) && v.GetString() == "list")
-            .Select(m => new AiModel(m.GetProperty("slug").GetString()!, m.GetProperty("display_name").GetString()!)).ToList();
+            .Select(AiModel.FromCatalog).ToList();
         return root.GetProperty("data").EnumerateArray().Select(m => m.GetProperty("id").GetString()!).Where(id => id.StartsWith("gpt-") && !id.Contains("audio") && !id.Contains("realtime") && !id.Contains("image"))
-            .OrderDescending().Select(id => new AiModel(id, id)).ToList();
+            .OrderDescending().Select(id => new AiModel(id, id) { ReasoningEfforts = AiModel.DocumentedEfforts(id) }).ToList();
     }
     public void Dispose() => Http.Dispose();
 }
-internal sealed record AiModel(string Id, string Name) { public override string ToString() => Name; }

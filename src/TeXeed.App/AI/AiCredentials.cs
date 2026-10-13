@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
+using TeXeed.App.Services;
 
 namespace TeXeed.App.AI;
 
@@ -24,6 +25,7 @@ internal sealed class AiCredentials
     public string ApiKey { get; set; } = "";
     public bool UseApiKey { get; set; }
     public string Model { get; set; } = "";
+    public string ReasoningEffort { get; set; } = "";
     public List<AiAccount> Accounts { get; set; } = [];
     [System.Text.Json.Serialization.JsonIgnore]
     public string ConnectionIdentity => UseApiKey ? "key:" + AiStorage.Hash(ApiKey) : "chatgpt:" + ActiveClient + ":" + Active?.Subject;
@@ -37,7 +39,7 @@ internal sealed class AiCredentials
         Directory.CreateDirectory(AiStorage.Home);
         var data = JsonSerializer.SerializeToUtf8Bytes(this);
         var temp = Location + "." + Guid.NewGuid().ToString("N");
-        try { File.WriteAllBytes(temp, Protect(data, true)); File.Move(temp, Location, true); }
+        try { File.WriteAllBytes(temp, Protect(data, true)); AtomicFile.Replace(temp, Location); }
         finally { CryptographicOperations.ZeroMemory(data); if (File.Exists(temp)) File.Delete(temp); }
     }
     // DPAPI CurrentUser. No machine-wide protection and no plaintext fallback.

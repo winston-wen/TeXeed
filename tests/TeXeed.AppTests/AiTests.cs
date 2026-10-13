@@ -20,6 +20,13 @@ internal static partial class Program
     {
         var count = 0;
         void Check(bool condition, string message) { if (!condition) throw new Exception(message); count++; }
+        var lockedDestination = Path.Combine(output, "atomic-config.json");
+        var pendingFile = lockedDestination + ".tmp";
+        File.WriteAllText(lockedDestination, "old"); File.WriteAllText(pendingFile, "new");
+        var held = new FileStream(lockedDestination, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var release = Task.Run(async () => { await Task.Delay(70); held.Dispose(); });
+        AtomicFile.Replace(pendingFile, lockedDestination); await release;
+        Check(File.ReadAllText(lockedDestination) == "new" && !File.Exists(pendingFile), "Temporary Windows file lock broke atomic config persistence");
         var tabs = (TabWorkspace)Field(window, "_workspaceTabs")!;
         var editor = (LatexEditor)window.FindName("LeftEditor");
         var ai = (AiPanel)Field(window, "_aiPanel")!;
@@ -28,6 +35,14 @@ internal static partial class Program
         Check(!menu.HasItems, "AI menu must have no submenu"); menu.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); window.UpdateLayout();
         Check(tabs.Owner(TabWorkspace.AiKey) == TabSide.Right && ai.IsVisible, "AI button did not open right AI tab");
         Check(!tabs.Sources.Contains(TabWorkspace.AiKey), "AI tab treated as source file");
+        var composer = (TextBox)ai.FindName("Composer");
+        composer.Focus(); window.UpdateLayout();
+        Check(composer.VerticalContentAlignment == VerticalAlignment.Top && composer.GetRectFromCharacterIndex(0).Top < 18, "Composer caret must begin near the top padding");
+        using (var catalog = JsonDocument.Parse("{\"slug\":\"gpt-6.1-sol\",\"display_name\":\"Sol\",\"supported_reasoning_levels\":[{\"effort\":\"low\"},{\"effort\":\"high\"},{\"effort\":\"ultra\"}]}"))
+        {
+            var parsed = AiModel.FromCatalog(catalog.RootElement);
+            Check(parsed.ReasoningEfforts.SequenceEqual(new[] { "low", "high" }), "Model efforts must follow the catalog and public Responses contract");
+        }
         var strip = (EditorTabStrip)window.FindName("RightFileTabs");
         var aiTab = ((StackPanel)strip.FindName("Items")).Children.Cast<Border>().Single(b => (string)b.Tag == TabWorkspace.AiKey);
         var aiButtons = ((Grid)aiTab.Child).Children.Cast<Button>().ToArray();
@@ -80,16 +95,64 @@ internal static partial class Program
         using var brokenConnection = new AiConnection(new AiFakeHandler { Broken = true }); var failed = false;
         try { await new AiResponses(brokenConnection).RunAsync("test-model", restored.Entries, [], files, _ => { }, _ => { }, CancellationToken.None); } catch (InvalidOperationException) { failed = true; }
         Check(failed, "Interrupted stream treated as success");
-        using (var batchPanel = new AiPanel(new AiConnection(new AiFakeHandler())))
+        var batchHandler = new AiFakeHandler();
+        using (var batchPanel = new AiPanel(new AiConnection(batchHandler)))
         {
             await batchPanel.SetProjectAsync(Path.Combine(output, "batch-fixture.tex")); batchPanel.ProjectFiles = () => files;
-            var modelBox = (ComboBox)batchPanel.Settings.FindName("Models"); modelBox.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; modelBox.SelectedIndex = 0;
+            var modelBox = (ComboBox)batchPanel.Settings.FindName("Models");
+            var testModels = new[] { new AiModel("test-model", "测试模型") { ReasoningEfforts = ["low", "high"] }, new AiModel("second-model", "第二个模型") { ReasoningEfforts = ["low", "high"] } };
+            modelBox.ItemsSource = testModels; modelBox.SelectedIndex = 0;
+            await batchPanel.Settings.SaveSelectionAsync(CancellationToken.None);
+            var chatModel = (ComboBox)batchPanel.FindName("ModelPicker");
+            Check(chatModel.Items.Count == 2 && (chatModel.SelectedItem as AiModel)?.Id == "test-model", "Chat model picker did not mirror settings");
+            chatModel.SelectedItem = testModels[1];
+            await batchPanel.Settings.SaveSelectionAsync(CancellationToken.None);
+            var chatEffort = (ComboBox)batchPanel.FindName("EffortPicker");
+            chatEffort.SelectedItem = chatEffort.Items.Cast<AiEffort>().Single(e => e.Value == "high");
+            await batchPanel.Settings.SaveSelectionAsync(CancellationToken.None);
+            Check(batchPanel.Settings.SelectedModel?.Id == "second-model" && batchPanel.Settings.SelectedEffort == "high", "Chat choices did not update settings");
+            Check(AiCredentials.Load().Model == "second-model" && AiCredentials.Load().ReasoningEffort == "high", "Selected model/effort did not persist");
             var first = new AiEntry { Question = "第一问" }; var second = new AiEntry { Question = "第二问" }; var skip = new AiEntry { Question = "不发送", Selected = false };
             batchPanel.AddEntry(first); batchPanel.AddEntry(second); batchPanel.AddEntry(skip); await batchPanel.SubmitAsync();
             Check(first.State == "已完成" && second.State == "已完成" && skip.State == "待提交", "Batch submission did not honor selected entries");
             var batchBook = (AiNotebook)Field(batchPanel, "_book")!;
             Check(batchBook.Turns.Count == 1 && batchBook.Turns[0].Question.Contains("第一问") && batchBook.Turns[0].Question.Contains("第二问") && !batchBook.Turns[0].Question.Contains("不发送"), "Batch history mixed unselected questions");
+            Check(batchHandler.LastModel == "second-model" && batchHandler.LastEffort == "high", "Actual Responses request ignored model or reasoning selection");
+            var firstId = batchBook.Active.Id;
+            var firstTurnId = batchBook.Turns[0].Id;
+            ((TextBox)batchPanel.FindName("Composer")).Text = "草稿 A";
+            await batchPanel.NewConversationAsync();
+            var secondId = batchBook.Active.Id;
+            Check(secondId != firstId && batchBook.Turns.Count == 0 && batchBook.Entries.Count == 0, "New conversation inherited messages/context");
+            ((TextBox)batchPanel.FindName("Composer")).Text = "草稿 B";
+            batchPanel.AddEntry(new AiEntry { Title = "B 的圈点" });
+            await batchPanel.SelectConversationAsync(firstId);
+            Check(((TextBox)batchPanel.FindName("Composer")).Text == "草稿 A" && batchBook.Entries.Count == 3, "Switching conversation lost its draft/context");
+            Check(AiHistoryWindow.Search(batchBook, "第一问").Single().Id == firstId, "History search did not find question text");
+            batchBook.Turns.Add(new("问题 C", "可搜索的回答关键词"));
+            Check(AiHistoryWindow.Search(batchBook, "回答关键词").Single().Id == firstId, "History search did not find answer text");
+            await batchPanel.DeleteTurnAsync(firstTurnId);
+            Check(!batchBook.Turns.Any(t => t.Id == firstTurnId) && batchBook.Turns.Count == 1, "Deleting a message removed the wrong turns");
+            await batchPanel.DeleteConversationAsync(firstId);
+            Check(batchBook.Active.Id == secondId && batchBook.Conversations.Count == 1 && ((TextBox)batchPanel.FindName("Composer")).Text == "草稿 B", "Deleting active conversation did not restore another conversation");
+            var savedHistory = AiStorage.Load(Path.Combine(output, "batch-fixture.tex"));
+            Check(savedHistory.Conversations.Count == 1 && savedHistory.Active.Id == secondId && savedHistory.Draft == "草稿 B", "Conversation deletion did not persist");
+            await batchPanel.DeleteConversationAsync(secondId);
+            Check(batchBook.Conversations.Count == 1 && batchBook.Turns.Count == 0 && batchBook.Active.Id != secondId, "Deleting last conversation must yield a fresh empty chat");
         }
+        var legacyProject = Path.Combine(output, "legacy-ai.tex");
+        var legacyPath = AiStorage.NotebookPath(legacyProject); Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);
+        File.WriteAllText(legacyPath, JsonSerializer.Serialize(new { Entries = restored.Entries, Turns = new[] { new { Question = "[a6eb2178] 原来的问题", Answer = "原来的回答" } }, Draft = "原来的草稿" }));
+        var migrated = AiStorage.Load(legacyProject);
+        Check(migrated.Conversations.Count == 1 && migrated.Turns.Single().Answer == "原来的回答" && migrated.Draft == "原来的草稿" && migrated.Entries.Count == 1, "Legacy conversation migration lost data");
+        Check(migrated.Turns.Single().DisplayQuestion == "原来的问题", "Legacy internal ID prefix leaked into displayed message");
+        var emptyLegacy = new AiTurn("旧的空回答问题", "");
+        Check(emptyLegacy.DisplayAnswer.Contains("未保存回答"), "Legacy empty answer is not explained to the user");
+        var nextInput = AiResponses.MakeInput([new AiEntry { Question = "新的问题" }], [emptyLegacy]);
+        Check(nextInput.Count == 1 && !nextInput.ToJsonString().Contains("旧的空回答问题"), "Legacy empty replies polluted the next request context");
+        AiStorage.Save(legacyProject, migrated.Snapshot());
+        using (var migratedJson = JsonDocument.Parse(File.ReadAllText(legacyPath)))
+            Check(migratedJson.RootElement.TryGetProperty("Conversations", out _) && !migratedJson.RootElement.TryGetProperty("Entries", out _), "History schema duplicates media at notebook root");
         using (var failedPanel = new AiPanel(new AiConnection(new AiFakeHandler { Broken = true })))
         {
             await failedPanel.SetProjectAsync(Path.Combine(output, "failure-fixture.tex")); failedPanel.ProjectFiles = () => files;
@@ -143,7 +206,20 @@ internal static partial class Program
         var beforePoint = book.Entries.Count;
         Invoke(window, "CollectSourceMark", editor, point);
         Check(book.Entries.Count == beforePoint + 1 && book.Entries.Last().IsPoint && tabs.FocusedTab == TabWorkspace.AiKey, "Source point was not immediately collected in chat composer");
+        book.Active.Title = "群的单位元";
+        book.Turns.Add(new("群的单位元为什么唯一？", "若 e 和 f 都是单位元，则 e = ef = f，因此单位元唯一。"));
+        Invoke(ai, "RefreshTranscript");
+        var mainModels = (ComboBox)ai.Settings.FindName("Models");
+        mainModels.ItemsSource = new[] { new AiModel("gpt-6.1-sol", "GPT-6.1 Sol") { ReasoningEfforts = ["low", "medium", "high", "xhigh", "max"] } };
+        mainModels.SelectedIndex = 0;
+        await ai.Settings.SelectEffortAsync("high");
+        var search = (TextBox)ai.FindName("MessageSearchBox"); search.Text = "唯一";
+        Check(((TextBlock)ai.FindName("MessageMatchStatus")).Text == "1/1", "In-conversation search failed to find the answer");
         Capture(window, Path.Combine(output, "ai-tab.png"));
+        var historyDialog = new AiHistoryWindow(book, ai.DeleteConversationAsync) { Owner = window };
+        historyDialog.Show(); ((TextBox)historyDialog.FindName("SearchBox")).Text = "单位元"; historyDialog.UpdateLayout();
+        Check(((ListBox)historyDialog.FindName("ConversationList")).Items.Count == 1 && ((Button)historyDialog.FindName("DeleteButton")).IsEnabled, "History UI cannot search or delete a selected conversation");
+        Capture(historyDialog, Path.Combine(output, "ai-history.png")); historyDialog.Close();
         Invoke(window, "OpenAiSettings"); window.UpdateLayout(); Capture(window, Path.Combine(output, "ai-settings.png")); Invoke(window, "OpenAiTab");
         var context = editor.ContextMenu; context.IsOpen = true; window.UpdateLayout();
         Check(((System.Windows.Media.SolidColorBrush)context.Background).Color != ((System.Windows.Media.SolidColorBrush)context.Foreground).Color, "Context menu foreground/background are indistinguishable"); context.IsOpen = false;
@@ -165,11 +241,13 @@ internal static partial class Program
     private sealed class AiFakeHandler : HttpMessageHandler
     {
         public int Requests; public bool Broken, SawToolOutput, SawContract, SwitchAccount, ToolsInEvents, Empty;
+        public string? LastModel, LastEffort;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests++;
             if (request.RequestUri!.AbsolutePath != "/v1/responses") throw new Exception("Unexpected network endpoint in AI test");
             var json = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
+            LastModel = json["model"]?.ToString(); LastEffort = json["reasoning"]?["effort"]?.ToString();
             SawContract = json["store"]!.GetValue<bool>() == false && json["stream"]!.GetValue<bool>() && json["tools"]![0]!["type"]!.GetValue<string>() == "namespace";
             if (Requests > 1) SawToolOutput = json["input"]!.AsArray().Any(n => n?["type"]?.GetValue<string>() == "function_call_output" && n["output"]!.GetValue<string>().Contains("main.tex:2"));
             var data = Broken ? "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n" : Requests == 1

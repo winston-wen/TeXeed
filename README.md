@@ -19,9 +19,9 @@ dotnet run --project src/TeXeed.App
 
 编译 LaTeX 需要另行安装 [TeX Live](https://www.tug.org/texlive/windows.html) 或 [MiKTeX](https://miktex.org/download)。从标题栏菜单（窄窗口使用菜单按钮）进入“排版 → 设置”，检测引擎或指定可执行文件。支持 `latexmk`、XeLaTeX、pdfLaTeX、LuaLaTeX，以及 [Tectonic](https://tectonic-typesetting.github.io/)。中文项目建议使用 XeLaTeX 和 `ctex`。TeX 发行版及宏包未包含在应用发行包中。
 
-## AI 问答（0.3.1）
+## AI 问答（0.3.2）
 
-标题栏最末 AI / Alt+A 打开“AI 对话”，齿轮打开独立“AI 设置”tab。源码与 PDF 右键切换“AI 圈点”：单击点位、长按选择，立即进入底部编辑栏；可统一描述并批量提交。支持 ChatGPT 登录、API Key 备用、流式回答与只读源码检索。操作说明见 [AI 工作区](docs/ai-workspace.md)。
+标题栏最末 AI / Alt+A 打开“AI 对话”，齿轮打开独立“AI 设置”tab。源码与 PDF 右键切换“AI 圈点”：单击点位、长按选择，立即进入底部编辑栏；可统一描述并批量提交。输入栏可选择模型与推理强度；“历史”搜索、切换或删除对话，Ctrl+F 查找当前消息，每轮问答可单独删除。支持 ChatGPT 登录、API Key 备用、流式回答与只读源码检索。操作说明见 [AI 工作区](docs/ai-workspace.md)。
 
 ## 工作方式
 
