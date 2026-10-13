@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 
 namespace TeXeed.App.AI;
+
 internal sealed class AiConnection : IDisposable
 {
     internal readonly HttpClient Http;

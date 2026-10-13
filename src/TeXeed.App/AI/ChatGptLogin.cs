@@ -23,9 +23,19 @@ internal sealed class ChatGptLogin(HttpClient http)
         using var listener = new HttpListener(); var redirect = $"http://127.0.0.1:{port}/auth/callback";
         listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
         var state = Random(); var nonce = Random(); var verifier = Random();
-        var values = new Dictionary<string, string> { ["client_id"] = previous?.ClientId ?? "dynamic_agent_client", ["ext_agent_host_id"] = host,
-            ["response_type"] = "code", ["redirect_uri"] = redirect, ["scope"] = Scopes, ["resource"] = Resource,
-            ["state"] = state, ["nonce"] = nonce, ["code_challenge_method"] = "S256", ["code_challenge"] = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier))) };
+        var values = new Dictionary<string, string>
+        {
+            ["client_id"] = previous?.ClientId ?? "dynamic_agent_client",
+            ["ext_agent_host_id"] = host,
+            ["response_type"] = "code",
+            ["redirect_uri"] = redirect,
+            ["scope"] = Scopes,
+            ["resource"] = Resource,
+            ["state"] = state,
+            ["nonce"] = nonce,
+            ["code_challenge_method"] = "S256",
+            ["code_challenge"] = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)))
+        };
         if (previous is null) values["agent_name_hint"] = "TeXeed";
         else { if (previous.IdToken.Length > 0) values["id_token_hint"] = previous.IdToken; if (previous.Email.Length > 0) values["login_hint"] = previous.Email; }
         var url = Issuer + "/api/accounts/authorize?" + string.Join("&", values.Select(p => Uri.EscapeDataString(p.Key) + "=" + Uri.EscapeDataString(p.Value)));

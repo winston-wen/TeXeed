@@ -57,10 +57,13 @@ internal sealed class AiResponses(AiConnection connection)
         foreach (var entry in entries)
         {
             var text = new StringBuilder($"问题 [{entry.Id}] {entry.Title}\n{entry.Question}\n");
+            if (entry.IsPoint) text.AppendLine("这是点位标记，截图是附近上下文。源码点位文本可能为空，请按文件与行号读取附近源码。");
             foreach (var source in entry.Sources) text.AppendLine($"源码选区（用户收集时快照）：{source.File}:{source.StartLine}-{source.EndLine} SHA256={source.Revision}\n{source.Text}");
             content.Add(new JsonObject { ["type"] = "input_text", ["text"] = text.ToString() });
             foreach (var block in entry.PdfBlocks)
             {
+                if (block.PointX is { } x && block.PointY is { } y)
+                    content.Add(new JsonObject { ["type"] = "input_text", ["text"] = $"用户标记的准确点位：第 {block.Page} 页，x={x:F2}pt，y={y:F2}pt。" });
                 content.Add(new JsonObject { ["type"] = "input_text", ["text"] = $"PDF SHA256={entry.PdfRevision} 页 {block.Page}, PDF 坐标 (pt): x={block.X:F2}, y={block.Y:F2}, w={block.Width:F2}, h={block.Height:F2}。请用源码检索工具定位对应源码，引用文件与行号；不能确定时明确说明。" });
                 content.Add(new JsonObject { ["type"] = "input_image", ["image_url"] = "data:image/png;base64," + block.ImageBase64 });
             }
@@ -79,22 +82,51 @@ internal sealed class AiResponses(AiConnection connection)
             using var request = new HttpRequestMessage(HttpMethod.Post, ChatGptLogin.Resource + "/responses") { Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json") };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await connection.BearerAsync(token, identity));
             using var response = await connection.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-            if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"AI 请求失败（HTTP {(int)response.StatusCode}）。401 请重新登录；429 请检查额度；API Key 需单独计费。本批次已保留，可稍后重试。");
+            if (!response.IsSuccessStatusCode) throw await AiFailure.FromResponseAsync(response, token);
             using var reader = new System.IO.StreamReader(await response.Content.ReadAsStreamAsync(token));
             JsonArray? output = null; var eventData = new StringBuilder();
+            var finishedItems = new SortedDictionary<int, JsonNode>();
+            var textCharacters = 0;
             while (await reader.ReadLineAsync(token) is { } line)
             {
                 if (line.StartsWith("data:")) { eventData.AppendLine(line[5..].TrimStart()); if (eventData.Length > 8_000_000) throw new InvalidOperationException("AI 响应事件超过大小限制。"); continue; }
                 if (line.Length != 0 || eventData.Length == 0) continue;
                 var data = eventData.ToString().Trim(); eventData.Clear(); if (data == "[DONE]") break;
                 var evt = JsonNode.Parse(data)!; var type = evt["type"]?.GetValue<string>();
-                if (type == "response.output_text.delta") delta(evt["delta"]?.GetValue<string>() ?? "");
-                if (type is "response.failed" or "response.incomplete" or "error") throw new InvalidOperationException("AI 未完成回复，可能因额度、模型权限或输出限制。本批次仍可重新提交。");
-                if (type == "response.completed") { output = evt["response"]?["output"]?.AsArray(); break; }
+                if (type == "response.output_text.delta")
+                {
+                    var text = evt["delta"]?.GetValue<string>() ?? "";
+                    textCharacters += text.Length;
+                    delta(text);
+                }
+                if (type == "response.output_item.done" && evt["item"] is { } item)
+                    finishedItems[evt["output_index"]?.GetValue<int>() ?? finishedItems.Count] = item.DeepClone();
+                if (type is "response.failed" or "response.incomplete" or "error") throw AiFailure.FromEvent(evt);
+                if (type == "response.completed")
+                {
+                    output = evt["response"]?["output"]?.AsArray();
+                    // Some streaming routes omit finalized items from the terminal envelope.
+                    // Preserve item.done events so local tool calls are not lost.
+                    if (output is null || output.Count == 0)
+                        output = new JsonArray(finishedItems.Values.Select(i => i.DeepClone()).ToArray());
+                    break;
+                }
             }
             if (output is null) throw new InvalidOperationException("连接中断，未收到完成确认。本批次未标为成功。");
             var calls = output.Where(n => n?["type"]?.GetValue<string>() == "function_call").ToArray();
-            if (calls.Length == 0) return;
+            if (calls.Length == 0)
+            {
+                if (textCharacters == 0)
+                {
+                    var text = string.Concat(output.Where(n => n?["type"]?.ToString() == "message")
+                        .SelectMany(n => n?["content"]?.AsArray() ?? [])
+                        .Where(n => n?["type"]?.ToString() is "output_text" or "refusal")
+                        .Select(n => n?["text"]?.ToString() ?? n?["refusal"]?.ToString() ?? ""));
+                    if (text.Length == 0) throw new InvalidOperationException("服务器结束了请求，但未返回回答或可执行工具。本次问题仍保留，可重试；这不是登录失败。");
+                    delta(text);
+                }
+                return;
+            }
             foreach (var item in output) input.Add(item?.DeepClone());
             foreach (var call in calls)
             {

@@ -16,6 +16,7 @@ internal static partial class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Contains("--ai-live-probe")) return AiLiveProbe.RunAsync(args).GetAwaiter().GetResult();
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
         var outputArgument = Array.IndexOf(args, "--output");
         var output = outputArgument >= 0 && outputArgument + 1 < args.Length

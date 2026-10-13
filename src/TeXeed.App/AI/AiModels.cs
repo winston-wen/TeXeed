@@ -6,7 +6,11 @@ using System.Text.Json;
 namespace TeXeed.App.AI;
 
 public sealed record AiSourceBlock(string File, int StartLine, int EndLine, int Offset, string Text, string Revision);
-public sealed record AiPdfBlock(int Page, double X, double Y, double Width, double Height, string ImageBase64);
+public sealed record AiPdfBlock(int Page, double X, double Y, double Width, double Height, string ImageBase64)
+{
+    public double? PointX { get; init; }
+    public double? PointY { get; init; }
+}
 public sealed class AiEntry
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -17,12 +21,14 @@ public sealed class AiEntry
     public List<AiSourceBlock> Sources { get; set; } = [];
     public List<AiPdfBlock> PdfBlocks { get; set; } = [];
     public string PdfRevision { get; set; } = "";
+    public bool IsPoint { get; set; }
 }
 public sealed record AiTurn(string Question, string Answer);
 public sealed class AiNotebook
 {
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
+    public string Draft { get; set; } = "";
 }
 internal static class AiStorage
 {

@@ -26,6 +26,7 @@ public partial class EditorTabStrip : UserControl
     public event Action<string, TabCloseScope>? CloseRequested;
     public event Action<string, int>? ReorderRequested;
     public event Action? SettingsRequested;
+    public event Action? AiSettingsRequested;
     public Func<string, Point, bool>? DockDragMoved { get; set; }
     public event Action<string, Point>? DockDropped;
     public event Action? DragEnded;
@@ -76,7 +77,7 @@ public partial class EditorTabStrip : UserControl
             var text = tab.Title + (tab.Modified ? "  ●" : "");
             if (label.Text != text && string.Equals(tab.Path, active, StringComparison.OrdinalIgnoreCase)) reveal = true;
             label.Text = text;
-            view.ToolTip = tab.IsPreview ? "PDF 预览 · 齿轮打开预览设置" : tab.Path == TeXeed.Core.TabWorkspace.AiKey ? "AI · 问题条目与回答" : tab.Path + (tab.Modified ? "\n尚未保存" : "");
+            view.ToolTip = tab.IsPreview ? "PDF 预览 · 齿轮打开预览设置" : tab.Path == TeXeed.Core.TabWorkspace.AiKey ? "AI 对话 · 齿轮打开 AI 设置" : tab.Path + (tab.Modified ? "\n尚未保存" : "");
             var previous = Items.Children.IndexOf(view);
             if (previous != i) { if (previous >= 0) Items.Children.Remove(view); Items.Children.Insert(i, view); }
         }
@@ -95,11 +96,21 @@ public partial class EditorTabStrip : UserControl
             Stretch = Stretch.Uniform, StrokeThickness = preview ? 1.2 : 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
         ((Path)close.Content).SetResourceReference(Shape.StrokeProperty, "Ink");
         close.Click += (_, e) => { e.Handled = true; if (preview) SettingsRequested?.Invoke(); else CloseRequested?.Invoke(path, TabCloseScope.This); };
-        grid.Children.Add(select); Grid.SetColumn(close, 1); grid.Children.Add(close);
+        grid.Children.Add(select);
+        Button? aiGear = null;
+        if (path == TeXeed.Core.TabWorkspace.AiKey)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            aiGear = new Button { Style = (Style)Resources["TabButton"], Content = "⚙", FontSize = 15, Width = 23, Height = 23, ToolTip = "AI 设置", Focusable = false };
+            AutomationProperties.SetName(aiGear, "AI 设置");
+            aiGear.Click += (_, e) => { e.Handled = true; AiSettingsRequested?.Invoke(); };
+            Grid.SetColumn(aiGear, 1); grid.Children.Add(aiGear);
+        }
+        Grid.SetColumn(close, aiGear is null ? 1 : 2); grid.Children.Add(close);
         var view = new Border { Child = grid, Background = Brushes.Transparent, Height = 32, CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(1.5), Margin = new Thickness(3, 4, 3, 4), Tag = path };
         view.PreviewMouseLeftButtonDown += (_, e) =>
         {
-            if (IsInside(e.OriginalSource as DependencyObject, close)) return;
+            if (IsInside(e.OriginalSource as DependencyObject, close) || aiGear is not null && IsInside(e.OriginalSource as DependencyObject, aiGear)) return;
             _dragPath = path; _dragStart = e.GetPosition(this); _dragging = false;
         };
         view.PreviewMouseRightButtonUp += (_, e) => { e.Handled = true; ShowTabMenu(view, path); };

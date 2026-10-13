@@ -149,6 +149,7 @@ public partial class MainWindow : Window
             _session++; _revision = 0; _pdfRevision = -1; _pdfGeneration++; _navigationRequest++;
             _externalChangePending = false; _assetChangePending = false;
             await _aiPanel.SetProjectAsync(project.MainPath);
+            SetAiMarking(false);
             _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null;
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
@@ -672,6 +673,8 @@ public partial class MainWindow : Window
     private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, $"TeXeed {typeof(MainWindow).Assembly.GetName().Version?.ToString(3)}\n原生 Windows LaTeX 工作区\n\nC# · .NET 10 · WPF\nAvalonEdit / WpfMath (MIT) · PDFiumCore (Apache-2.0) · PDFium\n\n第三方许可随发行包提供。", "关于 TeXeed", MessageBoxButton.OK, MessageBoxImage.Information);
     private async void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        if (_aiMarking && e.Key == Key.Escape)
+        { SetAiMarking(false); e.Handled = true; return; }
         if (e.Key == Key.Escape && (FileTabs.IsDraggingTab || RightFileTabs.IsDraggingTab))
         { FileTabs.CancelDrag(); RightFileTabs.CancelDrag(); DockDropCue.Visibility = Visibility.Collapsed; e.Handled = true; return; }
         if (HandleMenuKeyDown(e)) return;

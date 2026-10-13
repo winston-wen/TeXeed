@@ -24,9 +24,18 @@ internal static partial class Program
         var editor = (LatexEditor)window.FindName("LeftEditor");
         var ai = (AiPanel)Field(window, "_aiPanel")!;
         var menu = (MenuItem)window.FindName("AiMenuItem");
+        Check(ReferenceEquals(((Menu)window.FindName("MainMenu")).Items.Cast<object>().Last(), menu), "AI must be the final main menu");
         Check(!menu.HasItems, "AI menu must have no submenu"); menu.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); window.UpdateLayout();
         Check(tabs.Owner(TabWorkspace.AiKey) == TabSide.Right && ai.IsVisible, "AI button did not open right AI tab");
         Check(!tabs.Sources.Contains(TabWorkspace.AiKey), "AI tab treated as source file");
+        var strip = (EditorTabStrip)window.FindName("RightFileTabs");
+        var aiTab = ((StackPanel)strip.FindName("Items")).Children.Cast<Border>().Single(b => (string)b.Tag == TabWorkspace.AiKey);
+        var aiButtons = ((Grid)aiTab.Child).Children.Cast<Button>().ToArray();
+        Check(aiButtons.Length == 3 && aiButtons[1].ToolTip?.ToString() == "AI 设置" && aiButtons[2].ToolTip?.ToString()?.Contains("关闭") == true, "AI title/gear/close ordering is incorrect");
+        aiButtons[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
+        Check(tabs.FocusedTab == TabWorkspace.AiSettingsKey && ai.Settings.IsVisible && !ai.IsVisible, "AI gear did not open separate settings tab");
+        Check(!tabs.Sources.Contains(TabWorkspace.AiSettingsKey), "AI settings treated as source");
+        Invoke(window, "OpenAiTab");
         Invoke(window, "MoveWorkspaceTab", TabWorkspace.AiKey, TabSide.Left, 0, false); window.UpdateLayout();
         Check(tabs.Owner(TabWorkspace.AiKey) == TabSide.Left && ai.IsVisible, "AI tab did not move left");
         Invoke(window, "CloseTabs", TabWorkspace.AiKey, TabCloseScope.This); Check(tabs.Owner(TabWorkspace.AiKey) is null, "AI close failed");
@@ -54,13 +63,27 @@ internal static partial class Program
         await new AiResponses(connection).RunAsync("test-model", restored.Entries, [], files, x => answer.Append(x), _ => { }, CancellationToken.None);
         Check(answer.ToString() == "定位到 main.tex:2。" && handler.Requests == 2, "Streaming tool roundtrip failed");
         Check(handler.SawToolOutput && handler.SawContract, "Responses request broke OAuth-compatible streaming contract");
+        using (var eventHandler = new AiFakeHandler { ToolsInEvents = true })
+        using (var eventConnection = new AiConnection(eventHandler))
+        {
+            var streamed = new StringBuilder();
+            await new AiResponses(eventConnection).RunAsync("test-model", restored.Entries, [], files, x => streamed.Append(x), _ => { }, CancellationToken.None);
+            Check(eventHandler.Requests == 2 && eventHandler.SawToolOutput && streamed.ToString().Contains("main.tex:2"), "Terminal output omission lost item.done tool call");
+        }
+        using (var emptyConnection = new AiConnection(new AiFakeHandler { Empty = true }))
+        {
+            var rejected = false;
+            try { await new AiResponses(emptyConnection).RunAsync("test-model", restored.Entries, [], files, _ => { }, _ => { }, CancellationToken.None); }
+            catch (InvalidOperationException) { rejected = true; }
+            Check(rejected, "Empty completed response must not mark a question answered");
+        }
         using var brokenConnection = new AiConnection(new AiFakeHandler { Broken = true }); var failed = false;
         try { await new AiResponses(brokenConnection).RunAsync("test-model", restored.Entries, [], files, _ => { }, _ => { }, CancellationToken.None); } catch (InvalidOperationException) { failed = true; }
         Check(failed, "Interrupted stream treated as success");
         using (var batchPanel = new AiPanel(new AiConnection(new AiFakeHandler())))
         {
             await batchPanel.SetProjectAsync(Path.Combine(output, "batch-fixture.tex")); batchPanel.ProjectFiles = () => files;
-            var modelBox = (ComboBox)batchPanel.FindName("Models"); modelBox.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; modelBox.SelectedIndex = 0;
+            var modelBox = (ComboBox)batchPanel.Settings.FindName("Models"); modelBox.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; modelBox.SelectedIndex = 0;
             var first = new AiEntry { Question = "第一问" }; var second = new AiEntry { Question = "第二问" }; var skip = new AiEntry { Question = "不发送", Selected = false };
             batchPanel.AddEntry(first); batchPanel.AddEntry(second); batchPanel.AddEntry(skip); await batchPanel.SubmitAsync();
             Check(first.State == "已完成" && second.State == "已完成" && skip.State == "待提交", "Batch submission did not honor selected entries");
@@ -70,7 +93,7 @@ internal static partial class Program
         using (var failedPanel = new AiPanel(new AiConnection(new AiFakeHandler { Broken = true })))
         {
             await failedPanel.SetProjectAsync(Path.Combine(output, "failure-fixture.tex")); failedPanel.ProjectFiles = () => files;
-            var models = (ComboBox)failedPanel.FindName("Models"); models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
+            var models = (ComboBox)failedPanel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
             var entry = new AiEntry { Question = "保留待重试" }; failedPanel.AddEntry(entry); await failedPanel.SubmitAsync();
             Check(entry.Selected && entry.State == "未完成，可重试", "Failed batch lost selection or marked successful");
         }
@@ -97,7 +120,33 @@ internal static partial class Program
         Check(pdfEntry.PdfBlocks.Select(b => b.Page).Distinct().SequenceEqual(new[] { 1, 2 }) && pdfEntry.PdfRevision.Length == 64, "Cross-page PDF capture did not preserve pages/revision");
         Check(pdfEntry.PdfBlocks.All(b => b.Width > 0 && b.Height > 0 && Convert.FromBase64String(b.ImageBase64).Take(4).SequenceEqual(new byte[] { 137, 80, 78, 71 })), "PDF screenshots invalid");
         Check(tabs.FocusedTab == TabWorkspace.AiKey, "PDF selection did not open AI");
+        Check(preview.IsAiSelecting && editor.IsAiMarking, "Confirming a mark must keep the toggle active");
+        var point = editor.CreateAiMark(0, 0, false);
+        Check(point.IsPoint && point.Offset == 0 && point.Length == 0, "Single click must create a source point");
+        var sentence = editor.CreateAiMark(editor.Text.IndexOf("Hello", StringComparison.Ordinal), editor.Text.IndexOf("Hello", StringComparison.Ordinal) + 3, true);
+        Check(!sentence.IsPoint && editor.Document.GetText(sentence.Offset, sentence.Length).Trim() == "Hello from TeXeed.", "Source hold/drag must select the complete sentence");
+        Invoke(window, "SetAiMarking", false);
+        Check(!editor.IsAiMarking && !preview.IsAiSelecting, "Marking toggle did not clear both views");
+        Invoke(window, "SetAiMarking", true);
+        var cursorEvent = new QueryCursorEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.QueryCursorEvent };
+        editor.TextArea.TextView.RaiseEvent(cursorEvent);
+        Check(cursorEvent.Cursor == Cursors.Help, "Circle mode must use help-select cursor over source text");
+        var rightDouble = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Right)
+        { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent };
+        typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(rightDouble, 2);
+        editor.RaiseEvent(rightDouble);
+        Check(!editor.IsAiMarking && rightDouble.Handled, "Right double-click did not leave circle mode");
+        Invoke(window, "SetAiMarking", true);
+        var escape = CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent);
+        Invoke(window, "Window_KeyDown", window, escape);
+        Check(!editor.IsAiMarking && escape.Handled, "Escape did not leave marking mode");
+        var beforePoint = book.Entries.Count;
+        Invoke(window, "CollectSourceMark", editor, point);
+        Check(book.Entries.Count == beforePoint + 1 && book.Entries.Last().IsPoint && tabs.FocusedTab == TabWorkspace.AiKey, "Source point was not immediately collected in chat composer");
         Capture(window, Path.Combine(output, "ai-tab.png"));
+        Invoke(window, "OpenAiSettings"); window.UpdateLayout(); Capture(window, Path.Combine(output, "ai-settings.png")); Invoke(window, "OpenAiTab");
+        var context = editor.ContextMenu; context.IsOpen = true; window.UpdateLayout();
+        Check(((System.Windows.Media.SolidColorBrush)context.Background).Color != ((System.Windows.Media.SolidColorBrush)context.Foreground).Color, "Context menu foreground/background are indistinguishable"); context.IsOpen = false;
         await CallAsync(window, "HandleShortcutAsync", CreateKey(window, Key.F4, Keyboard.PreviewKeyDownEvent), ModifierKeys.Control);
         Check(tabs.Owner(TabWorkspace.AiKey) is null && tabs.Owner(TabWorkspace.PreviewKey) is not null, "Ctrl+F4 AI closing affected protected preview");
         Invoke(window, "OpenTitleSubmenu", menu); Check(tabs.Owner(TabWorkspace.AiKey) is not null, "Alt+A failed to activate AI leaf menu");
@@ -115,7 +164,7 @@ internal static partial class Program
     }
     private sealed class AiFakeHandler : HttpMessageHandler
     {
-        public int Requests; public bool Broken, SawToolOutput, SawContract, SwitchAccount;
+        public int Requests; public bool Broken, SawToolOutput, SawContract, SwitchAccount, ToolsInEvents, Empty;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests++;
@@ -126,6 +175,9 @@ internal static partial class Program
             var data = Broken ? "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n" : Requests == 1
                 ? "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"type\":\"function_call\",\"name\":\"search_source\",\"call_id\":\"c1\",\"arguments\":\"{\\\"query\\\":\\\"compact proof\\\"}\"}]}}\n\n"
                 : "data: {\"type\":\"response.output_text.delta\",\"delta\":\"定位到 main.tex:2。\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n";
+            if (ToolsInEvents && Requests == 1)
+                data = "data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"name\":\"search_source\",\"call_id\":\"c1\",\"arguments\":\"{\\\"query\\\":\\\"compact proof\\\"}\"}}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n";
+            if (Empty) data = "data: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n";
             if (SwitchAccount && Requests == 1) { var changed = AiCredentials.Load(); changed.ApiKey = "different-test-key"; changed.Save(); }
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(data, Encoding.UTF8, "text/event-stream") };
         }

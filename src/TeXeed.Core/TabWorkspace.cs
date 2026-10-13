@@ -6,8 +6,9 @@ public enum TabCloseRange { This, All, Others, Before, After }
 /// <summary>Two optional tab groups. The singleton preview can move but never close.</summary>
 public sealed class TabWorkspace
 {
+    public const string AiSettingsKey = "@texeed:ai-settings";
     public const string AiKey = "@texeed:ai";
-    public static bool IsSource(string key) => key != PreviewKey && key != AiKey;
+    public static bool IsSource(string key) => key != PreviewKey && key != AiKey && key != AiSettingsKey;
     public const string PreviewKey = "@texeed:preview";
     private List<string> _left = [], _right = [PreviewKey];
     private string? _leftActive, _rightActive = PreviewKey;
@@ -25,7 +26,7 @@ public sealed class TabWorkspace
     { _left = [main]; _right = [PreviewKey]; _leftActive = main; _rightActive = PreviewKey; FocusedSide = TabSide.Left; }
     public void Open(string path)
     {
-        var side = Owner(path) ?? (path == AiKey ? TabSide.Right : TabSide.Left);
+        var side = Owner(path) ?? ((path == AiKey || path == AiSettingsKey) ? TabSide.Right : TabSide.Left);
         if (Owner(path) is null) List(side).Add(path);
         Select(side, path);
     }

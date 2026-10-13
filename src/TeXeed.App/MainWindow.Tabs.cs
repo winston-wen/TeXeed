@@ -30,6 +30,7 @@ public partial class MainWindow
             strip.CloseRequested += CloseTabs;
             strip.ReorderRequested += (key, target) => MoveTab(key, target);
             strip.SettingsRequested += OpenPreviewSettings;
+            strip.AiSettingsRequested += OpenAiSettings;
             strip.DockDragMoved = UpdateDockDrag;
             strip.DockDropped += DropWorkspaceTab;
             strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
@@ -138,15 +139,21 @@ public partial class MainWindow
                     if (_aiPanel.Parent is Panel oldAi && oldAi != GroupBody(side)) oldAi.Children.Remove(_aiPanel);
                     if (_aiPanel.Parent is null) GroupBody(side).Children.Add(_aiPanel);
                 }
+                if (active == TabWorkspace.AiSettingsKey)
+                {
+                    if (_aiPanel.Settings.Parent is Panel oldSettings && oldSettings != GroupBody(side)) oldSettings.Children.Remove(_aiPanel.Settings);
+                    if (_aiPanel.Settings.Parent is null) GroupBody(side).Children.Add(_aiPanel.Settings);
+                }
                 if (active == TabWorkspace.PreviewKey)
                 {
                     if (PreviewContent.Parent is Panel old && old != GroupBody(side)) { old.Children.Remove(PreviewContent); GroupBody(side).Children.Add(PreviewContent); }
                     PreviewContent.Visibility = Visibility.Visible;
                 }
                 GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(path => new EditorTab(path,
-                    path == TabWorkspace.PreviewKey ? "预览" : path == TabWorkspace.AiKey ? "AI" : System.IO.Path.GetFileName(path), _changes.ContainsKey(path), path == TabWorkspace.PreviewKey)).ToArray(), active);
+                    path == TabWorkspace.PreviewKey ? "预览" : path == TabWorkspace.AiKey ? "AI 对话" : path == TabWorkspace.AiSettingsKey ? "AI 设置" : System.IO.Path.GetFileName(path), _changes.ContainsKey(path), path == TabWorkspace.PreviewKey)).ToArray(), active);
             }
             _aiPanel.Visibility = _workspaceTabs.Owner(TabWorkspace.AiKey) is { } aiSide && _workspaceTabs.Active(aiSide) == TabWorkspace.AiKey ? Visibility.Visible : Visibility.Collapsed;
+            _aiPanel.Settings.Visibility = _workspaceTabs.Owner(TabWorkspace.AiSettingsKey) is { } settingsSide && _workspaceTabs.Active(settingsSide) == TabWorkspace.AiSettingsKey ? Visibility.Visible : Visibility.Collapsed;
             var previewSide = _workspaceTabs.Owner(TabWorkspace.PreviewKey)!.Value;
             PreviewContent.Visibility = _workspaceTabs.Active(previewSide) == TabWorkspace.PreviewKey ? Visibility.Visible : Visibility.Collapsed;
             _wasSplit = split;
