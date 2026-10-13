@@ -118,6 +118,7 @@ public partial class MainWindow
 
     private void OpenTitleSubmenu(MenuItem menu)
     {
+        if (!menu.HasItems) { menu.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, menu)); return; }
         if (_compactTitleBar) _compactPanel.NavigateTo(menu);
         else menu.IsSubmenuOpen = true;
     }

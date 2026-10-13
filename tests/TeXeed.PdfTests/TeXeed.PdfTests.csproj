@@ -13,6 +13,8 @@
     <Compile Include="../../src/TeXeed.App/Services/PdfDocument.Crop.cs" Link="PdfDocument.Crop.cs" />
     <Compile Include="../../src/TeXeed.App/Services/PdfPageCrop.cs" Link="PdfPageCrop.cs" />
     <Compile Include="../../src/TeXeed.App/Services/PhysicalScreen.cs" Link="PhysicalScreen.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiModels.cs" Link="AiModels.cs" />
+    <Compile Include="../../src/TeXeed.App/Controls/PdfPreview.Ai.cs" Link="PdfPreview.Ai.cs" />
     <Compile Include="../../src/TeXeed.App/Controls/PdfPreview.cs" Link="PdfPreview.cs" />
     <Compile Include="../../src/TeXeed.App/Controls/PreviewScrollViewer.xaml.cs" Link="PreviewScrollViewer.xaml.cs" />
     <Page Include="../../src/TeXeed.App/Controls/PreviewScrollViewer.xaml" Link="PreviewScrollViewer.xaml" />

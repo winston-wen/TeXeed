@@ -21,6 +21,7 @@ internal sealed partial class PdfDocument : IDisposable
     private IntPtr _memory;
     private readonly List<Matrix> _viewToPage = [];
     public IReadOnlyList<Size> Pages { get; }
+    public string Fingerprint { get; }
 
     private readonly IReadOnlyList<TexPageLayout> _texLayouts;
 
@@ -28,6 +29,7 @@ internal sealed partial class PdfDocument : IDisposable
     {
         _texLayouts = texLayouts ?? [];
         ArgumentNullException.ThrowIfNull(data);
+        Fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data));
         if (data.Length == 0) throw new IOException("PDF 文件为空。");
         lock (Gate)
         {

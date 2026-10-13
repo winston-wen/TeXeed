@@ -58,7 +58,7 @@ public partial class MainWindow
     {
         if (_transitioning || _closing) return;
         _workspaceTabs.Select(side, key); RefreshWorkspaceViews();
-        if (key != TabWorkspace.PreviewKey) SourceEditor(side).TextArea.Focus();
+        if (TabWorkspace.IsSource(key)) SourceEditor(side).TextArea.Focus();
     }
     private void CloseTabs(string path, TabCloseScope scope)
     {
@@ -69,7 +69,7 @@ public partial class MainWindow
         foreach (var editor in Editors)
             if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
         RefreshTabs();
-        if (_workspaceTabs.FocusedTab is { } active && active != TabWorkspace.PreviewKey) SourceEditor(_workspaceTabs.FocusedSide).TextArea.Focus();
+        if (_workspaceTabs.FocusedTab is { } active && TabWorkspace.IsSource(active)) SourceEditor(_workspaceTabs.FocusedSide).TextArea.Focus();
         if (closed.Any(tab => _changes.ContainsKey(tab))) Status("标签已关闭 · 未保存内容仍保留，重新打开可继续编辑");
     }
     private void MoveTab(string path, int target)
@@ -93,9 +93,9 @@ public partial class MainWindow
                 if (_workspaceTabs.Owner(path) is { } newSide && oldSide != newSide) SourceEditor(oldSide).TransferSessionTo(SourceEditor(newSide), path);
         }
         finally { _updatingWorkspace = false; }
-        if (key != TabWorkspace.PreviewKey) _activeEditor = SourceEditor(side);
+        if (TabWorkspace.IsSource(key)) _activeEditor = SourceEditor(side);
         RefreshTabs();
-        if (key != TabWorkspace.PreviewKey) SourceEditor(side).TextArea.Focus();
+        if (TabWorkspace.IsSource(key)) SourceEditor(side).TextArea.Focus();
     }
     private void RefreshWorkspaceViews()
     {
@@ -119,7 +119,7 @@ public partial class MainWindow
                 else if (!split) column.Width = new GridLength(1, GridUnitType.Star);
                 else if (column.Width.IsAbsolute && column.Width.Value == 0) column.Width = new GridLength(1, GridUnitType.Star);
                 var active = _workspaceTabs.Active(side);
-                var isSource = active is not null && active != TabWorkspace.PreviewKey;
+                var isSource = active is not null && TabWorkspace.IsSource(active);
                 source.Visibility = isSource ? Visibility.Visible : Visibility.Collapsed;
                 editor.Visibility = isSource ? Visibility.Visible : Visibility.Collapsed;
                 if (isSource)
@@ -133,14 +133,20 @@ public partial class MainWindow
                         if (!string.Equals(editor.CurrentFilePath, file.Path, StringComparison.OrdinalIgnoreCase) || editor.Text != file.Content) editor.ShowFile(file, file.Content);
                     }
                 }
+                if (active == TabWorkspace.AiKey)
+                {
+                    if (_aiPanel.Parent is Panel oldAi && oldAi != GroupBody(side)) oldAi.Children.Remove(_aiPanel);
+                    if (_aiPanel.Parent is null) GroupBody(side).Children.Add(_aiPanel);
+                }
                 if (active == TabWorkspace.PreviewKey)
                 {
                     if (PreviewContent.Parent is Panel old && old != GroupBody(side)) { old.Children.Remove(PreviewContent); GroupBody(side).Children.Add(PreviewContent); }
                     PreviewContent.Visibility = Visibility.Visible;
                 }
                 GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(path => new EditorTab(path,
-                    path == TabWorkspace.PreviewKey ? "预览" : System.IO.Path.GetFileName(path), _changes.ContainsKey(path), path == TabWorkspace.PreviewKey)).ToArray(), active);
+                    path == TabWorkspace.PreviewKey ? "预览" : path == TabWorkspace.AiKey ? "AI" : System.IO.Path.GetFileName(path), _changes.ContainsKey(path), path == TabWorkspace.PreviewKey)).ToArray(), active);
             }
+            _aiPanel.Visibility = _workspaceTabs.Owner(TabWorkspace.AiKey) is { } aiSide && _workspaceTabs.Active(aiSide) == TabWorkspace.AiKey ? Visibility.Visible : Visibility.Collapsed;
             var previewSide = _workspaceTabs.Owner(TabWorkspace.PreviewKey)!.Value;
             PreviewContent.Visibility = _workspaceTabs.Active(previewSide) == TabWorkspace.PreviewKey ? Visibility.Visible : Visibility.Collapsed;
             _wasSplit = split;
@@ -148,7 +154,7 @@ public partial class MainWindow
             Workspace.ColumnDefinitions[3].Width = new GridLength(split ? 2 : 0);
             NoOpenFile.Visibility = Visibility.Collapsed;
             _tabs.Clear(); _tabs.AddRange(_workspaceTabs.Sources);
-            if (_workspaceTabs.FocusedTab is { } selected && selected != TabWorkspace.PreviewKey) _activeEditor = SourceEditor(_workspaceTabs.FocusedSide);
+            if (_workspaceTabs.FocusedTab is { } selected && TabWorkspace.IsSource(selected)) _activeEditor = SourceEditor(_workspaceTabs.FocusedSide);
             UpdateCursorStatus();
         }
         finally { _updatingWorkspace = false; }

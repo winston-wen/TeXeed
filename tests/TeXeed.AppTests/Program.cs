@@ -54,6 +54,11 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--ai-only"))
+                {
+                    await CheckAiAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI workspace regression"); result = 0; return;
+                }
                 if (args.Contains("--preview-settings-only"))
                 {
                     await CheckPreviewSettingsAsync(window, output);

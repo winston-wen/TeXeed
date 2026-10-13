@@ -12,7 +12,7 @@ using TeXeed.Core;
 
 namespace TeXeed.App.Controls;
 
-public sealed class PdfPreview : UserControl, IDisposable
+public sealed partial class PdfPreview : UserControl, IDisposable
 {
     private const double PageGap = 18;
     private const int RasterBudgetPixels = 16 * 1024 * 1024;
@@ -131,6 +131,7 @@ public sealed class PdfPreview : UserControl, IDisposable
 
     public PdfPreview()
     {
+        InitializeAiSelection();
         Loaded += (_, _) => AttachDisplayEvents();
         _empty.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         var grid = new Grid();
@@ -210,6 +211,7 @@ public sealed class PdfPreview : UserControl, IDisposable
     public async Task LoadAsync(string path)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        CancelAiSelection();
         var version = ++_loadVersion;
         _cropCancellation?.Cancel();
         _loadCancellation?.Cancel(); _loadCancellation?.Dispose();
@@ -284,6 +286,7 @@ public sealed class PdfPreview : UserControl, IDisposable
 
     public void Clear()
     {
+        CancelAiSelection();
         _loadVersion++; _renderVersion++;
         _loadCancellation?.Cancel(); _cropCancellation?.Cancel();
         _renderTimer.Stop(); _highlightTimer.Stop(); _renderAgain = false;
@@ -365,6 +368,7 @@ public sealed class PdfPreview : UserControl, IDisposable
                 / (sizes.Max(s => s.Width) * 96 / 72), MaximumZoom);
         ZoomChanged?.Invoke(this, EventArgs.Empty);
         if (_layoutZoom == _zoom && _layouts.Count == document.Pages.Count) { ScheduleRender(); return; }
+        CancelAiSelection();
         _layoutZoom = _zoom;
         _renderVersion++;
         // Keep the last raster on screen while the background renderer catches up.

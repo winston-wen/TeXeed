@@ -76,7 +76,7 @@ public partial class EditorTabStrip : UserControl
             var text = tab.Title + (tab.Modified ? "  ●" : "");
             if (label.Text != text && string.Equals(tab.Path, active, StringComparison.OrdinalIgnoreCase)) reveal = true;
             label.Text = text;
-            view.ToolTip = tab.IsPreview ? "PDF 预览 · 齿轮打开预览设置" : tab.Path + (tab.Modified ? "\n尚未保存" : "");
+            view.ToolTip = tab.IsPreview ? "PDF 预览 · 齿轮打开预览设置" : tab.Path == TeXeed.Core.TabWorkspace.AiKey ? "AI · 问题条目与回答" : tab.Path + (tab.Modified ? "\n尚未保存" : "");
             var previous = Items.Children.IndexOf(view);
             if (previous != i) { if (previous >= 0) Items.Children.Remove(view); Items.Children.Insert(i, view); }
         }

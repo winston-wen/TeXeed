@@ -19,6 +19,10 @@ dotnet run --project src/TeXeed.App
 
 编译 LaTeX 需要另行安装 [TeX Live](https://www.tug.org/texlive/windows.html) 或 [MiKTeX](https://miktex.org/download)。从标题栏菜单（窄窗口使用菜单按钮）进入“排版 → 设置”，检测引擎或指定可执行文件。支持 `latexmk`、XeLaTeX、pdfLaTeX、LuaLaTeX，以及 [Tectonic](https://tectonic-typesetting.github.io/)。中文项目建议使用 XeLaTeX 和 `ctex`。TeX 发行版及宏包未包含在应用发行包中。
 
+## AI 问答（0.3.0）
+
+标题栏 AI / Alt+A 打开 AI tab。支持 ChatGPT 浏览器登录、API Key 备用、源码与 PDF 跨页选区、问题条目批量提交和只读源码检索。操作与登录说明见 [AI 工作区](docs/ai-workspace.md)。
+
 ## 工作方式
 
 - 默认项目名为主文件所在目录名。打开项目后，在“排版 → 设置”填写项目名称，或点击“使用 `\title`”从主文件标题提取；清空则恢复目录名。名称存于项目的 `.texeed/project.json`，不会改变主文件名或编译产物名。
