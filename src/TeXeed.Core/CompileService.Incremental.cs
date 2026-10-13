@@ -167,12 +167,86 @@ public sealed partial class CompileService
         return $"{Path.GetFullPath(path)}|{file.Length}|{file.LastWriteTimeUtc.Ticks}";
     }
 
+    private static async Task<ProcessResult> RunBibliographyAsync(TexProject project, string build, string job,
+        string tool, string executable, Dictionary<string, string> environment, CancellationToken token)
+    {
+        if (tool == "biber")
+        {
+            var relativeBuild = Path.GetRelativePath(EntryDirectory(project), build).Replace('\\', '/');
+            return await RunProcessAsync(executable, ["--input-directory", relativeBuild, "--output-directory", relativeBuild, job], EntryDirectory(project), environment, token);
+        }
+
+        // BibTeX has no output-directory option. Running it beside the entry and
+        // passing ../.texeed/.../job is rejected by TeX Live's openout_any=p.
+        // Give local resource paths ASCII aliases beside the generated aux;
+        // BibTeX cannot reliably parse absolute paths containing spaces/Unicode.
+        // preserve source spelling, original bytes and timestamps for the next TeX pass.
+        var restored = new List<(string Path, byte[] Bytes, DateTime Modified)>();
+        var aliases = new Dictionary<string, string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        try
+        {
+            var pending = new Queue<string>(); pending.Enqueue(Path.Combine(build, job + ".aux"));
+            var visited = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            while (pending.TryDequeue(out var aux))
+            {
+                token.ThrowIfCancellationRequested();
+                if (!visited.Add(aux)) continue;
+                if (visited.Count > 256) throw new IOException("文献辅助文件过多，无法安全准备相对路径。");
+                if (!IsWithin(build, aux) || !IsOrdinaryInput(project.Root, aux) || !File.Exists(aux)) continue;
+                if (new FileInfo(aux).Length > 4 * 1024 * 1024) throw new IOException("文献辅助文件过大，无法安全准备相对路径。");
+                var bytes = await File.ReadAllBytesAsync(aux, token);
+                string text;
+                try { text = new UTF8Encoding(false, true).GetString(bytes); }
+                catch (DecoderFallbackException) { continue; }
+                foreach (Match input in Regex.Matches(text, @"\\@input\s*\{(?<path>[^}]+)\}"))
+                    pending.Enqueue(Path.GetFullPath(input.Groups["path"].Value, build));
+                var rewritten = Regex.Replace(text, @"\\(?<command>bibdata|bibstyle)\s*\{(?<names>[^}]*)\}", match =>
+                {
+                    var extension = match.Groups["command"].Value == "bibdata" ? ".bib" : ".bst";
+                    var names = match.Groups["names"].Value.Split(',');
+                    for (var i = 0; i < names.Length; i++)
+                    {
+                        var name = names[i].Trim();
+                        var path = ResolveBibliographyInput(project, build, name, extension);
+                        if (path is not null)
+                        {
+                            if (!aliases.TryGetValue(path, out var alias))
+                            {
+                                alias = Path.Combine(build, "texeed-bib-" + Guid.NewGuid().ToString("N") + extension);
+                                File.Copy(path, alias);
+                                aliases.Add(path, alias);
+                            }
+                            names[i] = Path.GetFileNameWithoutExtension(alias);
+                        }
+                    }
+                    return "\\" + match.Groups["command"].Value + "{" + string.Join(',', names) + "}";
+                });
+                if (rewritten == text) continue;
+                restored.Add((aux, bytes, File.GetLastWriteTimeUtc(aux)));
+                await File.WriteAllTextAsync(aux, rewritten, new UTF8Encoding(false), token);
+            }
+            var bibEnvironment = new Dictionary<string, string>(environment, StringComparer.OrdinalIgnoreCase);
+            foreach (var variable in new[] { "TEXINPUTS", "BIBINPUTS", "BSTINPUTS" })
+                bibEnvironment[variable] = InputSearchPath(project, variable, build);
+            return await RunProcessAsync(executable, [job], build, bibEnvironment, token);
+        }
+        finally
+        {
+            foreach (var original in restored)
+            {
+                await File.WriteAllBytesAsync(original.Path, original.Bytes, CancellationToken.None);
+                File.SetLastWriteTimeUtc(original.Path, original.Modified);
+            }
+            foreach (var alias in aliases.Values) File.Delete(alias);
+        }
+    }
+
     private static string? ResolveBibliographyInput(TexProject project, string build, string name, string extension = ".bib")
     {
         try
         {
             if (!Path.HasExtension(name)) name += extension;
-            foreach (var directory in new[] { project.Root, build })
+            foreach (var directory in new[] { EntryDirectory(project), project.Root, build })
             {
                 var path = Path.GetFullPath(name, directory);
                 if (IsOrdinaryInput(project.Root, path) && File.Exists(path)) return path;

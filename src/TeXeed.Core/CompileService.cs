@@ -55,8 +55,9 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             var toolchain = await DetectToolsAsync();
             var engine = ResolveEngine(settings, toolchain);
             engineName = engine.Name;
-            var buildDirectory = Path.Combine(project.Root, ".texeed", "build");
-            var previewDirectory = Path.Combine(project.Root, ".texeed", "preview");
+            var workingDirectory = EntryDirectory(project);
+            var buildDirectory = OutputDirectory(project, "build");
+            var previewDirectory = OutputDirectory(project, "preview");
             EnsureOrdinaryDirectory(project.Root, buildDirectory);
             EnsureOrdinaryDirectory(project.Root, previewDirectory);
             var job = Path.GetFileNameWithoutExtension(project.MainPath);
@@ -78,22 +79,25 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             // \include writes auxiliary files in matching subdirectories of the outdir.
             foreach (var file in project.Files.Where(f => f.Kind == ProjectFileKind.Tex))
             {
-                var parent = Path.GetDirectoryName(Path.GetRelativePath(project.Root, file.Path));
-                if (!string.IsNullOrEmpty(parent) && IsWithin(buildDirectory, Path.Combine(buildDirectory, parent)))
-                    EnsureOrdinaryDirectory(project.Root, Path.Combine(buildDirectory, parent));
+                foreach (var sourceDirectory in new[] { workingDirectory, project.Root }.Distinct())
+                {
+                    var parent = Path.GetDirectoryName(Path.GetRelativePath(sourceDirectory, file.Path));
+                    if (!string.IsNullOrEmpty(parent) && IsWithin(buildDirectory, Path.Combine(buildDirectory, parent)))
+                        EnsureOrdinaryDirectory(project.Root, Path.Combine(buildDirectory, parent));
+                }
             }
 
             var directories = ToolDirectories(Path.GetDirectoryName(engine.Path));
-            var env = CreateEnvironment(project.Root, directories);
+            var env = CreateEnvironment(project, directories);
             // Tectonic resolves project assets relative to the primary input. Keep its original entry;
             // its SyncTeX page container supplies the typeset width without moving that search root.
             var driver = engine.Name == "tectonic" ? project.MainPath : await PrepareLayoutDriverAsync(project, buildDirectory, token);
             // TeX Live on Windows can fail putenv(TEXMF_OUTPUT_DIRECTORY=...)
             // when its output argument is an absolute path containing Unicode.
-            // Engines already run in project.Root; keep TeX paths relative to
+            // Engines run beside the actual entry; keep TeX paths relative to
             // that working directory, including spaces as single arguments.
-            var inputArgument = engine.Name == "tectonic" ? driver : Path.GetRelativePath(project.Root, driver).Replace(Path.DirectorySeparatorChar, '/');
-            var outputArgument = engine.Name == "tectonic" ? buildDirectory : Path.GetRelativePath(project.Root, buildDirectory).Replace(Path.DirectorySeparatorChar, '/');
+            var inputArgument = engine.Name == "tectonic" ? driver : Path.GetRelativePath(workingDirectory, driver).Replace(Path.DirectorySeparatorChar, '/');
+            var outputArgument = engine.Name == "tectonic" ? buildDirectory : Path.GetRelativePath(workingDirectory, buildDirectory).Replace(Path.DirectorySeparatorChar, '/');
             var arguments = BuildArguments(engine.Name, inputArgument, outputArgument, toolchain);
             if (disableMiKTeXInstaller && engine.Name != "tectonic")
                 arguments = [.. arguments[..^1], engine.Name == "latexmk" ? "-latexoption=--disable-installer" : "--disable-installer", arguments[^1]];
@@ -113,7 +117,7 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
                 if (pass > 1)
                     foreach (var extension in new[] { ".pdf", ".log", ".synctex", ".synctex.gz", ".fls", TexPageLayout.Extension })
                         File.Delete(Path.Combine(buildDirectory, job + extension));
-                result = await RunProcessAsync(engine.Path, arguments, project.Root, env, token);
+                result = await RunProcessAsync(engine.Path, arguments, workingDirectory, env, token);
                 AppendRun(log, pass == 1 ? engine.Name : $"{engine.Name} · 第 {pass} 遍", result);
                 success = result.ExitCode == 0;
                 if (!success || !directEngine) break;
@@ -138,10 +142,7 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
                         if (bibliographyPath is null)
                             throw new IOException($"文献处理需要 {bibliography.Tool}，但未找到该程序。请安装完整的 MiKTeX / TeX Live，或使用 latexmk。");
                         File.Delete(bbl);
-                        var bibArguments = bibliography.Tool == "biber"
-                            ? new[] { "--input-directory", buildDirectory, "--output-directory", buildDirectory, job }
-                            : new[] { job };
-                        var bibResult = await RunProcessAsync(bibliographyPath, bibArguments, buildDirectory, env, token);
+                        var bibResult = await RunBibliographyAsync(project, buildDirectory, job, bibliography.Tool, bibliographyPath, env, token);
                         AppendRun(log, bibliography.Tool, bibResult);
                         success = bibResult.ExitCode == 0;
                         if (!success) break;
@@ -171,6 +172,10 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
                 log.AppendLine("\n──── TeX 日志 ────").AppendLine(fileLog);
             }
 
+            // LaTeX's \include can skip a missing chapter and still exit zero.
+            // Such a PDF is incomplete, even if other auxiliary files are valid.
+            if (Regex.IsMatch(diagnosticLog, @"(?m)^No file .+\.tex\.\s*$", RegexOptions.IgnoreCase))
+                success = false;
             if (!success)
                 return Failure(project, log.ToString(), engineName, watch.Elapsed);
             token.ThrowIfCancellationRequested();
@@ -211,10 +216,10 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
             if (File.Exists(generatedLayout)) File.Copy(generatedLayout, publishedLayout, true);
             else File.Delete(publishedLayout);
 
-            if (cacheInputs is not null)
-                await WritePreviewCacheAsync(project, settings, engine, Path.Combine(buildDirectory, job + ".fls"), cacheInputs, cacheStarted, token);
+            var inputsCurrent = cacheInputs is null ? (bool?)null
+                : await WritePreviewCacheAsync(project, settings, engine, Path.Combine(buildDirectory, job + ".fls"), cacheInputs, cacheStarted, token);
 
-            return new(true, publishedPdf, log.ToString(), ParseDiagnostics(diagnosticLog, project), watch.Elapsed, engineName, synctexAvailable);
+            return new(true, publishedPdf, log.ToString(), ParseDiagnostics(diagnosticLog, project), watch.Elapsed, engineName, synctexAvailable) { InputsCurrent = inputsCurrent };
         }
         catch (OperationCanceledException)
         {
@@ -288,12 +293,19 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
         for (var index = 0; index < lines.Length; index++)
         {
             var line = lines[index].Trim();
-            var located = Regex.Match(line, @"^(?:error:\s*)?(.+?\.(?:tex|sty|cls|bib)):(\d+):\s*(.+)$", RegexOptions.IgnoreCase);
+            var missingSource = Regex.Match(line, @"^No file (.+\.tex)\.$", RegexOptions.IgnoreCase);
+            if (missingSource.Success)
+            {
+                result.Add(new("缺少正文输入文件：" + missingSource.Groups[1].Value + "。请检查相对入口的引用路径。", project.MainPath, 1));
+                continue;
+            }
+            // Tectonic reports the spelling of \input, including extensionless paths.
+            var located = Regex.Match(line, @"^(?:error:\s*(?<path>.+?)|(?<path>.+?\.(?:tex|sty|cls|bib))):(?<line>\d+):\s*(?<message>.+)$", RegexOptions.IgnoreCase);
             if (located.Success)
             {
-                var path = ResolveDiagnosticPath(located.Groups[1].Value.Trim('"', ' ', '('), project);
-                var number = int.TryParse(located.Groups[2].Value, out var value) ? Math.Max(1, value) : 1;
-                var message = located.Groups[3].Value;
+                var path = ResolveDiagnosticPath(located.Groups["path"].Value.Trim('"', ' ', '('), project);
+                var number = int.TryParse(located.Groups["line"].Value, out var value) ? Math.Max(1, value) : 1;
+                var message = located.Groups["message"].Value;
                 result.Add(new(message, path, number, message.Contains("warning", StringComparison.OrdinalIgnoreCase)));
                 continue;
             }
@@ -326,12 +338,18 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
     {
         try
         {
-            var path = Path.GetFullPath(value, project.Root);
-            if (IsWithin(project.Root, path)) return path;
+            var path = Path.GetFullPath(value, EntryDirectory(project));
+            if (IsWithin(project.Root, path))
+            {
+                if (!Path.HasExtension(path) && !File.Exists(path) && File.Exists(path + ".tex")) return path + ".tex";
+                return path;
+            }
         }
         catch (ArgumentException) { }
         return project.MainPath;
     }
+
+    internal static string EntryDirectory(TexProject project) => Path.GetDirectoryName(project.MainPath)!;
 
     internal static bool IsWithin(string root, string candidate)
     {
@@ -398,14 +416,24 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
         return null;
     }
 
-    private static Dictionary<string, string> CreateEnvironment(string root, IEnumerable<string> directories) => new(StringComparer.OrdinalIgnoreCase)
+    private static Dictionary<string, string> CreateEnvironment(TexProject project, IEnumerable<string> directories) => new(StringComparer.OrdinalIgnoreCase)
     {
         ["PATH"] = string.Join(Path.PathSeparator, directories),
-        ["TEXINPUTS"] = root + Path.DirectorySeparatorChar + Path.DirectorySeparatorChar + Path.PathSeparator + (Environment.GetEnvironmentVariable("TEXINPUTS") ?? ""),
-        ["BIBINPUTS"] = root + Path.DirectorySeparatorChar + Path.DirectorySeparatorChar + Path.PathSeparator + (Environment.GetEnvironmentVariable("BIBINPUTS") ?? ""),
-        ["BSTINPUTS"] = root + Path.DirectorySeparatorChar + Path.DirectorySeparatorChar + Path.PathSeparator + (Environment.GetEnvironmentVariable("BSTINPUTS") ?? ""),
+        ["TEXINPUTS"] = InputSearchPath(project, "TEXINPUTS"),
+        ["BIBINPUTS"] = InputSearchPath(project, "BIBINPUTS"),
+        ["BSTINPUTS"] = InputSearchPath(project, "BSTINPUTS"),
         ["TECTONIC_UNTRUSTED_MODE"] = "1"
     };
+
+    private static string InputSearchPath(TexProject project, string variable, string? workingDirectory = null)
+    {
+        // TeX Live's Windows environment handling can mangle non-ASCII absolute
+        // paths. Relative search roots also preserve the actual cwd precedence.
+        workingDirectory ??= EntryDirectory(project);
+        return Path.GetRelativePath(workingDirectory, EntryDirectory(project)).Replace('\\', '/') + Path.PathSeparator
+            + Path.GetRelativePath(workingDirectory, project.Root).Replace('\\', '/') + "//" + Path.PathSeparator
+            + (Environment.GetEnvironmentVariable(variable) ?? "");
+    }
 
     private static void AppendRun(StringBuilder log, string name, ProcessResult result)
     {

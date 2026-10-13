@@ -4,6 +4,7 @@
     <Project Path="src/TeXeed.Core/TeXeed.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/TeXeed.AiEvalTests/TeXeed.AiEvalTests.csproj" />
     <Project Path="tests/TeXeed.AppTests/TeXeed.AppTests.csproj" />
     <Project Path="tests/TeXeed.EditorTests/TeXeed.EditorTests.csproj" />
     <Project Path="tests/TeXeed.PdfTests/TeXeed.PdfTests.csproj" />

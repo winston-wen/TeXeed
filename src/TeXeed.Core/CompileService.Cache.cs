@@ -7,11 +7,23 @@ public sealed record CachedPreview(string PdfPath, bool IsCurrent, bool SynctexA
 public sealed partial class CompileService
 {
     // Bump when changes to compilation/driver rules require regenerating output.
-    private const int PreviewCacheVersion = 1;
+    private const int PreviewCacheVersion = 2;
     private sealed record PreviewCache(int Version, string Root, string Main, string Settings,
         string Engine, Dictionary<string, string> Inputs, Dictionary<string, string> Outputs);
 
-    private static string CachePath(TexProject project) => Path.Combine(project.Root, ".texeed", "preview",
+    private static string OutputDirectory(TexProject project, string kind)
+    {
+        var directory = Path.Combine(project.Root, ".texeed", kind);
+        var relative = Path.GetRelativePath(project.Root, project.MainPath);
+        if (string.IsNullOrEmpty(Path.GetDirectoryName(relative))) return directory;
+        // Distinct nested entries may have the same filename as the default main.
+        // Keep the engine's job name but isolate every output and cache manifest.
+        var identity = relative.Replace(Path.DirectorySeparatorChar, '/');
+        if (OperatingSystem.IsWindows()) identity = identity.ToUpperInvariant();
+        var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
+        return Path.Combine(directory, "entry-" + key);
+    }
+    private static string CachePath(TexProject project) => Path.Combine(OutputDirectory(project, "preview"),
         Path.GetFileNameWithoutExtension(project.MainPath) + ".texeed-cache.json");
     private static string CacheSettings(AppSettings settings) => JsonSerializer.Serialize(new
     {
@@ -24,7 +36,7 @@ public sealed partial class CompileService
 
     public async Task<CachedPreview?> GetCachedPreviewAsync(TexProject project, AppSettings settings, CancellationToken ct = default)
     {
-        var preview = Path.Combine(project.Root, ".texeed", "preview");
+        var preview = OutputDirectory(project, "preview");
         var job = Path.GetFileNameWithoutExtension(project.MainPath);
         var pdf = Path.Combine(preview, job + ".pdf");
         try
@@ -33,7 +45,8 @@ public sealed partial class CompileService
             {
                 // Also show output produced by another editor/build script;
                 // without a manifest it remains a last-known preview, not current.
-                foreach (var candidate in new[] { Path.Combine(project.Root, job + ".pdf"), Path.Combine(project.Root, "build", job + ".pdf") })
+                var entryDirectory = Path.GetDirectoryName(project.MainPath)!;
+                foreach (var candidate in new[] { Path.Combine(entryDirectory, job + ".pdf"), Path.Combine(entryDirectory, "build", job + ".pdf") })
                 {
                     if (!File.Exists(candidate) || !IsOrdinaryInput(project.Root, candidate)) continue;
                     await using var legacy = File.OpenRead(candidate);
@@ -135,7 +148,7 @@ public sealed partial class CompileService
                 if (!line.StartsWith("INPUT ", StringComparison.Ordinal)) continue;
                 try
                 {
-                    var path = Path.GetFullPath(line[6..].Trim().Trim('"'), project.Root);
+                    var path = Path.GetFullPath(line[6..].Trim().Trim('"'), EntryDirectory(project));
                     if (IsWithin(project.Root, path) && Path.GetRelativePath(project.Root, path).StartsWith(".texeed" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
                     paths.Add(path);
                 }
@@ -152,20 +165,22 @@ public sealed partial class CompileService
         }
         return signatures;
     }
-    private static async Task WritePreviewCacheAsync(TexProject project, AppSettings settings, ToolInfo engine,
+    private static async Task<bool?> WritePreviewCacheAsync(TexProject project, AppSettings settings, ToolInfo engine,
         string recorder, Dictionary<string, string> before, DateTime started, CancellationToken ct)
     {
+        bool? inputsCurrent = null;
         try
         {
             var after = await CaptureCacheInputsAsync(project, recorder, ct, scanProject: engine.Name == "tectonic");
             // Removed dependencies are no longer part of this build. Only a
             // dependency that remained active and changed mid-build is unsafe.
-            if (before.Any(item => after.TryGetValue(item.Key, out var value) && value != item.Value)) return;
+            if (before.Any(item => after.TryGetValue(item.Key, out var value) && value != item.Value)) return false;
             foreach (var key in after.Keys.Except(before.Keys))
             {
                 var input = CacheInputPath(project, key);
-                if (input is null || File.GetLastWriteTimeUtc(input) > started) return;
+                if (input is null || File.GetLastWriteTimeUtc(input) > started) return false;
             }
+            inputsCurrent = true;
             var directory = Path.GetDirectoryName(CachePath(project))!;
             var job = Path.GetFileNameWithoutExtension(project.MainPath);
             var outputs = new Dictionary<string, string>();
@@ -174,10 +189,11 @@ public sealed partial class CompileService
             var cache = new PreviewCache(PreviewCacheVersion, project.Root, project.MainPath, CacheSettings(settings),
                 engine.Name + "\n" + ToolIdentity(engine.Path), after, outputs);
             var path = CachePath(project);
-            if (File.Exists(path + ".tmp") && (File.GetAttributes(path + ".tmp") & FileAttributes.ReparsePoint) != 0) return;
+            if (File.Exists(path + ".tmp") && (File.GetAttributes(path + ".tmp") & FileAttributes.ReparsePoint) != 0) return inputsCurrent;
             await File.WriteAllTextAsync(path + ".tmp", JsonSerializer.Serialize(cache), ct);
             File.Move(path + ".tmp", path, true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { }
+        return inputsCurrent;
     }
 }

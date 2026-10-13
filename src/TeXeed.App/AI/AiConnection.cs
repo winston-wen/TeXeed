@@ -7,10 +7,13 @@ namespace TeXeed.App.AI;
 internal sealed class AiConnection : IDisposable
 {
     internal readonly HttpClient Http;
-    internal AiConnection(HttpMessageHandler? handler = null) { Http = handler is null ? new HttpClient() : new HttpClient(handler); Http.Timeout = TimeSpan.FromMinutes(10); }
+    private readonly string? _credentialsHome;
+    internal string ConnectionIdentity => AiCredentials.Load(_credentialsHome).ConnectionIdentity;
+    internal AiConnection(HttpMessageHandler? handler = null, string? credentialsHome = null)
+    { _credentialsHome = credentialsHome; Http = handler is null ? new HttpClient() : new HttpClient(handler); Http.Timeout = TimeSpan.FromMinutes(10); }
     internal async Task<string> BearerAsync(CancellationToken token, string? expectedIdentity = null)
     {
-        using var gate = await AiCredentials.LockAsync(token); var settings = AiCredentials.Load();
+        using var gate = await AiCredentials.LockAsync(token, _credentialsHome); var settings = AiCredentials.Load(_credentialsHome);
         if (expectedIdentity is not null && settings.ConnectionIdentity != expectedIdentity) throw new InvalidOperationException("连接账号已在其他窗口改变，本次提交已停止，请确认账号后重试。");
         if (settings.UseApiKey)
         { if (string.IsNullOrWhiteSpace(settings.ApiKey)) throw new InvalidOperationException("请先设置 API Key。"); return settings.ApiKey; }
@@ -26,24 +29,24 @@ internal sealed class AiConnection : IDisposable
                 using var keys = JsonDocument.Parse(await Http.GetStringAsync(ChatGptLogin.Issuer + "/.well-known/jwks.json", token));
                 if (ChatGptLogin.ValidateIdentity(id.GetString()!, account.ClientId, null, keys.RootElement).Subject != account.Subject) throw new InvalidOperationException("刷新令牌的账号不匹配，请重新登录。");
             }
-            ChatGptLogin.ApplyTokens(account, json); settings.Save();
+            ChatGptLogin.ApplyTokens(account, json); settings.Save(_credentialsHome);
         }
         return account.AccessToken;
     }
     internal async Task LoginAsync(string? client, CancellationToken token)
     {
         AiCredentials saved;
-        using (await AiCredentials.LockAsync(token)) { saved = AiCredentials.Load(); saved.Save(); }
+        using (await AiCredentials.LockAsync(token, _credentialsHome)) { saved = AiCredentials.Load(_credentialsHome); saved.Save(_credentialsHome); }
         var account = await new ChatGptLogin(Http).LoginAsync(saved.HostId, saved.Accounts.FirstOrDefault(a => a.ClientId == client), token);
-        using (await AiCredentials.LockAsync(token))
+        using (await AiCredentials.LockAsync(token, _credentialsHome))
         {
-            saved = AiCredentials.Load(); saved.Accounts.RemoveAll(a => a.ClientId == account.ClientId && a.Subject == account.Subject);
-            saved.Accounts.Add(account); saved.ActiveClient = account.ClientId; saved.UseApiKey = false; saved.Model = ""; saved.Save();
+            saved = AiCredentials.Load(_credentialsHome); saved.Accounts.RemoveAll(a => a.ClientId == account.ClientId && a.Subject == account.Subject);
+            saved.Accounts.Add(account); saved.ActiveClient = account.ClientId; saved.UseApiKey = false; saved.Model = ""; saved.Save(_credentialsHome);
         }
     }
     internal async Task<string> LogoutAsync(CancellationToken token)
     {
-        using var gate = await AiCredentials.LockAsync(token); var saved = AiCredentials.Load(); var account = saved.Active;
+        using var gate = await AiCredentials.LockAsync(token, _credentialsHome); var saved = AiCredentials.Load(_credentialsHome); var account = saved.Active;
         var revoked = false;
         if (account is null) return "尚未登录";
         try
@@ -59,7 +62,7 @@ internal sealed class AiConnection : IDisposable
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or InvalidOperationException) { }
-        finally { account.AccessToken = account.RefreshToken = account.IdToken = ""; saved.Model = ""; saved.Save(); }
+        finally { account.AccessToken = account.RefreshToken = account.IdToken = ""; saved.Model = ""; saved.Save(_credentialsHome); }
         return revoked ? "已退出 ChatGPT" : "已清除本机登录；远端撤销未确认，可在 ChatGPT 设置中断开 TeXeed。";
     }
     internal async Task<List<AiModel>> ModelsAsync(CancellationToken token)

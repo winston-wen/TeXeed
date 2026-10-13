@@ -31,15 +31,16 @@ internal sealed class AiCredentials
     public string ConnectionIdentity => UseApiKey ? "key:" + AiStorage.Hash(ApiKey) : "chatgpt:" + ActiveClient + ":" + Active?.Subject;
     [System.Text.Json.Serialization.JsonIgnore]
     public AiAccount? Active => Accounts.FirstOrDefault(a => a.ClientId == ActiveClient);
-    private static string Location => Path.Combine(AiStorage.Home, "credentials.dpapi");
-    internal static AiCredentials Load() => File.Exists(Location)
-        ? JsonSerializer.Deserialize<AiCredentials>(Protect(File.ReadAllBytes(Location), false)) ?? new() : new();
-    internal void Save()
+    private static string Location(string? home) => Path.Combine(home ?? AiStorage.Home, "credentials.dpapi");
+    internal static AiCredentials Load(string? home = null) => File.Exists(Location(home))
+        ? JsonSerializer.Deserialize<AiCredentials>(Protect(File.ReadAllBytes(Location(home)), false)) ?? new() : new();
+    internal void Save(string? home = null)
     {
-        Directory.CreateDirectory(AiStorage.Home);
+        Directory.CreateDirectory(home ?? AiStorage.Home);
+        var location = Location(home);
         var data = JsonSerializer.SerializeToUtf8Bytes(this);
-        var temp = Location + "." + Guid.NewGuid().ToString("N");
-        try { File.WriteAllBytes(temp, Protect(data, true)); AtomicFile.Replace(temp, Location); }
+        var temp = location + "." + Guid.NewGuid().ToString("N");
+        try { File.WriteAllBytes(temp, Protect(data, true)); AtomicFile.Replace(temp, location); }
         finally { CryptographicOperations.ZeroMemory(data); if (File.Exists(temp)) File.Delete(temp); }
     }
     // DPAPI CurrentUser. No machine-wide protection and no plaintext fallback.
@@ -61,13 +62,14 @@ internal sealed class AiCredentials
     [DllImport("crypt32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool CryptProtectData(ref Blob input, string? description, IntPtr entropy, IntPtr reserved, IntPtr prompt, int flags, out Blob output);
     [DllImport("crypt32.dll", SetLastError = true)] private static extern bool CryptUnprotectData(ref Blob input, IntPtr description, IntPtr entropy, IntPtr reserved, IntPtr prompt, int flags, out Blob output);
     [DllImport("kernel32.dll")] private static extern IntPtr LocalFree(IntPtr memory);
-    internal static async Task<FileStream> LockAsync(CancellationToken token)
+    internal static async Task<FileStream> LockAsync(CancellationToken token, string? home = null)
     {
-        Directory.CreateDirectory(AiStorage.Home);
+        var directory = home ?? AiStorage.Home;
+        Directory.CreateDirectory(directory);
         while (true)
         {
             token.ThrowIfCancellationRequested();
-            try { return new FileStream(Path.Combine(AiStorage.Home, "credentials.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            try { return new FileStream(Path.Combine(directory, "credentials.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
             catch (IOException) { await Task.Delay(150, token); }
         }
     }

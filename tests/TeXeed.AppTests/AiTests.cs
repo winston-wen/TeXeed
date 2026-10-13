@@ -95,6 +95,7 @@ internal static partial class Program
         using var brokenConnection = new AiConnection(new AiFakeHandler { Broken = true }); var failed = false;
         try { await new AiResponses(brokenConnection).RunAsync("test-model", restored.Entries, [], files, _ => { }, _ => { }, CancellationToken.None); } catch (InvalidOperationException) { failed = true; }
         Check(failed, "Interrupted stream treated as success");
+        await CheckAiStreamRecoveryAsync(Check);
         var batchHandler = new AiFakeHandler();
         using (var batchPanel = new AiPanel(new AiConnection(batchHandler)))
         {
@@ -150,6 +151,7 @@ internal static partial class Program
         Check(emptyLegacy.DisplayAnswer.Contains("未保存回答"), "Legacy empty answer is not explained to the user");
         var nextInput = AiResponses.MakeInput([new AiEntry { Question = "新的问题" }], [emptyLegacy]);
         Check(nextInput.Count == 1 && !nextInput.ToJsonString().Contains("旧的空回答问题"), "Legacy empty replies polluted the next request context");
+        CheckAiContextBudget(Check);
         AiStorage.Save(legacyProject, migrated.Snapshot());
         using (var migratedJson = JsonDocument.Parse(File.ReadAllText(legacyPath)))
             Check(migratedJson.RootElement.TryGetProperty("Conversations", out _) && !migratedJson.RootElement.TryGetProperty("Entries", out _), "History schema duplicates media at notebook root");

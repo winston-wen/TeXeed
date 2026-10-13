@@ -150,7 +150,7 @@ public partial class MainWindow : Window
             _externalChangePending = false; _assetChangePending = false;
             await _aiPanel.SetProjectAsync(project.MainPath);
             SetAiMarking(false);
-            _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null;
+            _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
             Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;
@@ -159,7 +159,9 @@ public partial class MainWindow : Window
             PdfStatus.Text = "等待首次编译";
             var main = project.Files.First(f => string.Equals(f.Path, project.MainPath, StringComparison.OrdinalIgnoreCase));
             _workspaceTabs.Reset(main.Path); _activeEditor = LeftEditor;
-            ActivateFile(main.Path); RefreshIndex(); SetupWatcher();
+            ActivateFile(main.Path); RefreshIndex();
+            var initialInputs = new CompileInputSnapshot(project); _previewInputs = initialInputs;
+            SetupWatcher();
             _settings = _settings with { RecentProjects = new[] { project.MainPath }.Concat(_settings.RecentProjects.Where(p => !p.Equals(project.MainPath, StringComparison.OrdinalIgnoreCase))).Take(10).ToArray() };
             PersistSettings(); UpdateRecent();
             Status(project.Warnings.Count > 0 ? string.Join("；", project.Warnings) : $"已打开 {project.Name} · {project.Files.Count} 个文件");
@@ -168,11 +170,15 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    if (cached.IsCurrent) PrepareSync(cached.PdfPath);
+                    var cacheCurrent = cached.IsCurrent && await initialInputs.IsCurrentAsync(_projects);
+                    var dependencyVersion = initialInputs.ChangeVersion;
+                    if (cacheCurrent) PrepareSync(cached.PdfPath);
                     await Preview.LoadAsync(cached.PdfPath);
                     _pdfPath = cached.PdfPath;
-                    _pdfRevision = cached.IsCurrent ? _revision : -1;
-                    Status(cached.IsCurrent ? "已加载本地编译缓存 · 无需重新编译"
+                    _previewProject = project;
+                    cacheCurrent &= dependencyVersion == initialInputs.ChangeVersion;
+                    _pdfRevision = cacheCurrent ? _revision : -1;
+                    Status(cacheCurrent ? "已加载本地编译缓存 · 无需重新编译"
                         : _settings.LivePreview ? "已恢复上次预览 · 正在后台更新…" : "已恢复上次预览 · 可手动编译更新");
                 }
                 catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException)
@@ -304,7 +310,7 @@ public partial class MainWindow : Window
     private bool ActiveBuildNeedsReplacement => _revision != _activeBuildRevision || _buildEpoch != _activeBuildEpoch ||
         _activeBuildSettings is { } active && (active.Engine != _settings.Engine || active.EnginePath != _settings.EnginePath);
 
-    private async Task BuildAsync(bool explicitRequest = true, CancellationToken cancellationToken = default, bool reportErrors = true)
+    private async Task BuildAsync(bool explicitRequest = true, CancellationToken cancellationToken = default, bool reportErrors = true, string? entryFile = null)
     {
         if (_project == null || _transitioning || _closing) return;
         if (!explicitRequest && !_settings.LivePreview) return;
@@ -324,16 +330,26 @@ public partial class MainWindow : Window
             cancellationToken.ThrowIfCancellationRequested();
             if (_changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
             var revision = _revision; var project = _project;
+            project = await LoadCompileEntryAsync(project, entryFile, cancellationToken);
+            if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
+            if (revision != _revision || _changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
+            _lastCompileEntryPath = project.MainPath; _lastCompileRevision = revision; _lastCompileBuildEpoch = epoch;
+            _lastCompilePreviewPublished = false; _lastCompileDependenciesCurrent = false;
+            var inputs = new CompileInputSnapshot(project); _activeCompileInputs = inputs;
             _activeBuildRevision = revision; _activeBuildSettings = _settings;
             if (!explicitRequest)
             {
                 var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
                 if (revision != _revision || _changes.Count > 0) { _buildAgain = true; return; }
-                if (cached is { IsCurrent: true })
+                if (cached is { IsCurrent: true } && await inputs.IsCurrentAsync(_projects, cancellationToken))
                 {
+                    var dependencyVersion = inputs.ChangeVersion;
                     if (_pdfPath != cached.PdfPath) { _pdfGeneration++; await Preview.LoadAsync(cached.PdfPath); }
-                    _pdfPath = cached.PdfPath; _pdfRevision = revision;
-                    Status("已复用本地编译缓存"); QueueFollowSync();
+                    if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
+                    var cacheCurrent = dependencyVersion == inputs.ChangeVersion && revision == _revision && _changes.Count == 0;
+                    _pdfPath = cached.PdfPath; _pdfRevision = cacheCurrent ? revision : -1; _previewProject = project; _previewInputs = inputs;
+                    Status(cacheCurrent ? "已复用本地编译缓存" : "预览载入期间依赖已修改 · 请重新编译");
+                    if (cacheCurrent) QueueFollowSync();
                     return;
                 }
             }
@@ -342,22 +358,30 @@ public partial class MainWindow : Window
             var result = await _compileTask;
             _lastCompileResult = result;
             if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
+            // The engine recorder also covers macro-driven inputs absent from the
+            // static graph. An unavailable check is not evidence of stale input.
+            _lastCompileDependenciesCurrent = result.InputsCurrent != false && await inputs.IsCurrentAsync(_projects, cancellationToken);
+            if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
             LogText.Text = result.Log; DiagnosticsList.ItemsSource = result.Diagnostics;
-            LogExpander.Header = result.Success ? $"编译输出 · {result.Duration.TotalSeconds:F1}s · {result.Engine}" : "编译输出 · 需要处理的问题";
-            if (result.Success && result.PdfPath != null)
+            var entryLabel = Path.GetRelativePath(project.Root, project.MainPath);
+            LogExpander.Header = result.Success ? $"编译输出 · {entryLabel} · {result.Duration.TotalSeconds:F1}s · {result.Engine}" : $"编译输出 · {entryLabel} · 需要处理的问题";
+            if (result.Success && result.PdfPath != null && revision == _revision && _changes.Count == 0 && _lastCompileDependenciesCurrent)
             {
+                var dependencyVersion = inputs.ChangeVersion;
                 _pdfGeneration++; _pdfRevision = -1;
                 PrepareSync(result.PdfPath);
                 await Preview.LoadAsync(result.PdfPath);
                 if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
-                _pdfPath = result.PdfPath; _pdfRevision = revision;
-                Status($"编译成功 · {result.Engine} · {result.Duration.TotalSeconds:F1}s" + (!result.SynctexAvailable ? " · 未生成 SyncTeX 定位信息" : ""));
+                _lastCompileDependenciesCurrent &= dependencyVersion == inputs.ChangeVersion;
+                _pdfPath = result.PdfPath; _pdfRevision = _lastCompileDependenciesCurrent ? revision : -1; _previewProject = project; _previewInputs = inputs;
+                _lastCompilePreviewPublished = revision == _revision && _changes.Count == 0 && _lastCompileDependenciesCurrent;
+                Status(_lastCompilePreviewPublished ? $"编译成功 · {entryLabel} · {result.Engine} · {result.Duration.TotalSeconds:F1}s" + (!result.SynctexAvailable ? " · 未生成 SyncTeX 定位信息" : "") : "预览载入期间源码已修改 · 结果已过期，请重新编译");
                 if (revision == _revision) QueueFollowSync();
             }
             else
             {
                 LogExpander.IsExpanded = true;
-                Status("编译未完成 · 已保留上次预览，请查看编译输出");
+                Status(result.Success ? "编译期间源码已修改 · 结果已过期，已保留上次预览" : "编译未完成 · 已保留上次预览，请查看编译输出");
             }
             if (_settings.LivePreview && revision != _revision) _buildAgain = true;
         }
@@ -368,7 +392,7 @@ public partial class MainWindow : Window
             var again = _buildAgain && ActiveBuildNeedsReplacement;
             var explicitAgain = _buildAgainExplicit;
             _buildAgain = false; _buildAgainExplicit = false; _activeBuildRevision = -1; _activeBuildSettings = null;
-            _compileTask = null; _building = false; CancelBuildMenuItem.IsEnabled = false;
+            _compileTask = null; _activeCompileInputs = null; _building = false; CancelBuildMenuItem.IsEnabled = false;
             if (again && !_closing && !_transitioning && (explicitAgain || _settings.LivePreview))
                 ScheduleBuildAt(explicitAgain ? Environment.TickCount64 : _liveBuildDueAt, explicitAgain);
             QueueExternalRefresh();
@@ -422,8 +446,8 @@ public partial class MainWindow : Window
         try
         {
             var point = !explicitRequest && mode == PreviewFollowMode.Viewport
-                ? await _sync.ForwardViewportAsync(_project, _pdfPath, location, _settings, cancellation.Token)
-                : await _sync.ForwardAsync(_project, _pdfPath, location, _settings, cancellation.Token);
+                ? await _sync.ForwardViewportAsync(_previewProject ?? _project, _pdfPath, location, _settings, cancellation.Token)
+                : await _sync.ForwardAsync(_previewProject ?? _project, _pdfPath, location, _settings, cancellation.Token);
             if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration ||
                 _pdfRevision != revision || _building || _transitioning || _closing || _externalChangePending ||
                 (explicitRequest ? Editor.CurrentLocation : AutomaticSyncLocation) != location ||
@@ -448,13 +472,14 @@ public partial class MainWindow : Window
         var originalViewport = Editor.ViewportLocation;
         try
         {
-            var source = await _sync.InverseAsync(_project, _pdfPath, point, _settings);
+            var source = await _sync.InverseAsync(_previewProject ?? _project, _pdfPath, point, _settings);
             if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration ||
                 _pdfRevision != revision || _building || _transitioning || _closing || _externalChangePending ||
                 Editor.CurrentLocation != originalLocation || Editor.ViewportLocation != originalViewport) return;
             if (source == null) { Status("未找到对应源码，请检查 SyncTeX 设置。"); return; }
-            if (!CurrentFiles().Any(f => f.IsEditable && f.Path.Equals(source.Path, StringComparison.OrdinalIgnoreCase)))
-            { Status("定位结果不属于当前已载入的项目文件。"); return; }
+            if (!CurrentFiles().Any(f => f.IsEditable && f.Path.Equals(source.Path, StringComparison.OrdinalIgnoreCase)) && !await ImportPreviewSourceAsync(source))
+            { Status("定位来源不属于当前预览依赖，或文件已改变；请重新编译后再定位。"); return; }
+            if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration || _transitioning || _closing) return;
             _inverseNavigationOwner = request;
             ActivateFile(source.Path); Editor.NavigateTo(source); _syncTimer.Stop();
             // AvalonEdit restores scroll positions during layout; suppress those deferred
@@ -511,20 +536,24 @@ public partial class MainWindow : Window
     private void SetupWatcher()
     {
         _watcher?.Dispose(); if (_project == null) return;
-        var session = _session;
-        var watcher = new FileSystemWatcher(_project.Root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size };
+        var session = _session; var root = _project.Root;
+        var watcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size };
         _watcher = watcher;
         void Changed(string path)
         {
-            if (path.Contains(Path.DirectorySeparatorChar + ".texeed" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || Dispatcher.HasShutdownStarted) return;
-            var extension = Path.GetExtension(path);
-            var source = new[] { ".tex", ".bib", ".sty", ".cls", ".bst" }.Contains(extension, StringComparer.OrdinalIgnoreCase);
-            var asset = new[] { ".pdf", ".png", ".jpg", ".jpeg", ".eps", ".svg", ".tif", ".tiff", ".bmp" }.Contains(extension, StringComparer.OrdinalIgnoreCase);
-            if (!source && !asset) return;
+            if (Dispatcher.HasShutdownStarted || !IsWatchedCompileLocation(root, path)) return;
+            var potentialInput = IsPotentialCompileInput(root, path);
+            var source = TeXeed.App.AI.AiWorkspaceFiles.IsSource(path);
             Dispatcher.BeginInvoke(() =>
             {
                 if (session != _session || !ReferenceEquals(watcher, _watcher) || _closing) return;
-                _externalChangePending = true; _assetChangePending |= asset;
+                // A checked-in .bbl or other normally generated suffix can be an
+                // explicit source dependency. Inspect UI-owned snapshots here.
+                if (!potentialInput && _activeCompileInputs?.Contains(path) != true && _previewInputs?.Contains(path) != true &&
+                    _project?.Files.Any(f => f.Path.Equals(path, StringComparison.OrdinalIgnoreCase)) != true) return;
+                _activeCompileInputs?.Observe(path);
+                if (!ReferenceEquals(_activeCompileInputs, _previewInputs)) _previewInputs?.Observe(path);
+                _externalChangePending = true; _assetChangePending |= !source;
                 QueueExternalRefresh();
             });
         }
@@ -535,7 +564,7 @@ public partial class MainWindow : Window
             if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(() =>
             {
                 if (session != _session || !ReferenceEquals(watcher, _watcher) || _closing) return;
-                _externalChangePending = true; _assetChangePending = true; QueueExternalRefresh();
+                InvalidateCompileInputTracking();
             });
         };
         watcher.EnableRaisingEvents = true;
@@ -557,6 +586,7 @@ public partial class MainWindow : Window
             var assetChanged = _assetChangePending;
             _externalChangePending = false; _assetChangePending = false;
             var updated = await _projects.LoadAsync(_project.MainPath);
+            var previewCurrent = _previewInputs is null || await _previewInputs.IsCurrentAsync(_projects);
             if (session != _session || _transitioning || _closing || _changes.Count > 0)
             { if (session == _session) { _externalChangePending = true; _assetChangePending |= assetChanged; } return; }
             // Keep detached tabs in this editing session. Their saved baseline remains
@@ -566,6 +596,11 @@ public partial class MainWindow : Window
             updated = updated with { Files = updated.Files.Concat(detached).ToArray() };
             var changed = assetChanged || updated.Files.Count != _project.Files.Count || updated.Files.Any(f => !_project.Files.Any(old => old.Path == f.Path && old.Content == f.Content));
             _project = updated;
+            if (!previewCurrent)
+            {
+                _pdfRevision = -1; CancelForwardSync(); _syncTimer.Stop();
+                Status("预览依赖已修改 · 请重新编译");
+            }
             if (!changed)
             {
                 return;

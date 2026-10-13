@@ -50,7 +50,12 @@ public sealed record AppSettings
     public string[] RecentProjects { get; init; } = [];
 }
 public sealed record Diagnostic(string Message, string Path, int Line, bool IsWarning = false);
-public sealed record CompileResult(bool Success, string? PdfPath, string Log, IReadOnlyList<Diagnostic> Diagnostics, TimeSpan Duration, string Engine, bool SynctexAvailable);
+public sealed record CompileResult(bool Success, string? PdfPath, string Log, IReadOnlyList<Diagnostic> Diagnostics, TimeSpan Duration, string Engine, bool SynctexAvailable)
+{
+    // Null means verification was unavailable (for example a bounded cache scan).
+    // False is positive evidence that inputs changed while the engine was running.
+    public bool? InputsCurrent { get; init; }
+}
 public sealed record PdfLocation(int Page, double X, double Y, double Width = 0, double Height = 0);
 public sealed record ToolInfo(string Name, string Path);
 public sealed record Toolchain(IReadOnlyList<ToolInfo> Engines, string? SynctexPath);

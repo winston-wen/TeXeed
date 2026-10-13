@@ -16,6 +16,12 @@ internal static partial class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Contains("--ai-live-agent"))
+        {
+            AiLiveAgentEval.ProviderHandlerFactory = options => options.Provider == "deepseek"
+                ? new AiDeepSeekHandler() : new System.Net.Http.HttpClientHandler();
+            return AiLiveAgentEval.Run(args);
+        }
         if (args.Contains("--ai-live-probe")) return AiLiveProbe.RunAsync(args).GetAwaiter().GetResult();
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
         var outputArgument = Array.IndexOf(args, "--output");
@@ -55,6 +61,21 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--ai-dependency-only"))
+                {
+                    await CheckAiCompileDependenciesAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "AI compile dependency regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-entry-only"))
+                {
+                    await CheckAiCompileEntriesAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "AI compile entry regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-discovery-only"))
+                {
+                    await CheckAiDiscoveryAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "AI project discovery regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-agent-only"))
                 {
                     await CheckAiAgentAsync(window, root, output);

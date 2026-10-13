@@ -14,6 +14,7 @@ public static class ProjectTests
         {
             await DiscoveryAndSaveAsync(fixture);
             await EncodingAndConflictAsync(fixture);
+            await AlternateEntryRootAsync(fixture);
             Indexing();
             Formatting();
         }
@@ -24,6 +25,36 @@ public static class ProjectTests
                 Path.GetFileName(resolvedFixture).StartsWith("texeed-project-tests-", StringComparison.Ordinal))
                 Directory.Delete(resolvedFixture, true);
         }
+    }
+
+    private static async Task AlternateEntryRootAsync(string fixture)
+    {
+        var root = Path.Combine(fixture, "alternate-entry");
+        Directory.CreateDirectory(Path.Combine(root, "validation"));
+        var entry = Path.Combine(root, "validation", "wrapper.tex");
+        var shared = Path.Combine(root, "preamble.tex");
+        await File.WriteAllTextAsync(shared, "\\newcommand{\\sharedmacro}{Shared}");
+        await File.WriteAllTextAsync(entry, "\\input{../preamble}\n\\input{../../outside}\n");
+        var service = new ProjectService();
+        var ordinary = await service.LoadAsync(entry);
+        Check.Equal(Path.GetDirectoryName(entry), ordinary.Root);
+        Check.True(!ordinary.Files.Any(f => f.Path == shared), "Default loading must keep its original main-directory boundary");
+        var alternate = await service.LoadAsync(entry, rootDirectory: root);
+        Check.Equal(root, alternate.Root);
+        Check.Equal(entry, alternate.MainPath);
+        Check.True(alternate.Files.Any(f => f.Path == shared), "Alternate entry must resolve shared sources inside the supplied workspace root");
+        Check.True(await service.MatchesSourcesAsync(alternate), "Unchanged alternate dependencies do not match their source snapshot");
+        var previousStamp = File.GetLastWriteTimeUtc(shared);
+        var previousContent = await File.ReadAllTextAsync(shared);
+        await File.WriteAllTextAsync(shared, previousContent.Replace("Shared", "shared"));
+        File.SetLastWriteTimeUtc(shared, previousStamp);
+        Check.True(!await service.MatchesSourcesAsync(alternate), "Same-size/time edits to an alternate-only dependency were not detected");
+        await File.WriteAllTextAsync(shared, previousContent); File.SetLastWriteTimeUtc(shared, previousStamp);
+        Check.True(alternate.Warnings.Any(w => w.Contains("outside")), "Alternate entry must not escape the supplied root");
+        await Check.ThrowsAsync<UnauthorizedAccessException>(() => service.LoadAsync(Path.Combine(fixture, "outside.tex"), rootDirectory: root));
+        var saved = await service.SaveAsync(alternate, new Dictionary<string, string> { [shared] = "\\newcommand{\\sharedmacro}{Updated}" });
+        Check.Equal(root, saved.Root);
+        Check.True(saved.Files.Any(f => f.Path == shared && f.Content.Contains("Updated")), "Saving a wider-root alternate project must preserve that authorized root");
     }
 
     private static async Task DiscoveryAndSaveAsync(string fixture)

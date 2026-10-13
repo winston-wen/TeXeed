@@ -155,6 +155,11 @@ public partial class AiPanel : UserControl, IDisposable
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var generation = _generation; var book = _book;
             var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.Title}：{x.Question}"));
+            // Name the conversation as soon as the first valid question is accepted. The
+            // initial save below persists it before any model request can fail or stall.
+            if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
+            book.Active.UpdatedAt = DateTimeOffset.UtcNow;
+            ConversationTitle.Text = book.Active.Title;
             Composer.Clear(); StatusText.Text = "";
             foreach (var entry in selected) entry.State = "提交中"; Rebind();
             var buffer = new AiStreamBuffer();
@@ -211,7 +216,6 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
                     book.Turns.Add(new(question, answer) { Model = modelId, ReasoningEffort = effort, Segments = segments });
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
                     Rebind(); RefreshTranscript(); await SaveAsync();

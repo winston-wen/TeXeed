@@ -16,10 +16,12 @@ public sealed class ProjectService
         "documentclass", "LoadClass", "bibliographystyle", "includegraphics", "graphicspath"
     };
 
-    public async Task<TexProject> LoadAsync(string mainPath, CancellationToken ct = default)
+    public async Task<TexProject> LoadAsync(string mainPath, CancellationToken ct = default, string? rootDirectory = null)
     {
         mainPath = Path.GetFullPath(mainPath);
-        var root = Path.GetDirectoryName(mainPath) ?? throw new ArgumentException("主文件必须位于文件夹中。", nameof(mainPath));
+        var root = rootDirectory is null
+            ? Path.GetDirectoryName(mainPath) ?? throw new ArgumentException("主文件必须位于文件夹中。", nameof(mainPath))
+            : Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootDirectory));
         EnsureSafePath(root, mainPath);
         if (!File.Exists(mainPath)) throw new FileNotFoundException("找不到 LaTeX 主文件。", mainPath);
         var files = new List<ProjectFile>();
@@ -150,6 +152,27 @@ public sealed class ProjectService
     }
     private sealed record ProjectMetadata(string? Name);
 
+    /// <summary>Checks only the supplied dependency snapshot; does not enumerate the workspace.</summary>
+    public async Task<bool> MatchesSourcesAsync(TexProject project, CancellationToken ct = default)
+    {
+        try
+        {
+            foreach (var file in project.Files)
+            {
+                ct.ThrowIfCancellationRequested();
+                EnsureSafePath(project.Root, file.Path);
+                if (!File.Exists(file.Path)) return false;
+                if (!file.IsEditable) continue;
+                if (new FileInfo(file.Path).Length > MaximumTextFileBytes) return false;
+                var bytes = await File.ReadAllBytesAsync(file.Path, ct);
+                if (bytes.LongLength > MaximumTextFileBytes || Decode(bytes).Text != file.Content) return false;
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or DecoderFallbackException)
+        { return false; }
+    }
+
     public async Task<TexProject> SaveAsync(TexProject project, IReadOnlyDictionary<string, string> changes, CancellationToken ct = default)
     {
         var root = Path.GetFullPath(project.Root);
@@ -207,7 +230,7 @@ public sealed class ProjectService
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
         }
-        return await LoadAsync(project.MainPath, ct);
+        return await LoadAsync(project.MainPath, ct, project.Root);
     }
 
     private static IEnumerable<Dependency> Dependencies(LatexCommand command)

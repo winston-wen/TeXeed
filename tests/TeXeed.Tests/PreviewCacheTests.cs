@@ -60,6 +60,26 @@ public static partial class PreviewCacheChecks
         Check.True((await service.GetCachedPreviewAsync(project, settings)) is { IsCurrent: false }, "Failed build must invalidate the old current marker but preserve its preview");
         Environment.SetEnvironmentVariable("TEXEED_TEST_FAKE_ENGINE", "success");
         await service.CompileAsync(project, settings);
+        var defaultPdf = await File.ReadAllBytesAsync(pdf);
+        var defaultManifest = await File.ReadAllBytesAsync(manifest);
+        var nestedDirectory = Path.Combine(project.Root, "validation"); Directory.CreateDirectory(nestedDirectory);
+        var nestedMain = Path.Combine(nestedDirectory, Path.GetFileName(project.MainPath));
+        await File.WriteAllTextAsync(nestedMain, "\\documentclass{article}\n\\begin{document}Different entry.\\end{document}");
+        var nestedProject = await new ProjectService().LoadAsync(nestedMain, rootDirectory: project.Root);
+        var nestedResult = await service.CompileAsync(nestedProject, settings);
+        Check.True(nestedResult.Success && nestedResult.PdfPath != pdf, "Same-name nested entry must have an isolated published PDF");
+        var retainedPdf = await File.ReadAllBytesAsync(pdf); var retainedManifest = await File.ReadAllBytesAsync(manifest);
+        Check.True(defaultPdf.SequenceEqual(retainedPdf) && defaultManifest.SequenceEqual(retainedManifest), "Nested entry compilation must not overwrite the default PDF or manifest");
+        Check.True((await service.GetCachedPreviewAsync(project, settings)) is { IsCurrent: true }, "Nested entry invalidated the default entry cache");
+        Check.True((await service.GetCachedPreviewAsync(nestedProject, settings)) is { IsCurrent: true } nestedCache && nestedCache.PdfPath == nestedResult.PdfPath, "Nested entry cache cannot be recovered independently");
+        Environment.SetEnvironmentVariable("TEXEED_TEST_FAKE_ENGINE", "mutate-input");
+        var changedDuringCompile = await service.CompileAsync(project, settings);
+        Check.True(changedDuringCompile.Success && changedDuringCompile.InputsCurrent == false, "Recorder dependency changes during an otherwise successful compile must be reported explicitly");
+        Check.True((await service.GetCachedPreviewAsync(project, settings)) is { IsCurrent: false }, "A changed-during-build dependency cannot produce a current manifest");
+        Environment.SetEnvironmentVariable("TEXEED_TEST_FAKE_ENGINE", "success");
+        var verificationUnavailable = project with { Files = project.Files.Append(new ProjectFile(Path.Combine(project.Root, "invalid\0input"), "invalid", ProjectFileKind.Asset, "")).ToArray() };
+        var unavailable = await service.CompileAsync(verificationUnavailable, settings);
+        Check.True(unavailable.Success && unavailable.InputsCurrent is null, "Unavailable input verification must remain distinct from a detected stale input");
         Console.WriteLine("PASS: persistent PDF cache, content changes with preserved timestamps, dynamic assets, engine/UI preferences, corrupt outputs/manifest and failed-build fallback");
     }
 }

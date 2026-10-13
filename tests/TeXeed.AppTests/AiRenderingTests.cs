@@ -76,7 +76,8 @@ internal static partial class Program
         var handler = new AiBurstHandler();
         using var panel = new AiPanel(new AiConnection(handler));
         var host = new Window { Width = 760, Height = 860, Content = panel, Title = "AI 连续追问回归", Owner = window };
-        await panel.SetProjectAsync(Path.Combine(output, "burst.tex"));
+        var panelProject = Path.Combine(output, "burst.tex");
+        await panel.SetProjectAsync(panelProject);
         var models = (ComboBox)panel.Settings.FindName("Models");
         models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
         host.Show();
@@ -93,6 +94,17 @@ internal static partial class Program
                 var before = heartbeat;
                 var submission = panel.SubmitAsync();
                 Check(input.Text.Length == 0 && !input.IsReadOnly, "Submission must clear the composer immediately and permit a new draft");
+                Check(((TextBlock)panel.FindName("ConversationTitle")).Text == "连续追问 0", "Title must update immediately and stay stable on follow-ups");
+                if (round == 0)
+                {
+                    await handler.FirstRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                    Check(!submission.IsCompleted, "Title regression must inspect a request that has not returned");
+                    var saved = AiStorage.Load(panelProject);
+                    Check(saved.Active.Title == "连续追问 0" && saved.Turns.Count == 0, "Title must be persisted before the first model response");
+                    host.UpdateLayout();
+                    Capture(host, Path.Combine(output, "ai-title-during-request.png"));
+                    handler.ReleaseFirstResponse.TrySetResult();
+                }
                 input.Text = "下一条草稿";
                 await panel.SubmitAsync(); // Duplicate clicks must not start another request.
                 await submission.WaitAsync(TimeSpan.FromSeconds(30));
@@ -113,6 +125,31 @@ internal static partial class Program
             Check(input.Text == "下一条草稿" && !input.IsReadOnly && ((Button)panel.FindName("SubmitButton")).IsEnabled, "Cancellation lost the draft or left the composer locked");
             input.Text = "取消后继续"; await panel.SubmitAsync();
             Check(((AiNotebook)Field(panel, "_book")!).Turns.Last().Answer == handler.Answer, "Retry after cancellation failed");
+
+            await panel.NewConversationAsync();
+            input.Text = "首次取消的问题";
+            pending = panel.SubmitAsync();
+            Check(((TextBlock)panel.FindName("ConversationTitle")).Text == "首次取消的问题", "First canceled request was not named immediately");
+            ((Button)panel.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await pending.WaitAsync(TimeSpan.FromSeconds(5));
+            var canceledBook = AiStorage.Load(panelProject);
+            Check(canceledBook.Active.Title == "首次取消的问题" && canceledBook.Turns.Single().Answer.StartsWith("[本轮未完成]"), "Canceling the first turn lost its title or incorrectly completed it");
+
+            await panel.NewConversationAsync();
+            handler.FailNextRequest = true;
+            input.Text = "首次连接失败的问题";
+            await panel.SubmitAsync();
+            var failedBook = AiStorage.Load(panelProject);
+            Check(failedBook.Active.Title == "首次连接失败的问题" && failedBook.Turns.Single().Answer.Contains("模拟连接失败"), "Failure on the first turn lost its title or was not exercised");
+
+            await panel.NewConversationAsync();
+            ((AiNotebook)Field(panel, "_book")!).Active.Title = "保留自定义标题";
+            handler.FailNextRequest = true;
+            input.Text = "不应覆盖已有标题";
+            pending = panel.SubmitAsync();
+            Check(((TextBlock)panel.FindName("ConversationTitle")).Text == "保留自定义标题", "First submission replaced an existing title");
+            await pending.WaitAsync(TimeSpan.FromSeconds(5));
+            Check(AiStorage.Load(panelProject).Active.Title == "保留自定义标题", "Completion replaced an existing title");
         }
         finally { timer.Stop(); host.Close(); }
 
@@ -147,7 +184,7 @@ internal static partial class Program
             popup.IsOpen = false;
         }
         ThemeManager.Apply("ristretto");
-        Console.WriteLine("AI rendering: Markdown, visible long streaming follow-ups, context, cancellation/retry, keyboard routing, history popup and selection contrast passed.");
+        Console.WriteLine("AI rendering: Markdown, immediate/persisted titles, visible long streaming follow-ups, context, cancellation/retry, keyboard routing, history popup and selection contrast passed.");
     }
 
     private static async Task CheckSelectionPixelsAsync(Window owner, string output, string theme)
@@ -200,10 +237,19 @@ internal static partial class Program
     {
         internal string Answer = MarkdownFixture + "\n\n" + string.Concat(Enumerable.Range(0, 100).Select(i => $"段落 {i}：流式长回答中的 **重点** 与 `代码`，可以继续追问。\n\n"));
         internal List<int> HistoryCounts = [];
+        internal TaskCompletionSource FirstRequestStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource ReleaseFirstResponse { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal bool FailNextRequest;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
             var json = JsonNode.Parse(await request.Content!.ReadAsStringAsync(token))!;
             HistoryCounts.Add(json["input"]!.AsArray().Count(n => n?["role"]?.ToString() == "assistant"));
+            if (HistoryCounts.Count == 1)
+            {
+                FirstRequestStarted.TrySetResult();
+                await ReleaseFirstResponse.Task.WaitAsync(token);
+            }
+            if (FailNextRequest) { FailNextRequest = false; throw new HttpRequestException("模拟连接失败"); }
             var events = new StringBuilder();
             foreach (var c in Answer) events.Append("data: ").Append(JsonSerializer.Serialize(new { type = "response.output_text.delta", delta = c.ToString() })).Append("\n\n");
             events.Append("data: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n");

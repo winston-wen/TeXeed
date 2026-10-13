@@ -23,7 +23,7 @@ public sealed class SyncTexService
         if (command is not null)
         {
             var position = FormattableString.Invariant($"{valid.Line}:{valid.Column}:{valid.Path}");
-            var output = await QueryAsync(command, ["view", "-i", position, "-o", pdfPath], project.Root, ct);
+            var output = await QueryAsync(command, ["view", "-i", position, "-o", pdfPath], CompileService.EntryDirectory(project), ct);
             var result = ParseForwardOutput(output);
             if (result is not null) return result;
         }
@@ -48,7 +48,7 @@ public sealed class SyncTexService
         foreach (var (input, file) in index.Files)
         {
             ct.ThrowIfCancellationRequested();
-            try { if (!PathsEqual(Path.GetFullPath(input.Trim('"'), project.Root), valid.Path)) continue; }
+            try { if (!PathsEqual(Path.GetFullPath(input.Trim('"'), CompileService.EntryDirectory(project)), valid.Path)) continue; }
             catch (Exception ex) when (ex is ArgumentException or IOException) { continue; }
             var boundary = Array.BinarySearch(file.Lines, valid.Line);
             if (boundary < 0) boundary = ~boundary;
@@ -86,7 +86,7 @@ public sealed class SyncTexService
         if (command is not null)
         {
             var position = FormattableString.Invariant($"{point.Page}:{point.X}:{point.Y}:{pdfPath}");
-            var output = await QueryAsync(command, ["edit", "-o", position], project.Root, ct);
+            var output = await QueryAsync(command, ["edit", "-o", position], CompileService.EntryDirectory(project), ct);
             var result = ParseInverseOutput(output, project);
             if (result is not null) return result;
         }
@@ -227,7 +227,7 @@ public sealed class SyncTexService
     {
         try
         {
-            var path = Path.GetFullPath(input.Trim('"'), project.Root);
+            var path = Path.GetFullPath(input.Trim('"'), CompileService.EntryDirectory(project));
             if (!CompileService.IsWithin(project.Root, path)) return null;
             var file = project.Files.FirstOrDefault(f => f.IsEditable && PathsEqual(f.Path, path));
             if (file is null) return null;

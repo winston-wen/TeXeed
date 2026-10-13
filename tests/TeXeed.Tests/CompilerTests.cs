@@ -68,6 +68,7 @@ public static class CompilerTests
             Environment.SetEnvironmentVariable("TEXEED_TEST_FAKE_ENGINE", "success");
             var success = await service.CompileAsync(project, settings);
             Check.True(success.Success, success.Log);
+            Check.True(success.InputsCurrent == true, "Stable inputs should be explicitly verified independently of cache restoration");
             Check.True(success.PdfPath is not null && File.Exists(success.PdfPath), "Successful output must be published");
             Check.True(success.SynctexAvailable, "SyncTeX must accompany a successful PDF");
             Check.True((await new CompileService().GetCachedPreviewAsync(project, settings)) is { IsCurrent: true }, "Successful output must be reusable after restarting the service");
@@ -513,6 +514,8 @@ public static class CompilerTests
         var recorderInput = Path.Combine(outputDirectory, "fake-recorder-input");
         if (File.Exists(recorderInput))
             await File.WriteAllTextAsync(Path.Combine(outputDirectory, job + ".fls"), "INPUT " + await File.ReadAllTextAsync(recorderInput) + "\n");
+        if (mode == "mutate-input" && File.Exists(recorderInput))
+            await File.AppendAllTextAsync(await File.ReadAllTextAsync(recorderInput), "changed while the engine was running\n");
         var keyPath = Path.Combine(outputDirectory, "fake-citation-key");
         var key = File.Exists(keyPath) ? await File.ReadAllTextAsync(keyPath) : "alpha";
         var stylePath = Path.Combine(outputDirectory, "fake-style-name");
