@@ -24,6 +24,7 @@ internal static class SettingsStore
             {
                 DebounceMs = Math.Clamp(settings.DebounceMs, 400, 10000), FontSize = Math.Clamp(settings.FontSize, 10, 30),
                 EditorFontFamily = string.IsNullOrWhiteSpace(settings.EditorFontFamily) ? new AppSettings().EditorFontFamily : settings.EditorFontFamily.Trim(),
+                AutoWidthMaximumCm = double.IsFinite(settings.AutoWidthMaximumCm) && settings.AutoWidthMaximumCm is >= 1 and <= 200 ? settings.AutoWidthMaximumCm : 30,
                 RecentProjects = settings.RecentProjects ?? []
             };
         }

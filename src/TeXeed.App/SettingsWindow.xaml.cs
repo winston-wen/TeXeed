@@ -30,6 +30,7 @@ public partial class SettingsWindow : Window
         LiveBox.IsChecked = settings.LivePreview;
         InvertPdfBox.IsChecked = settings.InvertPdfColors;
         AutoCropPdfBox.IsChecked = settings.AutoCropPdf;
+        CompressWhitespaceBox.IsChecked = settings.CompressPdfWhitespace;
         FollowModeBox.ItemsSource = new[] { new { Label = "不跟随", Value = PreviewFollowMode.None }, new { Label = "跟随光标", Value = PreviewFollowMode.Cursor }, new { Label = "跟随视图", Value = PreviewFollowMode.Viewport } };
         FollowModeBox.SelectedValue = Enum.IsDefined(settings.FollowMode) ? settings.FollowMode : PreviewFollowMode.Viewport;
         EditorFontBox.ItemsSource = Fonts.SystemFontFamilies.OrderBy(font => font.Source, StringComparer.CurrentCultureIgnoreCase).ToArray();
@@ -67,7 +68,8 @@ public partial class SettingsWindow : Window
             finally { _saving = false; IsEnabled = true; }
         }
         Settings = Settings with { Engine = (TexEngine)EngineBox.SelectedValue, EnginePath = EnginePathBox.Text.Trim(), SynctexPath = SynctexPathBox.Text.Trim(), LivePreview = LiveBox.IsChecked == true, FollowMode = FollowModeBox.SelectedValue is PreviewFollowMode mode ? mode : PreviewFollowMode.Viewport, DebounceMs = delay, FontSize = font, EditorFontFamily = editorFont };
-        Settings = Settings with { InvertPdfColors = InvertPdfBox.IsChecked == true, AutoCropPdf = AutoCropPdfBox.IsChecked == true };
+        Settings = Settings with { InvertPdfColors = InvertPdfBox.IsChecked == true, AutoCropPdf = AutoCropPdfBox.IsChecked == true,
+            CompressPdfWhitespace = CompressWhitespaceBox.IsChecked == true };
         DialogResult = true;
     }
 }

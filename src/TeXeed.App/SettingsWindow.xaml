@@ -14,7 +14,8 @@
    <Separator Margin="0,0,0,16"/>
    <CheckBox x:Name="LiveBox" Content="实时预览：编辑后自动保存并编译" Margin="0,0,0,12"/>
    <CheckBox x:Name="InvertPdfBox" Content="PDF 反色预览（导出保持原色）" Margin="0,0,0,12"/>
-   <CheckBox x:Name="AutoCropPdfBox" Content="PDF 自动裁边并压缩大段纵向空白" Margin="0,0,0,12" ToolTip="保留少量阅读留白、页码和图表；只影响连续预览，导出保持完整页面。"/>
+   <CheckBox x:Name="AutoCropPdfBox" Content="PDF 自动裁边" Margin="0,0,0,12" ToolTip="按正文版心裁去左右边距，裁去页面上下白边；导出保持完整页面。"/>
+   <CheckBox x:Name="CompressWhitespaceBox" Content="压缩纵向空白" Margin="18,0,0,12" IsEnabled="{Binding IsChecked, ElementName=AutoCropPdfBox}" ToolTip="进一步压缩正文内部的大段空白，保留图表内部留白。"/>
    <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="预览跟随" VerticalAlignment="Center" Margin="0,0,16,0"/><ComboBox x:Name="FollowModeBox" Grid.Column="1" Padding="8" DisplayMemberPath="Label" SelectedValuePath="Value" ToolTip="不跟随：自由浏览 PDF；跟随光标：同步到当前编辑位置；跟随视图：同步到编辑区可见内容的中间位置。Ctrl+J 始终可手动定位到光标。"/></Grid>
    <TextBlock Text="编辑器字体"/><ComboBox x:Name="EditorFontBox" IsEditable="True" IsTextSearchEnabled="True" DisplayMemberPath="Source" TextSearch.TextPath="Source" Margin="0,8,0,6" Padding="8" AutomationProperties.Name="编辑器字体"/>
    <TextBlock Text="保留字体字形，按固定网格排版：英文一格，中文两格。" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,16"/>

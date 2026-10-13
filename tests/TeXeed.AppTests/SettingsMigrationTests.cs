@@ -77,6 +77,21 @@ internal static class SettingsMigrationTests
                 if (((AppSettings)load.Invoke(null, null)!).WordWrap != wrap)
                     throw new InvalidOperationException("Word-wrap preference did not round-trip");
             }
+            File.WriteAllText(path, "{\"FontSize\":19}");
+            var previewDefaults = (AppSettings)load.Invoke(null, null)!;
+            if (!previewDefaults.CompressPdfWhitespace || previewDefaults.AutoWidthMaximumCm != 30)
+                throw new InvalidOperationException("Legacy preview settings must default to compression and a 30 cm width cap");
+            save.Invoke(null, [previewDefaults with { CompressPdfWhitespace = false, AutoWidthMaximumCm = 12.5 }]);
+            var physicalSettings = (AppSettings)load.Invoke(null, null)!;
+            if (physicalSettings.CompressPdfWhitespace || physicalSettings.AutoWidthMaximumCm != 12.5)
+                throw new InvalidOperationException("Independent compression and physical width preferences did not round-trip");
+            foreach (var invalid in new[] { "0", "-1", "201", "1e100" })
+            {
+                File.WriteAllText(path, "{\"AutoWidthMaximumCm\":" + invalid + ",\"FontSize\":19}");
+                var normalized = (AppSettings)load.Invoke(null, null)!;
+                if (normalized.AutoWidthMaximumCm != 30 || normalized.FontSize != 19)
+                    throw new InvalidOperationException("Invalid physical width reset unrelated preferences");
+            }
             Console.WriteLine("PASS: all preview follow modes round-trip, with legacy migration, key priority and invalid-value defaults");
         }
         finally { Environment.SetEnvironmentVariable("TEXEED_HOME", previous); }

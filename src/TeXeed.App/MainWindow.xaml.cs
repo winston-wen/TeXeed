@@ -55,7 +55,8 @@ public partial class MainWindow : Window
         WindowTheme.Attach(this);
         LiveMenuItem.IsChecked = _settings.LivePreview;
         Preview.InvertColors = _settings.InvertPdfColors;
-        Preview.AutoCrop = _settings.AutoCropPdf;
+        Preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
+        Preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
         foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); }
         ApplyWordWrap();
         _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
@@ -655,7 +656,8 @@ public partial class MainWindow : Window
         _settings = dialog.Settings; PersistSettings(); LiveMenuItem.IsChecked = _settings.LivePreview;
         foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); }
         Preview.InvertColors = _settings.InvertPdfColors;
-        Preview.AutoCrop = _settings.AutoCropPdf;
+        Preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
+        Preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
         CancelPendingNavigation();
         QueueFollowSync();
         _liveTimer.Stop(); _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);

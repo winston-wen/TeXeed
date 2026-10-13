@@ -186,12 +186,10 @@ internal static partial class Program
         dialog.Show(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
         var input = (TextBox)dialog.FindName("ZoomInput");
         ((RadioButton)dialog.FindName("ManualZoom")).IsChecked = true; input.Text = "137.62%";
-        ((Button)dialog.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         if (Math.Abs(preview.Zoom - 1.3762) > .00001 || preview.IsAutoWidth) throw new Exception("Preview settings failed to apply precise manual zoom");
-        input.Text = "NaN"; ((Button)dialog.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        input.Text = "NaN";
         if (Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Invalid preview zoom was accepted");
         ((RadioButton)dialog.FindName("AutoWidthBox")).IsChecked = true;
-        ((Button)dialog.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         if (!preview.IsAutoWidth) throw new Exception("Preview settings failed to enable auto width");
         Capture(dialog, Path.Combine(output, "preview-zoom-settings.png")); dialog.Close();
         var before = preview.Zoom; window.Width += 120; window.UpdateLayout();

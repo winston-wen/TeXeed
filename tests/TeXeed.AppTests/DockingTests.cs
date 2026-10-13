@@ -84,10 +84,9 @@ internal static partial class Program
         ((TextBox)settings.FindName("ZoomInput")).Text = "137.62%";
         ((ComboBox)settings.FindName("FollowModeBox")).SelectedValue = PreviewFollowMode.None;
         ((CheckBox)settings.FindName("InvertPdfBox")).IsChecked = false; ((CheckBox)settings.FindName("AutoCropPdfBox")).IsChecked = false;
-        ((Button)settings.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         if (Math.Abs(preview.Zoom - 1.3762) > .00001 || preview.IsAutoWidth || preview.InvertColors || preview.AutoCrop
             || ((AppSettings)Field(window, "_settings")!).FollowMode != PreviewFollowMode.None) throw new Exception("Preview settings did not apply all options");
-        ((TextBox)settings.FindName("ZoomInput")).Text = "NaN"; ((Button)settings.FindName("ApplyButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        ((TextBox)settings.FindName("ZoomInput")).Text = "NaN";
         if (Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Preview settings accepted invalid zoom");
         settings.Close();
         await WaitForPreviewRenderedAsync(window);

@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -37,6 +38,10 @@ public sealed class PdfPreview : UserControl, IDisposable
     private CancellationTokenSource? _loadCancellation, _cropCancellation;
     private Task? _cropTask;
     private PdfDocument? _cropDocument;
+    private Window? _hostWindow;
+    private HwndSource? _hostSource;
+    private PhysicalScreenMetrics _screen = PhysicalScreenMetrics.Estimated;
+    private double _autoWidthMaximumCm = 30;
     private PdfLocation? _highlight;
     public event EventHandler<PdfLocation>? InverseRequested;
     public event EventHandler? ViewInteracted;
@@ -44,21 +49,39 @@ public sealed class PdfPreview : UserControl, IDisposable
     public int PageCount => _document?.Pages.Count ?? 0;
     public double Zoom => _zoom;
     public bool IsAutoWidth => _fit;
+    public bool PhysicalWidthIsEstimated => _screen.IsEstimated;
+    public double AutoWidthMaximumCm
+    {
+        get => _autoWidthMaximumCm;
+        set
+        {
+            if (_disposed || !double.IsFinite(value) || value is < 1 or > 200 || value == _autoWidthMaximumCm) return;
+            _autoWidthMaximumCm = value;
+            if (_fit) FitWidth();
+        }
+    }
     public double MaximumZoom => _autoCrop ? 8 : 3;
     public event EventHandler? ZoomChanged;
     private bool _autoCrop;
+    private bool _compressWhitespace = true;
+    public bool CompressVerticalWhitespace
+    {
+        get => _compressWhitespace;
+        set => SetCropOptions(_autoCrop, value);
+    }
     public bool AutoCrop
     {
         get => _autoCrop;
-        set
-        {
-            if (_disposed || _autoCrop == value) return;
-            var anchor = CaptureAnchor(ViewportCenter);
-            _autoCrop = value;
-            _zoom = Math.Clamp(_zoom, .2, MaximumZoom);
-            RebuildCropLayout(anchor);
-            if (value && _document is { Crops: null } document) StartCropAnalysis(document);
-        }
+        set => SetCropOptions(value, _compressWhitespace);
+    }
+    public void SetCropOptions(bool crop, bool compressWhitespace)
+    {
+        if (_disposed || _autoCrop == crop && _compressWhitespace == compressWhitespace) return;
+        var anchor = CaptureAnchor(ViewportCenter);
+        _autoCrop = crop; _compressWhitespace = compressWhitespace;
+        _zoom = Math.Clamp(_zoom, .2, MaximumZoom);
+        RebuildCropLayout(anchor);
+        if (crop && _document is { Crops: null } document) StartCropAnalysis(document);
     }
 
     private void RebuildCropLayout(ZoomAnchor? anchor)
@@ -108,6 +131,7 @@ public sealed class PdfPreview : UserControl, IDisposable
 
     public PdfPreview()
     {
+        Loaded += (_, _) => AttachDisplayEvents();
         _empty.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         var grid = new Grid();
         grid.Children.Add(_scroll); grid.Children.Add(_empty); Content = grid;
@@ -126,7 +150,7 @@ public sealed class PdfPreview : UserControl, IDisposable
             ScheduleRender();
         };
         SizeChanged += (_, _) => ResizePages();
-        IsVisibleChanged += (_, _) => { if (IsVisible) { UpdatePageSizes(); ScheduleRender(); } else _renderTimer.Stop(); };
+        IsVisibleChanged += (_, _) => { if (IsVisible) { UpdatePhysicalScreen(); UpdatePageSizes(); ScheduleRender(); } else _renderTimer.Stop(); };
         _renderTimer.Tick += async (_, _) => { _renderTimer.Stop(); await RenderVisibleAsync(); };
         _highlightTimer.Tick += (_, _) => { _highlightTimer.Stop(); ClearHighlights(); };
         PreviewMouseDown += (_, _) => ViewInteracted?.Invoke(this, EventArgs.Empty);
@@ -137,6 +161,50 @@ public sealed class PdfPreview : UserControl, IDisposable
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             { SetZoom(_zoom * (e.Delta > 0 ? 1.1 : 1 / 1.1), e.GetPosition(_scroll)); e.Handled = true; }
         };
+    }
+
+    private void AttachDisplayEvents()
+    {
+        var host = Window.GetWindow(this);
+        if (!ReferenceEquals(_hostWindow, host))
+        {
+            DetachDisplayEvents(); _hostWindow = host;
+            if (host is not null)
+            {
+                host.LocationChanged += DisplayLocationChanged;
+                host.DpiChanged += DisplayDpiChanged;
+                _hostSource = PresentationSource.FromVisual(host) as HwndSource;
+                _hostSource?.AddHook(DisplayMessage);
+            }
+        }
+        UpdatePhysicalScreen();
+    }
+    private void DetachDisplayEvents()
+    {
+        if (_hostWindow is not null)
+        {
+            _hostWindow.LocationChanged -= DisplayLocationChanged;
+            _hostWindow.DpiChanged -= DisplayDpiChanged;
+        }
+        _hostSource?.RemoveHook(DisplayMessage); _hostWindow = null; _hostSource = null;
+    }
+    private void DisplayLocationChanged(object? sender, EventArgs e) => UpdatePhysicalScreen();
+    private void DisplayDpiChanged(object sender, DpiChangedEventArgs e) => QueuePhysicalScreenUpdate();
+    private nint DisplayMessage(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
+    {
+        if (message == 0x007e) { PhysicalScreen.Invalidate(); QueuePhysicalScreenUpdate(); } // WM_DISPLAYCHANGE
+        return 0;
+    }
+    private void QueuePhysicalScreenUpdate() => _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(UpdatePhysicalScreen));
+    private void UpdatePhysicalScreen()
+    {
+        if (!_disposed && IsVisible) SetScreenMeasurement(PhysicalScreen.Measure(this));
+    }
+    internal void SetScreenMeasurement(PhysicalScreenMetrics measurement)
+    {
+        if (_screen == measurement) return;
+        _screen = measurement;
+        if (_fit) FitWidth();
     }
 
     public async Task LoadAsync(string path)
@@ -262,6 +330,7 @@ public sealed class PdfPreview : UserControl, IDisposable
         // than hit-testing its newly shifted center against the old page scale.
         var anchor = _readingAnchor;
         var oldViewport = _readingViewport;
+        if (IsVisible) _screen = PhysicalScreen.Measure(this);
         UpdatePageSizes();
         if (anchor is not null)
         {
@@ -287,12 +356,13 @@ public sealed class PdfPreview : UserControl, IDisposable
     private void UpdatePageSizesCore()
     {
         var document = _document!;
-        var crops = _autoCrop ? document.Crops : null;
+        var crops = _autoCrop ? (_compressWhitespace ? document.Crops : document.EdgeCrops) : null;
         var sizes = document.Pages.Select((size, index) => crops?[index].Size ?? size).ToArray();
         if (_fit && ActualWidth > 65)
             // Symmetric 20-DIP gutters plus the two page-border pixels. Overlay
             // scrollbars do not subtract width from just the right-hand side.
-            _zoom = Math.Clamp((ActualWidth - 42) / (sizes.Max(s => s.Width) * 96 / 72), .2, _autoCrop ? 8 : 3);
+            _zoom = Math.Min(Math.Min(ActualWidth - 42, _autoWidthMaximumCm * _screen.DipsPerCentimeter)
+                / (sizes.Max(s => s.Width) * 96 / 72), MaximumZoom);
         ZoomChanged?.Invoke(this, EventArgs.Empty);
         if (_layoutZoom == _zoom && _layouts.Count == document.Pages.Count) { ScheduleRender(); return; }
         _layoutZoom = _zoom;
@@ -534,7 +604,7 @@ public sealed class PdfPreview : UserControl, IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true; Clear();
+        DetachDisplayEvents(); _disposed = true; Clear();
         _loadCancellation?.Dispose(); _cropCancellation?.Dispose();
     }
 

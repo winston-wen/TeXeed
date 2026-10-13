@@ -40,6 +40,10 @@ internal static partial class Program
         Near(asymmetric.Crops![0].Left, 14, "Explicit asymmetric left margin");
         Near(asymmetric.Crops[0].Width, 132, "Explicit asymmetric text width");
         Require(crop.Bands.Count == 2 && crop.Height < 85, "Body/footer whitespace was not compressed or normal line spacing was removed");
+        var edgeCrop = document.EdgeCrops![0];
+        Require(edgeCrop.Bands.Count == 1 && edgeCrop.Height > 250, "Edge-only crop must retain internal body/footer spacing");
+        Near(edgeCrop.Left, crop.Left, "Compression must not alter left trim"); Near(edgeCrop.Width, crop.Width, "Compression must not alter text width");
+        SamePoint(edgeCrop.ToSource(edgeCrop.ToCropped(new Point(100, 286))), new Point(100, 286), "Edge-only footer mapping");
         foreach (var source in new[] { new Point(50, 35), new Point(50, 69), new Point(100, 286) })
         {
             SamePoint(crop.ToSource(crop.ToCropped(source)), source, "Crop mapping round-trip");
@@ -104,9 +108,20 @@ internal static partial class Program
             preview.FitWidth(); window.UpdateLayout(); await Render(preview);
             pointer = PagePointOnViewport(preview, 19, source);
             await preview.LoadAsync(path); window.UpdateLayout(); await Render(preview);
+            doc = (PdfDocument)Field(preview, "_document");
             SamePoint(PagePointOnViewport(preview, 19, source), pointer, "Cropped PDF refresh lost reading position");
             preview.InvertColors = true; await Render(preview);
             SamePoint(PagePointOnViewport(preview, 19, source), pointer, "Night colors changed crop coordinates");
+            preview.CompressVerticalWhitespace = false; window.UpdateLayout(); await Render(preview);
+            Require(Layout(preview, 0).Size.Height / Layout(preview, 0).Size.Width > 1.8, "Disabling compression did not retain the internal page gap");
+            var retained = new PdfLocation(20, 100, 286);
+            preview.ShowLocation(retained, highlight: false, viewportFraction: .5);
+            preview.CompressVerticalWhitespace = true; window.UpdateLayout(); await Render(preview);
+            Require(Layout(preview, 0).Size.Height / Layout(preview, 0).Size.Width < .7, "Compression did not reuse cached geometry");
+            Require(Math.Abs(PagePointOnViewport(preview, 19, new Point(100, 286)).Y - scroll.ViewportHeight / 2) < .25,
+                "Compression toggle lost the footer reading anchor");
+            var firstLayout = ((IList)Field(preview, "_layouts"))[0]!;
+            Require(ReferenceEquals(doc.Crops![0], firstLayout.GetType().GetProperty("Crop")!.GetValue(firstLayout)), "Compression toggle rescanned its page");
             preview.AutoCrop = false; window.UpdateLayout(); await Render(preview);
             Require(Layout(preview, 0).Size.Height / Layout(preview, 0).Size.Width > 1.4, "Disabling crop did not restore full page dimensions");
             preview.AutoCrop = true; window.UpdateLayout(); await Render(preview);

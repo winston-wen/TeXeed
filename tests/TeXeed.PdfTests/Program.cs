@@ -22,6 +22,8 @@ internal static partial class Program
             try
             {
                 Check("native PDFium loads, sizes and rasterizes known color marks", NativeRender);
+                Check("EDID sizes and physical pixels convert independently of UI scaling", PhysicalDimensions);
+                await CheckAsync("automatic width observes the centimeter cap across display density and manual zoom", PhysicalWidthCap);
                 Check("Ristretto PDF palette preserves alpha and smooth antialiasing gradients", InvertedRaster);
                 await CheckAsync("color switching preserves rasters and anchors across zoom races, scroll and reload", InversionContinuity);
                 Check("automatic crop preserves content, footer, short gaps, rotation and bounded rasters", CropGeometry);

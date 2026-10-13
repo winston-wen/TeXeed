@@ -9,6 +9,7 @@ namespace TeXeed.App.Services;
 internal sealed partial class PdfDocument
 {
     public IReadOnlyList<PdfPageCrop>? Crops { get; private set; }
+    public IReadOnlyList<PdfPageCrop>? EdgeCrops { get; private set; }
 
     public void PrepareCrops(CancellationToken cancellation)
     {
@@ -22,6 +23,9 @@ internal sealed partial class PdfDocument
             crops.Add(PdfPageCrop.Detect(raster, Pages[index], cancellation, ProtectedGraphicBands(index, cancellation), TextArea(index)));
         }
         cancellation.ThrowIfCancellationRequested();
+        // Retain outer trims but keep internal gaps when compression is disabled.
+        EdgeCrops = crops.Select(crop => new PdfPageCrop(crop.Left, crop.Width,
+            [new PdfCropBand(crop.Bands[0].Top, crop.Bands[^1].Bottom)])).ToArray();
         Crops = crops;
     }
 

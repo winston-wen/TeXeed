@@ -41,6 +41,8 @@ public sealed record AppSettings
     public PreviewFollowMode FollowMode { get; init; } = PreviewFollowMode.Viewport;
     public bool InvertPdfColors { get; init; } = true;
     public bool AutoCropPdf { get; init; } = true;
+    public bool CompressPdfWhitespace { get; init; } = true;
+    public double AutoWidthMaximumCm { get; init; } = 30;
     public int DebounceMs { get; init; } = 1000;
     public double FontSize { get; init; } = 15;
     public string EditorFontFamily { get; init; } = "Cascadia Code, Consolas";
