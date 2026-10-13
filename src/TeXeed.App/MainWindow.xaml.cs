@@ -238,7 +238,7 @@ public partial class MainWindow : Window
         if (_changes.Count == 0) QueueExternalRefresh();
         Status(_changes.Count == 0 ? "已保存" : _settings.LivePreview ? "已修改 · 等待自动保存并编译…" : "已修改 · Ctrl+S 保存并编译");
     }
-    private async Task<bool> SaveAsync(bool duringTransition = false)
+    private async Task<bool> SaveAsync(bool duringTransition = false, bool reportErrors = true)
     {
         if (_project == null || (_transitioning || _closing) && !duringTransition) return false;
         var session = _session;
@@ -280,10 +280,9 @@ public partial class MainWindow : Window
                 if (liveEdits.TryGetValue(file.Path, out var text) && text != file.Content) _changes[file.Path] = text;
             }
             if (externalChanges) _revision++;
-            if (Editor.CurrentFilePath is { } active) ActivateFile(active);
             RefreshTabs(); RefreshIndex(); Status(_changes.Count == 0 ? "所有修改已保存" : "保存完成 · 仍有更新的未保存修改"); return true;
         }
-        catch (Exception ex) { _liveTimer.Stop(); _scheduledBuildExplicit = false; Error(ex); return false; }
+        catch (Exception ex) { _liveTimer.Stop(); _scheduledBuildExplicit = false; if (!reportErrors) throw; Error(ex); return false; }
         finally { _saveGate.Release(); QueueExternalRefresh(); }
     }
     private void ScheduleBuildAt(long dueAt, bool explicitRequest)
@@ -305,7 +304,7 @@ public partial class MainWindow : Window
     private bool ActiveBuildNeedsReplacement => _revision != _activeBuildRevision || _buildEpoch != _activeBuildEpoch ||
         _activeBuildSettings is { } active && (active.Engine != _settings.Engine || active.EnginePath != _settings.EnginePath);
 
-    private async Task BuildAsync(bool explicitRequest = true)
+    private async Task BuildAsync(bool explicitRequest = true, CancellationToken cancellationToken = default, bool reportErrors = true)
     {
         if (_project == null || _transitioning || _closing) return;
         if (!explicitRequest && !_settings.LivePreview) return;
@@ -320,7 +319,9 @@ public partial class MainWindow : Window
         _liveTimer.Stop(); CancelBuildMenuItem.IsEnabled = true;
         try
         {
-            if (!await SaveAsync() || session != _session || epoch != _buildEpoch || _project == null || _transitioning || _closing) return;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await SaveAsync(reportErrors: reportErrors) || session != _session || epoch != _buildEpoch || _project == null || _transitioning || _closing) return;
+            cancellationToken.ThrowIfCancellationRequested();
             if (_changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
             var revision = _revision; var project = _project;
             _activeBuildRevision = revision; _activeBuildSettings = _settings;
@@ -337,8 +338,9 @@ public partial class MainWindow : Window
                 }
             }
             Status("正在排版，仍可继续编辑…");
-            _compileTask = _compiler.CompileAsync(project, _settings);
+            _compileTask = _compiler.CompileAsync(project, _settings, cancellationToken);
             var result = await _compileTask;
+            _lastCompileResult = result;
             if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
             LogText.Text = result.Log; DiagnosticsList.ItemsSource = result.Diagnostics;
             LogExpander.Header = result.Success ? $"编译输出 · {result.Duration.TotalSeconds:F1}s · {result.Engine}" : "编译输出 · 需要处理的问题";
@@ -359,8 +361,8 @@ public partial class MainWindow : Window
             }
             if (_settings.LivePreview && revision != _revision) _buildAgain = true;
         }
-        catch (OperationCanceledException) { if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Status("编译已取消"); }
-        catch (Exception ex) { if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Error(ex); }
+        catch (OperationCanceledException) { if (!reportErrors) throw; if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Status("编译已取消"); }
+        catch (Exception ex) { if (!reportErrors) throw; if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Error(ex); }
         finally
         {
             var again = _buildAgain && ActiveBuildNeedsReplacement;

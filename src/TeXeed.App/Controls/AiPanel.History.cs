@@ -57,7 +57,7 @@ public partial class AiPanel
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript();
         ConversationTitle.Text = _book.Active.Title;
-        StatusText.Text = "Enter / Shift+Enter 换行 · Ctrl+Enter 发送";
+        StatusText.Text = "";
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => MessagesScroll.ScrollToEnd()));
     }
     private async void NewConversation_Click(object sender, RoutedEventArgs e)
@@ -102,6 +102,12 @@ public partial class AiPanel
     }
     private void Options_Click(object sender, RoutedEventArgs e)
     { if (sender is Button { ContextMenu: { } menu } button) { menu.PlacementTarget = button; menu.IsOpen = true; } }
+    private void RetryTurn_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not AiTurn turn) return;
+        Composer.Text = Composer.Text.Length == 0 ? turn.DisplayQuestion : Composer.Text + "\n" + turn.DisplayQuestion;
+        Composer.CaretIndex = Composer.Text.Length; Composer.Focus();
+    }
     private async void DeleteTurn_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not AiTurn turn) return;

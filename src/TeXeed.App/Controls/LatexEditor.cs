@@ -117,6 +117,22 @@ public sealed partial class LatexEditor : TextEditor
     }
 
     public void SetProjectFiles(IEnumerable<ProjectFile> files) => _files = files.ToArray();
+    internal bool HasFileSession(string path) => _sessions.ContainsKey(path);
+    internal void ApplyAiReplacement(ProjectFile file, int offset, int length, string replacement)
+    {
+        if (!_sessions.TryGetValue(file.Path, out var session))
+            _sessions[file.Path] = session = new FileSession(new TextDocument(file.Content));
+        _changingDocument = true;
+        try
+        {
+            // An inactive tab may still hold the old disk baseline after a reload.
+            // The caller already validated the live project buffer, including user edits.
+            if (session.Document.Text != file.Content)
+            { session.Document.Text = file.Content; session.Document.UndoStack.ClearAll(); }
+            using (session.Document.RunUpdate()) session.Document.Replace(offset, length, replacement);
+        }
+        finally { _changingDocument = false; }
+    }
     public void TransferSessionTo(LatexEditor target, string path)
     {
         if (ReferenceEquals(this, target)) return;

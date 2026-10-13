@@ -19,6 +19,8 @@ public partial class AiPanel : UserControl, IDisposable
     private readonly SemaphoreSlim _saveGate = new(1);
     private AiNotebook _book = new();
     private readonly ObservableCollection<AiTurn> _visibleTurns = [];
+    private readonly ObservableCollection<AiSegment> _liveSegments = [];
+    internal Func<AiToolRunner>? CreateToolRunner { get; set; }
     private string? _project;
     private bool _updating, _disposed;
     public AiSettingsPanel Settings { get; }
@@ -30,7 +32,7 @@ public partial class AiPanel : UserControl, IDisposable
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection)
     {
-        _connection = connection; InitializeComponent(); History.ItemsSource = _visibleTurns;
+        _connection = connection; InitializeComponent(); History.ItemsSource = _visibleTurns; LiveSegments.ItemsSource = _liveSegments;
         Settings = new AiSettingsPanel(connection);
         Settings.ConnectionChanged += (_, _) => SyncModelChoices();
         SizeChanged += (_, _) =>
@@ -86,11 +88,11 @@ public partial class AiPanel : UserControl, IDisposable
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
         if (_operation is not null) return;
-        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; Entries.IsEnabled = false; Composer.IsReadOnly = true;
+        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; Entries.IsEnabled = false;
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；未完成的条目可重新提交。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; Entries.IsEnabled = true; Composer.IsReadOnly = false; } _operationDone = null; done.TrySetResult(); }
+        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; Entries.IsEnabled = true; } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。条目已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
@@ -149,55 +151,72 @@ public partial class AiPanel : UserControl, IDisposable
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
         await RunOperationAsync(async token =>
         {
-            if (Settings.SelectedModel is null) await Settings.LoadModelsAsync(token);
-            if (Settings.SelectedModel is not AiModel model) throw new InvalidOperationException("请选择可用模型。");
-            await Settings.SaveSelectionAsync(token);
-            var effort = Settings.SelectedEffort;
             var batch = selected.Select(x => new AiEntry { Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
-            var files = ProjectFiles?.Invoke().ToArray() ?? []; var generation = _generation; var book = _book;
-            foreach (var entry in selected) entry.State = "提交中"; Rebind(); await SaveAsync();
+            var generation = _generation; var book = _book;
             var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.Title}：{x.Question}"));
-            var answer = new System.Text.StringBuilder();
-            var bufferGate = new object(); string? pendingStatus = null; var renderedLength = 0;
-            LiveQuestion.Text = question; Transcript.Markdown = ""; LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
-            // Network callbacks never access WPF. At most one UI refresh per tick, regardless of delta rate.
+            Composer.Clear(); StatusText.Text = "";
+            foreach (var entry in selected) entry.State = "提交中"; Rebind();
+            var buffer = new AiStreamBuffer();
+            buffer.Add(new("request", "activity", "正在连接模型…"));
+            _liveSegments.Clear(); LiveQuestion.Text = question;
+            LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
             void Flush()
             {
                 if (_generation != generation || _disposed) return;
-                string? text = null; string? status;
-                lock (bufferGate)
-                {
-                    if (renderedLength != answer.Length) { text = answer.ToString(); renderedLength = answer.Length; }
-                    status = pendingStatus; pendingStatus = null;
-                }
-                if (status is not null) StatusText.Text = status;
-                if (text is null) return;
                 var follow = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset < 40;
-                Transcript.Markdown = text;
+                foreach (var segment in buffer.Snapshot())
+                {
+                    var existing = _liveSegments.FirstOrDefault(s => s.Id == segment.Id);
+                    if (existing is null) _liveSegments.Add(segment);
+                    else { if (existing.Text != segment.Text) existing.Text = segment.Text; if (existing.Kind != segment.Kind) existing.Kind = segment.Kind; }
+                }
                 if (follow) MessagesScroll.ScrollToEnd();
             }
-            renderTimer.Tick += (_, _) => Flush(); renderTimer.Start();
-            StatusText.Text = "正在提交并等待回答…";
+            renderTimer.Tick += (_, _) => Flush(); Flush(); renderTimer.Start();
+            var modelId = ""; var effort = "";
             try
             {
+                await SaveAsync();
+                if (Settings.SelectedModel is null) await Settings.LoadModelsAsync(token);
+                if (Settings.SelectedModel is not AiModel model) throw new InvalidOperationException("请选择可用模型。");
+                modelId = model.Id; effort = Settings.SelectedEffort;
+                await Settings.SaveSelectionAsync(token);
+                var files = ProjectFiles?.Invoke().ToArray() ?? [];
+                var toolRunner = CreateToolRunner?.Invoke();
                 var history = book.Turns.ToArray();
+                buffer.Add(new("request", "activity", "已发送，等待模型回复"));
                 await Task.Run(() => new AiResponses(_connection).RunAsync(model.Id, batch, history, files,
-                    text => { lock (bufferGate) answer.Append(text); },
-                    status => { lock (bufferGate) pendingStatus = status; }, token, effort), token);
+                    _ => { }, _ => { }, token, effort, toolRunner, evt =>
+                    {
+                        buffer.Add(new("request", "activity", "已发送"));
+                        buffer.Add(evt);
+                    }), token);
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }
+            }
+            catch (Exception ex)
+            {
+                foreach (var entry in selected) entry.State = "未完成，可重试";
+                buffer.Add(new("request", "activity", "本轮已结束"));
+                buffer.Add(new("failure", "activity", ex is OperationCanceledException ? "已停止。已完成的修改保留；可继续提问。" : "本轮未完成：" + ex.Message));
+            }
+            finally
+            {
+                renderTimer.Stop();
                 if (_generation == generation)
                 {
+                    Flush();
+                    var segments = buffer.Snapshot();
+                    var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
+                    if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
                     if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
-                    book.Turns.Add(new(question, answer.ToString()) { Model = model.Id, ReasoningEffort = effort });
+                    book.Turns.Add(new(question, answer) { Model = modelId, ReasoningEffort = effort, Segments = segments });
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
-                    Composer.Clear(); StatusText.Text = "本次对话已完成。";
+                    Rebind(); RefreshTranscript(); await SaveAsync();
                 }
             }
-            catch { foreach (var entry in selected) entry.State = "未完成，可重试"; if (_generation == generation && answer.Length > 0) book.Turns.Add(new(question, "[未完成的回复]\n" + answer)); throw; }
-            finally { renderTimer.Stop(); if (_generation == generation) { Rebind(); RefreshTranscript(); await SaveAsync(); } }
         });
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; await Settings.StopAsync(); await SaveAsync(); }

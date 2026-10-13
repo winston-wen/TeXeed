@@ -92,21 +92,25 @@ internal static partial class Program
                 input.Text = "连续追问 " + round;
                 var before = heartbeat;
                 var submission = panel.SubmitAsync();
+                Check(input.Text.Length == 0 && !input.IsReadOnly, "Submission must clear the composer immediately and permit a new draft");
+                input.Text = "下一条草稿";
                 await panel.SubmitAsync(); // Duplicate clicks must not start another request.
                 await submission.WaitAsync(TimeSpan.FromSeconds(30));
                 host.UpdateLayout();
                 var turns = ((AiNotebook)Field(panel, "_book")!).Turns;
                 Check(turns.Count == round + 1 && turns.Last().Answer == handler.Answer, "Follow-up answer was lost, duplicated or truncated");
+                Check(input.Text == "下一条草稿", "Completion cleared the next draft");
                 Check(heartbeat > before + 2, "Streaming blocked the UI dispatcher");
                 Check(((ItemsControl)panel.FindName("History")).Items.Count == round + 1, "Visible history did not update after follow-up");
             }
             Check(handler.HistoryCounts.SequenceEqual(new[] { 0, 1, 2 }), "Follow-up requests lost previous conversation turns");
             input.Text = "取消中的问题";
             var pending = panel.SubmitAsync();
+            input.Text = "下一条草稿";
             await Task.Delay(300);
             ((Button)panel.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await pending.WaitAsync(TimeSpan.FromSeconds(5));
-            Check(input.Text == "取消中的问题" && !input.IsReadOnly && ((Button)panel.FindName("SubmitButton")).IsEnabled, "Cancellation lost the draft or left the composer locked");
+            Check(input.Text == "下一条草稿" && !input.IsReadOnly && ((Button)panel.FindName("SubmitButton")).IsEnabled, "Cancellation lost the draft or left the composer locked");
             input.Text = "取消后继续"; await panel.SubmitAsync();
             Check(((AiNotebook)Field(panel, "_book")!).Turns.Last().Answer == handler.Answer, "Retry after cancellation failed");
         }

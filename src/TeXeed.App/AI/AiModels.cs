@@ -33,6 +33,8 @@ public sealed record AiTurn(string Question, string Answer)
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";
+    public List<AiSegment> Segments { get; init; } = [];
+    [JsonIgnore] public IReadOnlyList<AiSegment> DisplaySegments => Segments.Count > 0 ? Segments : [new() { Kind = "final", Text = DisplayAnswer, CreatedAt = CreatedAt }];
     [JsonIgnore] public string DisplayQuestion => AiConversation.CleanQuestion(Question);
     [JsonIgnore] public string DisplayAnswer => string.IsNullOrWhiteSpace(Answer) ? "此旧记录未保存回答，可删除或重新提问。" : Answer;
     [JsonIgnore] public string DisplayTime => CreatedAt.LocalDateTime.ToString("MM-dd HH:mm");

@@ -15,6 +15,7 @@ public partial class MainWindow
     {
         _aiPanel.SettingsRequested += (_, _) => OpenAiSettings();
         _aiPanel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
+        _aiPanel.CreateToolRunner = CreateAiToolRunner;
         Preview.AiSelectionConfirmed += (_, entry) => { OpenAiTab(); _aiPanel.AddEntry(entry); };
         Preview.AiMarkingChanged += (_, active) => SetAiMarking(active);
         foreach (var editor in Editors)
