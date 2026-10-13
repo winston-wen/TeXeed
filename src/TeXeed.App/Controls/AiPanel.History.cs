@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 
@@ -56,7 +57,7 @@ public partial class AiPanel
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript();
         ConversationTitle.Text = _book.Active.Title;
-        StatusText.Text = "Enter 发送，Shift+Enter 换行。";
+        StatusText.Text = "Enter / Shift+Enter 换行 · Ctrl+Enter 发送";
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => MessagesScroll.ScrollToEnd()));
     }
     private async void NewConversation_Click(object sender, RoutedEventArgs e)
@@ -65,12 +66,42 @@ public partial class AiPanel
     {
         try
         {
-            await FinishConversationWorkAsync();
-            var dialog = new AiHistoryWindow(_book, DeleteConversationAsync) { Owner = Window.GetWindow(this) };
-            if (dialog.ShowDialog() == true && dialog.SelectedConversationId is { } id) await SelectConversationAsync(id);
+            await SaveAsync();
+            HistorySearchBox.Clear(); RefreshHistory();
+            HistoryPopup.IsOpen = true;
+            HistorySearchBox.Focus();
         }
         catch (Exception ex) { ShowError(ex); }
     }
+    private void RefreshHistory()
+    {
+        var matches = AiHistoryWindow.Search(_book, HistorySearchBox.Text.Trim());
+        HistoryList.ItemsSource = matches;
+        HistoryList.SelectedItem = matches.FirstOrDefault(c => c.Id == _book.ActiveConversationId) ?? matches.FirstOrDefault();
+        HistoryEmpty.Visibility = matches.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+    private void HistorySearch_Changed(object sender, TextChangedEventArgs e) { if (HistoryList is not null) RefreshHistory(); }
+    private async void HistoryOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not AiConversation conversation) return;
+        try { HistoryPopup.IsOpen = false; await SelectConversationAsync(conversation.Id); Composer.Focus(); }
+        catch (Exception ex) { ShowError(ex); }
+    }
+    private async void HistoryDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not AiConversation conversation) return;
+        try { await DeleteConversationAsync(conversation.Id); RefreshHistory(); }
+        catch (Exception ex) { ShowError(ex); }
+    }
+    private async void HistoryList_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || HistoryList.SelectedItem is not AiConversation conversation) return;
+        e.Handled = true;
+        try { HistoryPopup.IsOpen = false; await SelectConversationAsync(conversation.Id); Composer.Focus(); }
+        catch (Exception ex) { ShowError(ex); }
+    }
+    private void Options_Click(object sender, RoutedEventArgs e)
+    { if (sender is Button { ContextMenu: { } menu } button) { menu.PlacementTarget = button; menu.IsOpen = true; } }
     private async void DeleteTurn_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not AiTurn turn) return;

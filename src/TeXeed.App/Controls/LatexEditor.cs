@@ -83,7 +83,9 @@ public sealed partial class LatexEditor : TextEditor
                 new Setter(Control.ForegroundProperty, new DynamicResourceExtension("EditorForeground")),
                 new Setter(Control.BorderBrushProperty, new DynamicResourceExtension("Subtle")),
                 new Setter(TextBox.CaretBrushProperty, new DynamicResourceExtension("EditorForeground")),
-                new Setter(TextBox.SelectionBrushProperty, new DynamicResourceExtension("Selection")),
+                new Setter(TextBox.SelectionBrushProperty, new DynamicResourceExtension("TextSelectionBackground")),
+                new Setter(TextBox.SelectionTextBrushProperty, new DynamicResourceExtension("TextSelectionForeground")),
+                new Setter(TextBox.SelectionOpacityProperty, 1d),
                 new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center)
             }
         };

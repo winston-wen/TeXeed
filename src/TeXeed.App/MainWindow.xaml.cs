@@ -682,6 +682,8 @@ public partial class MainWindow : Window
     }
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
+        // Let the chat handle Ctrl+Enter before the window's compile shortcut.
+        if (e.Key == Key.Enter && modifiers == ModifierKeys.Control && _aiPanel.IsKeyboardFocusWithin) return;
         if (e.Key == Key.F4 && modifiers == ModifierKeys.Control)
         { e.Handled = true; if (!e.IsRepeat && _workspaceTabs.FocusedTab is { } tab && tab != TabWorkspace.PreviewKey) CloseTabs(tab, TabCloseScope.This); return; }
         if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Z && modifiers == ModifierKeys.Alt)

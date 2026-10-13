@@ -76,9 +76,9 @@ public static class ThemeManager
         {
             (SystemColors.WindowBrushKey, "EditorBackground"), (SystemColors.WindowTextBrushKey, "Ink"),
             (SystemColors.ControlBrushKey, "PanelBackground"), (SystemColors.ControlTextBrushKey, "Ink"),
-            (SystemColors.GrayTextBrushKey, "Disabled"), (SystemColors.HighlightBrushKey, "Selection"),
-            (SystemColors.HighlightTextBrushKey, "Ink"), (SystemColors.InactiveSelectionHighlightBrushKey, "PanelBackground"),
-            (SystemColors.InactiveSelectionHighlightTextBrushKey, "Ink"), (SystemColors.MenuBrushKey, "EditorBackground"),
+            (SystemColors.GrayTextBrushKey, "Disabled"), (SystemColors.HighlightBrushKey, "TextSelectionBackground"),
+            (SystemColors.HighlightTextBrushKey, "TextSelectionForeground"), (SystemColors.InactiveSelectionHighlightBrushKey, "InactiveTextSelectionBackground"),
+            (SystemColors.InactiveSelectionHighlightTextBrushKey, "TextSelectionForeground"), (SystemColors.MenuBrushKey, "EditorBackground"),
             (SystemColors.MenuTextBrushKey, "Ink")
         }) resources[key] = Brush(token);
         resources[SystemParameters.VerticalScrollBarWidthKey] = 14d;

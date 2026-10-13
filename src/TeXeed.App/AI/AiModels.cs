@@ -47,6 +47,14 @@ public sealed class AiConversation
     public List<AiTurn> Turns { get; set; } = [];
     public string Draft { get; set; } = "";
     [JsonIgnore] public string Summary => $"{Turns.Count} 轮 · {UpdatedAt.LocalDateTime:MM-dd HH:mm}";
+    [JsonIgnore] public string RelativeTime
+    {
+        get
+        {
+            var elapsed = DateTimeOffset.UtcNow - UpdatedAt;
+            return elapsed.TotalMinutes < 1 ? "刚刚" : elapsed.TotalHours < 1 ? $"{(int)elapsed.TotalMinutes} 分钟" : elapsed.TotalDays < 1 ? $"{(int)elapsed.TotalHours} 小时" : $"{(int)elapsed.TotalDays} 天";
+        }
+    }
 
     internal static string CleanQuestion(string text) => Regex.Replace(text, @"(?m)^\[[a-fA-F0-9]{8}\]\s*", "");
     internal static string MakeTitle(string question)

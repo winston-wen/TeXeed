@@ -1,4 +1,5 @@
 using System.IO;
+using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Windows;
@@ -17,6 +18,7 @@ public partial class AiPanel : UserControl, IDisposable
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private readonly SemaphoreSlim _saveGate = new(1);
     private AiNotebook _book = new();
+    private readonly ObservableCollection<AiTurn> _visibleTurns = [];
     private string? _project;
     private bool _updating, _disposed;
     public AiSettingsPanel Settings { get; }
@@ -28,7 +30,7 @@ public partial class AiPanel : UserControl, IDisposable
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection)
     {
-        _connection = connection; InitializeComponent();
+        _connection = connection; InitializeComponent(); History.ItemsSource = _visibleTurns;
         Settings = new AiSettingsPanel(connection);
         Settings.ConnectionChanged += (_, _) => SyncModelChoices();
         SizeChanged += (_, _) =>
@@ -40,7 +42,9 @@ public partial class AiPanel : UserControl, IDisposable
         Loaded += async (_, _) => { SyncModelChoices(); if (Settings.SelectedModel is null) await RefreshModelChoicesAsync(); };
         PreviewKeyDown += (_, e) =>
         {
-            if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+            if (IsSendGesture(e.Key, Keyboard.Modifiers) && ComposerBorder.IsKeyboardFocusWithin)
+                Composer_KeyDown(this, e);
+            else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
             { MessageSearchPanel.Visibility = Visibility.Visible; MessageSearchBox.Focus(); MessageSearchBox.SelectAll(); e.Handled = true; }
             else if (e.Key == Key.Escape && MessageSearchPanel.IsVisible)
             { MessageSearchPanel.Visibility = Visibility.Collapsed; Composer.Focus(); e.Handled = true; }
@@ -66,7 +70,7 @@ public partial class AiPanel : UserControl, IDisposable
     private void Rebind()
     {
         Entries.ItemsSource = null;
-        Entries.ItemsSource = _book.Entries;
+        Entries.ItemsSource = _book.Entries.ToArray();
         ContextExpander.Visibility = _book.Entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         ContextExpander.Header = $"圈点与问题条目 · {_book.Entries.Count}";
     }
@@ -82,11 +86,11 @@ public partial class AiPanel : UserControl, IDisposable
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
         if (_operation is not null) return;
-        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; History.IsEnabled = false; Entries.IsEnabled = false; Composer.IsReadOnly = true;
+        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; Entries.IsEnabled = false; Composer.IsReadOnly = true;
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；未完成的条目可重新提交。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; History.IsEnabled = true; Entries.IsEnabled = true; Composer.IsReadOnly = false; } _operationDone = null; done.TrySetResult(); }
+        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; Entries.IsEnabled = true; Composer.IsReadOnly = false; } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。条目已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
@@ -104,8 +108,11 @@ public partial class AiPanel : UserControl, IDisposable
     }
     private void RefreshTranscript()
     {
-        History.ItemsSource = null;
-        History.ItemsSource = _book.Turns;
+        // Keep existing document visuals when appending a follow-up. Never bind the mutable
+        // notebook List directly: WPF's item generator needs collection notifications.
+        if (_visibleTurns.Count > _book.Turns.Count || !_visibleTurns.SequenceEqual(_book.Turns.Take(_visibleTurns.Count)))
+            _visibleTurns.Clear();
+        foreach (var turn in _book.Turns.Skip(_visibleTurns.Count)) _visibleTurns.Add(turn);
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         LiveContainer.Visibility = Visibility.Collapsed;
         ConversationTitle.Text = _book.Active.Title;
@@ -124,10 +131,11 @@ public partial class AiPanel : UserControl, IDisposable
     private void Composer_Changed(object sender, TextChangedEventArgs e) => Dirty();
     private async void Composer_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter || Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) || Keyboard.IsKeyDown(Key.ImeProcessed)) return;
+        if (!IsSendGesture(e.Key, Keyboard.Modifiers)) return;
         e.Handled = true;
-        await SubmitAsync();
+        if (!e.IsRepeat) await SubmitAsync();
     }
+    internal static bool IsSendGesture(Key key, ModifierKeys modifiers) => key == Key.Enter && modifiers == ModifierKeys.Control;
     private async void Submit_Click(object sender, RoutedEventArgs e) => await SubmitAsync();
     internal async Task SubmitAsync()
     {
@@ -149,20 +157,36 @@ public partial class AiPanel : UserControl, IDisposable
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var files = ProjectFiles?.Invoke().ToArray() ?? []; var generation = _generation; var book = _book;
             foreach (var entry in selected) entry.State = "提交中"; Rebind(); await SaveAsync();
-            var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.Title}：{x.Question}")); var answer = new System.Text.StringBuilder(); LiveQuestion.Text = question; Transcript.Text = ""; LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
+            var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.Title}：{x.Question}"));
+            var answer = new System.Text.StringBuilder();
+            var bufferGate = new object(); string? pendingStatus = null; var renderedLength = 0;
+            LiveQuestion.Text = question; Transcript.Markdown = ""; LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
+            // Network callbacks never access WPF. At most one UI refresh per tick, regardless of delta rate.
+            var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
+            void Flush()
+            {
+                if (_generation != generation || _disposed) return;
+                string? text = null; string? status;
+                lock (bufferGate)
+                {
+                    if (renderedLength != answer.Length) { text = answer.ToString(); renderedLength = answer.Length; }
+                    status = pendingStatus; pendingStatus = null;
+                }
+                if (status is not null) StatusText.Text = status;
+                if (text is null) return;
+                var follow = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset < 40;
+                Transcript.Markdown = text;
+                if (follow) MessagesScroll.ScrollToEnd();
+            }
+            renderTimer.Tick += (_, _) => Flush(); renderTimer.Start();
             StatusText.Text = "正在提交并等待回答…";
             try
             {
-                await new AiResponses(_connection).RunAsync(model.Id, batch, book.Turns, files,
-                    text =>
-                    {
-                        answer.Append(text);
-                        if (_generation != generation) return;
-                        var follow = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset < 40;
-                        Transcript.Text = answer.ToString();
-                        if (follow) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => MessagesScroll.ScrollToEnd()));
-                    },
-                    status => { if (_generation == generation) StatusText.Text = status; }, token, effort);
+                var history = book.Turns.ToArray();
+                await Task.Run(() => new AiResponses(_connection).RunAsync(model.Id, batch, history, files,
+                    text => { lock (bufferGate) answer.Append(text); },
+                    status => { lock (bufferGate) pendingStatus = status; }, token, effort), token);
+                renderTimer.Stop(); Flush();
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }
                 if (_generation == generation)
                 {
@@ -173,7 +197,7 @@ public partial class AiPanel : UserControl, IDisposable
                 }
             }
             catch { foreach (var entry in selected) entry.State = "未完成，可重试"; if (_generation == generation && answer.Length > 0) book.Turns.Add(new(question, "[未完成的回复]\n" + answer)); throw; }
-            finally { if (_generation == generation) { Rebind(); RefreshTranscript(); await SaveAsync(); } }
+            finally { renderTimer.Stop(); if (_generation == generation) { Rebind(); RefreshTranscript(); await SaveAsync(); } }
         });
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; await Settings.StopAsync(); await SaveAsync(); }

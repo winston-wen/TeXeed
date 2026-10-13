@@ -32,10 +32,13 @@ GitHub Light Default 的颜色取自 GitHub Theme 6.3.5，许可见发行包的 
 | EditorBackground、EditorForeground、CurrentLine | 编辑区底色、正文、当前行 |
 | SidebarBackground、PanelBackground、PreviewBackground | 侧栏、面板、PDF 周围底色 |
 | Hover、Selection、SearchMatch | 悬停、选中、搜索匹配 |
+| TextSelectionBackground、TextSelectionForeground、InactiveTextSelectionBackground | 普通输入框、密码框及系统列表的文字选区底色、字色、失焦底色；与源码选区独立 |
+| ChatQuestionBackground、ChatFocus | 对话问题卡片和输入栏底色、输入栏焦点边框和发送按钮 |
 | SyntaxCommand、SyntaxComment、SyntaxMath、SyntaxBrace、SyntaxNumber、SyntaxField | LaTeX/BibTeX 语法颜色 |
 | Todo、Badge | TODO 红点、层级徽标文字 |
 | ScrollTrack、ScrollThumb、ScrollThumbHover | 滚动条轨道、滑块、悬停或拖动滑块 |
 
 `isDark` 控制原生标题栏。切换主题时也用它选择 PDF 的深色反色或原色预览；之后仍可单独切换“反色”。
 PDF 深色纸张保留现有暖棕、米白映射，主题不会改写 PDF 文件。
+普通文本框使用 WPF 非 Adorner 选区绘制，使选中字色生效；富文本仍使用 Adorner，选区透明度固定为 0.35，防止色块盖住文字。
 主题选择存于 `%LOCALAPPDATA%\TeXeed\settings.json`；升级到新程序目录时，自定义 JSON 文件需要一起复制。

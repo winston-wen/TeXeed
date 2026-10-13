@@ -8,6 +8,12 @@
         "resolved": "6.3.1.120",
         "contentHash": "6ASBKPzAg64BLDlFOJo4Ypr1sA/6hB5+TfHLJaZYUSTE0jgxvKlVqKeo/ISTG9qEMxu604qUu6BGugmJkfdrNw=="
       },
+      "Markdig": {
+        "type": "Direct",
+        "requested": "[0.41.3, )",
+        "resolved": "0.41.3",
+        "contentHash": "i3vSTyGpBGWbJB04aJ3cPJs0T3BV2e1nduW3EUHK/i+xUupYbym75iZPss/XjqhS5JlBErwQYnx7ofK3Zcsozg=="
+      },
       "PDFiumCore": {
         "type": "Direct",
         "requested": "[155.0.8057, )",

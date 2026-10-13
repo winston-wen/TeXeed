@@ -74,6 +74,7 @@ internal sealed class AiResponses(AiConnection connection)
     {
         var input = MakeInput(entries, history);
         var identity = AiCredentials.Load().ConnectionIdentity;
+        var totalCharacters = 0;
         for (var round = 0; round < 16; round++)
         {
             token.ThrowIfCancellationRequested();
@@ -97,6 +98,8 @@ internal sealed class AiResponses(AiConnection connection)
                 if (type == "response.output_text.delta")
                 {
                     var text = evt["delta"]?.GetValue<string>() ?? "";
+                    totalCharacters += text.Length;
+                    if (totalCharacters > 200_000) throw new InvalidOperationException("本次回答超过 20 万字符，已停止接收。可缩小问题范围继续提问。");
                     textCharacters += text.Length;
                     delta(text);
                 }
@@ -124,6 +127,7 @@ internal sealed class AiResponses(AiConnection connection)
                         .Where(n => n?["type"]?.ToString() is "output_text" or "refusal")
                         .Select(n => n?["text"]?.ToString() ?? n?["refusal"]?.ToString() ?? ""));
                     if (text.Length == 0) throw new InvalidOperationException("服务器结束了请求，但未返回回答或可执行工具。本次问题仍保留，可重试；这不是登录失败。");
+                    if (totalCharacters + text.Length > 200_000) throw new InvalidOperationException("本次回答超过 20 万字符，请缩小问题范围后重试。");
                     delta(text);
                 }
                 return;

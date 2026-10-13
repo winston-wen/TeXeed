@@ -5,6 +5,7 @@ TeXeed uses the following separately licensed components. TeX distributions are 
 | Component | Version | License | Source |
 | --- | --- | --- | --- |
 | AvalonEdit | 6.3.1.120 | MIT | https://github.com/icsharpcode/AvalonEdit |
+| Markdig | 0.41.3 | BSD-2-Clause | https://github.com/xoofx/markdig |
 | WpfMath / XamlMath.Shared | 2.1.0 | MIT; embedded fonts: Knuth License and OFL-1.1 | https://github.com/ForNeVeR/xaml-math |
 | GitHub Light Default palette (adapted from GitHub Theme) | 6.3.5 | MIT | https://github.com/primer/github-vscode-theme |
 | PDFiumCore | 155.0.8057 | Apache-2.0 | https://github.com/Dtronix/PDFiumCore |
