@@ -60,14 +60,14 @@ internal static partial class Program
         var pending = asking("shell", Shell("[IO.File]::WriteAllText('approved.txt','yes')"), CancellationToken.None);
         await Task.Delay(100);
         var approval = Application.Current.Windows.Cast<Window>().Single(w => w.Title == "允许执行此命令？");
-        var approvalButtons = ((DockPanel)approval.Content).Children.OfType<StackPanel>().Single().Children.OfType<Button>().ToArray();
+        var approvalButtons = Descendants<Button>(approval).Where(b => b.Tag is string).ToArray();
         Check(!pending.IsCompleted && !File.Exists(Path.Combine(folder, "approved.txt")), "Ask mode executed before approval");
         approvalButtons[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Check((await pending).Contains("拒绝") && !File.Exists(Path.Combine(folder, "approved.txt")), "Denied shell was executed");
         pending = asking("shell", Shell("[IO.File]::WriteAllText('approved.txt','yes')"), CancellationToken.None);
         await Task.Delay(100);
         approval = Application.Current.Windows.Cast<Window>().Single(w => w.Title == "允许执行此命令？");
-        ((DockPanel)approval.Content).Children.OfType<StackPanel>().Single().Children.OfType<Button>().Last().RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Descendants<Button>(approval).Single(b => Equals(b.Tag, "once")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Check((await pending).Contains("退出码：0") && File.ReadAllText(Path.Combine(folder, "approved.txt")) == "yes", "Approved command did not execute");
 
         var sent = new DateTimeOffset(2026, 10, 14, 23, 59, 59, TimeSpan.FromHours(8));
@@ -106,7 +106,7 @@ internal static partial class Program
         book.Turns.Add(new("项目 Git 历史里曾经有安装脚本，请帮我查找。", "已从 Git 历史中找到 `install-fonts.ps1`，核对了字体名称与安装位置。")
         {
             SentAt = sent, AnsweredAt = sent.AddSeconds(30), Segments =
-            [new() { Kind = "activity", Text = "已查看项目目录", CreatedAt = sent }, new() { Kind = "activity", Text = "Shell 退出码：0 · 已读取历史脚本", CreatedAt = sent.AddSeconds(10) }, new() { Kind = "final", Text = "已找到历史安装脚本，保留当前源码。", CreatedAt = sent.AddSeconds(30) }]
+            [new() { Kind = "activity", Text = "已查看项目目录", CreatedAt = sent }, new() { Kind = "activity", Text = "读取历史安装脚本 · 成功", Details = "命令\ngit show HEAD~1:install-fonts.ps1\n\n命令输出\n# 历史安装脚本\nWrite-Output FONT_HISTORY_MARKER", CreatedAt = sent.AddSeconds(10) }, new() { Kind = "final", Text = "已找到历史安装脚本，保留当前源码。", CreatedAt = sent.AddSeconds(30) }]
         });
         Invoke(panel, "RefreshTranscript");
         var models = (ComboBox)panel.Settings.FindName("Models");
@@ -114,6 +114,9 @@ internal static partial class Program
         models.SelectedIndex = 0; await panel.Settings.SelectEffortAsync("high");
         book.Active.ContextUsage = usage with { Model = "gpt-6.1-sol" }; Invoke(panel, "UpdateContextUsage");
         window.UpdateLayout(); Capture(window, Path.Combine(output, "ai-permissions-wide.png"));
+        var expansion = Descendants<Expander>(panel).First(e => e.DataContext is AiSegment segment && segment.Details.Contains("git show"));
+        expansion.IsExpanded = true; window.UpdateLayout(); Capture(window, Path.Combine(output, "shell-expanded.png"));
+        Check(Descendants<TextBox>(expansion).Any(t => t.Text.Contains("git show") && t.Text.Contains("FONT_HISTORY_MARKER") && t.IsReadOnly), "Expanded shell details not visible");
         Check(((Button)panel.FindName("ChatSettingsButton")).IsVisible, "Header settings gear missing");
         Check(((ComboBox)panel.FindName("ModelPicker")).ActualWidth <= 190 && ((ComboBox)panel.FindName("EffortPicker")).ActualWidth < 76, "Model/effort controls remain oversized");
         File.WriteAllText(Path.Combine(output, "permissions-checks.txt"), $"PASS: {checks} checks");

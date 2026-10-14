@@ -29,7 +29,7 @@ internal static partial class Program
                 icons.Single(icon => Equals(icon.Tag, mode)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await Settle();
         }
-        if (icons.Length != 6 || !Equals(icons.Single(icon => Equals(icon.Tag, "bookmarks")).Content, window.FindResource("WorkspaceBookmarksIcon"))
+        if (icons.Length != 7 || !Equals(icons.Single(icon => Equals(icon.Tag, "bookmarks")).Content, window.FindResource("WorkspaceBookmarksIcon"))
             || !Equals(icons.Single(icon => Equals(icon.Tag, "labels")).Content, window.FindResource("WorkspaceLabelsIcon")))
             throw new Exception("Bookmark/tag and reference/anchor actions are not independent");
         await Mode("bookmarks");

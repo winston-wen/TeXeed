@@ -21,9 +21,6 @@ public partial class MainWindow
         foreach (var editor in Editors)
         {
             var menu = new ContextMenu();
-            var ai = new MenuItem { Header = "AI 圈点", IsCheckable = true };
-            ai.Click += (_, _) => SetAiMarking(ai.IsChecked);
-            menu.Items.Add(ai); menu.Items.Add(new Separator());
             editor.AiMarked += (_, mark) => CollectSourceMark(editor, mark);
             void Command(string title, RoutedCommand command, string gesture)
             {
@@ -37,7 +34,6 @@ public partial class MainWindow
             Command("剪切", ApplicationCommands.Cut, "Ctrl+X"); Command("复制", ApplicationCommands.Copy, "Ctrl+C"); Command("粘贴", ApplicationCommands.Paste, "Ctrl+V"); Command("全选", ApplicationCommands.SelectAll, "Ctrl+A"); menu.Items.Add(new Separator());
             foreach (var (title, action) in new[] { ("切换注释", "comment"), ("增加缩进", "indent"), ("减少缩进", "outdent"), ("查找", "find"), ("替换", "replace"), ("格式化文档", "format") })
             { var item = new MenuItem { Header = title }; item.Click += (_, _) => editor.ExecuteCommand(action); menu.Items.Add(item); }
-            menu.Opened += (_, _) => { ai.IsChecked = _aiMarking; ai.IsEnabled = editor.CurrentFilePath is not null && !_transitioning; };
             editor.ContextMenu = menu;
             _ = new AiMarkMenu(editor, () => _aiMarking, () => SetAiMarking(false));
         }
@@ -47,10 +43,12 @@ public partial class MainWindow
         if (active && (_project is null || _transitioning)) return;
         if (_aiMarking == active) return;
         _aiMarking = active;
+        UpdateWorkspaceIcons();
         foreach (var editor in Editors) editor.SetAiMarking(active);
         Preview.SetAiMarking(active);
         Status(active ? "AI 圈点：单击点位，按住选择；Esc 或右键双击退出" : "已退出 AI 圈点");
     }
+    private void AiMarking_Click(object sender, RoutedEventArgs e) => SetAiMarking(!_aiMarking);
     private void CollectSourceMark(LatexEditor editor, SourceAiMark mark)
     {
         if (_project is null || editor.CurrentFilePath is not { } path || mark.Length > 40000) return;

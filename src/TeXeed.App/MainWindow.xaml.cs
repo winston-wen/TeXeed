@@ -150,7 +150,7 @@ public partial class MainWindow : Window
             _externalChangePending = false; _assetChangePending = false;
             await _aiPanel.SetProjectAsync(project.MainPath);
             SetAiMarking(false);
-            _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
+            _previewWarning = false; _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
             Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;
@@ -349,6 +349,7 @@ public partial class MainWindow : Window
                     if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
                     var cacheCurrent = dependencyVersion == inputs.ChangeVersion && revision == _revision && _changes.Count == 0;
                     _pdfPath = cached.PdfPath; _pdfRevision = cacheCurrent ? revision : -1; _previewProject = project; _previewInputs = inputs;
+                    _previewWarning = !cacheCurrent; RefreshTabs();
                     Status(cacheCurrent ? "已复用本地编译缓存" : "预览载入期间依赖已修改 · 请重新编译");
                     if (cacheCurrent) QueueFollowSync();
                     return;
@@ -384,10 +385,12 @@ public partial class MainWindow : Window
                 LogExpander.IsExpanded = true;
                 Status(result.Success ? "编译期间源码已修改 · 结果已过期，已保留上次预览" : "编译未完成 · 已保留上次预览，请查看编译输出");
             }
+            _previewWarning = _pdfPath is not null && !_lastCompilePreviewPublished;
+            RefreshTabs();
             if (_settings.LivePreview && revision != _revision) _buildAgain = true;
         }
-        catch (OperationCanceledException) { if (!reportErrors) throw; if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Status("编译已取消"); }
-        catch (Exception ex) { if (!reportErrors) throw; if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Error(ex); }
+        catch (OperationCanceledException) { MarkCachedPreview(); if (!reportErrors) throw; if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Status("编译已取消"); }
+        catch (Exception ex) { MarkCachedPreview(); if (!reportErrors) throw; if (session == _session && epoch == _buildEpoch && !_transitioning && !_closing) Error(ex); }
         finally
         {
             var again = _buildAgain && ActiveBuildNeedsReplacement;
@@ -397,6 +400,11 @@ public partial class MainWindow : Window
             if (again && !_closing && !_transitioning && (explicitAgain || _settings.LivePreview))
                 ScheduleBuildAt(explicitAgain ? Environment.TickCount64 : _liveBuildDueAt, explicitAgain);
             QueueExternalRefresh();
+        }
+        void MarkCachedPreview()
+        {
+            if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
+            _previewWarning = _pdfPath is not null; RefreshTabs();
         }
     }
     private void CancelForwardSync() => _forwardSyncCancellation?.Cancel();
@@ -666,7 +674,7 @@ public partial class MainWindow : Window
     private void UpdateWorkspaceIcons()
     {
         foreach (var button in WorkspaceIconBar.Children.OfType<Button>())
-            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, _workspaceExpanded && Equals(button.Tag, _sidebar));
+            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, Equals(button.Tag, "ai-mark") ? _aiMarking : _workspaceExpanded && Equals(button.Tag, _sidebar));
     }
     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (e.NewValue is TreeViewItem { Tag: string path }) ActivateFile(path); }

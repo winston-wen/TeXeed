@@ -21,6 +21,7 @@ public partial class AiPanel : UserControl, IDisposable
     private readonly ObservableCollection<AiTurn> _visibleTurns = [];
     private readonly ObservableCollection<AiSegment> _liveSegments = [];
     internal Func<AiToolRunner>? CreateToolRunner { get; set; }
+    internal HashSet<string> ShellApprovals => _book.Active.ShellApprovals;
     internal AiPermission Permission => _book.Active.Permission;
     private string? _project;
     private bool _updating, _disposed;
@@ -183,7 +184,7 @@ public partial class AiPanel : UserControl, IDisposable
                     segment.ReferenceTime = sentAt;
                     var existing = _liveSegments.FirstOrDefault(s => s.Id == segment.Id);
                     if (existing is null) _liveSegments.Add(segment);
-                    else { if (existing.Text != segment.Text) existing.Text = segment.Text; if (existing.Kind != segment.Kind) existing.Kind = segment.Kind; existing.CreatedAt = segment.CreatedAt; }
+                    else { if (existing.Text != segment.Text) existing.Text = segment.Text; if (existing.Kind != segment.Kind) existing.Kind = segment.Kind; existing.CreatedAt = segment.CreatedAt; existing.Details = segment.Details; }
                 }
                 if (follow) MessagesScroll.ScrollToEnd();
             }
@@ -206,7 +207,7 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; })), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }

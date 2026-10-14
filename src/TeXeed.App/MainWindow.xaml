@@ -36,6 +36,7 @@
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceBookmarksIcon}" Tag="bookmarks" ToolTip="书签" AutomationProperties.Name="书签" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceLabelsIcon}" Tag="labels" ToolTip="标签" AutomationProperties.Name="标签" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceTodosIcon}" Tag="todos" ToolTip="待办" AutomationProperties.Name="待办" Click="SidebarMode_Click"/>
+      <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceAiMarkIcon}" Tag="ai-mark" ToolTip="AI 圈点" AutomationProperties.Name="AI 圈点" Click="AiMarking_Click"/>
      </UniformGrid></Border>
    <Border Grid.Column="1" x:Name="SidebarPanel" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}">
     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>

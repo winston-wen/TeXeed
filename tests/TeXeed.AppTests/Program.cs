@@ -16,6 +16,7 @@ internal static partial class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Contains("--ai-live-compaction")) return AiLiveCompaction.RunAsync(args).GetAwaiter().GetResult();
         if (args.Contains("--ai-live-agent"))
         {
             AiLiveAgentEval.ProviderHandlerFactory = options => options.Provider == "deepseek"
@@ -65,6 +66,11 @@ internal static partial class Program
                 {
                     await CheckAiPermissionsAsync(window, output);
                     await CloseAndObserveAsync(window, "AI permissions and shell regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-polish-only"))
+                {
+                    await CheckAiPolishAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI polish regression"); result = 0; return;
                 }
                 if (args.Contains("--ai-dependency-only"))
                 {
@@ -636,8 +642,8 @@ internal static partial class Program
         var search = (TextBox)window.FindName("SearchBox");
         var buttons = Descendants<Button>(rail).ToArray();
         window.UpdateLayout();
-        if (buttons.Length != 6 || window.FindName("CollapseWorkspaceButton") is not null)
-            throw new Exception("Permanent rail must contain exactly six functions and no collapse button");
+        if (buttons.Length != 7 || window.FindName("CollapseWorkspaceButton") is not null)
+            throw new Exception("Permanent rail must contain six panel functions plus AI marking and no collapse button");
         var positions = buttons.ToDictionary(b => b, b => b.TranslatePoint(new Point(), window));
         var path = editor.CurrentFilePath; var text = editor.Text;
         column.Width = new GridLength(315); window.UpdateLayout();

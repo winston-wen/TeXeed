@@ -56,6 +56,8 @@ public sealed record AiTurn(string Question, string Answer)
         SentAt is null && !Answer.StartsWith("[本轮未完成]") ? "答复时间：" + AiTimestamp.Full(CreatedAt.ToLocalTime()) : "";
 }
 
+public sealed record AiContextMemory(string Summary, string[] TurnIds, string Fingerprint);
+
 public sealed class AiConversation
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -66,6 +68,8 @@ public sealed class AiConversation
     public string Draft { get; set; } = "";
     public AiPermission Permission { get; set; } = AiPermission.FullAccess;
     public AiContextUsage? ContextUsage { get; set; }
+    public AiContextMemory? ContextMemory { get; set; }
+    [JsonIgnore] internal HashSet<string> ShellApprovals { get; } = [];
     [JsonIgnore] public string Summary => $"{Turns.Count} 轮 · {UpdatedAt.LocalDateTime:MM-dd HH:mm}";
     [JsonIgnore] public string RelativeTime
     {
@@ -84,7 +88,7 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, Turns = [.. Turns], Permission = Permission, ContextUsage = ContextUsage,
+        Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, Turns = [.. Turns], Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => new AiEntry
         {
             Id = e.Id, Title = e.Title, Question = e.Question, Selected = e.Selected, State = e.State,

@@ -8,15 +8,17 @@ namespace TeXeed.App;
 
 public partial class MainWindow
 {
+    private bool _previewWarning;
     private bool _aiToolBusy;
     private bool _aiShellRunning;
     private CompileResult? _lastCompileResult;
 
     internal AiToolRunner CreateAiToolRunner()
-        => CreateAiToolRunner(_aiPanel.Permission);
+        => CreateAiToolRunner(_aiPanel.Permission, _aiPanel.ShellApprovals);
 
-    internal AiToolRunner CreateAiToolRunner(AiPermission permission)
+    internal AiToolRunner CreateAiToolRunner(AiPermission permission, HashSet<string>? approvals = null)
     {
+        approvals ??= [];
         var session = _session;
         var project = _project ?? throw new InvalidOperationException("请先打开项目。");
         var readVersions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -64,14 +66,34 @@ public partial class MainWindow
             name = name.Split('.').Last();
             if (!AiPermissionChoice.Allows(permission, name))
                 throw new UnauthorizedAccessException("当前会话权限不允许此工具：" + name);
+            if (name == "ask_user")
+            {
+                var question = args.GetProperty("question").GetString() ?? "请选择下一步";
+                var options = args.GetProperty("options").EnumerateArray()
+                    .Select(o => (Label: o.GetProperty("label").GetString() ?? "", Description: o.GetProperty("description").GetString() ?? "")).ToArray();
+                if (options.Length is < 2 or > 4 || options.Any(o => string.IsNullOrWhiteSpace(o.Label))) throw new InvalidOperationException("请提供 2–4 个有明确标签的决策选项。");
+                var decision = await Controls.AiShellApproval.ShowAsync(this, "需要你的决定", question + "\n\n" + string.Join("\n\n", options.Select(o => o.Label + "：" + o.Description)),
+                    options.Select((o, i) => (o.Label, "option-" + i)).ToArray(), token);
+                CheckSession(token);
+                return decision.Choice == "feedback" ? "用户意见：" + decision.Feedback : decision.Choice == "deny" ? "用户关闭了询问，未作决定；不要擅自代选。" : "用户选择：" + options[int.Parse(decision.Choice[7..])].Label;
+            }
             if (name == "shell")
             {
                 var command = args.GetProperty("command").GetString() ?? "";
                 var workingDirectory = args.GetProperty("working_directory").GetString() ?? "";
                 var timeout = args.GetProperty("timeout_seconds").GetInt32();
-                if (permission == AiPermission.AskBeforeShell &&
-                    !await Controls.AiShellApproval.RequestAsync(this, command, string.IsNullOrWhiteSpace(workingDirectory) ? project.Root : Path.GetFullPath(Path.Combine(project.Root, workingDirectory)), token))
-                    return "操作被用户拒绝：此命令未执行，不得换写法绕过拒绝。";
+                var directory = string.IsNullOrWhiteSpace(workingDirectory) ? project.Root : Path.GetFullPath(Path.Combine(project.Root, workingDirectory));
+                var grant = AiShellConsent.Key(command, directory);
+                if (permission == AiPermission.AskBeforeShell && !approvals.Contains(grant))
+                {
+                    var decision = await Controls.AiShellApproval.RequestAsync(this, command, directory, token,
+                        args.TryGetProperty("intent", out var intent) ? intent.GetString() ?? "执行项目命令" : "执行项目命令",
+                        args.TryGetProperty("impact", out var impact) ? impact.GetString() ?? "当前用户可访问的文件与网络。" : "当前用户可访问的文件与网络。");
+                    CheckSession(token);
+                    if (decision.Choice == "feedback") return "命令未执行。用户意见：" + decision.Feedback + "\n请据此调整下一步；这不是批准原命令。";
+                    if (decision.Choice is not ("once" or "similar")) return "操作被用户拒绝：此命令未执行，不得换写法绕过拒绝。";
+                    if (decision.Choice == "similar") approvals.Add(grant);
+                }
                 CheckSession(token);
                 while (_building || _aiToolBusy || _refreshing) { await Task.Delay(50, token); CheckSession(token); }
                 _aiToolBusy = true;

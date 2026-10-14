@@ -110,7 +110,7 @@ internal static partial class Program
             throw new Exception("Editor still has a redundant header gap");
         var title = (FrameworkElement)window.FindName("SidebarTitle");
         double? y = null;
-        foreach (var icon in ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Where(button => button.Tag is string))
+        foreach (var icon in ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Where(button => button.Tag is string tag && tag != "ai-mark"))
         {
             if ((string)Field(window, "_sidebar")! != (string)icon.Tag || !(bool)Field(window, "_workspaceExpanded")!) icon.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
             var next = title.TranslatePoint(new Point(), workspace).Y;

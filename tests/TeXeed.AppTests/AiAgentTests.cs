@@ -114,6 +114,21 @@ internal static partial class Program
         await runner("save_project", "{}", CancellationToken.None);
         Check(File.ReadAllText(main).Contains("Kept this sentence.") && File.ReadAllText(main).Contains("% accepted disk change"), "Inactive editor session rejected an accepted disk reload or lost external content");
 
+        var cachedPdf = (string)Field(window, "_pdfPath")!;
+        read = await runner("read_source", "{\"file\":\"main.tex\",\"start_line\":1,\"line_count\":100}", CancellationToken.None);
+        hash = Regex.Match(read, "SHA256=([A-F0-9]+)").Groups[1].Value;
+        await runner("replace_source", JsonSerializer.Serialize(new { file = "main.tex", expected_sha256 = hash, old_text = "Kept this sentence.", new_text = "Kept this sentence. \\undefinedtestcommand" }), CancellationToken.None);
+        var failedCompile = await runner("compile_project", "{}", CancellationToken.None);
+        Check((bool)Field(window, "_previewWarning")! && Equals(Field(window, "_pdfPath"), cachedPdf), "Failed compile did not mark the retained cached preview");
+        window.UpdateLayout();
+        Check(Descendants<TextBlock>(window).Any(t => t.Text == "预览 ⚠"), "Preview warning is not visible on the tab");
+        Capture(window, Path.Combine(output, "cached-preview-warning.png"));
+        read = await runner("read_source", "{\"file\":\"main.tex\",\"start_line\":1,\"line_count\":100}", CancellationToken.None);
+        hash = Regex.Match(read, "SHA256=([A-F0-9]+)").Groups[1].Value;
+        await runner("replace_source", JsonSerializer.Serialize(new { file = "main.tex", expected_sha256 = hash, old_text = " \\undefinedtestcommand", new_text = "" }), CancellationToken.None);
+        await runner("compile_project", "{}", CancellationToken.None);
+        Check(!(bool)Field(window, "_previewWarning")!, "Successful compilation did not clear the cache warning");
+
         var compiler = (CompileService)Field(window, "_compiler")!;
         var gate = (SemaphoreSlim)typeof(CompileService).GetField("gate", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(compiler)!;
         await gate.WaitAsync();

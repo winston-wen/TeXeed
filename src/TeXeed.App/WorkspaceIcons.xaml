@@ -27,4 +27,5 @@
  <Style x:Key="SidebarActionButton" TargetType="Button" BasedOn="{StaticResource WorkspaceIconButton}">
   <Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="Margin" Value="1,0"/>
  </Style>
+ <Geometry x:Key="WorkspaceAiMarkIcon">M2,19 L5,10 8,19 M3,16 H7 M10,11 H15 M12.5,11 V19 M10,19 H15 M5,7 L14,1 17,4 8,10 4,11 Z M12,2.5 L15,5.5</Geometry>
 </ResourceDictionary>

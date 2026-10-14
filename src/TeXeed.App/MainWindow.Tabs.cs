@@ -149,7 +149,7 @@ public partial class MainWindow
                     PreviewContent.Visibility = Visibility.Visible;
                 }
                 GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(path => new EditorTab(path,
-                    path == TabWorkspace.PreviewKey ? "预览" : path == TabWorkspace.AiKey ? "AI 对话" : path == TabWorkspace.AiSettingsKey ? "AI 设置" : System.IO.Path.GetFileName(path), _changes.ContainsKey(path), path == TabWorkspace.PreviewKey)).ToArray(), active);
+                    path == TabWorkspace.PreviewKey ? "预览" : path == TabWorkspace.AiKey ? "AI 对话" : path == TabWorkspace.AiSettingsKey ? "AI 设置" : System.IO.Path.GetFileName(path), _changes.ContainsKey(path), path == TabWorkspace.PreviewKey, path == TabWorkspace.PreviewKey && _previewWarning)).ToArray(), active);
             }
             _aiPanel.Visibility = _workspaceTabs.Owner(TabWorkspace.AiKey) is { } aiSide && _workspaceTabs.Active(aiSide) == TabWorkspace.AiKey ? Visibility.Visible : Visibility.Collapsed;
             _aiPanel.Settings.Visibility = _workspaceTabs.Owner(TabWorkspace.AiSettingsKey) is { } settingsSide && _workspaceTabs.Active(settingsSide) == TabWorkspace.AiSettingsKey ? Visibility.Visible : Visibility.Collapsed;

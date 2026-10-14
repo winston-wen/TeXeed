@@ -11,7 +11,7 @@ using TeXeed.App.Services;
 
 namespace TeXeed.App.Controls;
 
-public sealed record EditorTab(string Path, string Title, bool Modified, bool IsPreview = false);
+public sealed record EditorTab(string Path, string Title, bool Modified, bool IsPreview = false, bool Warning = false);
 public enum TabCloseScope { This, All, Others, Left, Right }
 public partial class EditorTabStrip : UserControl
 {
@@ -73,10 +73,10 @@ public partial class EditorTabStrip : UserControl
             var tab = tabs[i];
             if (!_views.TryGetValue(tab.Path, out var view)) { view = CreateTab(tab.Path, tab.IsPreview); _views.Add(tab.Path, view); }
             var label = (TextBlock)((Button)((Grid)view.Child).Children[0]).Content;
-            var text = tab.Title + (tab.Modified ? "  ●" : "");
+            var text = tab.Title + (tab.Warning ? " ⚠" : "") + (tab.Modified ? "  ●" : "");
             if (label.Text != text && string.Equals(tab.Path, active, StringComparison.OrdinalIgnoreCase)) reveal = true;
             label.Text = text;
-            view.ToolTip = tab.IsPreview ? "PDF 预览 · 齿轮打开预览设置" : tab.Path == TeXeed.Core.TabWorkspace.AiKey ? "AI 对话" : tab.Path + (tab.Modified ? "\n尚未保存" : "");
+            view.ToolTip = tab.IsPreview ? (tab.Warning ? "本次编译未生成有效预览，当前显示上次缓存的 PDF。请查看编译输出。" : "PDF 预览 · 齿轮打开预览设置") : tab.Path == TeXeed.Core.TabWorkspace.AiKey ? "AI 对话" : tab.Path + (tab.Modified ? "\n尚未保存" : "");
             var previous = Items.Children.IndexOf(view);
             if (previous != i) { if (previous >= 0) Items.Children.Remove(view); Items.Children.Insert(i, view); }
         }
