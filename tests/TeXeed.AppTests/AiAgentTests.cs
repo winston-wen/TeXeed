@@ -57,7 +57,7 @@ internal static partial class Program
             var turn = book.Turns.Single();
             Check(turn.Answer == AiRepairHandler.Final && turn.Segments.Last().Kind == "final", "Final answer was concatenated with intermediate commentary");
             var kinds = turn.Segments.Select(s => s.Kind).ToArray();
-            Check(kinds.Count(k => k == "text") == 2 && kinds.Count(k => k == "activity") == 6, "Intermediate prose and tool operations were not kept as chronological segments");
+            Check(kinds.Count(k => k == "text") == 2 && kinds.Count(k => k == "activity") == 5 && turn.SentAt is not null && turn.AnsweredAt is not null, "Intermediate prose/tool segments or message timestamps were lost");
             Check(turn.Segments.Any(s => s.Text.Contains("编译失败")) && turn.Segments.Any(s => s.Text.Contains("编译成功")), "The output stream lost compile results");
             Check(turn.Segments.Where(s => s.Kind == "activity").All(s => !s.Text.Contains("SHA256") && !s.Text.Contains("备份 ") && !s.Text.Contains("等待模型")), "Completed activity contains protocol details or a stale waiting state");
             Check(turn.Segments.Zip(turn.Segments.Skip(1)).All(p => p.First.CreatedAt <= p.Second.CreatedAt), "Activity timestamps are not chronological");

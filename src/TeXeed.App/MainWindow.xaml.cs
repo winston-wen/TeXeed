@@ -312,6 +312,7 @@ public partial class MainWindow : Window
 
     private async Task BuildAsync(bool explicitRequest = true, CancellationToken cancellationToken = default, bool reportErrors = true, string? entryFile = null)
     {
+        if (_aiShellRunning) { Status("AI 命令正在执行，结束后可编译。"); return; }
         if (_project == null || _transitioning || _closing) return;
         if (!explicitRequest && !_settings.LivePreview) return;
         if (_building)
@@ -571,12 +572,12 @@ public partial class MainWindow : Window
     }
     private void QueueExternalRefresh()
     {
-        if (!_externalChangePending || _transitioning || _closing || _building || _refreshing || _saveGate.CurrentCount == 0) return;
+        if (!_externalChangePending || _transitioning || _closing || _building || _aiShellRunning || _refreshing || _saveGate.CurrentCount == 0) return;
         _watchTimer.Stop(); _watchTimer.Start();
     }
     private async Task ReloadExternalAsync()
     {
-        if (_project == null || !_externalChangePending || _refreshing || _building || _transitioning || _closing || _saveGate.CurrentCount == 0) return;
+        if (_project == null || !_externalChangePending || _refreshing || _building || _aiShellRunning || _transitioning || _closing || _saveGate.CurrentCount == 0) return;
         if (_changes.Count != 0) { Status("检测到外部修改；保存时会检查冲突。可通过“重新加载项目”读取磁盘版本。"); return; }
         _refreshing = true; var session = _session;
         await _saveGate.WaitAsync();
@@ -591,8 +592,17 @@ public partial class MainWindow : Window
             { if (session == _session) { _externalChangePending = true; _assetChangePending |= assetChanged; } return; }
             // Keep detached tabs in this editing session. Their saved baseline remains
             // available for conflict detection if the now-unreferenced file changes on disk.
-            var detached = _project.Files.Where(f => _tabs.Contains(f.Path, StringComparer.OrdinalIgnoreCase) &&
-                !updated.Files.Any(next => next.Path.Equals(f.Path, StringComparison.OrdinalIgnoreCase)));
+            var detached = new List<ProjectFile>();
+            foreach (var file in _project.Files.Where(f => _tabs.Contains(f.Path, StringComparer.OrdinalIgnoreCase) &&
+                !updated.Files.Any(next => next.Path.Equals(f.Path, StringComparison.OrdinalIgnoreCase))))
+            {
+                if (!File.Exists(file.Path)) continue;
+                // Detached editor tabs must also see changes made by shell commands.
+                try { detached.Add(await TeXeed.App.AI.AiWorkspaceFiles.ReadAsync(_project.Root, file.RelativePath, CancellationToken.None)); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { detached.Add(file); }
+            }
+            if (session != _session || _transitioning || _closing || _changes.Count > 0)
+            { if (session == _session) _externalChangePending = true; return; }
             updated = updated with { Files = updated.Files.Concat(detached).ToArray() };
             var changed = assetChanged || updated.Files.Count != _project.Files.Count || updated.Files.Any(f => !_project.Files.Any(old => old.Path == f.Path && old.Content == f.Content));
             _project = updated;

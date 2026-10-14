@@ -54,6 +54,7 @@ public partial class AiPanel
         _updating = true;
         Composer.Text = _book.Draft;
         _updating = false;
+        SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript();
         ConversationTitle.Text = _book.Active.Title;

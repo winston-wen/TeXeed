@@ -15,6 +15,9 @@
     <Compile Include="../../src/TeXeed.App/Services/PhysicalScreen.cs" Link="PhysicalScreen.cs" />
     <Compile Include="../../src/TeXeed.App/AI/AiModels.cs" Link="AiModels.cs" />
     <Compile Include="../../src/TeXeed.App/AI/AiSegment.cs" Link="AiSegment.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiPermissions.cs" Link="AiPermissions.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiContextUsage.cs" Link="AiContextUsage.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiTimestamp.cs" Link="AiTimestamp.cs" />
     <Compile Include="../../src/TeXeed.App/Services/AtomicFile.cs" Link="AtomicFile.cs" />
     <Compile Include="../../src/TeXeed.App/Controls/PdfPreview.Ai.cs" Link="PdfPreview.Ai.cs" />
     <Compile Include="../../src/TeXeed.App/Controls/AiMarkMenu.cs" Link="AiMarkMenu.cs" />

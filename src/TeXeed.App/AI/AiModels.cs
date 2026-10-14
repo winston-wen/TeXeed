@@ -31,13 +31,29 @@ public sealed record AiTurn(string Question, string Answer)
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? SentAt { get; init; }
+    public DateTimeOffset? AnsweredAt { get; init; }
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";
     public List<AiSegment> Segments { get; init; } = [];
-    [JsonIgnore] public IReadOnlyList<AiSegment> DisplaySegments => Segments.Count > 0 ? Segments : [new() { Kind = "final", Text = DisplayAnswer, CreatedAt = CreatedAt }];
+    [JsonIgnore] public IReadOnlyList<AiSegment> DisplaySegments
+    {
+        get
+        {
+            var segments = Segments.Count > 0 ? Segments.Where(s => s.Id != "request").Select(s =>
+            {
+                if (SentAt is not null) return s;
+                var legacy = s.Snapshot(); legacy.CreatedAt = legacy.CreatedAt.ToLocalTime(); return legacy;
+            }).ToList() : [new AiSegment { Kind = "final", Text = DisplayAnswer, CreatedAt = CreatedAt.ToLocalTime() }];
+            foreach (var segment in segments) segment.ReferenceTime = SentAt ?? CreatedAt.ToLocalTime();
+            return segments;
+        }
+    }
     [JsonIgnore] public string DisplayQuestion => AiConversation.CleanQuestion(Question);
     [JsonIgnore] public string DisplayAnswer => string.IsNullOrWhiteSpace(Answer) ? "此旧记录未保存回答，可删除或重新提问。" : Answer;
-    [JsonIgnore] public string DisplayTime => CreatedAt.LocalDateTime.ToString("MM-dd HH:mm");
+    [JsonIgnore] public string DisplayTime => AiTimestamp.Full(SentAt ?? CreatedAt.ToLocalTime());
+    [JsonIgnore] public string AnswerTime => AnsweredAt is { } time ? "答复时间：" + AiTimestamp.Full(time) :
+        SentAt is null && !Answer.StartsWith("[本轮未完成]") ? "答复时间：" + AiTimestamp.Full(CreatedAt.ToLocalTime()) : "";
 }
 
 public sealed class AiConversation
@@ -48,6 +64,8 @@ public sealed class AiConversation
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
     public string Draft { get; set; } = "";
+    public AiPermission Permission { get; set; } = AiPermission.FullAccess;
+    public AiContextUsage? ContextUsage { get; set; }
     [JsonIgnore] public string Summary => $"{Turns.Count} 轮 · {UpdatedAt.LocalDateTime:MM-dd HH:mm}";
     [JsonIgnore] public string RelativeTime
     {
@@ -66,7 +84,7 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, Turns = [.. Turns],
+        Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, Turns = [.. Turns], Permission = Permission, ContextUsage = ContextUsage,
         Entries = Entries.Select(e => new AiEntry
         {
             Id = e.Id, Title = e.Title, Question = e.Question, Selected = e.Selected, State = e.State,

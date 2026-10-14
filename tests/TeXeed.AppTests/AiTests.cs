@@ -46,8 +46,8 @@ internal static partial class Program
         var strip = (EditorTabStrip)window.FindName("RightFileTabs");
         var aiTab = ((StackPanel)strip.FindName("Items")).Children.Cast<Border>().Single(b => (string)b.Tag == TabWorkspace.AiKey);
         var aiButtons = ((Grid)aiTab.Child).Children.Cast<Button>().ToArray();
-        Check(aiButtons.Length == 3 && aiButtons[1].ToolTip?.ToString() == "AI 设置" && aiButtons[2].ToolTip?.ToString()?.Contains("关闭") == true, "AI title/gear/close ordering is incorrect");
-        aiButtons[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
+        Check(aiButtons.Length == 2 && aiButtons[1].ToolTip?.ToString()?.Contains("关闭") == true, "AI tab should contain only title and close; settings belong in the chat header");
+        ((Button)ai.FindName("ChatSettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
         Check(tabs.FocusedTab == TabWorkspace.AiSettingsKey && ai.Settings.IsVisible && !ai.IsVisible, "AI gear did not open separate settings tab");
         Check(!tabs.Sources.Contains(TabWorkspace.AiSettingsKey), "AI settings treated as source");
         Invoke(window, "OpenAiTab");

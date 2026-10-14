@@ -9,9 +9,13 @@ namespace TeXeed.App;
 public partial class MainWindow
 {
     private bool _aiToolBusy;
+    private bool _aiShellRunning;
     private CompileResult? _lastCompileResult;
 
     internal AiToolRunner CreateAiToolRunner()
+        => CreateAiToolRunner(_aiPanel.Permission);
+
+    internal AiToolRunner CreateAiToolRunner(AiPermission permission)
     {
         var session = _session;
         var project = _project ?? throw new InvalidOperationException("请先打开项目。");
@@ -58,6 +62,52 @@ public partial class MainWindow
             CheckSession(token);
             using var json = JsonDocument.Parse(arguments); var args = json.RootElement;
             name = name.Split('.').Last();
+            if (!AiPermissionChoice.Allows(permission, name))
+                throw new UnauthorizedAccessException("当前会话权限不允许此工具：" + name);
+            if (name == "shell")
+            {
+                var command = args.GetProperty("command").GetString() ?? "";
+                var workingDirectory = args.GetProperty("working_directory").GetString() ?? "";
+                var timeout = args.GetProperty("timeout_seconds").GetInt32();
+                if (permission == AiPermission.AskBeforeShell &&
+                    !await Controls.AiShellApproval.RequestAsync(this, command, string.IsNullOrWhiteSpace(workingDirectory) ? project.Root : Path.GetFullPath(Path.Combine(project.Root, workingDirectory)), token))
+                    return "操作被用户拒绝：此命令未执行，不得换写法绕过拒绝。";
+                CheckSession(token);
+                while (_building || _aiToolBusy || _refreshing) { await Task.Delay(50, token); CheckSession(token); }
+                _aiToolBusy = true;
+                _aiShellRunning = true;
+                var editorStates = Editors.Select(e => (Editor: e, Enabled: e.IsEnabled)).ToArray();
+                var leftActive = _workspaceTabs.Active(TabSide.Left); var rightActive = _workspaceTabs.Active(TabSide.Right); var focus = _workspaceTabs.FocusedSide;
+                foreach (var state in editorStates) state.Editor.IsEnabled = false;
+                try
+                {
+                    if (!await SaveAsync(reportErrors: false) || _changes.Count > 0)
+                        throw new InvalidOperationException("当前源码尚未安全保存，Shell 未执行；请先处理保存冲突。");
+                    CheckSession(token);
+                    return await AiShell.ExecuteAsync(project.Root, command, workingDirectory, timeout, token);
+                }
+                finally
+                {
+                    _aiShellRunning = false;
+                    try
+                    {
+                        if (_session == session && !_closing && !_transitioning)
+                        {
+                            _externalChangePending = true;
+                            await ReloadExternalAsync();
+                            if (leftActive is not null) _workspaceTabs.Select(TabSide.Left, leftActive);
+                            if (rightActive is not null) _workspaceTabs.Select(TabSide.Right, rightActive);
+                            _workspaceTabs.Focus(focus); RefreshTabs();
+                            readVersions.Clear(); // Shell may have changed any source on disk.
+                        }
+                    }
+                    finally
+                    {
+                        foreach (var state in editorStates) state.Editor.IsEnabled = state.Enabled;
+                        _aiToolBusy = false;
+                    }
+                }
+            }
             var files = CurrentFiles().Where(f => f.IsEditable).ToArray();
             if (name == "list_files")
             {

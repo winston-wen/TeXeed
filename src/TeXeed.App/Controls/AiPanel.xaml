@@ -11,14 +11,14 @@
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="10"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.8"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.6"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
   <DataTemplate x:Key="SegmentTemplate">
-   <StackPanel Margin="0,0,0,14">
-    <Border x:Name="Activity" BorderBrush="{DynamicResource Guide}" BorderThickness="2,0,0,0" Padding="10,4" Visibility="Collapsed">
-     <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding DisplayTime}" Foreground="{DynamicResource Muted}" FontSize="10" Margin="12,2,0,0"/><TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="12" LineHeight="20"/></DockPanel>
+   <StackPanel x:Name="SegmentRow" Margin="0,0,0,14">
+    <Border x:Name="Activity" Background="{DynamicResource ChatQuestionBackground}" CornerRadius="4" BorderBrush="{DynamicResource Guide}" BorderThickness="2,0,0,0" Padding="8,2" Visibility="Collapsed">
+     <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding DisplayTime}" Foreground="{DynamicResource Muted}" FontSize="10" Margin="12,0,0,0" VerticalAlignment="Center"/><TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="12" LineHeight="17"/></DockPanel>
     </Border>
     <TextBlock x:Name="FinalLabel" Text="答复" Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,6,0,8" Visibility="Collapsed"/>
     <local:MarkdownView x:Name="Content" Markdown="{Binding Text}"/>
    </StackPanel>
-   <DataTemplate.Triggers><DataTrigger Binding="{Binding Kind}" Value="activity"><Setter TargetName="Activity" Property="Visibility" Value="Visible"/><Setter TargetName="Content" Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding Kind}" Value="final"><Setter TargetName="FinalLabel" Property="Visibility" Value="Visible"/></DataTrigger></DataTemplate.Triggers>
+   <DataTemplate.Triggers><DataTrigger Binding="{Binding Kind}" Value="activity"><Setter TargetName="SegmentRow" Property="Margin" Value="0,0,0,7"/><Setter TargetName="Activity" Property="Visibility" Value="Visible"/><Setter TargetName="Content" Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding Kind}" Value="final"><Setter TargetName="FinalLabel" Property="Visibility" Value="Visible"/></DataTrigger></DataTemplate.Triggers>
   </DataTemplate>
  </UserControl.Resources>
  <Grid Background="{DynamicResource EditorBackground}" Margin="20,14,14,14">
@@ -26,6 +26,7 @@
   <StackPanel Margin="0,0,0,18">
    <DockPanel>
     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+     <Button x:Name="ChatSettingsButton" Style="{StaticResource ChatIcon}" Click="Settings_Click" ToolTip="AI 设置" AutomationProperties.Name="AI 设置"><Path Width="19" Height="19" Stretch="Uniform" Data="M6,1 L8,1 8.5,3 10,4 12,3.5 13,5.5 11.5,7 11.5,9 13,10.5 12,12.5 10,12 8.5,13 8,15 6,15 5.5,13 4,12 2,12.5 1,10.5 2.5,9 2.5,7 1,5.5 2,3.5 4,4 5.5,3 Z M9.5,8 A2.5,2.5 0 1 1 4.5,8 A2.5,2.5 0 1 1 9.5,8" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
      <Button Style="{StaticResource ChatIcon}" Click="FindMessage_Click" ToolTip="查找当前对话 · Ctrl+F" AutomationProperties.Name="查找当前对话"><Path Data="M 8,1 A 7,7 0 1 0 8,15 A 7,7 0 1 0 8,1 M 13,13 L 19,19" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/></Button>
      <Button x:Name="HistoryButton" Style="{StaticResource ChatIcon}" Click="History_Click" ToolTip="历史对话" AutomationProperties.Name="历史对话"><Path Data="M 10,1 A 9,9 0 1 0 10,19 A 9,9 0 1 0 10,1 M 10,4 V 10 L 14,12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/></Button>
      <Button x:Name="NewConversationButton" Style="{StaticResource ChatIcon}" Click="NewConversation_Click" ToolTip="新对话" AutomationProperties.Name="新对话"><Path Data="M 2,15 A 9,9 0 1 1 7,19 L 1,20 Z M 10,5 V 13 M 6,9 H 14" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/></Button>
@@ -38,12 +39,13 @@
    <StackPanel>
     <StackPanel x:Name="EmptyConversation" Margin="12,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="在源码或 PDF 中右键开启 AI 圈点。单击标记点位，按住选择内容；松开即添加到下方编辑栏。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
     <ItemsControl x:Name="History" Margin="0,8,8,0"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,0,30">
-     <DockPanel Margin="0,0,0,6"><Button DockPanel.Dock="Right" Content="×" Click="DeleteTurn_Click" BorderThickness="0" Padding="5,1" Foreground="{DynamicResource Muted}" ToolTip="删除此轮问题和回答"/><Button DockPanel.Dock="Right" Content="↶" Click="RetryTurn_Click" BorderThickness="0" Padding="5,1" Foreground="{DynamicResource Muted}" ToolTip="将问题重新放入编辑栏"/><TextBlock Text="{Binding DisplayTime}" Foreground="{DynamicResource Muted}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/></DockPanel>
-     <Border Background="{DynamicResource ChatQuestionBackground}" CornerRadius="12" Padding="14,12" Margin="0,0,0,20"><TextBox Text="{Binding DisplayQuestion, Mode=OneWay}" Style="{StaticResource QuestionText}"/></Border>
+     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,3"><Button Content="↶" Click="RetryTurn_Click" BorderThickness="0" Padding="5,1" Foreground="{DynamicResource Muted}" ToolTip="将问题重新放入编辑栏"/><Button Content="×" Click="DeleteTurn_Click" BorderThickness="0" Padding="5,1" Foreground="{DynamicResource Muted}" ToolTip="删除此轮问题和回答"/></StackPanel>
+     <Border Background="{DynamicResource ChatQuestionBackground}" CornerRadius="12" Padding="14,12" Margin="0,0,0,12"><StackPanel><TextBox Text="{Binding DisplayQuestion, Mode=OneWay}" Style="{StaticResource QuestionText}"/><TextBlock Text="{Binding DisplayTime}" Foreground="{DynamicResource Muted}" FontSize="10" HorizontalAlignment="Right" Margin="0,7,0,0"/></StackPanel></Border>
      <ItemsControl ItemsSource="{Binding DisplaySegments}" ItemTemplate="{StaticResource SegmentTemplate}" Margin="12,0,4,0"/>
+     <TextBlock Text="{Binding AnswerTime}" Foreground="{DynamicResource Muted}" FontSize="10" HorizontalAlignment="Right" Margin="12,0,4,0"/>
     </StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
     <StackPanel x:Name="LiveContainer" Visibility="Collapsed" Margin="0,8,8,20">
-     <Border Background="{DynamicResource ChatQuestionBackground}" CornerRadius="12" Padding="14,12" Margin="0,0,0,20"><TextBox x:Name="LiveQuestion" Style="{StaticResource QuestionText}"/></Border>
+     <Border Background="{DynamicResource ChatQuestionBackground}" CornerRadius="12" Padding="14,12" Margin="0,0,0,12"><StackPanel><TextBox x:Name="LiveQuestion" Style="{StaticResource QuestionText}"/><TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontSize="10" HorizontalAlignment="Right" Margin="0,7,0,0"/></StackPanel></Border>
      <ItemsControl x:Name="LiveSegments" ItemTemplate="{StaticResource SegmentTemplate}" Margin="12,0,4,0"/>
     </StackPanel>   </StackPanel>
   </ScrollViewer>
@@ -71,16 +73,18 @@
      <TextBlock Text="写下问题，继续探索…" Foreground="{DynamicResource Muted}" FontSize="15" Margin="8,8" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=Composer}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
     </Grid>
     <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Margin="-10,6,-10,0" Padding="8,9,8,0">
-     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <Button x:Name="AddButton" Click="Options_Click" Style="{StaticResource ComposerIcon}" ToolTip="添加圈点与对话操作" Margin="0,0,8,0" AutomationProperties.Name="添加圈点与对话操作">
        <Path Data="M 8,1 V 15 M 1,8 H 15" Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
        <Button.ContextMenu><ContextMenu><MenuItem Header="添加圈点说明" Click="Add_Click"/><MenuItem Header="全选圈点" Click="SelectAll_Click"/><MenuItem Header="清理已完成圈点" Click="ClearDone_Click"/><Separator/><MenuItem Header="刷新模型" Click="RefreshModels_Click"/><MenuItem Header="AI 设置" Click="Settings_Click"/></ContextMenu></Button.ContextMenu>
       </Button>
-      <Grid x:Name="ModelControls" Grid.Column="1" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/></Grid.ColumnDefinitions>
-       <ComboBox x:Name="ModelPicker" SelectionChanged="ChatModel_Changed" ToolTip="选择模型" AutomationProperties.Name="AI 对话模型" MinWidth="40" BorderThickness="0" Background="{DynamicResource PanelBackground}"/>
-       <ComboBox x:Name="EffortPicker" Grid.Column="1" SelectionChanged="ChatEffort_Changed" ToolTip="推理强度" AutomationProperties.Name="AI 推理强度" Margin="5,0,0,0" BorderThickness="0" Background="Transparent"/>
+      <ComboBox x:Name="PermissionPicker" Grid.Column="1" SelectionChanged="Permission_Changed" AutomationProperties.Name="会话权限" VerticalAlignment="Center" BorderThickness="0" Background="Transparent"/>
+      <Grid x:Name="ModelControls" Grid.Column="3" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <TextBlock x:Name="ContextUsageText" Text="—" FontSize="11" Foreground="{DynamicResource Muted}" Margin="8,0,7,0" VerticalAlignment="Center" AutomationProperties.Name="上下文使用百分比"/>
+       <ComboBox x:Name="ModelPicker" Grid.Column="1" SelectionChanged="ChatModel_Changed" ToolTip="选择模型" AutomationProperties.Name="AI 对话模型" MinWidth="90" MaxWidth="190" BorderThickness="0" Background="{DynamicResource PanelBackground}"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+       <ComboBox x:Name="EffortPicker" Grid.Column="2" SelectionChanged="ChatEffort_Changed" ToolTip="推理强度" AutomationProperties.Name="AI 推理强度" Margin="5,0,0,0" BorderThickness="0" Background="Transparent"/>
       </Grid>
-      <Grid Grid.Column="2" Margin="8,0,0,0">
+      <Grid x:Name="SendControls" Grid.Column="4" Margin="8,0,0,0">
        <Button x:Name="SubmitButton" Click="Submit_Click" ToolTip="发送 · Ctrl+Enter" AutomationProperties.Name="发送问题" Background="{DynamicResource ChatFocus}" Foreground="White"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource ComposerIcon}"><Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></Button.Style><Path Data="M 8,15 V 1 M 2,7 L 8,1 14,7" Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Button>
        <Button x:Name="StopButton" Click="Stop_Click" ToolTip="停止回答" AutomationProperties.Name="停止回答" Background="{DynamicResource ChatFocus}" IsEnabled="False"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource ComposerIcon}"><Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></Button.Style><Rectangle Width="11" Height="11" RadiusX="2" RadiusY="2" Fill="White"/></Button>
       </Grid>

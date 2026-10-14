@@ -2,7 +2,7 @@
 
 原生 Windows LaTeX 编辑器，使用 **C# / .NET 10 / WPF**，编辑器基于 AvalonEdit，PDF 使用本机 PDFium 渲染。
 
-0.3.6 使用 TE 合字应用图标，包含多种 Windows 显示尺寸；发布脚本自动刷新桌面、开始菜单及已经固定的任务栏入口。
+0.3.7 为 AI 接入真实 PowerShell，默认完全访问，并提供按会话保存的“执行前询问”和“只读”权限。助手可主动检查 Git 历史、运行项目脚本和处理依赖；对话显示完整消息时间、紧凑过程行与实际上下文占用。保留 TE 合字图标，发布脚本自动刷新桌面、开始菜单及已经固定的任务栏入口。
 
 ## 运行
 
@@ -21,7 +21,7 @@ dotnet run --project src/TeXeed.App
 
 编译 LaTeX 需要另行安装 [TeX Live](https://www.tug.org/texlive/windows.html) 或 [MiKTeX](https://miktex.org/download)。从标题栏菜单（窄窗口使用菜单按钮）进入“排版 → 设置”，检测引擎或指定可执行文件。支持 `latexmk`、XeLaTeX、pdfLaTeX、LuaLaTeX，以及 [Tectonic](https://tectonic-typesetting.github.io/)。中文项目建议使用 XeLaTeX 和 `ctex`。TeX 发行版及宏包未包含在应用发行包中。
 
-## AI 工作助手（0.3.5）
+## AI 工作助手（0.3.7）
 
 标题栏最末 AI / Alt+A 打开“AI 对话”，齿轮打开独立“AI 设置”tab。源码与 PDF 右键切换“AI 圈点”：单击点位、长按选择，立即进入底部编辑栏；可统一描述并批量提交。AI 可直接修改当前项目、保存和编译，根据真实错误继续修复；修改前留备份，编辑器可撤销。进展说明、源码检索、修改和编译结果按时间顺序显示，最终答复单独呈现。回答按 Markdown 显示，支持标题、列表、引用、表格、代码块和链接。发送后立即清空输入框，可继续写下一条草稿；Enter / Shift+Enter 换行，Ctrl+Enter 发送，暂不提供键位配置。输入栏可选择模型与推理强度，加号菜单提供条目与模型刷新操作。历史搜索使用页内浮层，Ctrl+F 查找当前消息，每轮问答可重试或删除，暂不提供 AI 对话书签。支持 ChatGPT 登录与 API Key 备用。操作说明见 [AI 工作区](docs/ai-workspace.md)。
 

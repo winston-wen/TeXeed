@@ -111,7 +111,7 @@ internal static class AiWorkspaceFiles
         if (catalog.Unreadable > 0) output.AppendLine($"另有 {catalog.Unreadable} 个目录或文件不可读取。");
         if (offset + shown < entries.Count) output.AppendLine($"[目录结果截断] 调用 list_directory(path=\"{directory}\", depth={catalog.Depth}, offset={offset + shown}) 继续，或直接查看相关子目录。");
         if (catalog.Truncated) output.AppendLine($"[扫描上限] 已检查 {MaximumEntries} 个目录项；其余未扫描。请用 list_directory 指定相关子目录继续，不要据此断言文件不存在。");
-        output.AppendLine("子目录超过深度限制时尚未展开；可对该目录继续 list_directory。read_source 可读取未引用模板、README、构建脚本，以及根级 .latexmkrc 和 .vscode 中白名单构建配置；脚本只读，不执行。");
+        output.AppendLine("子目录超过深度限制时尚未展开；可对该目录继续 list_directory。read_source 可读取未引用模板、README、构建脚本，以及根级 .latexmkrc 和 .vscode 中白名单构建配置。文件读取工具不执行脚本；需要命令、Git 历史或其他文件操作时按本轮权限使用 shell。");
         return output.ToString();
     }
 

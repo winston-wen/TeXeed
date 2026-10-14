@@ -61,6 +61,11 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--ai-permissions-only"))
+                {
+                    await CheckAiPermissionsAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI permissions and shell regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-dependency-only"))
                 {
                     await CheckAiCompileDependenciesAsync(window, root, output);

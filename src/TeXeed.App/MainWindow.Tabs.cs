@@ -30,7 +30,6 @@ public partial class MainWindow
             strip.CloseRequested += CloseTabs;
             strip.ReorderRequested += (key, target) => MoveTab(key, target);
             strip.SettingsRequested += OpenPreviewSettings;
-            strip.AiSettingsRequested += OpenAiSettings;
             strip.DockDragMoved = UpdateDockDrag;
             strip.DockDropped += DropWorkspaceTab;
             strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;

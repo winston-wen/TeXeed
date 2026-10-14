@@ -21,6 +21,7 @@ public partial class AiPanel : UserControl, IDisposable
     private readonly ObservableCollection<AiTurn> _visibleTurns = [];
     private readonly ObservableCollection<AiSegment> _liveSegments = [];
     internal Func<AiToolRunner>? CreateToolRunner { get; set; }
+    internal AiPermission Permission => _book.Active.Permission;
     private string? _project;
     private bool _updating, _disposed;
     public AiSettingsPanel Settings { get; }
@@ -34,11 +35,14 @@ public partial class AiPanel : UserControl, IDisposable
     {
         _connection = connection; InitializeComponent(); History.ItemsSource = _visibleTurns; LiveSegments.ItemsSource = _liveSegments;
         Settings = new AiSettingsPanel(connection);
+        PermissionPicker.ItemsSource = AiPermissionChoice.Choices;
+        SyncPermission();
         Settings.ConnectionChanged += (_, _) => SyncModelChoices();
         SizeChanged += (_, _) =>
         {
             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
             Composer.MaxHeight = Math.Clamp(ActualHeight * .18, 66, 150);
+            ResizeChoices();
         };
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
         Loaded += async (_, _) => { SyncModelChoices(); if (Settings.SelectedModel is null) await RefreshModelChoicesAsync(); };
@@ -88,11 +92,11 @@ public partial class AiPanel : UserControl, IDisposable
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
         if (_operation is not null) return;
-        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; Entries.IsEnabled = false;
+        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false;
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；未完成的条目可重新提交。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; Entries.IsEnabled = true; } _operationDone = null; done.TrySetResult(); }
+        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。条目已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
@@ -154,6 +158,9 @@ public partial class AiPanel : UserControl, IDisposable
             var batch = selected.Select(x => new AiEntry { Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var generation = _generation; var book = _book;
+            var sentAt = DateTimeOffset.Now;
+            DateTimeOffset? answeredAt = null;
+            var permission = book.Active.Permission;
             var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.Title}：{x.Question}"));
             // Name the conversation as soon as the first valid question is accepted. The
             // initial save below persists it before any model request can fail or stall.
@@ -163,8 +170,8 @@ public partial class AiPanel : UserControl, IDisposable
             Composer.Clear(); StatusText.Text = "";
             foreach (var entry in selected) entry.State = "提交中"; Rebind();
             var buffer = new AiStreamBuffer();
-            buffer.Add(new("request", "activity", "正在连接模型…"));
             _liveSegments.Clear(); LiveQuestion.Text = question;
+            LiveSentTime.Text = AiTimestamp.Full(sentAt);
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
             void Flush()
@@ -173,9 +180,10 @@ public partial class AiPanel : UserControl, IDisposable
                 var follow = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset < 40;
                 foreach (var segment in buffer.Snapshot())
                 {
+                    segment.ReferenceTime = sentAt;
                     var existing = _liveSegments.FirstOrDefault(s => s.Id == segment.Id);
                     if (existing is null) _liveSegments.Add(segment);
-                    else { if (existing.Text != segment.Text) existing.Text = segment.Text; if (existing.Kind != segment.Kind) existing.Kind = segment.Kind; }
+                    else { if (existing.Text != segment.Text) existing.Text = segment.Text; if (existing.Kind != segment.Kind) existing.Kind = segment.Kind; existing.CreatedAt = segment.CreatedAt; }
                 }
                 if (follow) MessagesScroll.ScrollToEnd();
             }
@@ -191,20 +199,21 @@ public partial class AiPanel : UserControl, IDisposable
                 var files = ProjectFiles?.Invoke().ToArray() ?? [];
                 var toolRunner = CreateToolRunner?.Invoke();
                 var history = book.Turns.ToArray();
-                buffer.Add(new("request", "activity", "已发送，等待模型回复"));
                 await Task.Run(() => new AiResponses(_connection).RunAsync(model.Id, batch, history, files,
                     _ => { }, _ => { }, token, effort, toolRunner, evt =>
                     {
-                        buffer.Add(new("request", "activity", "已发送"));
                         buffer.Add(evt);
-                    }), token);
+                    }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
+                    {
+                        if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
+                    }), contextWindow: model.ContextWindow), token);
+                answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }
             }
             catch (Exception ex)
             {
                 foreach (var entry in selected) entry.State = "未完成，可重试";
-                buffer.Add(new("request", "activity", "本轮已结束"));
                 buffer.Add(new("failure", "activity", ex is OperationCanceledException ? "已停止。已完成的修改保留；可继续提问。" : "本轮未完成：" + ex.Message));
             }
             finally
@@ -216,7 +225,7 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    book.Turns.Add(new(question, answer) { Model = modelId, ReasoningEffort = effort, Segments = segments });
+                    book.Turns.Add(new(question, answer) { CreatedAt = sentAt, SentAt = sentAt, AnsweredAt = answeredAt, Model = modelId, ReasoningEffort = effort, Segments = segments });
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
                     Rebind(); RefreshTranscript(); await SaveAsync();
                 }

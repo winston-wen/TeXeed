@@ -99,6 +99,12 @@ internal static class AiLiveAgentEval
         var inner = ProviderHandlerFactory?.Invoke(options) ?? new HttpClientHandler();
         using var counter = new CountLedgerHandler(options, inner, Event);
         using var connection = new AiConnection(counter, options.Provider == "sol" ? options.CredentialsHome : null);
+        AiModel? catalogModel = null;
+        if (options.Provider == "sol")
+        {
+            catalogModel = (await connection.ModelsAsync(timeout.Token)).FirstOrDefault(m => m.Id == options.Model);
+            Event(new { type = "model-metadata", model = catalogModel?.Id, defaultEffort = catalogModel?.DefaultReasoningEffort, contextWindow = catalogModel?.ContextWindow });
+        }
         string? failure = null;
         var completed = false;
         Event(new { type = "evaluation-start", time = DateTimeOffset.UtcNow, options.Provider, options.Model,
@@ -113,7 +119,7 @@ internal static class AiLiveAgentEval
                 {
                     buffer.Add(evt);
                     Event(new { type = "segment", time = DateTimeOffset.UtcNow, evt.Id, evt.Kind, evt.Text, evt.Append });
-                }, instructions), timeout.Token);
+                }, instructions, usage: usage => Event(new { type = "context-usage", usage.InputTokens, usage.OutputTokens, usage.ContextWindow, usage.Display }), contextWindow: catalogModel?.ContextWindow), timeout.Token);
             completed = true;
         }
         catch (Exception ex)
