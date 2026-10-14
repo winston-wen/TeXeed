@@ -2,6 +2,8 @@
 
 原生 Windows LaTeX 编辑器，使用 **C# / .NET 10 / WPF**，编辑器基于 AvalonEdit，PDF 使用本机 PDFium 渲染。
 
+0.3.6 使用 TE 合字应用图标，包含多种 Windows 显示尺寸；发布脚本自动刷新桌面、开始菜单及已经固定的任务栏入口。
+
 ## 运行
 
 发行目录内直接运行 `TeXeed.exe`。也可以把主 `.tex` 文件拖到窗口，或以命令行参数传入：
@@ -98,6 +100,10 @@ dotnet run --project tests/TeXeed.PdfTests -c Release
 dotnet run --project tests/TeXeed.AppTests -c Release
 .\scripts\publish.ps1
 ```
+
+发布脚本默认建立或更新当前用户桌面与开始菜单的 `TeXeed.lnk`，并更新现有 TeXeed 任务栏快捷方式文件，指向本次发布的绝对 `TeXeed.exe` 路径、工作目录和程序图标。各版本共用应用身份 `TeXeed.Desktop`；后续更新继续刷新这些入口，保留旧版本产物。首次固定到任务栏须通过 Windows 界面完成，脚本不会新增固定项、修改 Taskband 注册表或重启资源管理器。
+
+预发布验证和 CI 使用 `.\scripts\publish.ps1 -Output artifacts/TeXeed-check -SkipShortcuts`，避免更改日常入口。可用 `.\scripts\update-shortcuts.ps1 -Executable "发布目录\TeXeed.exe" -WhatIf` 预览快捷方式更新；去掉 `-WhatIf` 可为已有发布产物更新入口。脚本仅管理可确认属于 TeXeed 的应用快捷方式，遇到同名但属于其他程序的入口会停止，带文档参数的快捷方式保持原样。
 
 `TeXeed.Tests` 使用真正的子进程模拟引擎，验证编译参数、退出码、取消、旧 PDF 保留和 SyncTeX，同时检查项目解析、保存冲突、索引和格式化。编辑器与 PDF 测试在 Windows STA 线程上运行并加载实际控件/原生库。测试命令返回非零退出码表示失败；不依赖额外的测试框架。
 

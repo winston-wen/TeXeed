@@ -6,6 +6,7 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        DesktopIdentity.Initialize();
         base.OnStartup(e);
         DispatcherUnhandledException += (_, args) =>
         {

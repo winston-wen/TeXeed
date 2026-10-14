@@ -1,4 +1,4 @@
-param([string]$Output = "artifacts/TeXeed", [switch]$NoRestore)
+param([string]$Output = "artifacts/TeXeed", [switch]$NoRestore, [switch]$SkipShortcuts)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $taskRoot
@@ -20,5 +20,8 @@ try {
         }
     }
     if (Test-Path -LiteralPath licenses) { Copy-Item -LiteralPath licenses -Destination $Output -Recurse -Force }
+    if (-not $SkipShortcuts) {
+        & (Join-Path $PSScriptRoot 'update-shortcuts.ps1') -Executable (Join-Path $Output 'TeXeed.exe')
+    }
     Write-Host "TeXeed is ready: $Output/TeXeed.exe"
 } finally { Pop-Location }

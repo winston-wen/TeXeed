@@ -53,8 +53,8 @@ internal static partial class Program
         }
         window.Width = 1100;
         await SettleAsync();
-        if (!menu.IsVisible || compact.IsVisible || menus.Length != 5)
-            throw new Exception("Wide caption must show all five menus without a hamburger");
+        if (!menu.IsVisible || compact.IsVisible || menus.Length != 6)
+            throw new Exception("Wide caption must show all six menus, including AI, without a hamburger");
         var hwnd = new WindowInteropHelper(window).Handle;
         var captionScreen = title.PointToScreen(new Point(title.ActualWidth - 180, 20));
         if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(captionScreen)) != 2)
