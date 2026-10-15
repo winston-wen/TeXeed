@@ -69,11 +69,21 @@ internal sealed partial class PdfDocument : IDisposable
         if (!double.IsFinite(pixelsPerPoint) || pixelsPerPoint <= 0) throw new ArgumentOutOfRangeException(nameof(pixelsPerPoint));
         if (maxPixels < 1) throw new ArgumentOutOfRangeException(nameof(maxPixels));
         if (crop is not null) return RenderCropped(index, pixelsPerPoint, maxPixels, invertColors, crop);
+        return RenderRaster(index, pixelsPerPoint, maxPixels, invertColors, printing: false);
+    }
+
+    internal BitmapSource RenderForPrint(int index, double pixelsPerPoint, int maxPixels = 32 * 1024 * 1024) =>
+        RenderRaster(index, pixelsPerPoint, Math.Min(maxPixels, 32 * 1024 * 1024), invertColors: false, printing: true);
+
+    private BitmapSource RenderRaster(int index, double pixelsPerPoint, int maxPixels, bool invertColors, bool printing)
+    {
+        if (!double.IsFinite(pixelsPerPoint) || pixelsPerPoint <= 0) throw new ArgumentOutOfRangeException(nameof(pixelsPerPoint));
+        if (maxPixels < 1) throw new ArgumentOutOfRangeException(nameof(maxPixels));
         lock (Gate)
         {
             ObjectDisposedException.ThrowIf(_document == IntPtr.Zero, this);
             var size = Pages[index];
-            var scale = Math.Min(pixelsPerPoint, Math.Min(3200 / Math.Max(size.Width, size.Height), Math.Sqrt(maxPixels / (size.Width * size.Height))));
+            var scale = Math.Min(pixelsPerPoint, Math.Min((printing ? 10000 : 3200) / Math.Max(size.Width, size.Height), Math.Sqrt(maxPixels / (size.Width * size.Height))));
             var width = Math.Max(1, (int)Math.Floor(size.Width * scale));
             var height = Math.Max(1, (int)Math.Floor(size.Height * scale));
             if ((long)width * height > maxPixels)
@@ -90,7 +100,9 @@ internal sealed partial class PdfDocument : IDisposable
             try
             {
                 Native.FPDFBitmap_FillRect(bitmap, 0, 0, width, height, 0xFFFFFFFF);
-                Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, 3);
+                // Printing uses PDFium's print mode and annotations, without LCD
+                // subpixel rendering or any preview recoloring/crop transforms.
+                Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, printing ? 0x801 : 3);
                 var stride = Native.FPDFBitmap_GetStride(bitmap);
                 var pixels = new byte[stride * height];
                 Marshal.Copy(Native.FPDFBitmap_GetBuffer(bitmap), pixels, 0, pixels.Length);

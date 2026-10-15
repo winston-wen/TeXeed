@@ -19,7 +19,7 @@ internal static partial class Program
 
     private static nint CaptionPoint(Point point) => (nint)((((int)point.Y & 0xffff) << 16) | ((int)point.X & 0xffff));
 
-    private static async Task CheckTitleBarAsync(MainWindow window, string output)
+    private static async Task CheckTitleBarAsync(MainWindow window, string output, bool includeFullscreen = true)
     {
         var chrome = WindowChrome.GetWindowChrome(window);
         if (chrome is null || chrome.CaptionHeight != 40 || chrome.ResizeBorderThickness.Left <= 0)
@@ -39,7 +39,7 @@ internal static partial class Program
         }
         void CheckBounds()
         {
-            var controls = new[] { "CompactMenuButton", "MinimizeButton", "MaximizeButton", "CloseButton" };
+            var controls = new[] { "ProductIcon", "CompactMenuButton", "MinimizeButton", "MaximizeButton", "CloseButton" };
             var previousRight = 0d;
             foreach (var name in controls)
             {
@@ -60,6 +60,10 @@ internal static partial class Program
         if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(captionScreen)) != 2)
             throw new Exception("Empty caption must return native HTCAPTION for dragging");
         if (window.FindName("AppIconButton") is not null) throw new Exception("Removed titlebar icon is still present");
+        var product = (Image)window.FindName("ProductIcon");
+        if (!product.IsVisible || product.IsHitTestVisible || product.Source is null
+            || product.TranslatePoint(new Point(), title).X + product.ActualWidth > menu.TranslatePoint(new Point(), title).X)
+            throw new Exception("Product artwork must precede the Alt menu without opening a menu on left click");
         var icon = (FrameworkElement)window.FindName("MaximizeButton");
         if (CaptionMessage(hwnd, 0x84, 0, CaptionPoint(icon.PointToScreen(new Point(20, 15)))) != 1)
             throw new Exception("Caption controls must remain clickable client elements");
@@ -173,7 +177,7 @@ internal static partial class Program
         CaptionMessage(hwnd, 0xA3, 2, CaptionPoint(captionScreen));
         await WaitUntilAsync(() => window.WindowState == WindowState.Maximized, "Native caption double-click did not maximize");
         SystemCommands.RestoreWindow(window); await SettleAsync();
-        await CheckFullscreenAsync(window, output);
+        if (includeFullscreen) await CheckFullscreenAsync(window, output);
         Console.WriteLine("PASS: themed title bar, compact third-level commands, wheel scrolling, per-level Escape/outside dismissal, Alt shortcuts, minimum width and native window controls");
     }
 }

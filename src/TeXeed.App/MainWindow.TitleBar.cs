@@ -51,7 +51,7 @@ public partial class MainWindow
         // Reserve caption buttons and a draggable gap before switching
         // modes. The compact panel reads the same live menu items; it never opens
         // their cascading popups or changes their logical ownership.
-        var compact = (_fullscreen && !_fullscreenTitleBarVisible) || TitleBar.ActualWidth < 12 + _wideMenuWidth + 138 + 80;
+        var compact = (_fullscreen && !_fullscreenTitleBarVisible) || TitleBar.ActualWidth < 12 + 34 + _wideMenuWidth + 138 + 80;
         if (compact != _compactTitleBar)
         {
             CloseTitleMenus();

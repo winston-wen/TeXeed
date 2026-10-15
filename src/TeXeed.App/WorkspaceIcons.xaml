@@ -27,5 +27,26 @@
  <Style x:Key="SidebarActionButton" TargetType="Button" BasedOn="{StaticResource WorkspaceIconButton}">
   <Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="Margin" Value="1,0"/>
  </Style>
- <Geometry x:Key="WorkspaceAiMarkIcon">M2,19 L5,10 8,19 M3,16 H7 M10,11 H15 M12.5,11 V19 M10,19 H15 M5,7 L14,1 17,4 8,10 4,11 Z M12,2.5 L15,5.5</Geometry>
+ <!-- The pencil crosses both full-height letters. Subtract its silhouette from
+      the letters so the overlap stays clear on every background and theme. -->
+ <CombinedGeometry x:Key="WorkspaceAiMarkLetters" GeometryCombineMode="Exclude"
+  Geometry1="M0.5,22 L6.7,3 H8.2 L13,22 H11.3 L7.3,6.1 L2.3,22 Z M4,14 H10 V15.5 H4 Z M14,3.5 H23 V5 H19.3 V21 H23 V22.5 H14 V21 H17.7 V5 H14 Z"
+  Geometry2="M3,24 L4.5,18 16,0.8 23.5,5.4 12,23.5 Z"/>
+ <Geometry x:Key="WorkspaceAiMarkIcon">M4.5,22.8 L5.7,18.5 16.3,2.2 21.8,5.8 11.2,22.1 Z M5.7,18.5 L11.2,22.1 M14.8,4.5 L20.3,8.1</Geometry>
+ <Style x:Key="WorkspaceAiMarkButton" TargetType="Button" BasedOn="{StaticResource WorkspaceIconButton}">
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+   <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent">
+    <Viewbox Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24">
+     <Path Data="{StaticResource WorkspaceAiMarkLetters}" Fill="{TemplateBinding Foreground}"/>
+     <Path Data="{StaticResource WorkspaceAiMarkIcon}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.35" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+    </Canvas></Viewbox>
+   </Border>
+   <ControlTemplate.Triggers>
+    <Trigger Property="Selector.IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource PanelBackground}"/></Trigger>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.65"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
 </ResourceDictionary>

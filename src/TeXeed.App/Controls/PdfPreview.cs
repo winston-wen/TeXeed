@@ -47,6 +47,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     public event EventHandler? ViewInteracted;
     public event EventHandler<string>? StatusChanged;
     public int PageCount => _document?.Pages.Count ?? 0;
+    public int VisiblePage => (CaptureAnchor(ViewportCenter)?.Page ?? 0) + 1;
     public double Zoom => _zoom;
     public bool IsAutoWidth => _fit;
     public bool PhysicalWidthIsEstimated => _screen.IsEstimated;

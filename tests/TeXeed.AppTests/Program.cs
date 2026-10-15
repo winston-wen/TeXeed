@@ -62,6 +62,11 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--print-only"))
+                {
+                    await CheckPdfPrintingAsync(window, output);
+                    await CloseAndObserveAsync(window, "PDF printing regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-permissions-only"))
                 {
                     await CheckAiPermissionsAsync(window, output);
@@ -173,6 +178,11 @@ internal static partial class Program
                     await CheckChapterFollowAsync(window, Path.GetFullPath(args[chapterFollow + 1]), output);
                     await CloseAndObserveAsync(window, "chapter start follow regression");
                     result = 0; return;
+                }
+                if (args.Contains("--caption-only"))
+                {
+                    await CheckTitleBarAsync(window, output, includeFullscreen: false);
+                    await CloseAndObserveAsync(window, "Caption regression"); result = 0; return;
                 }
                 if (args.Contains("--titlebar-only"))
                 {
