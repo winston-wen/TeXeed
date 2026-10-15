@@ -62,6 +62,13 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--print-review"))
+                {
+                    var printPath = Path.Combine(output, "print-source.pdf"); WritePrintPdf(printPath);
+                    var printWindow = new PdfPrintWindow(printPath, "打印界面验证", viewRegion: new Rect(80, 120, 300, 400)) { Owner = window };
+                    printWindow.ShowDialog();
+                    await CloseAndObserveAsync(window, "PDF print manual review"); result = 0; return;
+                }
                 if (args.Contains("--print-only"))
                 {
                     await CheckPdfPrintingAsync(window, output);

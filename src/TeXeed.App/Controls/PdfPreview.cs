@@ -48,6 +48,19 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     public event EventHandler<string>? StatusChanged;
     public int PageCount => _document?.Pages.Count ?? 0;
     public int VisiblePage => (CaptureAnchor(ViewportCenter)?.Page ?? 0) + 1;
+    // Capture before the modal print window changes focus/viewport. Compressed
+    // display bands map back to the bounding rectangle on the original PDF.
+    internal Rect? CapturePrintView()
+    {
+        if (_document is null || _layouts.Count == 0) return null;
+        var index = Math.Clamp(VisiblePage - 1, 0, _layouts.Count - 1); var page = _layouts[index];
+        var viewport = new Rect(_scroll.TranslatePoint(new Point(), _pages), new Size(_scroll.ViewportWidth, _scroll.ViewportHeight));
+        var shown = new Rect(page.Left + 1, page.Top + 1, page.Size.Width, page.Size.Height); shown.Intersect(viewport);
+        if (shown.IsEmpty) return null;
+        shown.Offset(-page.Left - 1, -page.Top - 1); var result = Rect.Empty;
+        foreach (var band in SelectionBands(shown, page.Size, _document.Pages[index], page.Crop)) result.Union(band);
+        return result.IsEmpty ? null : result;
+    }
     public double Zoom => _zoom;
     public bool IsAutoWidth => _fit;
     public bool PhysicalWidthIsEstimated => _screen.IsEstimated;

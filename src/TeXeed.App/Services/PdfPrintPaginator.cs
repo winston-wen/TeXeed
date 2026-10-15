@@ -8,9 +8,13 @@ namespace TeXeed.App.Services;
 // The same placement function drives the preview and the print spooler.
 internal sealed class PdfPrintPaginator(PdfDocument document, PdfPrintLayout layout, IReadOnlyList<int> pages) : DocumentPaginator
 {
+    private PdfPrintFace[]? _faces;
+    private PdfPrintOptions _options = new();
+    internal PdfPrintPaginator(PdfDocument document, PdfPrintFace[] faces, PdfPrintOptions options)
+        : this(document, faces[0].Layout, []) { _faces = faces; _options = options; }
     internal PdfPrintLayout Layout { get; private set; } = layout;
     public override bool IsPageCountValid => true;
-    public override int PageCount => pages.Count;
+    public override int PageCount => _faces?.Length ?? pages.Count;
     public override IDocumentPaginatorSource Source => null!;
     public override Size PageSize
     {
@@ -29,6 +33,12 @@ internal sealed class PdfPrintPaginator(PdfDocument document, PdfPrintLayout lay
     public override DocumentPage GetPage(int pageNumber)
     {
         if (pageNumber < 0 || pageNumber >= PageCount) return DocumentPage.Missing;
+        if (_faces is { } faces)
+        {
+            var face = faces[pageNumber]; var result = new DrawingVisual();
+            using (var dc = result.RenderOpen()) dc.DrawDrawing(PdfPrintDrawing.Render(document, face, _options, _options.Dpi));
+            return new DocumentPage(result, face.Layout.Paper, new Rect(face.Layout.Paper), face.Layout.Printable);
+        }
         var index = pages[pageNumber];
         var target = Layout.Place(document.Pages[index]);
         // 300 dpi at the final physical output size, bounded to 32 MP per page.

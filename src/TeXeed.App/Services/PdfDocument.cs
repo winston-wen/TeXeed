@@ -7,6 +7,8 @@ using TeXeed.Core;
 
 namespace TeXeed.App.Services;
 
+internal enum PdfPrintContent { All, Document, Annotations }
+
 // PDFium is not thread safe: every call, including close, shares one gate.
 internal sealed partial class PdfDocument : IDisposable
 {
@@ -72,10 +74,10 @@ internal sealed partial class PdfDocument : IDisposable
         return RenderRaster(index, pixelsPerPoint, maxPixels, invertColors, printing: false);
     }
 
-    internal BitmapSource RenderForPrint(int index, double pixelsPerPoint, int maxPixels = 32 * 1024 * 1024) =>
-        RenderRaster(index, pixelsPerPoint, Math.Min(maxPixels, 32 * 1024 * 1024), invertColors: false, printing: true);
+    internal BitmapSource RenderForPrint(int index, double pixelsPerPoint, int maxPixels = 32 * 1024 * 1024, PdfPrintContent content = PdfPrintContent.All) =>
+        RenderRaster(index, pixelsPerPoint, Math.Min(maxPixels, 32 * 1024 * 1024), invertColors: false, printing: true, content);
 
-    private BitmapSource RenderRaster(int index, double pixelsPerPoint, int maxPixels, bool invertColors, bool printing)
+    private BitmapSource RenderRaster(int index, double pixelsPerPoint, int maxPixels, bool invertColors, bool printing, PdfPrintContent content = PdfPrintContent.All)
     {
         if (!double.IsFinite(pixelsPerPoint) || pixelsPerPoint <= 0) throw new ArgumentOutOfRangeException(nameof(pixelsPerPoint));
         if (maxPixels < 1) throw new ArgumentOutOfRangeException(nameof(maxPixels));
@@ -102,7 +104,21 @@ internal sealed partial class PdfDocument : IDisposable
                 Native.FPDFBitmap_FillRect(bitmap, 0, 0, width, height, 0xFFFFFFFF);
                 // Printing uses PDFium's print mode and annotations, without LCD
                 // subpixel rendering or any preview recoloring/crop transforms.
-                Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, printing ? 0x801 : 3);
+                var hidden = new List<IntPtr>();
+                try
+                {
+                    if (printing && content == PdfPrintContent.Annotations)
+                        for (var i = 0; i < Native.FPDFPage_CountObjects(page); ++i)
+                        {
+                            var obj = Native.FPDFPage_GetObject(page, i);
+                            if (Native.FPDFPageObj_GetIsActive(obj, out var active) == 0) throw new IOException("无法读取 PDF 内容状态。");
+                            if (active == 0) continue;
+                            if (Native.FPDFPageObj_SetIsActive(obj, 0) == 0) throw new IOException("无法分离 PDF 批注。");
+                            hidden.Add(obj);
+                        }
+                    Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, printing ? (content == PdfPrintContent.Document ? 0x800 : 0x801) : 3);
+                }
+                finally { foreach (var obj in hidden) Native.FPDFPageObj_SetIsActive(obj, 1); }
                 var stride = Native.FPDFBitmap_GetStride(bitmap);
                 var pixels = new byte[stride * height];
                 Marshal.Copy(Native.FPDFBitmap_GetBuffer(bitmap), pixels, 0, pixels.Length);
@@ -206,8 +222,6 @@ internal sealed partial class PdfDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDF_GetLastError();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetPageCount(IntPtr document);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDF_LoadPage(IntPtr document, int index);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_CountObjects(IntPtr page);
-        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDFPage_GetObject(IntPtr page, int index);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPageObj_GetType(IntPtr pageObject);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPageObj_GetBounds(IntPtr pageObject, out float left, out float bottom, out float right, out float top);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern double FPDF_GetPageWidth(IntPtr page);
@@ -219,6 +233,10 @@ internal sealed partial class PdfDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDFBitmap_Create(int width, int height, int alpha);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDFBitmap_FillRect(IntPtr bitmap, int left, int top, int width, int height, uint color);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_RenderPageBitmap(IntPtr bitmap, IntPtr page, int x, int y, int width, int height, int rotate, int flags);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_CountObjects(IntPtr page);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDFPage_GetObject(IntPtr page, int index);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPageObj_GetIsActive(IntPtr obj, out int active);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPageObj_SetIsActive(IntPtr obj, int active);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDFBitmap_GetBuffer(IntPtr bitmap);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFBitmap_GetStride(IntPtr bitmap);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDFBitmap_Destroy(IntPtr bitmap);
