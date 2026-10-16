@@ -66,16 +66,25 @@ public partial class AiPanel : UserControl, IDisposable
         foreach (var entry in _book.Entries.Where(e => e.State == "提交中")) entry.State = "上次提交未完成，可重试";
         ShowCurrentConversation();
     }
-    public void AddEntry(AiEntry entry)
+    public bool AddEntry(AiEntry entry, bool focusComposer = true)
     {
-        if (_project is null) { StatusText.Text = "请先打开项目。"; return; }
-        if (_book.Conversations.Sum(c => c.Entries.Sum(e => e.PdfBlocks.Sum(p => (long)p.ImageBase64.Length))) + entry.PdfBlocks.Sum(p => (long)p.ImageBase64.Length) > 44_000_000) { StatusText.Text = "项目问题截图合计最多约 32 MB，请清除不再需要的条目。"; return; }
-        if (_book.Entries.Count >= 100) { StatusText.Text = "最多保留 100 个条目，请清除已完成条目。"; return; }
+        if (_project is null) { StatusText.Text = "请先打开项目。"; return false; }
+        if (_book.Conversations.Sum(c => c.Entries.Sum(e => e.PdfBlocks.Sum(p => (long)p.ImageBase64.Length))) + entry.PdfBlocks.Sum(p => (long)p.ImageBase64.Length) > 44_000_000) { StatusText.Text = "项目问题截图合计最多约 32 MB，请清除不再需要的条目。"; return false; }
+        if (_book.Entries.Count >= 100) { StatusText.Text = "最多保留 100 个条目，请清除已完成条目。"; return false; }
+        entry.Number = _book.Active.NextAnnotationNumber++;
         _book.Entries.Add(entry); Rebind(); Dirty();
-        Composer.Focus();
+        if (focusComposer) Composer.Focus();
+        return true;
     }
     private void Rebind()
     {
+        _book.Active.NextAnnotationNumber = Math.Max(_book.Active.NextAnnotationNumber, _book.Entries.Select(e => e.Number).DefaultIfEmpty().Max() + 1);
+        foreach (var entry in _book.Entries)
+        {
+            if (entry.Number == 0) entry.Number = _book.Active.NextAnnotationNumber++;
+            entry.PropertyChanged -= AnnotationChanged; entry.PropertyChanged += AnnotationChanged;
+        }
+        AnnotationsChanged?.Invoke(this, EventArgs.Empty);
         Entries.ItemsSource = null;
         Entries.ItemsSource = _book.Entries.ToArray();
         ContextExpander.Visibility = _book.Entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -101,7 +110,7 @@ public partial class AiPanel : UserControl, IDisposable
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。条目已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
-    private void Remove_Click(object sender, RoutedEventArgs e) { if ((sender as FrameworkElement)?.DataContext is AiEntry entry && entry.State != "提交中") { _book.Entries.Remove(entry); Rebind(); Dirty(); } }
+    private void Remove_Click(object sender, RoutedEventArgs e) { if ((sender as FrameworkElement)?.DataContext is AiEntry entry && entry.State != "提交中") { RemoveAnnotation(entry); } }
     private void SelectAll_Click(object sender, RoutedEventArgs e) { foreach (var entry in _book.Entries) entry.Selected = true; Rebind(); Dirty(); }
     private void ClearDone_Click(object sender, RoutedEventArgs e) { _book.Entries.RemoveAll(e => e.State == "已完成"); Rebind(); Dirty(); }
     private void Entry_Changed(object sender, RoutedEventArgs e) => Dirty();
@@ -152,17 +161,17 @@ public partial class AiPanel : UserControl, IDisposable
         var selected = _book.Entries.Where(e => e.Selected).ToArray();
         if (selected.Length == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
         if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
-        if (selected.Length > 20 || selected.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length) + prompt.Length > 80000 || selected.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
+        if (selected.Length > 20 || selected.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || selected.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
         await RunOperationAsync(async token =>
         {
-            var batch = selected.Select(x => new AiEntry { Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
+            var batch = selected.Select(x => new AiEntry { Number = x.Number, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var generation = _generation; var book = _book;
             var sentAt = DateTimeOffset.Now;
             DateTimeOffset? answeredAt = null;
             var permission = book.Active.Permission;
-            var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.Title}：{x.Question}"));
+            var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.DisplayTitle}：{x.Question}"));
             // Name the conversation as soon as the first valid question is accepted. The
             // initial save below persists it before any model request can fail or stall.
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);

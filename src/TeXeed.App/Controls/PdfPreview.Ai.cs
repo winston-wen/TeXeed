@@ -56,6 +56,15 @@ public sealed partial class PdfPreview
             UpdateAiSelection(Mouse.GetPosition(_pages));
         };
     }
+    internal Point? AnnotationPosition(AiEntry entry)
+    {
+        if (_document is null || entry.PdfRevision != _document.Fingerprint || entry.PdfBlocks.FirstOrDefault() is not { } block) return null;
+        var index = block.Page - 1;
+        if (index < 0 || index >= _layouts.Count) return null;
+        var point = PageToDisplay(index, new Point(block.PointX ?? block.X, block.PointY ?? block.Y));
+        point.Offset(_layouts[index].Left + 1, _layouts[index].Top + 1);
+        return _pages.TranslatePoint(point, this);
+    }
     public void BeginAiSelection()
     {
         if (_document is null || _aiCapturing) return;

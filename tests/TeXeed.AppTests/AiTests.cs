@@ -184,7 +184,7 @@ internal static partial class Program
         var pdfEntry = book.Entries.Last();
         Check(pdfEntry.PdfBlocks.Select(b => b.Page).Distinct().SequenceEqual(new[] { 1, 2 }) && pdfEntry.PdfRevision.Length == 64, "Cross-page PDF capture did not preserve pages/revision");
         Check(pdfEntry.PdfBlocks.All(b => b.Width > 0 && b.Height > 0 && Convert.FromBase64String(b.ImageBase64).Take(4).SequenceEqual(new byte[] { 137, 80, 78, 71 })), "PDF screenshots invalid");
-        Check(tabs.FocusedTab == TabWorkspace.AiKey, "PDF selection did not open AI");
+        Check(tabs.FocusedTab == TabWorkspace.PreviewKey, "PDF marking must keep the original preview visible");
         Check(preview.IsAiSelecting && editor.IsAiMarking, "Confirming a mark must keep the toggle active");
         var point = editor.CreateAiMark(0, 0, false);
         Check(point.IsPoint && point.Offset == 0 && point.Length == 0, "Single click must create a source point");
@@ -207,7 +207,7 @@ internal static partial class Program
         Check(!editor.IsAiMarking && escape.Handled, "Escape did not leave marking mode");
         var beforePoint = book.Entries.Count;
         Invoke(window, "CollectSourceMark", editor, point);
-        Check(book.Entries.Count == beforePoint + 1 && book.Entries.Last().IsPoint && tabs.FocusedTab == TabWorkspace.AiKey, "Source point was not immediately collected in chat composer");
+        Check(book.Entries.Count == beforePoint + 1 && book.Entries.Last().IsPoint, "Source point was not immediately collected in chat composer");
         book.Active.Title = "群的单位元";
         book.Turns.Add(new("群的单位元为什么唯一？", "若 e 和 f 都是单位元，则 e = ef = f，因此单位元唯一。"));
         Invoke(ai, "RefreshTranscript");

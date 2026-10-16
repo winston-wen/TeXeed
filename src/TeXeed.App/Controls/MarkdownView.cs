@@ -14,10 +14,10 @@ using Block = System.Windows.Documents.Block;
 namespace TeXeed.App.Controls;
 
 /// <summary>Selectable native Markdown. No HTML execution or automatic remote resource loading.</summary>
-public sealed class MarkdownView : RichTextBox
+public sealed partial class MarkdownView : RichTextBox
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
-        .UsePipeTables().UseEmphasisExtras().UseAutoLinks().DisableHtml().Build();
+        .UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseAutoLinks().DisableHtml().Build();
     public static readonly DependencyProperty MarkdownProperty = DependencyProperty.Register(
         nameof(Markdown), typeof(string), typeof(MarkdownView), new PropertyMetadata("", (d, _) => ((MarkdownView)d).Render()));
     public string Markdown { get => (string)GetValue(MarkdownProperty); set => SetValue(MarkdownProperty, value); }
@@ -25,7 +25,7 @@ public sealed class MarkdownView : RichTextBox
     public MarkdownView()
     {
         IsReadOnly = true; IsReadOnlyCaretVisible = false; IsDocumentEnabled = true; IsUndoEnabled = false;
-        BorderThickness = new Thickness(0); Background = Brushes.Transparent; Padding = new Thickness(0);
+        BorderThickness = new Thickness(0); Background = Brushes.Transparent; Padding = new Thickness(0, 0, 34, 0);
         VerticalScrollBarVisibility = ScrollBarVisibility.Disabled; HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
         FontSize = 15; FontFamily = new FontFamily("Segoe UI, Microsoft YaHei UI");
         SetResourceReference(ForegroundProperty, "Ink");
@@ -34,18 +34,24 @@ public sealed class MarkdownView : RichTextBox
         // RichTextBox always paints selection in an adorner, unlike TextBox/PasswordBox.
         // An opaque brush would cover the glyphs even with SelectionTextBrush set.
         SelectionOpacity = .35;
+        SizeChanged += (_, e) => { if ((e.PreviousSize.Width < 560) != (e.NewSize.Width < 560)) Render(); };
+        DataObject.AddCopyingHandler(this, (_, e) => { if (!Selection.IsEmpty) e.DataObject.SetData(DataFormats.UnicodeText, CopySource(Selection.Start, Selection.End)); });
     }
 
+    internal string Revision { get; private set; } = "";
     private void Render()
     {
+        Revision = TeXeed.App.AI.AiStorage.Hash(Markdown ?? "");
         var document = new FlowDocument { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
             FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
-        AddBlocks(document.Blocks, Markdig.Markdown.Parse(Markdown ?? "", Pipeline), 0);
+        _math = new ChatMath(); _equations.Clear(); _annotationPointers.Clear();
+        var source = _math.Prepare(Markdown ?? "", Pipeline);
+        AddBlocks(document.Blocks, Markdig.Markdown.Parse(source, Pipeline), 0);
         Document = document;
     }
 
-    private static void AddBlocks(BlockCollection target, ContainerBlock source, int depth)
+    private void AddBlocks(BlockCollection target, ContainerBlock source, int depth)
     {
         // Bound nesting independently of model output, including malformed streaming fragments.
         if (depth > 32) return;
@@ -53,13 +59,17 @@ public sealed class MarkdownView : RichTextBox
         {
             switch (block)
             {
+                case Markdig.Extensions.CustomContainers.CustomContainer columns when columns.Info == "columns":
+                    AddColumns(target, columns, depth); break;
                 case HeadingBlock heading:
                     var h = Paragraph(heading.Inline, depth);
                     h.FontSize = heading.Level switch { 1 => 24, 2 => 21, 3 => 18, _ => 16 };
                     h.FontWeight = FontWeights.SemiBold; h.Margin = new Thickness(0, 16, 0, 10);
                     target.Add(h); break;
                 case ParagraphBlock paragraph:
-                    target.Add(Paragraph(paragraph.Inline, depth)); break;
+                    if (paragraph.Inline?.FirstChild is LiteralInline literal && _math.Tokens.TryGetValue(literal.Content.ToString().Trim(), out var math) && math.Display)
+                        target.Add(DisplayFormula(math));
+                    else target.Add(Paragraph(paragraph.Inline, depth)); break;
                 case CodeBlock code:
                     var p = new Paragraph(new Run(code.Lines.ToString())) { FontFamily = new FontFamily("Cascadia Mono, Consolas"),
                         FontSize = 14, LineHeight = 23, Padding = new Thickness(14), Margin = new Thickness(0, 6, 0, 14) };
@@ -102,21 +112,21 @@ public sealed class MarkdownView : RichTextBox
         }
     }
 
-    private static Paragraph Paragraph(ContainerInline? inline, int depth)
+    private Paragraph Paragraph(ContainerInline? inline, int depth)
     {
         var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, 10) };
         if (inline is not null) AddInlines(paragraph.Inlines, inline, depth + 1);
         return paragraph;
     }
 
-    private static void AddInlines(InlineCollection target, ContainerInline source, int depth)
+    private void AddInlines(InlineCollection target, ContainerInline source, int depth)
     {
         if (depth > 32) return;
         foreach (var inline in source)
         {
             switch (inline)
             {
-                case LiteralInline literal: target.Add(new Run(literal.Content.ToString())); break;
+                case LiteralInline literal: AddMathText(target, literal.Content.ToString()); break;
                 case CodeInline code:
                     var run = new Run(code.Content) { FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 14 };
                     run.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); target.Add(run); break;
@@ -128,7 +138,11 @@ public sealed class MarkdownView : RichTextBox
                     else span.FontStyle = FontStyles.Italic;
                     AddInlines(span.Inlines, emphasis, depth + 1); target.Add(span); break;
                 case LinkInline link:
-                    if (!link.IsImage && Uri.TryCreate(link.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
+                    if (!link.IsImage && link.Url?.StartsWith('#') == true)
+                    {
+                        var local = EquationLink(Uri.UnescapeDataString(link.Url[1..]), null); AddInlines(local.Inlines, link, depth + 1); target.Add(local);
+                    }
+                    else if (!link.IsImage && Uri.TryCreate(link.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
                     {
                         var hyperlink = Link(uri); AddInlines(hyperlink.Inlines, link, depth + 1); target.Add(hyperlink);
                     }

@@ -32,6 +32,11 @@ internal static partial class Program
         SettingsMigrationTests.Run(Path.Combine(output, "settings-migration"));
         var config = Path.Combine(output, "profile"); Directory.CreateDirectory(config);
         Environment.SetEnvironmentVariable("TEXEED_HOME", config);
+        var expectedAiHome = Path.GetFullPath(Path.Combine(config, "ai"));
+        if (!string.Equals(Path.GetFullPath(TeXeed.App.AI.AiStorage.Home), expectedAiHome, StringComparison.OrdinalIgnoreCase)
+            || expectedAiHome.StartsWith(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TeXeed") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("UI tests require an isolated AI credentials directory.");
+        Console.WriteLine("Isolated test AI home: " + expectedAiHome);
         File.WriteAllText(Path.Combine(config, "settings.json"), JsonSerializer.Serialize(new AppSettings { LivePreview = false }));
         var result = 1;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -109,6 +114,11 @@ internal static partial class Program
                     foreach (var theme in new[] { "ristretto", "github-light-default" })
                     { TeXeed.App.Services.ThemeManager.Apply(theme); await CheckSelectionPixelsAsync(window, output, theme); }
                     await CloseAndObserveAsync(window, "Selection pixel regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-annotations-only"))
+                {
+                    await CheckAiAnnotationsAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI annotation and block rendering regression"); result = 0; return;
                 }
                 if (args.Contains("--ai-only"))
                 {

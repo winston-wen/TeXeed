@@ -11,15 +11,22 @@ public partial class MainWindow
 {
     private readonly AiPanel _aiPanel = new();
     private bool _aiMarking;
+    private readonly Dictionary<LatexEditor, AiAnnotationLayer> _sourceAnnotations = [];
     private void InitializeAi()
     {
         _aiPanel.SettingsRequested += (_, _) => OpenAiSettings();
         _aiPanel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
         _aiPanel.CreateToolRunner = CreateAiToolRunner;
-        Preview.AiSelectionConfirmed += (_, entry) => { OpenAiTab(); _aiPanel.AddEntry(entry); };
+        var pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, _aiPanel.RemoveAnnotation);
+        _aiPanel.AnnotationsChanged += (_, _) => pdfAnnotations.Refresh();
+        Preview.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) pdfAnnotations.Edit(entry); };
         Preview.AiMarkingChanged += (_, active) => SetAiMarking(active);
         foreach (var editor in Editors)
         {
+            var annotations = new AiAnnotationLayer(editor, () => _aiPanel.AnnotationEntries,
+                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), _aiPanel.RemoveAnnotation, margin: true);
+            _sourceAnnotations[editor] = annotations;
+            _aiPanel.AnnotationsChanged += (_, _) => annotations.Refresh();
             var menu = new ContextMenu();
             editor.AiMarked += (_, mark) => CollectSourceMark(editor, mark);
             void Command(string title, RoutedCommand command, string gesture)
@@ -43,6 +50,7 @@ public partial class MainWindow
         if (active && (_project is null || _transitioning)) return;
         if (_aiMarking == active) return;
         _aiMarking = active;
+        _aiPanel.IsMarking = active;
         UpdateWorkspaceIcons();
         foreach (var editor in Editors) editor.SetAiMarking(active);
         Preview.SetAiMarking(active);
@@ -57,8 +65,7 @@ public partial class MainWindow
         var entry = new AiEntry { Title = $"{Path.GetFileName(path)}:{line} · {(mark.IsPoint ? "点位" : "句子")}", IsPoint = mark.IsPoint };
         entry.Sources.Add(new AiSourceBlock(Path.GetRelativePath(_project.Root, path), line, endLine,
             mark.Offset, editor.Document.GetText(mark.Offset, mark.Length), AiStorage.Hash(editor.Text)));
-        OpenAiTab();
-        _aiPanel.AddEntry(entry);
+        if (_aiPanel.AddEntry(entry, false)) _sourceAnnotations[editor].Edit(entry);
     }
     private void Ai_Click(object sender, RoutedEventArgs e) { HideMainMenu(false); OpenAiTab(); }
     private void OpenAiTab()

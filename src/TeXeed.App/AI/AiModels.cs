@@ -15,11 +15,22 @@ public sealed record AiPdfBlock(int Page, double X, double Y, double Width, doub
     public double? PointX { get; init; }
     public double? PointY { get; init; }
 }
-public sealed class AiEntry
+public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
+{
+    // Semantic text offset survives responsive columns changing the FlowDocument structure.
+    public int TextOffset { get; init; } = -1;
+}
+
+public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "问题";
-    public string Question { get; set; } = "";
+    private string _question = "";
+    public string Question { get => _question; set { if (_question == value) return; _question = value; PropertyChanged?.Invoke(this, new(nameof(Question))); } }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    public int Number { get; set; }
+    public AiAnswerAnchor? AnswerAnchor { get; set; }
+    [JsonIgnore] public string DisplayTitle => Number > 0 ? $"#{Number} · {Title}" : Title;
     public bool Selected { get; set; } = true;
     public string State { get; set; } = "待提交";
     public List<AiSourceBlock> Sources { get; set; } = [];
@@ -44,7 +55,7 @@ public sealed record AiTurn(string Question, string Answer)
             {
                 if (SentAt is not null) return s;
                 var legacy = s.Snapshot(); legacy.CreatedAt = legacy.CreatedAt.ToLocalTime(); return legacy;
-            }).ToList() : [new AiSegment { Kind = "final", Text = DisplayAnswer, CreatedAt = CreatedAt.ToLocalTime() }];
+            }).ToList() : [new AiSegment { Id = Id + "-answer", Kind = "final", Text = DisplayAnswer, CreatedAt = CreatedAt.ToLocalTime() }];
             foreach (var segment in segments) segment.ReferenceTime = SentAt ?? CreatedAt.ToLocalTime();
             return segments;
         }
@@ -63,6 +74,7 @@ public sealed class AiConversation
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "新对话";
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public int NextAnnotationNumber { get; set; } = 1;
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
     public string Draft { get; set; } = "";
@@ -88,10 +100,10 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, Turns = [.. Turns], Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, Turns = [.. Turns], Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => new AiEntry
         {
-            Id = e.Id, Title = e.Title, Question = e.Question, Selected = e.Selected, State = e.State,
+            Number = e.Number, AnswerAnchor = e.AnswerAnchor, Id = e.Id, Title = e.Title, Question = e.Question, Selected = e.Selected, State = e.State,
             Sources = [.. e.Sources], PdfBlocks = [.. e.PdfBlocks], PdfRevision = e.PdfRevision, IsPoint = e.IsPoint
         }).ToList()
     };
