@@ -56,20 +56,28 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KEY='texeed-ai-baseline-v02'+(location.search.includes('test=1')?'-test':'');
 const clone=x=>JSON.parse(JSON.stringify(x));
-function fresh(){return {active:'collected',conversations:[{id:'collected',title:DATA.title,updatedAt:DATA.updatedAt,turns:clone(DATA.turns),entries:clone(DATA.entries),next:DATA.next,draft:DATA.draft,permission:'完全访问'}],events:[]};}
+const BUNDLED_TURNS=[...DATA.turns,...DATA.sampleConversations.flatMap(c=>c.turns)];
+function fresh(){return {sampleHistoryVersion:1,active:'collected',conversations:[{id:'collected',title:DATA.title,updatedAt:DATA.updatedAt,turns:clone(DATA.turns),entries:clone(DATA.entries),next:DATA.next,draft:DATA.draft,permission:'完全访问'},...clone(DATA.sampleConversations)],events:[]};}
 let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');}catch{}if(!state?.conversations?.length)state=fresh();
+// Seed once: preserve the active conversation and drafts, and respect later deletions.
+if(!state.sampleHistoryVersion){for(const c of DATA.sampleConversations)if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.sampleHistoryVersion=1;}
 let running=null,editing=null,context=null,marking=false,timers=[],matchIndex=0,matches=[];
 function current(){return state.conversations.find(c=>c.id===state.active)||state.conversations[0];}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch{status('浏览器不允许持久保存；本次页面内仍可试用。');}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(state,function(key,value){return key==='answerHtml'&&[...BUNDLED_TURNS,DATA.playback].some(t=>t.answer===this.answer)?undefined:value;}));}catch{status('浏览器不允许持久保存；本次页面内仍可试用。');}}
 function record(action,detail={}){state.events.push({at:new Date().toISOString(),action,...detail});state.events=state.events.slice(-250);persist();}
 function status(text){$('status').textContent=text;$('status').hidden=!text;}
 function time(value,short=false){if(!value)return '';const d=new Date(value);const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d);return short?parts.slice(-8):parts.replace(' ',' (+8) ');}
 function scrollEnd(){$('reader').scrollTop=$('reader').scrollHeight;}
-function svgHtml(turn){return turn.answerHtml||'';}
+function svgHtml(turn){
+ if(turn.answerHtml)return turn.answerHtml;
+ const bundled=BUNDLED_TURNS.find(t=>t.id===turn.id&&t.answer===turn.answer);if(bundled)return bundled.answerHtml;
+ const source=[DATA.playback,...BUNDLED_TURNS].find(t=>t.answer===turn.answer);
+ return source?source.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+turn.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+turn.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+turn.id+'-'+id+'"'):'';
+}
 function activity(s){return '<details class="activity '+(!s.details?'no-details':'')+'"><summary><span>'+esc(s.text)+'</span><time>'+time(s.time,true)+'</time></summary>'+(s.details?'<pre>'+esc(s.details)+'</pre>':'')+'</details>';}
 function renderTurns(){
  const pos=$('reader').scrollTop;
- $('thread').innerHTML=current().turns.length?current().turns.map(t=>'<article class="turn" id="'+t.id+'"><div class="turn-tools"><button data-refill="'+t.id+'" title="将问题重新放入编辑栏" aria-label="将问题重新放入编辑栏">↶</button><button data-delete-turn="'+t.id+'" title="删除此轮问题和回答" aria-label="删除此轮问题和回答">×</button></div><div class="question">'+esc(t.question)+'</div><div class="timestamp">'+time(t.sentAt)+'</div><div class="segments">'+(t.segments||[]).filter(s=>s.kind==='activity'&&!s.text.startsWith('公式排版检查通过')).map(activity).join('')+(t.answerHtml?'<div class="final-label">答复</div><div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+(t.segments||[]).filter(s=>s.kind==='activity'&&s.text.startsWith('公式排版检查通过')).map(activity).join('')+'</div>'+(t.answeredAt?'<div class="answered">答复时间：'+time(t.answeredAt)+'</div>':'')+'</article>').join(''):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p><p>点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。</p></div>';
+ $('thread').innerHTML=current().turns.length?current().turns.map(t=>'<article class="turn" id="'+t.id+'"><div class="turn-tools"><button data-refill="'+t.id+'" title="将问题重新放入编辑栏" aria-label="将问题重新放入编辑栏">↶</button><button data-delete-turn="'+t.id+'" title="删除此轮问题和回答" aria-label="删除此轮问题和回答">×</button></div><div class="question">'+esc(t.question)+'</div><div class="timestamp">'+time(t.sentAt)+'</div><div class="segments">'+(t.segments||[]).filter(s=>s.kind==='activity'&&!s.text.startsWith('公式排版检查通过')).map(activity).join('')+(svgHtml(t)?'<div class="final-label">答复</div><div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+(t.segments||[]).filter(s=>s.kind==='activity'&&s.text.startsWith('公式排版检查通过')).map(activity).join('')+'</div>'+(t.answeredAt?'<div class="answered">答复时间：'+time(t.answeredAt)+'</div>':'')+'</article>').join(''):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p><p>点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。</p></div>';
  $('reader').scrollTop=pos;renderBubbles();
 }
 function contextHtml(e){return (e.quote?'<div>'+esc(e.quote)+'</div>':'')+(e.sources||[]).map(s=>'<div>'+esc(s.file)+'</div><pre>'+esc(s.text)+'</pre>').join('')+(e.pdf||[]).map(p=>'<div>PDF 第 '+p.page+' 页</div><img alt="PDF 圈选区域" src="data:image/png;base64,'+p.image+'">').join('')+'<div class="muted">'+esc(e.state)+'</div>';}
@@ -109,7 +117,7 @@ function send(){
  timers.push(setTimeout(finish,mode==='repair'?3200:1700));
 }
 function stop(){if(!running)return;timers.forEach(clearTimeout);timers=[];running.selected.forEach(e=>e.state='未完成，可重试');running.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:new Date().toISOString()});running=null;setBusy(false);renderTurns();status('已停止；未完成的条目可重新提交。');record('stop');}
-function relativeTime(c){const minutes=Math.max(0,(Date.now()-Date.parse(c.updatedAt||new Date().toISOString()))/60000);return minutes<1?'刚刚':minutes<60?Math.floor(minutes)+' 分钟':minutes<1440?Math.floor(minutes/60)+' 小时':Math.floor(minutes/1440)+' 天';}
+function relativeTime(c){if(c.sample&&!c.updatedAt)return '样例';const minutes=Math.max(0,(Date.now()-Date.parse(c.updatedAt||new Date().toISOString()))/60000);return minutes<1?'刚刚':minutes<60?Math.floor(minutes)+' 分钟':minutes<1440?Math.floor(minutes/60)+' 小时':Math.floor(minutes/1440)+' 天';}
 function history(){const query=$('history-search').value.toLowerCase();$('history-list').innerHTML=state.conversations.filter(c=>[c.title,...c.turns.map(t=>t.question+' '+t.answer)].join(' ').toLowerCase().includes(query)).map(c=>'<div class="history-row '+(c.id===state.active?'active':'')+'"><button class="history-open" data-history="'+c.id+'">'+esc(c.title)+'</button><small>'+relativeTime(c)+'</small><button data-delete-history="'+c.id+'" aria-label="删除对话">×</button></div>').join('')||'<div class="muted">没有匹配的对话</div>';}
 function newConversation(){stop();const c={id:'c'+Date.now(),title:'新对话',turns:[],entries:[],next:1,draft:'',permission:'完全访问'};state.conversations.push(c);state.active=c.id;renderConversation();record('new-conversation');$('composer').focus();}
 function search(){const q=$('search-input').value.trim().toLowerCase();matches=q?current().turns.filter(t=>(t.question+' '+t.answer).toLowerCase().includes(q)):[];matchIndex=0;showMatch();}
@@ -152,7 +160,7 @@ $('close-lab').onclick=()=>$('lab').close();$('close-copy').onclick=()=>$('copy-
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify({basis:DATA.basis,provenance:DATA.provenance,scripted:DATA.playback,...state},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='texeed-baseline-transcript.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 window.addEventListener('resize',positionEditor);
 for(const c of state.conversations)for(const e of c.entries)if(e.state==='提交中')e.state='上次提交未完成，可重试';
-renderConversation();requestAnimationFrame(()=>$('entries').scrollTop=$('entries').scrollHeight);
+renderConversation();persist();requestAnimationFrame(()=>$('entries').scrollTop=$('entries').scrollHeight);
 if(location.search.includes('tools=1'))openLab();
 </script>
 </body>

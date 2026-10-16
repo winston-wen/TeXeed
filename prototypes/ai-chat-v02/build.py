@@ -16,7 +16,8 @@ WORK.mkdir(parents=True, exist_ok=True)
 data = json.loads((HERE / 'transcripts.json').read_text(encoding='utf-8'))
 pattern = re.compile(r'\\\[(.*?)\\\]|\\\((.*?)\\\)|\$\$(.*?)\$\$|\$([^$\n]+)\$', re.S)
 formulas = {}
-for scenario in data['turns'] + [dict(question='', answer=data['playback']['answer'])]:
+all_turns = data['turns'] + [turn for conversation in data['sampleConversations'] for turn in conversation['turns']]
+for scenario in all_turns + [dict(question='', answer=data['playback']['answer'])]:
     for source in [scenario['question'], scenario['answer']]:
         for m in pattern.finditer(source):
             tex = next(g for g in m.groups() if g is not None).strip()
@@ -104,7 +105,7 @@ def render(source, prefix):
         blocks.append(f'<section class="passage" id="{block_id}" data-block="{block_id}"><div class="passage-body">{content}</div><div class="margin-notes"></div></section>')
     return '\n'.join(blocks)
 
-for turn in data['turns']:
+for turn in all_turns:
     turn['answerHtml'] = render(turn['answer'], turn['id'])
 data['playback']['answerHtml'] = render(data['playback']['answer'], 'playback')
 
