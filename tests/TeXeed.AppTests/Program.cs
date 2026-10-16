@@ -84,6 +84,11 @@ internal static partial class Program
                     await CheckAiPermissionsAsync(window, output);
                     await CloseAndObserveAsync(window, "AI permissions and shell regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-focus-only"))
+                {
+                    await CheckAiFocusAsync(window);
+                    result = 0; app.Shutdown(); return;
+                }
                 if (args.Contains("--ai-polish-only"))
                 {
                     await CheckAiPolishAsync(window, output);

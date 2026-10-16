@@ -34,6 +34,8 @@
   Geometry2="M3,24 L4.5,18 16,0.8 23.5,5.4 12,23.5 Z"/>
  <Geometry x:Key="WorkspaceAiMarkIcon">M4.5,22.8 L5.7,18.5 16.3,2.2 21.8,5.8 11.2,22.1 Z M5.7,18.5 L11.2,22.1 M14.8,4.5 L20.3,8.1</Geometry>
  <Style x:Key="WorkspaceAiMarkButton" TargetType="Button" BasedOn="{StaticResource WorkspaceIconButton}">
+  <!-- FocusVisualStyle is shown for keyboard navigation, not a lingering mouse focus. -->
+  <Setter Property="FocusVisualStyle"><Setter.Value><Style TargetType="Control"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control"><Border BorderBrush="{DynamicResource Accent}" BorderThickness="1" CornerRadius="4" Margin="1"/></ControlTemplate></Setter.Value></Setter></Style></Setter.Value></Setter>
   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
    <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent">
     <Viewbox Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24">
@@ -44,7 +46,6 @@
    <ControlTemplate.Triggers>
     <Trigger Property="Selector.IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource PanelBackground}"/></Trigger>
     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
-    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
     <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.65"/></Trigger>
    </ControlTemplate.Triggers>
   </ControlTemplate></Setter.Value></Setter>

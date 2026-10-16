@@ -111,5 +111,5 @@ data['playback']['answerHtml'] = render(data['playback']['answer'], 'playback')
 
 encoded = json.dumps(data, ensure_ascii=False).replace('</', '<\\/')
 template = (HERE / 'template.html').read_text(encoding='utf-8')
-(HERE / 'index.html').write_text(template.replace('/*__TRANSCRIPTS__*/', encoded), encoding='utf-8')
+(HERE / 'index.html').write_text(template.replace('/*__APP__*/', (HERE / 'app.js').read_text(encoding='utf-8').replace('/*__TRANSCRIPTS__*/', encoded)), encoding='utf-8')
 print(f'Built index.html: {len(formulas)} unique TeX formulas, {serial} instances, {(HERE / "index.html").stat().st_size:,} bytes.')
