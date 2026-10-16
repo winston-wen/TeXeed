@@ -15,8 +15,13 @@ internal sealed record ChatSvg(Geometry Geometry, Rect Bounds, double Baseline, 
     {
         using var reader = XmlReader.Create(path, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 4_000_000 });
         var root = XDocument.Load(reader).Root ?? throw new InvalidDataException("SVG 为空。");
+        return Read(root, path);
+    }
+    internal static ChatSvg Read(XElement root, string path)
+    {
         var definitions = root.Descendants().Where(e => e.Name.LocalName == "path" && e.Attribute("id") is not null)
             .ToDictionary(e => (string)e.Attribute("id")!, e => e);
+        var glyphs = new Dictionary<string, Geometry>();
         var count = 0;
         Geometry ReadElement(XElement element, int depth)
         {
@@ -33,11 +38,15 @@ internal sealed record ChatSvg(Geometry Geometry, Rect Bounds, double Baseline, 
                 case "use":
                     var link = (string?)element.Attribute(XName.Get("href", "http://www.w3.org/1999/xlink")) ?? (string?)element.Attribute("href");
                     if (link is null || !link.StartsWith('#') || !definitions.TryGetValue(link[1..], out var definition)) throw new InvalidDataException("SVG 字形引用无效。");
-                    geometry = ReadElement(definition, depth + 1);
-                    var useTransform = new TransformGroup();
-                    useTransform.Children.Add(geometry.Transform);
-                    useTransform.Children.Add(new TranslateTransform(Number(element, "x"), Number(element, "y")));
-                    geometry.Transform = useTransform; break;
+                    if (!glyphs.TryGetValue(link, out var glyph))
+                    {
+                        glyph = ReadElement(definition, depth + 1);
+                        glyph.Freeze(); glyphs.Add(link, glyph);
+                    }
+                    var instance = new GeometryGroup { FillRule = FillRule.Nonzero };
+                    instance.Children.Add(glyph);
+                    instance.Transform = new TranslateTransform(Number(element, "x"), Number(element, "y"));
+                    geometry = instance; break;
                 default: throw new InvalidDataException("不支持的公式 SVG 元素：" + element.Name.LocalName);
             }
             if (element.Attribute("transform") is { } transform)

@@ -120,6 +120,16 @@ internal static partial class Program
                     await CheckAiMathScrollAsync(window, output);
                     await CloseAndObserveAsync(window, "AI math and mouse wheel regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-math-perf-only"))
+                {
+                    await CheckAiMathPerformanceAsync(output);
+                    await CloseAndObserveAsync(window, "AI math performance"); result = 0; return;
+                }
+                if (args.Contains("--ai-math-batch-only"))
+                {
+                    await CheckAiMathBatchAsync(output);
+                    await CloseAndObserveAsync(window, "AI math batch recovery"); result = 0; return;
+                }
                 if (args.Contains("--ai-annotations-only"))
                 {
                     await CheckAiAnnotationsAsync(window, output);
