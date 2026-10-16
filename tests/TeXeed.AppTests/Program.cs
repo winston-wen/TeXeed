@@ -115,6 +115,11 @@ internal static partial class Program
                     { TeXeed.App.Services.ThemeManager.Apply(theme); await CheckSelectionPixelsAsync(window, output, theme); }
                     await CloseAndObserveAsync(window, "Selection pixel regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-math-scroll-only"))
+                {
+                    await CheckAiMathScrollAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI math and mouse wheel regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-annotations-only"))
                 {
                     await CheckAiAnnotationsAsync(window, output);

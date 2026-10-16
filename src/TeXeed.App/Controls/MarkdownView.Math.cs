@@ -60,27 +60,15 @@ public sealed partial class MarkdownView
         }
         target.Add(new Run(text[offset..]));
     }
-    private Inline FormulaInline(ChatMath.Token token)
-    {
-        try
-        {
-            var formula = new ChatFormula(token.Source, token.Display);
-            return new InlineUIContainer(formula) { BaselineAlignment = BaselineAlignment.Center, Tag = "$" + token.Source + "$" };
-        }
-        catch (ArgumentException)
-        {
-            return new Run((token.Display ? "" : "$ ") + token.Source + (token.Display ? "" : " $"))
-                { FontFamily = new FontFamily("Cambria Math, Consolas"), ToolTip = "暂不支持的公式语法，保留源文" };
-        }
-    }
+    private Inline FormulaInline(ChatMath.Token token) =>
+        new InlineUIContainer(new ChatFormula(token.Source, token.Display))
+            { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
     private Paragraph DisplayFormula(ChatMath.Token token)
     {
         var paragraph = new Paragraph { Margin = new Thickness(0, 12, 0, 18), Padding = new Thickness(8), LineHeight = double.NaN };
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition()); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        FrameworkElement formula;
-        try { formula = new ChatFormula(token.Source, true); }
-        catch (ArgumentException) { formula = new TextBlock { Text = token.Source, FontFamily = new FontFamily("Consolas"), TextWrapping = TextWrapping.Wrap, ToolTip = "暂不支持的公式语法，保留源文" }; }
+        var formula = new ChatFormula(token.Source, true);
         var scroller = new ScrollViewer { Content = formula, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(6), HorizontalContentAlignment = HorizontalAlignment.Center };
         grid.Children.Add(scroller);
         var number = new TextBlock { Text = $"({token.Number})", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), FontSize = 13 };

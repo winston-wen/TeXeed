@@ -41,7 +41,7 @@
    </DockPanel>
    <TextBlock x:Name="ConnectionLabel" Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
   </StackPanel>  <DockPanel x:Name="MessageSearchPanel" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,8"><Button DockPanel.Dock="Right" Content="↓" Click="NextMatch_Click" Padding="5,3"/><Button DockPanel.Dock="Right" Content="↑" Click="PreviousMatch_Click" Padding="5,3"/><TextBlock x:Name="MessageMatchStatus" DockPanel.Dock="Right" Text="0" VerticalAlignment="Center" Margin="6,0"/><TextBox x:Name="MessageSearchBox" TextChanged="MessageSearch_Changed" ToolTip="查找问题和回答" AutomationProperties.Name="查找当前 AI 对话"/></DockPanel>
-  <ScrollViewer x:Name="MessagesScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+  <ScrollViewer x:Name="MessagesScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PreviewMouseWheel="MessagesScroll_Wheel">
    <StackPanel>
     <StackPanel x:Name="EmptyConversation" Margin="12,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
     <ItemsControl x:Name="History" Margin="0,8,8,0"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,0,30">

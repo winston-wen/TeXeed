@@ -62,6 +62,7 @@ internal static partial class Program
         host.Show(); await Task.Delay(100); host.UpdateLayout();
         try
         {
+            await AwaitMathAsync(view);
             Capture(host, Path.Combine(output, "ai-math-debug.png"));
             Check(AnnotationVisuals<ChatFormula>(view).Count() >= 8, "Formula rendering fell back to literal TeX: " + AnnotationVisuals<ChatFormula>(view).Count());
             Check(view.Document.Blocks.OfType<Table>().Count() == 2, "Columns or pipe table missing");
@@ -74,12 +75,15 @@ internal static partial class Program
             foreach (var theme in new[] { "ristretto", "github-light-default" })
             { ThemeManager.Apply(theme); host.UpdateLayout(); Capture(host, Path.Combine(output, "ai-blocks-" + theme + ".png")); }
             host.Width = 420; await Task.Delay(100); host.UpdateLayout();
+            await AwaitMathAsync(view);
             Check(view.Document.Blocks.OfType<Table>().Count() == 1, "Narrow columns did not stack");
             Check(view.AnnotationPointer("tail", anchor)?.Paragraph == view.Document.Blocks.Last(), "Answer anchor moved after responsive column reflow");
             Capture(host, Path.Combine(output, "ai-blocks-narrow.png"));
             view.Markdown = @"\begin{equation}\frac{a}{b}\label{fraction}\end{equation} 参见 \eqref{fraction}.";
+            await AwaitMathAsync(view);
             host.UpdateLayout(); Check(AnnotationVisuals<ChatFormula>(view).Count() == 1, "Equation environment not rendered");
             view.Markdown = @"$$\begin{aligned}a&=b\\c&=d\end{aligned}$$";
+            await AwaitMathAsync(view);
             host.UpdateLayout(); Check(AnnotationVisuals<ChatFormula>(view).Count() == 1, "Aligned mathematics not rendered");
             foreach (var input in new[] { "$x", "\\[\\frac{a}", "$$x_", "```tex\n$x$\n\\[x\\]\n```", "\\(\\unknownmacro{x}\\)", "a \\$5 and $x$" })
             { view.Markdown = input; host.UpdateLayout(); Check(!view.CopySource(view.Document.ContentStart, view.Document.ContentEnd).Contains("TEXEED"), "Private math token leaked"); }

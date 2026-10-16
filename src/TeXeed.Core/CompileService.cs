@@ -26,6 +26,9 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
         return new(engines, FindTool("synctex", directories));
     }
 
+    /// <summary>Find a companion TeX tool using the same installations as the project compiler.</summary>
+    public static string? FindAuxiliaryTool(string name) => FindTool(name, ToolDirectories());
+
     public void Cancel()
     {
         lock (cancellationLock) current?.Cancel();
