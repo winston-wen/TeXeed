@@ -44,6 +44,13 @@ public partial class AiPanel
         menu.Opened += (_, _) => annotate.IsEnabled = AnswerTurn(view) is not null;
         menu.Items.Add(annotate);
         menu.Items.Add(new MenuItem { Header = "复制", Command = ApplicationCommands.Copy, CommandTarget = view });
+        var copyAnswer = new MenuItem { Header = "复制这段回答" };
+        copyAnswer.Click += (_, _) =>
+        {
+            try { view.CopyToClipboard(view.Document.ContentStart, view.Document.ContentEnd); }
+            catch (System.Runtime.InteropServices.ExternalException ex) { ShowError(ex); }
+        };
+        menu.Items.Add(copyAnswer);
         view.ContextMenu = menu;
     }
     private void Answer_Unloaded(object sender, RoutedEventArgs e)

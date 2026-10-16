@@ -17,6 +17,8 @@ internal static class ChatTexRenderer
     {
         internal readonly string Source = source, Home = home, Path = path;
         internal readonly bool Display = display;
+        internal readonly bool Cjk = NeedsCjk(source);
+        internal readonly bool UnicodeMath = NeedsUnicodeMath(source);
         internal readonly TaskCompletionSource<ChatSvg> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal DateTime FailedAt;
         internal void Fail(Exception error) { FailedAt = DateTime.UtcNow; Completion.TrySetException(error); }
@@ -29,10 +31,15 @@ internal static class ChatTexRenderer
     private static bool _draining;
     // Keep the existing cache keys: batching does not change the TeX preamble or styles.
     private const string Revision = "latex-svg-v1";
+    private static bool NeedsCjk(string source) => source.EnumerateRunes().Any(r =>
+        r.Value is >= 0x2E80 and <= 0xD7AF or >= 0xF900 and <= 0xFAFF or >= 0x20000 and <= 0x323AF);
+    // AMS blackboard fonts contain capitals but omit most lowercase letters and digits.
+    private static bool NeedsUnicodeMath(string source) => Regex.IsMatch(source,
+        @"\\mathbb\s*(?:\{[^{}]*[a-z0-9][^{}]*\}|[a-z0-9])", RegexOptions.None, TimeSpan.FromMilliseconds(100));
     internal static Task<ChatSvg> RenderAsync(string source, bool display)
     {
         var home = Path.Combine(AiStorage.Home, "math-svg");
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Revision + "\n" + display + "\n" + source)));
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Revision + (NeedsCjk(source) ? "-cjk-v1" : "") + (NeedsUnicodeMath(source) ? "-unicode-v1" : "") + "\n" + display + "\n" + source)));
         var path = Path.Combine(home, hash + ".svg");
         lock (CacheLock)
         {
@@ -78,8 +85,10 @@ internal static class ChatTexRenderer
             {
                 if (Pending.Count == 0) { _draining = false; Workers.Release(); return; }
                 var home = Pending.Peek().Home;
+                var cjk = Pending.Peek().Cjk;
+                var unicodeMath = Pending.Peek().UnicodeMath;
                 var length = 0;
-                while (Pending.Count > 0 && Pending.Peek().Home == home && batch.Count < 24 && length < 65536)
+                while (Pending.Count > 0 && Pending.Peek().Home == home && Pending.Peek().Cjk == cjk && Pending.Peek().UnicodeMath == unicodeMath && batch.Count < 24 && length < 65536)
                 {
                     var request = Pending.Dequeue(); batch.Add(request); length += request.Source.Length;
                 }
@@ -114,11 +123,18 @@ internal static class ChatTexRenderer
         try
         {
             Directory.CreateDirectory(home);
-            var latex = CompileService.FindAuxiliaryTool("latex") ?? throw new InvalidOperationException("未找到 latex。请安装包含 amsmath、amssymb 和 dvisvgm 的 TeX Live 或 MiKTeX。");
+            var cjk = batch[0].Cjk;
+            var unicodeMath = batch[0].UnicodeMath;
+            var xetex = cjk || unicodeMath;
+            var engine = xetex ? "xelatex" : "latex";
+            var latex = CompileService.FindAuxiliaryTool(engine) ?? throw new InvalidOperationException("未找到 " + engine + "。请在 TeX Live 或 MiKTeX 中安装此引擎。");
             var svg = CompileService.FindAuxiliaryTool("dvisvgm") ?? throw new InvalidOperationException("未找到 dvisvgm。请在 TeX 发行版中安装 dvisvgm。");
             work = Path.Combine(home, "job-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(work);
-            var document = new StringBuilder("\\documentclass{article}\n\\usepackage{amsmath,amssymb}\n\\pagestyle{empty}\n\\begin{document}\n");
+            var document = new StringBuilder("\\documentclass{article}\n\\usepackage{amsmath,amssymb}\n");
+            if (cjk) document.Append("\\usepackage{xeCJK}\n\\setCJKmainfont{Microsoft YaHei}\n");
+            if (unicodeMath) document.Append("\\usepackage{unicode-math}\n\\setmathfont{Latin Modern Math}\n");
+            document.Append("\\tracinglostchars=2\n\\pagestyle{empty}\n\\begin{document}\n");
             for (var i = 0; i < batch.Count; i++)
             {
                 var request = batch[i];
@@ -131,13 +147,16 @@ internal static class ChatTexRenderer
             await File.WriteAllTextAsync(Path.Combine(work, "formula.tex"), document.ToString(), new UTF8Encoding(false));
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
             var arguments = new List<string> { "-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error" };
+            if (xetex) arguments.Add("-no-pdf");
             if (latex.Contains("miktex", StringComparison.OrdinalIgnoreCase)) arguments.Add("--disable-installer");
             arguments.Add("formula.tex");
             var log = await RunAsync(latex, arguments, work, timeout.Token, isolateSyntax: true);
+            var missing = log.Split('\n').FirstOrDefault(line => line.Contains("Missing character:"));
+            if (missing is not null) throw new TexSyntaxException("公式缺少字形：" + missing.Trim());
             var metrics = Regex.Matches(log, @"TEXEED-METRICS-(\d+):\s*([0-9.+-]+)pt,\s*([0-9.+-]+)pt,\s*([0-9.+-]+)pt")
                 .ToDictionary(m => int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture));
             if (metrics.Count != batch.Count) throw new InvalidDataException("LaTeX 未返回全部公式尺寸。");
-            await RunAsync(svg, ["--no-fonts", "--no-specials", "--exact-bbox", "--bbox=min", "--page=1-", "--cache=none", "--output=formula-%1p.svg", "formula.dvi"], work, timeout.Token);
+            await RunAsync(svg, ["--no-fonts", "--no-specials", "--exact-bbox", "--bbox=min", "--page=1-", "--cache=none", "--output=formula-%1p.svg", xetex ? "formula.xdv" : "formula.dvi"], work, timeout.Token);
             for (var index = 0; index < batch.Count; index++)
             {
                 var request = batch[index];

@@ -216,7 +216,7 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; })), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }

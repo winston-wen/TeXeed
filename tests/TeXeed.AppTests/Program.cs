@@ -130,6 +130,16 @@ internal static partial class Program
                     await CheckAiMathBatchAsync(output);
                     await CloseAndObserveAsync(window, "AI math batch recovery"); result = 0; return;
                 }
+                if (args.Contains("--ai-math-copy-only"))
+                {
+                    await CheckAiMathCopyAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI math copy"); result = 0; return;
+                }
+                if (args.Contains("--ai-math-proofread-only"))
+                {
+                    await CheckAiMathProofreadingAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI math proofreading"); result = 0; return;
+                }
                 if (args.Contains("--ai-annotations-only"))
                 {
                     await CheckAiAnnotationsAsync(window, output);

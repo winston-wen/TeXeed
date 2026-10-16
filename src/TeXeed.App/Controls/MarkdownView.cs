@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using Markdig;
 using Markdig.Syntax;
@@ -35,7 +36,13 @@ public sealed partial class MarkdownView : RichTextBox
         // An opaque brush would cover the glyphs even with SelectionTextBrush set.
         SelectionOpacity = .35;
         SizeChanged += (_, e) => { if ((e.PreviousSize.Width < 560) != (e.NewSize.Width < 560)) Render(); };
-        DataObject.AddCopyingHandler(this, (_, e) => { if (!Selection.IsEmpty) e.DataObject.SetData(DataFormats.UnicodeText, CopySource(Selection.Start, Selection.End)); });
+        // Own the copy command so rich editors cannot prefer the default RTF/XAML formula images.
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, e) =>
+        {
+            e.Handled = true;
+            try { if (!Selection.IsEmpty) CopyToClipboard(Selection.Start, Selection.End); }
+            catch (System.Runtime.InteropServices.ExternalException) { ToolTip = "剪贴板暂时被占用，请重试复制。"; }
+        }, (_, e) => { e.CanExecute = !Selection.IsEmpty; e.Handled = true; }));
     }
 
     internal string Revision { get; private set; } = "";
@@ -45,7 +52,7 @@ public sealed partial class MarkdownView : RichTextBox
         var document = new FlowDocument { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
             FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
-        _math = new ChatMath(); _equations.Clear(); _annotationPointers.Clear();
+        _math = new ChatMath(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear();
         var source = _math.Prepare(Markdown ?? "", Pipeline);
         AddBlocks(document.Blocks, Markdig.Markdown.Parse(source, Pipeline), 0);
         Document = document;

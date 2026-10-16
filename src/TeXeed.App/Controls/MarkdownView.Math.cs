@@ -17,6 +17,7 @@ public sealed partial class MarkdownView
     private ChatMath _math = new();
     private readonly Dictionary<string, FrameworkContentElement> _equations = [];
     private readonly Dictionary<string, TextPointer?> _annotationPointers = [];
+    private readonly Dictionary<InlineUIContainer, ChatMath.Token> _clipboardMath = [];
     internal TextPointer? AnnotationPointer(string id, TeXeed.App.AI.AiAnswerAnchor anchor)
     {
         if (_annotationPointers.TryGetValue(id, out var cached)) return cached;
@@ -60,9 +61,13 @@ public sealed partial class MarkdownView
         }
         target.Add(new Run(text[offset..]));
     }
-    private Inline FormulaInline(ChatMath.Token token) =>
-        new InlineUIContainer(new ChatFormula(token.Source, token.Display))
+    private Inline FormulaInline(ChatMath.Token token)
+    {
+        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display))
             { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
+        _clipboardMath.Add(inline, token);
+        return inline;
+    }
     private Paragraph DisplayFormula(ChatMath.Token token)
     {
         var paragraph = new Paragraph { Margin = new Thickness(0, 12, 0, 18), Padding = new Thickness(8), LineHeight = double.NaN };
@@ -74,7 +79,9 @@ public sealed partial class MarkdownView
         var number = new TextBlock { Text = $"({token.Number})", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), FontSize = 13 };
         number.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); Grid.SetColumn(number, 1); grid.Children.Add(number);
         grid.SetBinding(FrameworkElement.WidthProperty, new Binding(nameof(ActualWidth)) { Source = this, Converter = new FormulaWidth(_columnCount) });
-        paragraph.Inlines.Add(new InlineUIContainer(grid) { Tag = "$$" + token.Source + (token.Label is null ? "" : @"\label{" + token.Label + "}") + @"\tag{" + token.Number + "}$$" });
+        var inline = new InlineUIContainer(grid) { Tag = "$$" + token.Source + (token.Label is null ? "" : @"\label{" + token.Label + "}") + @"\tag{" + token.Number + "}$$" };
+        paragraph.Inlines.Add(inline);
+        _clipboardMath.Add(inline, token);
         _equations.TryAdd(token.Label ?? "eq-" + token.Number, paragraph);
         _equations.TryAdd("eq-" + token.Number, paragraph);
         return paragraph;
