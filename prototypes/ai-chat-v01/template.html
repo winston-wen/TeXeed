@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TeXeed · AI 阅读与批注 · 交互草稿 01</title>
+<style>
+:root{color-scheme:light;--bg:#eeede8;--paper:#fcfbf8;--surface:#f3f2ed;--ink:#292f2c;--muted:#747b75;--line:#dedfd6;--green:#35634b;--soft:#e7eee4;--mark:#e6eccd;--danger:#a54b38;--shadow:0 16px 50px #22362920}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI","Microsoft YaHei",sans-serif;font-size:14px}button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer;border:1px solid transparent;background:transparent;border-radius:7px;padding:7px 10px;white-space:nowrap}button:hover{background:var(--soft)}button:focus-visible,a:focus-visible,.math:focus-visible{outline:2px solid var(--green);outline-offset:3px}button:disabled{cursor:default;opacity:.45}button.primary{background:var(--green);color:#fff}button.primary:hover{filter:brightness(1.08)}button.outline{border-color:var(--line)}input,textarea,select{border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:9px;outline:none}input:focus,textarea:focus,select:focus{border-color:var(--green)}textarea{resize:vertical;line-height:1.7}a{color:var(--green)}[hidden]{display:none!important}.muted{color:var(--muted)}.small{font-size:12px}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.spacer{flex:1}.label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lab{max-width:1260px;margin:auto;padding:22px 28px 12px;display:flex;gap:16px;align-items:center;justify-content:space-between}.lab h1{font-size:16px;margin:0 0 5px;font-weight:600}.lab .version{color:var(--green);font-weight:500;margin-left:9px}.lab select{font-size:12px;padding:6px}.lab button{font-size:12px}.lab-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.window{width:calc(100% - 56px);max-width:1204px;height:calc(100dvh - 118px);min-height:590px;max-height:1000px;margin:0 auto 24px;background:var(--paper);border:1px solid #d8dbd1;border-radius:14px;box-shadow:0 5px 28px #2635260b;display:grid;grid-template-columns:176px minmax(0,1fr);overflow:hidden;transition:max-width .2s}
+.sidebar{background:var(--surface);border-right:1px solid var(--line);padding:22px 12px;display:flex;flex-direction:column;gap:24px}.brand{font-family:Georgia,serif;font-size:22px;letter-spacing:-.5px;padding:0 10px}.brand span{color:var(--green)}.scene-nav{display:grid;gap:5px}.scene-nav button{text-align:left;white-space:normal;padding:12px}.scene-nav button[aria-current=true]{background:var(--soft);color:var(--green)}.scene-nav strong{display:block;font-size:13px;font-weight:600}.scene-nav small{display:block;margin-top:5px;color:var(--muted);font-size:11px}.sidebar-foot{margin-top:auto;padding:0 10px;font-size:11px;line-height:1.8;color:var(--muted)}.sidebar .label{margin:0 12px 8px}
+.chat{min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-width:0;position:relative}.chat-head{padding:15px 26px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}.chat-head h2{font-size:15px;margin:0;font-weight:600}.chat-head .sub{font-size:11px;color:var(--muted);margin-top:3px}.chat-head button{font-size:12px}.chat-head button[aria-pressed=true]{background:var(--green);color:#fff}
+.reader{overflow:auto;scrollbar-gutter:stable;overscroll-behavior:contain;position:relative;scroll-behavior:smooth}.transcript{max-width:818px;margin:auto;padding:26px 62px 48px 36px;line-height:1.9;font-size:15px}.user-message{margin:0 0 24px 40px;border-radius:12px 12px 3px 12px;background:var(--surface);padding:16px 20px;font-size:14px;white-space:pre-wrap}.user-message .passage{margin:0}.user-message .passage-body p{margin:0}.user-message .add-note{display:none}.byline{display:flex;align-items:center;gap:8px;margin:24px 0 14px;font-size:12px;color:var(--muted)}.byline b{color:var(--green);font-weight:600}.byline .dot{height:5px;width:5px;border-radius:50%;background:var(--green)}.passage{position:relative;margin:16px 0;scroll-margin:26px}.passage-body p{margin:0}.passage h3{font-size:21px;line-height:1.5;margin:32px 0 15px;letter-spacing:-.3px}.passage h4{font-size:17px;margin:27px 0 12px}.passage strong{font-weight:650}.passage ul{padding-left:22px;margin:0}.passage li{padding-left:3px;margin:5px 0}.passage blockquote{border-left:3px solid #a7b99f;padding:6px 17px;margin:20px 0;background:linear-gradient(90deg,var(--soft),transparent)}code{font-family:Consolas,monospace;background:var(--surface);padding:2px 5px;border-radius:3px;font-size:.9em}.math{cursor:text;display:inline-block;white-space:nowrap;vertical-align:baseline;max-width:100%}.math svg{max-width:none}.equation{display:flex;align-items:center;gap:22px;overflow-x:auto;padding:16px 4px 16px 12px;font-size:17px;scrollbar-width:thin}.equation .math{flex-shrink:0}.equation-number{margin-left:auto;color:var(--muted);font-size:12px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:9px 12px}th{font-weight:500;color:var(--muted)}
+.add-note{position:absolute;right:-42px;top:2px;width:28px;height:28px;padding:0;border-radius:50%;color:var(--muted);opacity:.18}.passage:hover>.add-note,.add-note:focus-visible{opacity:1;background:var(--surface)}.margin-notes{position:absolute;right:-44px;top:1px;display:grid;gap:5px}.margin-notes:not(:empty)+.add-note{display:none}.bubble{border:1px solid var(--green);width:27px;height:27px;padding:0;border-radius:50%;background:var(--green);color:white;font-size:11px;box-shadow:0 0 0 3px var(--paper)}.bubble.sent{color:var(--green);background:var(--paper)}.bubble.active{box-shadow:0 0 0 4px var(--mark)}.passage.has-note>.passage-body{border-left:2px solid #97ae7b;padding-left:12px;margin-left:-14px}.passage.focused>.passage-body{background:var(--soft)}::selection{background:#d8e5c4}::highlight(annotation){background:#e4eccd}.answer-actions{display:flex;gap:8px;padding-top:12px;color:var(--muted);font-size:12px}.answer-actions button{padding:5px 7px}.source-badge{font-size:11px;color:var(--muted);margin-left:auto}
+.composer-area{border-top:1px solid var(--line);padding:13px 28px 16px;background:var(--paper);z-index:2}.tray{display:flex;gap:6px;align-items:center;overflow:auto;padding-bottom:9px;scrollbar-width:thin}.tray-label{font-size:11px;color:var(--muted);white-space:nowrap}.chip{display:flex;gap:7px;align-items:center;max-width:210px;border:1px solid var(--line);font-size:12px;padding:5px 8px}.chip .num{color:var(--green);font-weight:600}.chip .chip-text{overflow:hidden;text-overflow:ellipsis}.composer{border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:5px 10px 8px}.composer:focus-within{border-color:#7d9c7e;box-shadow:0 0 0 2px #dce5d344}.composer textarea{width:100%;border:0;box-shadow:none;resize:none;max-height:140px;min-height:62px;background:transparent;padding:7px 2px;font-size:14px}.composer-bottom{display:flex;align-items:center;gap:8px}.composer-bottom .hint{font-size:11px;color:var(--muted)}.composer-bottom button{font-size:12px}.composer-meta{font-size:11px;color:var(--muted);padding:7px 3px 0;display:flex;gap:12px}.status{font-size:12px;color:var(--green);padding:0 2px 8px}.status.error{color:var(--danger)}.jump-latest{position:absolute;bottom:216px;left:50%;transform:translateX(-50%);background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow);font-size:12px;z-index:4}
+.selection-menu{position:fixed;background:var(--ink);color:white;border-radius:8px;box-shadow:var(--shadow);padding:4px;z-index:30;display:flex;gap:3px}.selection-menu button{font-size:12px}.selection-menu button:hover{background:#ffffff22}.note-editor{position:fixed;width:330px;max-width:calc(100vw - 24px);border:1px solid #9eaf93;border-radius:12px;background:var(--paper);box-shadow:var(--shadow);padding:15px;z-index:40}.note-editor header{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px}.note-editor .editor-number{background:var(--green);color:white;border-radius:50%;width:24px;height:24px;display:grid;place-items:center}.note-editor .quote{font-size:12px;line-height:1.7;color:var(--muted);border-left:2px solid #b6c3a8;padding:3px 10px;margin:8px 0 12px;max-height:76px;overflow:auto;white-space:pre-wrap}.note-editor textarea{width:100%;min-height:92px;max-height:190px;font-size:14px}.note-editor footer{margin-top:11px;display:flex;gap:5px;align-items:center}.note-editor footer button{font-size:12px;padding:6px 8px}.autosave{font-size:11px;color:var(--muted);margin-top:5px}.sent-note{font-size:13px;white-space:pre-wrap;padding:8px 0;border-bottom:1px solid var(--line)}.sent-note button{font-size:12px;color:var(--green);padding:0 6px 0 0}.sent-question{margin-top:10px}.reply-links{display:flex;gap:6px;flex-wrap:wrap;margin:15px 0;font-size:12px}.reply-links button{background:var(--soft);color:var(--green);padding:4px 8px}.demo-caption{font-size:11px;color:var(--muted);margin:8px 0}.unfinished{border-left:2px solid var(--danger);padding:10px 14px;background:#a54b3808;font-size:13px}.error-actions{display:flex;gap:6px;margin-top:8px}
+.narrow.window{max-width:560px;grid-template-columns:1fr}.narrow .sidebar{display:none}.narrow .scene-mobile{display:block;max-width:115px;padding:5px;font-size:12px}.narrow .transcript{padding:20px 52px 36px 22px}.narrow .chat-head{padding:13px 18px}.narrow .chat-head .sub{display:none}.narrow .composer-area{padding:12px 16px}.narrow .hint{display:none}.narrow .user-message{margin-left:16px}.narrow .transcript{font-size:14px}.narrow .passage h3{font-size:19px}
+dialog{border:1px solid var(--line);border-radius:14px;padding:24px;background:var(--paper);color:var(--ink);width:800px;max-width:calc(100vw - 32px);max-height:85dvh;box-shadow:var(--shadow)}dialog::backdrop{background:#26322855}dialog h2{font-size:18px;margin:0}dialog h3{font-size:14px}dialog pre{font-size:12px;line-height:1.8;white-space:pre-wrap;overflow:auto;background:var(--surface);padding:16px;border-radius:8px;max-height:48dvh}.dialog-tabs{display:flex;gap:6px;margin:18px 0}.dialog-tabs button[aria-pressed=true]{background:var(--soft);color:var(--green)}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);padding:10px 16px;border-radius:8px;background:var(--ink);color:white;font-size:12px;z-index:80;max-width:90vw}.scene-mobile{display:none}.summary-link{color:var(--green);font-size:12px}
+@media(max-width:800px){.lab{padding:15px 15px 10px;align-items:flex-start;flex-wrap:wrap}.lab-actions{gap:2px}.window{width:calc(100% - 24px);height:calc(100dvh - 150px);min-height:540px;grid-template-columns:1fr}.sidebar{display:none}.transcript{padding:22px 48px 40px 22px}.chat-head{padding:12px 18px;flex-wrap:wrap}.chat-head .sub{display:none}.composer-area{padding:12px 15px}.hint{display:none}.scene-mobile{display:block;max-width:125px;padding:5px;font-size:12px}.user-message{margin-left:12px}.source-badge{display:none}.lab .small{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="lab">
+ <div><h1>阅读中的对话 <span class="version">交互草稿 01</span></h1><div class="small muted">真实回答底稿 · 续问播放预编 transcript · 所有操作保存在此浏览器</div></div>
+ <div class="lab-actions"><button class="outline" id="load-notes">载入示例批注</button><button class="outline" id="width-toggle" aria-pressed="false">窄栏试读</button><label class="small muted">续答 <select id="simulation" aria-label="续答演示状态"><option value="normal">正常完成</option><option value="repair">校对后完成</option><option value="error">请求失败</option></select></label><button class="outline" id="inspect">Transcript ↗</button></div>
+</header>
+<main class="window" id="app">
+ <aside class="sidebar"><div class="brand"><span>↗</span> TeXeed</div><div><div class="label">试读场景</div><nav class="scene-nav" id="scenes" aria-label="选择试读场景"></nav></div><div class="sidebar-foot">从你正在读的地方提问。<br>编号留在原文，问题留在草稿。<br><br>原型 v0.1 · 2026.10.16</div></aside>
+ <section class="chat">
+  <header class="chat-head"><div><h2>AI 对话 <span class="muted">/</span> <span id="title">香农熵</span></h2><div class="sub">选中文字即可批注，也可点段落右侧的 ＋</div></div><span class="spacer"></span><select class="scene-mobile" id="scene-mobile" aria-label="试读场景"></select><button id="mark-mode" class="outline" aria-pressed="false">圈点模式</button></header>
+  <div class="reader" id="reader" tabindex="0" aria-label="AI 回答阅读区"><div class="transcript" id="thread"></div></div>
+  <button class="jump-latest" id="latest" hidden>↓ 查看新回答</button>
+  <div class="composer-area"><div id="status" class="status" role="status" hidden></div><div id="tray" class="tray" aria-label="待发送批注" hidden></div><div class="composer"><textarea id="composer" rows="2" placeholder="写下问题，或先在回答里圈点…" aria-label="继续追问"></textarea><div class="composer-bottom"><span class="hint">Enter 换行 · Ctrl+Enter 发送</span><span class="spacer"></span><button id="send" class="primary" disabled>发送</button><button id="stop" class="outline" hidden>停止</button></div></div><div class="composer-meta"><span>仅讨论</span><span>自动保存草稿</span><span class="spacer"></span><span id="pending-count"></span></div></div>
+ </section>
+</main>
+<div class="selection-menu" id="selection-menu" hidden role="toolbar" aria-label="选区操作"><button id="annotate-selection">＋ 批注</button><button id="copy-selection">复制 TeX</button></div>
+<section class="note-editor" id="note-editor" hidden role="dialog" aria-label="原位批注编辑器"><header><span class="editor-number" id="editor-number"></span><strong id="editor-title">批注</strong><span class="spacer"></span><button id="close-editor" aria-label="收起批注">×</button></header><div id="quote" class="quote"></div><textarea id="note-input" placeholder="这句话哪里不明白？" aria-label="批注内容"></textarea><div class="autosave" id="save-hint">已保存到本地草稿</div><footer><button id="delete-note">删除</button><span class="spacer"></span><button id="ask-one" class="outline">只问这一处</button><button id="keep-reading" class="primary">继续阅读</button></footer></section>
+<dialog id="inspector"><header class="row"><h2 id="dialog-title">Transcript</h2><span class="spacer"></span><button id="close-inspector" aria-label="关闭 transcript">×</button></header><div class="dialog-tabs"><button data-inspect="sources" aria-pressed="true">来源与编写</button><button data-inspect="events" aria-pressed="false">本次交互记录</button><button data-inspect="raw" aria-pressed="false">当前回答原文</button></div><div id="inspector-body"></div><footer class="row"><span class="small muted">仅在本机保存；导出包含你在原型内填写的内容。</span><span class="spacer"></span><button id="export" class="outline">导出 transcript.json</button></footer></dialog>
+<dialog id="copy-dialog"><header class="row"><h2>TeX 文本</h2><span class="spacer"></span><button id="close-copy" aria-label="关闭 TeX 文本">×</button></header><p class="small muted">可选中后复制。行内美元号两侧各一个空格，行间保留换行。</p><textarea id="copy-text" aria-label="待复制的 TeX 文本" style="width:100%;min-height:220px"></textarea></dialog>
+<div class="toast" id="toast" role="status" hidden></div>
+<script>
+'use strict';
+const DATA = /*__TRANSCRIPTS__*/;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY = 'texeed-chat-prototype-v01-r1' + (location.search.includes('test=1') ? '-test' : '');
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+const state = {scene: DATA.scenarios.some(x=>x.id===saved.scene)?saved.scene:'entropy', books:saved.books||{}, events:saved.events||[], narrow:!!saved.narrow};
+let editing = null, selection = null, marking = false, running = null, inspectTab = 'sources', returnTarget = null, toastTimer;
+const timers = [];
+const scenario = () => DATA.scenarios.find(s=>s.id===state.scene);
+const book = () => state.books[state.scene] || (state.books[state.scene]={notes:[],next:1,draft:'',turns:[]});
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch{$('save-hint').textContent='浏览器未允许保存；本次页面内仍可使用';}}
+function record(action,detail={}){state.events.push({at:new Date().toISOString(),scene:state.scene,action,...detail});state.events=state.events.slice(-300);save();}
+function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,2400);}
+function later(fn,ms){timers.push(setTimeout(fn,ms));}
+function nearBottom(){return $('reader').scrollHeight-$('reader').scrollTop-$('reader').clientHeight<100;}
+function bottom(){ $('reader').scrollTo({top:$('reader').scrollHeight,behavior:'smooth'});$('latest').hidden=true;}
+function serialize(node){
+ if(node.nodeType===Node.TEXT_NODE)return node.nodeValue;
+ if(node.nodeType!==Node.ELEMENT_NODE&&node.nodeType!==Node.DOCUMENT_FRAGMENT_NODE)return '';
+ if(node.nodeType===Node.ELEMENT_NODE){
+  if(node.matches('.margin-notes,.add-note,.equation-number,.answer-actions,.byline'))return '';
+  if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';
+  if(node.matches('svg'))return '';
+ }
+ let text=Array.from(node.childNodes).map(serialize).join('');
+ if(node.nodeType===Node.ELEMENT_NODE&&node.matches('p,li,h3,h4,blockquote,.equation,tr,.passage'))text+='\n';
+ return text;
+}
+function sourceText(el){return serialize(el).replace(/[ \t]+(\$[^$\n]+\$)[ \t]+/g,' $1 ').replace(/\n{3,}/g,'\n\n').trim();}
+function clipboardMath(source){
+ return source.replace(/\\\[([\s\S]*?)\\\]/g,(_,s)=>'$$\n'+s.trim()+'$$\n').replace(/\\\(([\s\S]*?)\\\)/g,(_,s)=>' $'+s.trim()+'$ ').replace(/[ \t]+(\$[^$\n]+\$)[ \t]+/g,' $1 ');
+}
+async function copyText(text){
+ try{if(!navigator.clipboard)throw Error('Unavailable');await navigator.clipboard.writeText(text);toast('已复制 TeX 文本');}
+ catch{$('copy-text').value=text;$('copy-dialog').showModal();$('copy-text').select();}
+ record('copy',{characters:text.length});hideSelection();
+}
+function nav(){
+ $('scenes').innerHTML=DATA.scenarios.map(s=>'<button data-scene="'+s.id+'" aria-current="'+(s.id===state.scene)+'"><strong>'+esc(s.title)+'</strong><small>'+esc(s.subtitle)+'</small></button>').join('');
+ $('scene-mobile').innerHTML=DATA.scenarios.map(s=>'<option value="'+s.id+'">'+esc(s.title)+'</option>').join('');$('scene-mobile').value=state.scene;
+}
+function byline(origin){return '<div class="byline"><span class="dot"></span><b>TeXeed</b><span>·</span><span>回答</span><span class="source-badge">'+esc(origin)+'</span></div>';}
+function followupHtml(turn){
+ const prefix='turn-'+turn.id+'-';
+ const answer=scenario().scriptedFollowup.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+prefix+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+prefix+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+prefix+id+'"');
+ const links=turn.notes.map(n=>'<button data-jump="'+n.id+'" data-return="'+turn.id+'">↖ 批注 '+n.number+'</button>').join('');
+ let body='';
+ if(turn.status==='complete')body='<div class="reply-links">'+links+'</div><div class="demo-caption">以下为此场景的预编续答，用于体验交互，不是对新输入的实时推理。</div><div class="answer-body">'+answer+'</div><div class="answer-actions"><button data-copy-followup="'+turn.id+'">复制回答 · TeX</button></div>';
+ else if(turn.status==='failed'||turn.status==='stopped')body='<div class="unfinished">'+(turn.status==='failed'?'这次请求没有完成。问题与批注已保留，可重试。':'已停止。已发送的问题与批注仍然保留。')+'<div class="error-actions"><button data-retry="'+turn.id+'" class="outline">重试这一轮</button><button data-edit-turn="'+turn.id+'">放回草稿</button></div></div>';
+ else body='<div class="small muted" role="status">'+esc(turn.progress||'正在回答…')+'</div>';
+ return '<article class="turn" id="turn-'+turn.id+'"><div class="user-message">'+turn.notes.map(n=>'<div class="sent-note"><button data-jump="'+n.id+'" data-return="'+turn.id+'">↖ '+n.number+'</button>'+esc(n.quote.slice(0,140))+'<br><strong>'+esc(n.comment||'请解释这一处。')+'</strong></div>').join('')+(turn.question?'<div class="sent-question">'+esc(turn.question)+'</div>':'')+'</div>'+byline('模拟续问')+body+'</article>';
+}
+function renderThread(){
+ const scroll=$('reader').scrollTop, s=scenario();
+ $('thread').innerHTML='<div class="user-message">'+s.questionHtml+'</div>'+byline(s.origin)+'<article id="original-answer" class="answer-body">'+s.answerHtml+'</article><div class="answer-actions"><button id="copy-answer">复制回答 · TeX</button><span class="spacer"></span><span class="small muted">继续读，随时圈点</span></div>'+book().turns.map(followupHtml).join('');
+ $('reader').scrollTop=scroll;renderNotes();
+}
+function renderNotes(){
+ document.querySelectorAll('.margin-notes').forEach(e=>e.replaceChildren());
+ document.querySelectorAll('.passage.has-note').forEach(e=>e.classList.remove('has-note'));
+ for(const note of book().notes){
+  const passage=$(note.block);if(!passage)continue;
+  passage.classList.add('has-note');
+  const b=document.createElement('button');b.className='bubble'+(note.sent?' sent':'')+(editing===note.id?' active':'');b.textContent=note.number;b.dataset.note=note.id;b.setAttribute('aria-label','批注 '+note.number+(note.sent?'，已发送':'，待发送'));passage.querySelector('.margin-notes').append(b);
+ }
+ const pending=book().notes.filter(n=>!n.sent);
+ $('tray').hidden=pending.length===0;
+ $('tray').innerHTML='<span class="tray-label">待发送 '+pending.length+'</span>'+pending.map(n=>'<button class="chip" data-note="'+n.id+'"><span class="num">'+n.number+'</span><span class="chip-text">'+esc(n.comment||n.quote)+'</span></button>').join('');
+ $('pending-count').textContent=pending.length?'附带 '+pending.length+' 处原文':'';
+ $('send').disabled=!!running||(!pending.length&&!book().draft.trim());
+ $('send').textContent=pending.length?'发送 · '+pending.length+' 处':'发送';
+}
+function openScene(id){
+ if(running){toast('请先停止当前演示，再切换场景');$('scene-mobile').value=state.scene;return;}
+ closeEditor();hideSelection();state.scene=id;nav();$('title').textContent=scenario().title;$('composer').value=book().draft;$('status').hidden=true;$('latest').hidden=true;renderThread();$('reader').scrollTop=0;record('open-scene');
+}
+function hideSelection(){$('selection-menu').hidden=true;}
+function positionSelection(rect){
+ const menu=$('selection-menu');menu.hidden=false;const width=menu.offsetWidth;
+ menu.style.left=Math.max(8,Math.min(innerWidth-width-8,rect.left))+'px';
+ menu.style.top=Math.max(8,rect.top-menu.offsetHeight-8)+'px';
+}
+function pickSelection(){
+ if(!$('note-editor').hidden)return;
+ const sel=window.getSelection();if(!sel||sel.isCollapsed||!sel.rangeCount){hideSelection();return;}
+ const range=sel.getRangeAt(0);
+ const start=range.startContainer.nodeType===1?range.startContainer:range.startContainer.parentElement;
+ const end=range.endContainer.nodeType===1?range.endContainer:range.endContainer.parentElement;
+ const passage=start.closest('.passage');
+ if(!passage||!passage.closest('.answer-body')||!end.closest('.answer-body')||passage.closest('.answer-body')!==end.closest('.answer-body'))return;
+ const quote=serialize(range.cloneContents());if(!quote.trim())return;
+ selection={block:passage.id,quote,range:range.cloneRange()};
+ if(marking){createNote(selection.block,quote);return;}
+ positionSelection(range.getBoundingClientRect());
+}
+function createNote(block,quote){
+ const current=book();const n={id:state.scene+'-'+Date.now()+'-'+current.next,number:current.next++,block,quote,comment:'',sent:false};
+ current.notes.push(n);record('create-note',{number:n.number,quote});renderNotes();openNote(n.id);
+}
+function positionEditor(){
+ if(!editing)return;const n=book().notes.find(n=>n.id===editing), el=n&&$(n.block);if(!el)return;
+ const rect=el.getBoundingClientRect(), reader=$('reader').getBoundingClientRect(), popup=$('note-editor');
+ if(rect.bottom<reader.top||rect.top>reader.bottom){popup.hidden=true;return;}popup.hidden=false;
+ const w=popup.offsetWidth,h=popup.offsetHeight;
+ let x=rect.right+14;if(x+w>innerWidth-12)x=Math.max(12,rect.right-w);
+ let y=rect.top+28;y=Math.max(reader.top+8,Math.min(y,innerHeight-h-12));
+ popup.style.left=x+'px';popup.style.top=y+'px';
+}
+function openNote(id,jump=false){
+ hideSelection();const n=book().notes.find(n=>n.id===id);if(!n)return;editing=id;
+ if(jump&&$(n.block))$(n.block).scrollIntoView({block:'center',behavior:'instant'});
+ $('note-editor').hidden=false;$('editor-number').textContent=n.number;$('editor-title').textContent=n.sent?'已发送批注':'批注';
+ $('quote').textContent=n.quote;$('note-input').value=n.comment;$('note-input').readOnly=!!n.sent;
+ $('save-hint').textContent=n.sent?'保留发送时的内容；可把这一处加入新追问。':'已保存到本地草稿';
+ $('ask-one').textContent=n.sent?'继续问这一处':'只问这一处';$('delete-note').hidden=!!n.sent;
+ renderNotes();positionEditor();if(!n.sent)$('note-input').focus({preventScroll:true});
+ record('open-note',{number:n.number});
+}
+function closeEditor(){const old=editing;editing=null;$('note-editor').hidden=true;renderNotes();if(old)save();}
+function updateNote(){const n=book().notes.find(n=>n.id===editing);if(!n||n.sent)return;n.comment=$('note-input').value;save();renderNotes();}
+function jumpNote(id,turn){
+ const n=book().notes.find(n=>n.id===id);if(!n)return;
+ closeEditor();returnTarget=turn;$(n.block)?.scrollIntoView({block:'center',behavior:'smooth'});
+ const el=$(n.block);el?.classList.add('focused');setTimeout(()=>el?.classList.remove('focused'),1800);
+ $('latest').textContent='↘ 回到追问';$('latest').hidden=false;record('jump-to-source',{number:n.number});
+}
+function setStatus(text,error=false){$('status').hidden=!text;$('status').textContent=text;$('status').classList.toggle('error',error);}
+function renderProgress(turn,text){
+ const follow=nearBottom();turn.progress=text;setStatus(text);renderThread();if(follow)bottom();else{$('latest').textContent='↓ 查看新回答';$('latest').hidden=false;}
+}
+function begin(turn){
+ running=turn.id;turn.status='running';$('send').hidden=true;$('stop').hidden=false;renderNotes();renderProgress(turn,'正在回答…');
+ const mode=$('simulation').value;record('request-start',{turn:turn.id,mode,question:turn.question,notes:turn.notes});
+ if(mode==='error'){later(()=>finish(turn,'failed'),1800);return;}
+ later(()=>renderProgress(turn,mode==='repair'?'公式校对发现一处定界符未闭合，正在修正（1/5）…':'正在校对公式…'),1200);
+ later(()=>finish(turn,'complete'),mode==='repair'?4200:2200);
+}
+function finish(turn,status){
+ if(running!==turn.id)return;const follow=nearBottom();turn.status=status;running=null;
+ $('send').hidden=false;$('stop').hidden=true;setStatus(status==='complete'?'本轮演示完成 · 公式检查通过':status==='failed'?'请求失败 · 可以重试':'已停止',status==='failed');
+ record('request-'+status,{turn:turn.id});renderThread();
+ if(follow)bottom();else{$('latest').textContent='↓ 查看新回答';$('latest').hidden=false;}
+}
+function send(only){
+ if(running)return;updateNote();const current=book(),notes=current.notes.filter(n=>!n.sent&&(!only||n.id===only));
+ const question=only?'':current.draft.trim();if(!notes.length&&!question)return;
+ const turn={id:Date.now().toString(36),question,notes:notes.map(n=>({...n})),status:'running'};
+ notes.forEach(n=>n.sent=true);current.turns.push(turn);
+ if(!only){current.draft='';$('composer').value='';}
+ closeEditor();renderThread();bottom();save();begin(turn);
+}
+function stop(){
+ timers.forEach(clearTimeout);timers.length=0;const turn=book().turns.find(t=>t.id===running);if(turn)finish(turn,'stopped');
+}
+function loadNotes(){
+ if(running)return;
+ const s=scenario(), added=[];
+ for(const sample of s.scriptedFollowup.notes){
+  const passage=Array.from($('original-answer').querySelectorAll('.passage')).find(p=>p.textContent.includes(sample.quote));
+  if(!passage)continue;
+  const n={id:state.scene+'-'+Date.now()+'-'+book().next,number:book().next++,block:passage.id,quote:sourceText(passage.querySelector('.passage-body')),comment:sample.comment,sent:false};
+  book().notes.push(n);added.push(n);
+ }
+ record('load-scripted-notes',{count:added.length});renderNotes();
+ if(added.length){openNote(added[0].id,true);toast('已载入 '+added.length+' 处示例批注，可以直接改写');}
+}
+function inspect(){
+ document.querySelectorAll('[data-inspect]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.inspect===inspectTab));
+ if(inspectTab==='sources'){
+  $('inspector-body').innerHTML='<p class="small">'+esc(DATA.provenance)+'</p><h3>已收集 · 三段真实问答</h3>'+DATA.scenarios.map(s=>'<p><strong>'+esc(s.title)+'</strong> <span class="small muted">'+esc(s.origin)+'</span><br><span class="small">'+esc(s.question)+'</span></p>').join('')+'<h3>现编 · 当前场景续问</h3><p class="small">'+esc(scenario().scriptedFollowup.prompt)+'</p><pre>'+esc(scenario().scriptedFollowup.answer)+'</pre><h3>交互脚本</h3><pre>'+esc(DATA.interactionScript.map(x=>x.step+'. '+x.actor+'：'+x.action).join('\n'))+'</pre>';
+ }else if(inspectTab==='raw')$('inspector-body').innerHTML='<p class="small muted">原文保留原有数学定界符；复制回答时转换成美元号格式。</p><pre>'+esc(scenario().answer)+'</pre>';
+ else $('inspector-body').innerHTML='<p class="small muted">记录圈点、批注、发送、返回原文及演示状态，方便下一轮讨论。</p><pre>'+esc(JSON.stringify(state.events,null,2))+'</pre>';
+}
+$('scenes').addEventListener('click',e=>{const b=e.target.closest('[data-scene]');if(b)openScene(b.dataset.scene);});
+$('scene-mobile').onchange=e=>openScene(e.target.value);
+$('mark-mode').onclick=()=>{marking=!marking;$('mark-mode').setAttribute('aria-pressed',marking);$('mark-mode').textContent=marking?'圈点中 · 选中即批注':'圈点模式';toast(marking?'选中文字后直接填写批注':'选中文字后可选择批注或复制');record('mark-mode',{enabled:marking});};
+$('thread').addEventListener('mouseup',e=>{if(!e.target.closest('button,.math'))setTimeout(pickSelection,0);});
+$('reader').addEventListener('keyup',e=>{if(e.key==='Shift')pickSelection();});
+$('reader').addEventListener('scroll',()=>{hideSelection();positionEditor();if(nearBottom()&&!returnTarget)$('latest').hidden=true;});
+window.addEventListener('resize',()=>{hideSelection();positionEditor();});
+$('thread').addEventListener('click',e=>{
+ const target=e.target.closest('button');
+ if(target?.matches('.add-note')){const p=target.closest('.passage');createNote(p.id,sourceText(p.querySelector('.passage-body')));}
+ else if(target?.dataset.note)openNote(target.dataset.note);
+ else if(target?.dataset.jump)jumpNote(target.dataset.jump,target.dataset.return);
+ else if(target?.id==='copy-answer')copyText(clipboardMath(scenario().answer));
+ else if(target?.dataset.copyFollowup)copyText(clipboardMath(scenario().scriptedFollowup.answer));
+ else if(target?.dataset.retry){const turn=book().turns.find(t=>t.id===target.dataset.retry);if(!running&&turn)begin(turn);}
+ else if(target?.dataset.editTurn){
+  if(running)return;const t=book().turns.find(t=>t.id===target.dataset.editTurn);
+  for(const old of t.notes){const n={...old,id:state.scene+'-'+Date.now()+'-'+book().next,number:book().next++,sent:false};book().notes.push(n);}
+  book().draft=[book().draft,t.question].filter(Boolean).join('\n');$('composer').value=book().draft;record('restore-to-draft',{turn:t.id});renderNotes();$('composer').focus();
+ } else if(e.target.closest('.math')){
+  const math=e.target.closest('.math'), passage=math.closest('.passage');if(!passage?.closest('.answer-body'))return;
+  selection={block:passage.id,quote:serialize(math),range:null};
+  if(marking)createNote(selection.block,selection.quote);else positionSelection(math.getBoundingClientRect());
+ }
+});
+$('thread').addEventListener('keydown',e=>{if(e.target.matches('.math')&&e.key==='Enter'){e.preventDefault();e.target.click();}});
+$('tray').onclick=e=>{const target=e.target.closest('[data-note]');if(target)openNote(target.dataset.note,true);};
+$('annotate-selection').onmousedown=e=>e.preventDefault();
+$('annotate-selection').onclick=()=>{if(selection)createNote(selection.block,selection.quote);hideSelection();};
+$('copy-selection').onmousedown=e=>e.preventDefault();
+$('copy-selection').onclick=()=>{if(selection)copyText(selection.quote);};
+$('note-input').oninput=updateNote;
+$('note-input').onblur=()=>{if(editing){const n=book().notes.find(n=>n.id===editing);if(n&&!n.sent)record('edit-note',{number:n.number,comment:n.comment});}};
+$('close-editor').onclick=$('keep-reading').onclick=()=>{const n=book().notes.find(n=>n.id===editing);closeEditor();if(n)$(n.block)?.querySelector('.bubble')?.focus({preventScroll:true});};
+$('delete-note').onclick=()=>{const n=book().notes.find(n=>n.id===editing);if(!n||n.sent)return;book().notes=book().notes.filter(x=>x!==n);record('delete-note',{number:n.number});closeEditor();};
+$('ask-one').onclick=()=>{const n=book().notes.find(n=>n.id===editing);if(!n)return;if(n.sent){createNote(n.block,n.quote);}else send(n.id);};
+$('composer').oninput=()=>{book().draft=$('composer').value;save();renderNotes();};
+$('composer').onkeydown=e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();send();}};
+$('note-input').onkeydown=e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();if(!book().notes.find(n=>n.id===editing)?.sent)send(editing);}};
+$('send').onclick=()=>send();$('stop').onclick=stop;
+$('latest').onclick=()=>{if(returnTarget){$('turn-'+returnTarget)?.scrollIntoView({block:'start',behavior:'smooth'});returnTarget=null;$('latest').hidden=true;}else bottom();};
+$('load-notes').onclick=loadNotes;
+$('width-toggle').onclick=()=>{state.narrow=!state.narrow;applyWidth();record('width',{narrow:state.narrow});};
+function applyWidth(){$('app').classList.toggle('narrow',state.narrow);$('width-toggle').setAttribute('aria-pressed',state.narrow);$('width-toggle').textContent=state.narrow?'展开试读':'窄栏试读';positionEditor();}
+$('inspect').onclick=()=>{inspect();$('inspector').showModal();};
+$('close-inspector').onclick=()=>$('inspector').close();
+document.querySelectorAll('[data-inspect]').forEach(b=>b.onclick=()=>{inspectTab=b.dataset.inspect;inspect();});
+$('export').onclick=()=>{
+ const blob=new Blob([JSON.stringify({prototype:'0.1',sourceTranscripts:DATA.scenarios.map(s=>({id:s.id,origin:s.origin,question:s.question,answer:s.answer,scriptedFollowup:s.scriptedFollowup.answer})),books:state.books,events:state.events},null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='texeed-interaction-transcript.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+$('close-copy').onclick=()=>$('copy-dialog').close();
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideSelection();closeEditor();}});
+document.addEventListener('pointerdown',e=>{if(!$('note-editor').hidden&&!e.target.closest('#note-editor,.bubble,.chip'))closeEditor();if(!e.target.closest('.selection-menu,.passage'))hideSelection();});
+document.addEventListener('copy',e=>{
+ if(e.target.closest('textarea,input'))return;const sel=window.getSelection();if(!sel?.rangeCount||sel.isCollapsed)return;
+ const r=sel.getRangeAt(0),start=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;
+ if(!start.closest('.answer-body'))return;
+ e.clipboardData.setData('text/plain',serialize(r.cloneContents()));e.preventDefault();
+});
+for(const b of Object.values(state.books))for(const t of b.turns||[])if(t.status==='running')t.status='stopped';
+nav();$('title').textContent=scenario().title;$('composer').value=book().draft;applyWidth();renderThread();
+</script>
+</body>
+</html>
