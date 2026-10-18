@@ -3,6 +3,7 @@
 Requires Python 3, XeLaTeX + xeCJK + Microsoft YaHei, and dvisvgm.
 Only the curated transcript math is compiled; no user input is executed.
 """
+import base64
 import html
 import json
 import pathlib
@@ -14,10 +15,11 @@ HERE = pathlib.Path(__file__).resolve().parent
 WORK = HERE.parents[1] / 'artifacts' / 'chat-prototype-v02-math'
 WORK.mkdir(parents=True, exist_ok=True)
 data = json.loads((HERE / 'transcripts.json').read_text(encoding='utf-8'))
+data['prompts'] = json.loads((HERE / 'prompts.json').read_text(encoding='utf-8'))
 pattern = re.compile(r'\\\[(.*?)\\\]|\\\((.*?)\\\)|\$\$(.*?)\$\$|\$([^$\n]+)\$', re.S)
 formulas = {}
 all_turns = data['turns'] + [turn for conversation in data['sampleConversations'] for turn in conversation['turns']]
-for scenario in all_turns + [dict(question='', answer=data['playback']['answer'])]:
+for scenario in all_turns + [dict(question='', answer=data['playback']['answer'])] + [dict(question='', answer=e['text']) for e in data['readingEdits']]:
     for source in [scenario['question'], scenario['answer']]:
         for m in pattern.finditer(source):
             tex = next(g for g in m.groups() if g is not None).strip()
@@ -109,7 +111,12 @@ for turn in all_turns:
     turn['answerHtml'] = render(turn['answer'], turn['id'])
 data['playback']['answerHtml'] = render(data['playback']['answer'], 'playback')
 
+for edit in data['readingEdits']:
+    edit['html'] = render(edit['text'], edit['block'] + '-reading')
+
 encoded = json.dumps(data, ensure_ascii=False).replace('</', '<\\/')
 template = (HERE / 'template.html').read_text(encoding='utf-8')
+font = base64.b64encode((HERE / 'fonts/CormorantGaramond-Italic.ttf').read_bytes()).decode('ascii')
+template = template.replace('/*__HAND_FONT__*/', 'data:font/ttf;base64,' + font)
 (HERE / 'index.html').write_text(template.replace('/*__APP__*/', (HERE / 'app.js').read_text(encoding='utf-8').replace('/*__TRANSCRIPTS__*/', encoded)), encoding='utf-8')
 print(f'Built index.html: {len(formulas)} unique TeX formulas, {serial} instances, {(HERE / "index.html").stat().st_size:,} bytes.')
