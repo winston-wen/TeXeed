@@ -160,12 +160,18 @@ window.addEventListener('resize',()=>{refreshEditors();updateReadingContext();})
 // Layout transforms are for the prototype's reading view; raw transcript/snapshots remain intact.
 function shortTitle(value){return [...value.replace(/\s+/g,' ').trim()].slice(0,20).join('')||'新对话';}
 function migrateReadingDesign(){if(state.readingDesignVersion===4)return;for(const c of state.conversations){c.title=c.id==='collected'?DATA.title:shortTitle(c.title);}state.readingDesignVersion=4;}
-let headerOpen=!!state.headerPinned;
-function applyHeader(){const button=$('heading-peek');$('heading-content').hidden=!headerOpen;button.setAttribute('aria-expanded',String(headerOpen));button.classList.toggle('pinned',!!state.headerPinned);button.setAttribute('aria-label',headerOpen?'收起对话标题':'展开对话标题');button.title=headerOpen?'双击收起；单击不改变状态':'双击展开；单击不改变状态';}
+let headerOpen=!!state.headerPinned,headerClickTimer;
+function applyHeader(){const button=$('heading-peek');$('heading-content').hidden=!headerOpen;button.setAttribute('aria-expanded',String(headerOpen));button.classList.toggle('pinned',!!state.headerPinned);button.setAttribute('aria-label',headerOpen?'收起对话标题':'展开对话标题');button.title=state.headerPinned?'已固定 · 双击收起':headerOpen?'临时展开 · 移出自动收起；双击固定':'单击临时展开；双击固定展开';}
 function setHeader(open){const pos=readingPosition();headerOpen=open;applyHeader();restoreReading(pos);}
-// Double click is the pointer toggle; keyboard activation remains available.
-$('heading-peek').onclick=event=>{if(event.detail===0){state.headerPinned=!headerOpen;setHeader(state.headerPinned);persist();}};
-$('heading-peek').ondblclick=()=>{state.headerPinned=!headerOpen;setHeader(state.headerPinned);persist();};
+// Defer a single click so the moving notch cannot steal the second click.
+$('heading-peek').onclick=event=>{
+ if(event.detail===0){clearTimeout(headerClickTimer);state.headerPinned=!headerOpen;setHeader(state.headerPinned);persist();return;}
+ if(event.detail!==1||state.headerPinned)return;
+ clearTimeout(headerClickTimer);headerClickTimer=setTimeout(()=>{if(!state.headerPinned)setHeader(true);},400);
+};
+$('heading-peek').ondblclick=()=>{clearTimeout(headerClickTimer);state.headerPinned=!state.headerPinned;setHeader(state.headerPinned);persist();};
+$('heading').addEventListener('pointerleave',()=>{clearTimeout(headerClickTimer);if(headerOpen&&!state.headerPinned&&!$('heading').querySelector(':focus-visible'))setHeader(false);});
+document.addEventListener('pointerdown',event=>{if(!$('heading').contains(event.target)){clearTimeout(headerClickTimer);if(headerOpen&&!state.headerPinned)setHeader(false);}});
 function updateReadingContext(){const shell=$('reading-shell'),reader=$('reader'),box=$('reading-context');const top=reader.getBoundingClientRect().top;let turn;
  if(shell.clientHeight>=420)turn=current().turns.find(t=>{const node=$(t.id),q=$(t.id+'-question');return !t.collapsed&&node&&q&&node.getBoundingClientRect().bottom>top+12&&q.getBoundingClientRect().bottom<top;});
  box.hidden=!turn;if(!turn){box.dataset.turn='';return;}box.dataset.turn=turn.id;
