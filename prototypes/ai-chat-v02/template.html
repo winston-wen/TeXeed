@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.7</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.8</title>
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:var(--font) "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif}button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer;background:transparent;border:1px solid transparent;border-radius:4px;padding:5px 8px}button:hover{background:var(--hover)}button:disabled{cursor:default;opacity:.45}button:focus-visible,select:focus-visible{outline:1px solid var(--accent)}textarea,input,select{outline:0;background:var(--sidebar);border:1px solid var(--line);padding:5px 8px}textarea:focus,input:focus{border-color:var(--focus)}textarea{resize:none;line-height:1.5}input[type=checkbox]{accent-color:var(--focus);width:14px;height:14px;margin:0 6px 0 0;flex-shrink:0}select{border-radius:3px;background:var(--panel);padding:3px 5px;max-width:190px}svg.icon{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
@@ -32,6 +32,26 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 .turn-tools{padding-left:0;padding-top:6px;border-top:1px dashed #807577;margin-top:10px;margin-bottom:0;white-space:normal}.turn-tools .timestamp{display:flex;flex-wrap:wrap;gap:2px 14px;min-width:0;flex:1}.turn-tools .timestamp span{margin:0}.turn-tools button{flex:none}.question pre{font-family:var(--editor-font)}.pdf-snapshot{margin:8px 0 14px}.pdf-snapshot figcaption{color:var(--muted);margin-bottom:6px}.snapshot-view .pdf-snapshot img{max-height:none;height:auto;border:1px solid var(--guide);background:white}.heading h1{font-size:16px;font-weight:400}.heading{position:relative;margin-bottom:0;padding-bottom:18px;min-height:18px}#heading-content{position:relative;padding:6px 0}.heading-top{padding-right:120px}.heading-actions{position:absolute;right:0;top:50%;transform:translateY(-50%)}.heading:has(#heading-content:not([hidden])){padding-bottom:0}.heading-top{min-height:24px}.heading h1{line-height:24px}.heading-actions .icon-button{width:28px;height:24px;padding:2px 4px}.heading-peek{position:absolute;bottom:0;left:calc(50% - 26px);width:52px;height:18px;border:1px solid var(--guide);border-top:0;border-radius:0 0 9px 9px;padding:0;display:grid;place-items:center;background:var(--question);color:var(--muted)}.heading-peek svg{width:16px;height:16px}.heading-peek[aria-expanded=true]{transform:rotate(180deg)}.heading-peek.pinned{background:var(--accent);color:var(--sidebar);border-color:var(--accent)}
 .reading-shell{grid-row:3;min-height:0;display:flex;flex-direction:column;overflow:hidden}.reading-shell>.reader{flex:1;min-height:0}#reading-context{flex:none;padding:6px 12px 7px;margin-right:14px;border-bottom:2px solid var(--accent);background:var(--question);box-shadow:0 3px 9px #0002;height:61px;font-size:13px;line-height:23px}#reading-context-title{font-family:var(--editor-font);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#reading-context-notes{font-family:var(--editor-font);display:flex;gap:10px;color:var(--muted);font-size:12px;min-height:23px;overflow:hidden;white-space:nowrap}#reading-context-notes span{overflow:hidden;text-overflow:ellipsis;max-width:33%}
 .heading-toggle{display:block}.heading-toggle:before{display:none}.heading-collapsed{color:var(--muted);font-size:.8em;font-weight:400;white-space:nowrap}.heading-label{line-height:1.4;min-width:0;text-align:left}.equation-number{flex-shrink:0;border:1px solid var(--guide);border-radius:4px;background:var(--panel);padding:1px 7px;line-height:1.5;white-space:nowrap}.equation-ref{color:var(--accent);font-family:"Times New Roman",serif;padding:0 3px;border:1px solid var(--guide);border-radius:4px;text-decoration:none;white-space:nowrap;font-size:.9em}.equation-target{animation:eq-flash 1.4s ease-out}@keyframes eq-flash{from{background:#f9cc6c44}to{background:transparent}}.reading-note{font:11px var(--sans);color:var(--muted);margin:4px 0 10px}
+/* Unboxed questions and timestamp dividers. */
+.question{background:none;border:0;border-radius:0;padding:8px 12px 0;font-size:16px}
+.sent-summaries{gap:4px 18px}
+.sent-summary{background:none;border-radius:0;padding:0;font-size:16px;color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.sent-summary:hover{color:var(--ink)}
+.turn-tools{position:relative;display:block;min-height:28px;height:auto;padding:0;border:0;margin:12px 4px 8px 12px}
+.turn-divider{display:flex;align-items:center;justify-content:center;min-height:28px;cursor:pointer;user-select:none;padding:0 68px;position:relative}
+.turn-divider:before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#807577}
+.turn-tools .timestamp{display:block;flex:none;position:relative;background:var(--bg);padding:0 8px;margin:0;text-align:center;font:11px/1.6 var(--editor-font);color:var(--muted)}
+.turn-actions{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;gap:6px;background:var(--bg);padding-left:6px}
+.turn-actions button{background:var(--bg)}
+.turn-actions button:hover{background:var(--hover)}
+.answer-divider{display:flex;align-items:center;justify-content:center;position:relative;min-height:22px;margin:16px 4px 0 12px;color:var(--muted);font:11px/1.6 var(--editor-font)}
+.answer-divider:before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6' viewBox='0 0 16 6'%3E%3Cpath d='M0 3Q4 0 8 3T16 3' fill='none' stroke='%23807577' stroke-width='1'/%3E%3C/svg%3E") repeat-x center}
+.answer-divider span{position:relative;background:var(--bg);padding:0 8px;text-align:center}
+.process-log{margin:0 0 10px;font:11px/1.6 var(--editor-font);color:var(--muted)}
+.process-log>summary{display:block;padding:2px 0;cursor:pointer}
+.process-log>summary:before{content:"▸";display:inline-block;width:14px}
+.process-log[open]>summary:before{content:"▾"}
+.process-log .activity:first-of-type{margin-top:6px}
 </style>
 </head>
 <body>
