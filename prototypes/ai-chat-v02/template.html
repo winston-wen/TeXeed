@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.9</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.10</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
@@ -38,28 +38,24 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 .sent-summaries{gap:4px 18px}
 .sent-summary{background:none;border-radius:0;padding:0;font-size:16px;color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 .sent-summary:hover{color:var(--ink)}
-.turn-tools{position:relative;display:block;min-height:28px;height:auto;padding:0;border:0;margin:12px 4px 8px 12px}
-.turn-divider{display:flex;align-items:center;justify-content:center;min-height:28px;cursor:pointer;user-select:none;padding:0 68px;position:relative}
-.turn-divider:before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#807577}
-.turn-tools .timestamp{display:block;flex:none;position:relative;background:var(--bg);padding:0 8px;margin:0;text-align:center;font:11px/1.6 var(--editor-font);color:var(--muted)}
-.turn-actions{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;gap:6px;background:var(--bg);padding-left:6px}
+.turn-tools.answer-divider{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;height:auto;padding:0;border:0;margin:16px 4px 0 12px;color:var(--muted);white-space:normal}
+.turn-divider{display:flex;align-items:center;gap:10px;min-height:28px;min-width:0;flex:1;cursor:pointer;user-select:none}
+.turn-tools .timestamp{display:block;flex:0 1 auto;min-width:0;margin:0;padding:0;text-align:left;font:11px/1.6 var(--editor-font);color:var(--muted)}
+.turn-tools .divider-leader{flex:1;min-width:16px;border-top:1px dotted #807577}
+.turn-actions{display:flex;gap:6px;flex:none}
 .turn-actions button{background:var(--bg)}
 .turn-actions button:hover{background:var(--hover)}
-.answer-divider{display:flex;align-items:center;justify-content:center;position:relative;min-height:22px;margin:16px 4px 0 12px;color:var(--muted);font:11px/1.6 var(--editor-font)}
-.answer-divider:before,.turn-divider:before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6' viewBox='0 0 16 6'%3E%3Cpath d='M0 3Q4 0 8 3T16 3' fill='none' stroke='%23807577' stroke-width='1'/%3E%3C/svg%3E") repeat-x center}
-.answer-divider span{position:relative;background:var(--bg);padding:0 8px;text-align:center}
 .process-log{margin:0 0 10px;font:11px/1.6 var(--editor-font);color:var(--muted)}
 .process-log>summary{display:block;padding:2px 0;cursor:pointer}
 .process-log>summary:before{content:"▸";display:inline-block;width:14px}
 .process-log[open]>summary:before{content:"▾"}
 .process-log .activity:first-of-type{margin-top:6px}
 #heading-content{border-bottom:1px solid #807577}
-.turn-divider:before{top:0;bottom:0;height:auto}
 .question,.question .sent-summary,.snapshot-scroll{font-family:var(--serif);font-size:16px;line-height:1.8;font-weight:400}
 .question{white-space:normal}
-.sent-summaries{display:block;padding-left:26px;margin:8px 0}
+.sent-summaries{display:block;list-style:none;padding-left:6px;margin:8px 0}
 .sent-summaries li{margin:4px 0;padding:0}
-.sent-summary{display:block;width:fit-content;max-width:100%;color:var(--accent)}
+.sent-summary{display:block;width:fit-content;max-width:100%;padding-left:1.5em;text-indent:-1.5em;color:var(--accent)}
 .sent-summary[aria-expanded=true]{color:var(--ink)}
 .rich-text p{margin:0 0 10px}
 .rich-text>:last-child{margin-bottom:0}
@@ -83,7 +79,7 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 .collapsed-answer{text-align:center;margin:8px 12px;color:var(--muted)}
 .collapsed-answer button{font:16px/1.8 var(--serif);color:inherit;padding:0;border:0}
 .collapsed-answer button:hover{color:var(--ink);background:none}
-.process-log{margin:0 0 12px}
+.segments{padding-top:10px}.process-log{margin:0 0 12px}
 </style>
 </head>
 <body>
