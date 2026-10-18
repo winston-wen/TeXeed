@@ -40,7 +40,7 @@ function renderTurns(){
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
  document.querySelectorAll('.answer code').forEach(code=>{const text=code.textContent.trim();if(/^(?:main\.tex|qa\.md)(?::\d+(?:[–—-]\d+)?)?$/.test(text)){const b=document.createElement('button');b.className='file-link';b.dataset.file=text;b.textContent=text;b.title='打开源码快照'+(text.includes(':')?'并跳转到行号':'');code.replaceChildren(b);}});
- document.querySelectorAll('.answer').forEach(answer=>{prepareReadingLayout(answer);const t=current().turns.find(t=>t.id===answer.dataset.turn);let hiding=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h2,h3,h4');if(h){const level=Number(h.tagName.slice(1));hiding=hiding.filter(x=>x<level);p.hidden=!!hiding.length||p.dataset.readingHidden==='true';const collapsed=!!t.sections?.[p.id],b=document.createElement('button');b.className='heading-toggle';b.dataset.section=p.id;b.setAttribute('aria-expanded',String(!collapsed));b.innerHTML='<span class="heading-label">'+h.innerHTML+'</span>';h.replaceChildren(b);if(collapsed)hiding.push(level);}else p.hidden=!!hiding.length||p.dataset.readingHidden==='true';}});
+ document.querySelectorAll('.answer').forEach(answer=>{prepareReadingLayout(answer);const t=current().turns.find(t=>t.id===answer.dataset.turn);let hiding=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h2,h3,h4');if(h){const level=Number(h.tagName.slice(1));hiding=hiding.filter(x=>x<level);p.hidden=!!hiding.length||p.dataset.readingHidden==='true';const collapsed=!!t.sections?.[p.id],b=document.createElement('button');b.className='heading-toggle';b.dataset.section=p.id;b.setAttribute('aria-expanded',String(!collapsed));b.innerHTML='<span class="heading-label">'+h.innerHTML+'</span>'+(collapsed?'<span class="heading-collapsed">（已折叠）</span>':'');h.replaceChildren(b);if(collapsed)hiding.push(level);}else p.hidden=!!hiding.length||p.dataset.readingHidden==='true';}});
 }
 function toggleTurn(t,field){const node=$(t.id),offset=node.getBoundingClientRect().top;t[field]=!t[field];if(field==='processCollapsed'&&!t[field])t.collapsed=false;renderTurns();$('reader').scrollTop+=$(t.id).getBoundingClientRect().top-offset;saveReading();}
 function openSource(ref){const m=/^([^:]+)(?::(\d+)(?:[–—-](\d+))?)?$/.exec(ref),file=m[1],start=Number(m[2]||1),end=Number(m[3]||start);const text=DATA.sourceFiles[file];if(text===undefined){status('未收集此文件的源码。');return;}$('source-title').textContent=ref;$('source-lines').innerHTML=text.split('\n').map((line,i)=>'<div class="source-line '+(i+1>=start&&i+1<=end?'selected':'')+'" id="source-line-'+(i+1)+'"><span class="source-number">'+(i+1)+'</span><span class="source-code">'+esc(line||' ')+'</span></div>').join('');$('source-dialog').showModal();requestAnimationFrame(()=>$('source-line-'+start)?.scrollIntoView({block:'center'}));}
@@ -160,18 +160,18 @@ window.addEventListener('resize',()=>{refreshEditors();updateReadingContext();})
 // Layout transforms are for the prototype's reading view; raw transcript/snapshots remain intact.
 function shortTitle(value){return [...value.replace(/\s+/g,' ').trim()].slice(0,20).join('')||'新对话';}
 function migrateReadingDesign(){if(state.readingDesignVersion===4)return;for(const c of state.conversations){c.title=c.id==='collected'?DATA.title:shortTitle(c.title);}state.readingDesignVersion=4;}
-let headerOpen=!!state.headerPinned,headerClickTimer;
-function applyHeader(){const button=$('heading-peek');$('heading-content').hidden=!headerOpen;button.setAttribute('aria-expanded',String(headerOpen));button.classList.toggle('pinned',!!state.headerPinned);button.setAttribute('aria-label',headerOpen?'收起对话标题':'展开对话标题');button.title=state.headerPinned?'已固定 · 双击收起':headerOpen?'临时展开 · 移出自动收起；双击固定':'单击临时展开；双击固定展开';}
+let headerOpen=!!state.headerPinned;
+function applyHeader(){const button=$('heading-peek');$('heading-content').hidden=!headerOpen;button.setAttribute('aria-expanded',String(headerOpen));button.classList.toggle('pinned',!!state.headerPinned);button.setAttribute('aria-label',headerOpen?'收起对话标题':'展开对话标题');button.title=state.headerPinned?'已固定 · 双击收起':headerOpen?'临时展开 · 移出自动收起；双击固定':'悬浮临时展开；离开收起；双击固定';}
 function setHeader(open){const pos=readingPosition();headerOpen=open;applyHeader();restoreReading(pos);}
-// Defer a single click so the moving notch cannot steal the second click.
-$('heading-peek').onclick=event=>{
- if(event.detail===0){clearTimeout(headerClickTimer);state.headerPinned=!headerOpen;setHeader(state.headerPinned);persist();return;}
- if(event.detail!==1||state.headerPinned)return;
- clearTimeout(headerClickTimer);headerClickTimer=setTimeout(()=>{if(!state.headerPinned)setHeader(true);},400);
-};
-$('heading-peek').ondblclick=()=>{clearTimeout(headerClickTimer);state.headerPinned=!state.headerPinned;setHeader(state.headerPinned);persist();};
-$('heading').addEventListener('pointerleave',()=>{clearTimeout(headerClickTimer);if(headerOpen&&!state.headerPinned&&!$('heading').querySelector(':focus-visible'))setHeader(false);});
-document.addEventListener('pointerdown',event=>{if(!$('heading').contains(event.target)){clearTimeout(headerClickTimer);if(headerOpen&&!state.headerPinned)setHeader(false);}});
+// The expanded header contains the original hover target, so moving to its
+// controls never crosses a close boundary when the notch flips inward.
+$('heading-peek').addEventListener('pointerenter',()=>{if(!headerOpen)setHeader(true);});
+$('heading-peek').onclick=event=>{if(event.detail===0){state.headerPinned=!state.headerPinned;setHeader(state.headerPinned);persist();}};
+$('heading-peek').ondblclick=()=>{state.headerPinned=!state.headerPinned;setHeader(state.headerPinned);persist();};
+$('heading').addEventListener('pointerleave',()=>{if(headerOpen&&!state.headerPinned)setHeader(false);});
+$('heading').addEventListener('focusin',event=>{if(event.target.matches(':focus-visible')&&!headerOpen)setHeader(true);});
+$('heading').addEventListener('focusout',event=>{if(!$('heading').contains(event.relatedTarget)&&!state.headerPinned)setHeader(false);});
+document.addEventListener('pointerdown',event=>{if(!$('heading').contains(event.target)&&headerOpen&&!state.headerPinned)setHeader(false);});
 function updateReadingContext(){const shell=$('reading-shell'),reader=$('reader'),box=$('reading-context');const top=reader.getBoundingClientRect().top;let turn;
  if(shell.clientHeight>=420)turn=current().turns.find(t=>{const node=$(t.id),q=$(t.id+'-question');return !t.collapsed&&node&&q&&node.getBoundingClientRect().bottom>top+12&&q.getBoundingClientRect().bottom<top;});
  box.hidden=!turn;if(!turn){box.dataset.turn='';return;}box.dataset.turn=turn.id;
