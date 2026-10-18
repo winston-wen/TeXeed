@@ -4,6 +4,7 @@ Requires Python 3, XeLaTeX + xeCJK + Microsoft YaHei, and dvisvgm.
 Only the curated transcript math is compiled; no user input is executed.
 """
 import base64
+import hashlib
 import html
 import json
 import pathlib
@@ -14,6 +15,11 @@ import xml.etree.ElementTree as ET
 HERE = pathlib.Path(__file__).resolve().parent
 WORK = HERE.parents[1] / 'artifacts' / 'chat-prototype-v02-math'
 WORK.mkdir(parents=True, exist_ok=True)
+vendor = HERE / 'vendor'
+for package in json.loads((vendor / 'vendor-lock.json').read_text(encoding='utf-8')).values():
+    for filename, checksum in package['files'].items():
+        if hashlib.sha256((vendor / filename).read_bytes()).hexdigest() != checksum:
+            raise RuntimeError(f'Vendor integrity check failed: {filename}')
 data = json.loads((HERE / 'transcripts.json').read_text(encoding='utf-8'))
 data['prompts'] = json.loads((HERE / 'prompts.json').read_text(encoding='utf-8'))
 pattern = re.compile(r'\\\[(.*?)\\\]|\\\((.*?)\\\)|\$\$(.*?)\$\$|\$([^$\n]+)\$', re.S)

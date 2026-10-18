@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.8</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.9</title>
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:var(--font) "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif}button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer;background:transparent;border:1px solid transparent;border-radius:4px;padding:5px 8px}button:hover{background:var(--hover)}button:disabled{cursor:default;opacity:.45}button:focus-visible,select:focus-visible{outline:1px solid var(--accent)}textarea,input,select{outline:0;background:var(--sidebar);border:1px solid var(--line);padding:5px 8px}textarea:focus,input:focus{border-color:var(--focus)}textarea{resize:none;line-height:1.5}input[type=checkbox]{accent-color:var(--focus);width:14px;height:14px;margin:0 6px 0 0;flex-shrink:0}select{border-radius:3px;background:var(--panel);padding:3px 5px;max-width:190px}svg.icon{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
@@ -45,13 +46,44 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 .turn-actions button{background:var(--bg)}
 .turn-actions button:hover{background:var(--hover)}
 .answer-divider{display:flex;align-items:center;justify-content:center;position:relative;min-height:22px;margin:16px 4px 0 12px;color:var(--muted);font:11px/1.6 var(--editor-font)}
-.answer-divider:before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6' viewBox='0 0 16 6'%3E%3Cpath d='M0 3Q4 0 8 3T16 3' fill='none' stroke='%23807577' stroke-width='1'/%3E%3C/svg%3E") repeat-x center}
+.answer-divider:before,.turn-divider:before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6' viewBox='0 0 16 6'%3E%3Cpath d='M0 3Q4 0 8 3T16 3' fill='none' stroke='%23807577' stroke-width='1'/%3E%3C/svg%3E") repeat-x center}
 .answer-divider span{position:relative;background:var(--bg);padding:0 8px;text-align:center}
 .process-log{margin:0 0 10px;font:11px/1.6 var(--editor-font);color:var(--muted)}
 .process-log>summary{display:block;padding:2px 0;cursor:pointer}
 .process-log>summary:before{content:"▸";display:inline-block;width:14px}
 .process-log[open]>summary:before{content:"▾"}
 .process-log .activity:first-of-type{margin-top:6px}
+#heading-content{border-bottom:1px solid #807577}
+.turn-divider:before{top:0;bottom:0;height:auto}
+.question,.question .sent-summary,.snapshot-scroll{font-family:var(--serif);font-size:16px;line-height:1.8;font-weight:400}
+.question{white-space:normal}
+.sent-summaries{display:block;padding-left:26px;margin:8px 0}
+.sent-summaries li{margin:4px 0;padding:0}
+.sent-summary{display:block;width:fit-content;max-width:100%;color:var(--accent)}
+.sent-summary[aria-expanded=true]{color:var(--ink)}
+.rich-text p{margin:0 0 10px}
+.rich-text>:last-child{margin-bottom:0}
+.rich-text h1,.rich-text h2,.rich-text h3,.rich-text h4{font-family:var(--sans);line-height:1.4;margin:12px 0 8px}
+.rich-text h1{font-size:24px}.rich-text h2{font-size:21px}.rich-text h3,.rich-text h4{font-size:18px}
+.rich-text ul,.rich-text ol{padding-left:24px;margin:6px 0 12px}
+.rich-text blockquote{border-left:3px solid var(--accent);margin:8px 0;padding-left:14px}
+.rich-text code,.sent-summary code{font:14px/1.6 var(--editor-font);background:var(--panel);padding:1px 3px;overflow-wrap:anywhere}
+.rich-text pre{white-space:pre-wrap;overflow:auto;background:var(--question);padding:8px;margin:8px 0}
+.rich-text pre code{padding:0;background:none}
+.rich-text a{color:var(--accent)}
+.rich-text table{display:block;max-width:100%;overflow:auto}
+.rich-equation{overflow:auto;margin:8px 0}
+.rich-text .katex-display{margin:8px 0;text-align:left}
+.rich-text .katex-display>.katex{text-align:left}
+.snapshot-preview{border-left:2px solid var(--guide);padding:4px 10px 10px;margin:10px 0;background:var(--question)}
+.preview-heading{display:flex;align-items:center;justify-content:space-between;font:12px/1.6 var(--sans);color:var(--muted);margin-bottom:5px}
+.preview-heading button{width:26px;height:26px;padding:3px;display:grid;place-items:center}
+.preview-source,.pdf-snapshot figcaption{font:12px/1.6 var(--editor-font);color:var(--muted);margin-bottom:6px}
+.snapshot-preview img{display:block;max-width:100%;height:auto;background:white}
+.collapsed-answer{text-align:center;margin:8px 12px;color:var(--muted)}
+.collapsed-answer button{font:16px/1.8 var(--serif);color:inherit;padding:0;border:0}
+.collapsed-answer button:hover{color:var(--ink);background:none}
+.process-log{margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -89,6 +121,9 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 <div id="context-tooltip" role="tooltip" hidden></div>
 <dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>此面板在产品之外。按 Ctrl+Alt+T 打开。基线：TeXeed 0.3.16；默认展示截图中的原会话末尾。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">请求失败</option></select></label><button id="restore">恢复截图状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>已收集 / 现编</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
 <dialog id="copy-dialog"><div class="row"><h2>复制文本</h2><span class="spacer"></span><button id="close-copy">关闭</button></div><textarea id="copy-text" aria-label="复制文本"></textarea></dialog>
+<script src="vendor/markdown-it/markdown-it.min.js"></script>
+<script src="vendor/katex/katex.min.js"></script>
+<script src="rich-text.js"></script>
 <script>/*__APP__*/</script>
 </body>
 </html>
