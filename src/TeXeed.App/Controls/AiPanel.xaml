@@ -30,7 +30,7 @@
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <Grid x:Name="ChatHeader" Background="Transparent" MouseEnter="Header_MouseEnter" MouseLeave="Header_MouseLeave" Unloaded="Header_Unloaded">
    <Grid.RowDefinitions><RowDefinition Height="18"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-   <Border x:Name="HeadingContent" Grid.Row="1" BorderBrush="{DynamicResource Guide}" BorderThickness="0,0,0,1" Padding="0,6"><StackPanel>
+   <Border x:Name="HeadingContent" Grid.Row="1" Padding="0,6"><StackPanel>
    <DockPanel>
     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
      <Button x:Name="ChatSettingsButton" Style="{StaticResource ChatIcon}" Click="Settings_Click" ToolTip="AI 设置" AutomationProperties.Name="AI 设置"><Path Width="19" Height="19" Stretch="Uniform" Data="M6,1 L8,1 8.5,3 10,4 12,3.5 13,5.5 11.5,7 11.5,9 13,10.5 12,12.5 10,12 8.5,13 8,15 6,15 5.5,13 4,12 2,12.5 1,10.5 2.5,9 2.5,7 1,5.5 2,3.5 4,4 5.5,3 Z M9.5,8 A2.5,2.5 0 1 1 4.5,8 A2.5,2.5 0 1 1 9.5,8" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
@@ -40,7 +40,9 @@
     </StackPanel>
     <StackPanel VerticalAlignment="Center"><TextBlock x:Name="ConversationTitle" Text="新对话" FontSize="16" FontWeight="Normal" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
    <TextBlock x:Name="ConnectionLabel" Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/></StackPanel></DockPanel>
-  </StackPanel></Border><Button x:Name="HeadingPeek" Width="52" Height="18" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Top" Click="Header_Click" PreviewKeyDown="Header_KeyDown" ToolTip="悬浮展开；离开整个标题框半秒后收起；双击固定" AutomationProperties.Name="展开对话标题"><Path x:Name="HeadingArrow" Data="M0,0 L5,4 10,0" Stroke="{DynamicResource Muted}" StrokeThickness="1.2"/></Button></Grid>  <DockPanel x:Name="MessageSearchPanel" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,8"><Button DockPanel.Dock="Right" Content="↓" Click="NextMatch_Click" Padding="5,3"/><Button DockPanel.Dock="Right" Content="↑" Click="PreviousMatch_Click" Padding="5,3"/><TextBlock x:Name="MessageMatchStatus" DockPanel.Dock="Right" Text="0" VerticalAlignment="Center" Margin="6,0"/><TextBox x:Name="MessageSearchBox" TextChanged="MessageSearch_Changed" ToolTip="查找问题和回答" AutomationProperties.Name="查找当前 AI 对话"/></DockPanel>
+  </StackPanel></Border><Button x:Name="HeadingPeek" Width="52" Height="18" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Top" Click="Header_Click" PreviewKeyDown="Header_KeyDown" ToolTip="悬浮展开；离开整个标题框半秒后收起；双击固定" AutomationProperties.Name="展开对话标题"><Path x:Name="HeadingArrow" Data="M0,0 L5,4 10,0" Stroke="{DynamicResource Muted}" StrokeThickness="1.2"/></Button>
+   <Border x:Name="HeaderRule" Grid.RowSpan="2" Height="2" VerticalAlignment="Bottom" Margin="-20,0,-14,0" Background="{DynamicResource ChatHeaderLine}" IsHitTestVisible="False"/>
+  </Grid>  <DockPanel x:Name="MessageSearchPanel" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,8"><Button DockPanel.Dock="Right" Content="↓" Click="NextMatch_Click" Padding="5,3"/><Button DockPanel.Dock="Right" Content="↑" Click="PreviousMatch_Click" Padding="5,3"/><TextBlock x:Name="MessageMatchStatus" DockPanel.Dock="Right" Text="0" VerticalAlignment="Center" Margin="6,0"/><TextBox x:Name="MessageSearchBox" TextChanged="MessageSearch_Changed" ToolTip="查找问题和回答" AutomationProperties.Name="查找当前 AI 对话"/></DockPanel>
   <Grid Grid.Row="2" ClipToBounds="True">
   <!-- Reserve a stable gutter: first overflow must not reflow every rich document. -->
    <ItemsControl x:Name="History" Margin="0,8,8,0" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="0" VirtualizingPanel.VirtualizationMode="Standard">
@@ -48,12 +50,13 @@
     <ItemsControl.ItemsPanel><ItemsPanelTemplate><local:ChatVirtualizingPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
     <ItemsControl.Resources><DataTemplate DataType="{x:Type ai:AiTurn}"><local:AiTurnView Turn="{Binding}" Loaded="Turn_Loaded" Margin="0,0,0,30"/></DataTemplate></ItemsControl.Resources>
     <StackPanel x:Name="EmptyConversation" Margin="12,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
-    <StackPanel x:Name="LiveContainer" Visibility="Collapsed" Margin="0,8,8,20">
-     <local:MarkdownView x:Name="LiveQuestion" Padding="12,8,12,0"/><TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontSize="10" HorizontalAlignment="Right" Margin="0,4,4,12"/>
+    <StackPanel x:Name="LiveContainer" Visibility="Collapsed" Margin="0,8,0,30">
+     <local:MarkdownView x:Name="LiveQuestion" Padding="12,8,12,0"/><TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontFamily="Consolas, Microsoft YaHei" FontSize="11" TextWrapping="Wrap" Margin="12,4,4,8"/>
      <ItemsControl x:Name="LiveSegments" ItemTemplate="{StaticResource SegmentTemplate}" Margin="12,0,4,0"/>
+     <local:AiReplyStatus x:Name="LiveReplyStatus" IsThinking="True" Margin="12,14,4,0"/>
     </StackPanel>
    </ItemsControl>
-   <Border x:Name="ReadingContext" VerticalAlignment="Top" Panel.ZIndex="1" Visibility="Collapsed" BorderBrush="{DynamicResource Accent}" BorderThickness="0,0,0,2" Background="{DynamicResource ChatQuestionBackground}" Padding="12,6" ClipToBounds="True"><StackPanel>
+   <Border x:Name="ReadingContext" VerticalAlignment="Top" Panel.ZIndex="1" Visibility="Collapsed" BorderBrush="{DynamicResource ChatDivider}" BorderThickness="0,0,0,2" Background="{DynamicResource ChatQuestionBackground}" Padding="12,6" ClipToBounds="True"><StackPanel>
     <TextBlock x:Name="ReadingContextTitle" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" TextTrimming="CharacterEllipsis"/>
     <TextBlock x:Name="ReadingContextAnnotations" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
    </StackPanel></Border>

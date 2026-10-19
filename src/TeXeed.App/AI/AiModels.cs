@@ -45,11 +45,12 @@ public sealed record AiTurn(string Question, string Answer)
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? SentAt { get; init; }
     public DateTimeOffset? AnsweredAt { get; init; }
+    public DateTimeOffset? EndedAt { get; init; }
+    public bool? Incomplete { get; init; }
     public string? Prompt { get; init; }
     public List<AiEntry> SentAnnotations { get; init; } = [];
     public bool Collapsed { get; set; }
     public Dictionary<string, bool> CollapsedSections { get; init; } = [];
-    [JsonIgnore] public string Footer => "发送: " + DisplayTime + ", 答复: " + (AnsweredAt is null ? (Answer.StartsWith("[本轮未完成]") ? "未完成" : "未记录") : AiTimestamp.Delay(SentAt ?? CreatedAt, AnsweredAt));
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";
     public List<AiSegment> Segments { get; init; } = [];
@@ -69,8 +70,17 @@ public sealed record AiTurn(string Question, string Answer)
     [JsonIgnore] public string DisplayQuestion => AiConversation.CleanQuestion(Question);
     [JsonIgnore] public string DisplayAnswer => string.IsNullOrWhiteSpace(Answer) ? "此旧记录未保存回答，可删除或重新提问。" : Answer;
     [JsonIgnore] public string DisplayTime => AiTimestamp.Full(SentAt ?? CreatedAt.ToLocalTime());
-    [JsonIgnore] public string AnswerTime => AnsweredAt is { } time ? "答复时间：" + AiTimestamp.Full(time) :
-        SentAt is null && !Answer.StartsWith("[本轮未完成]") ? "答复时间：" + AiTimestamp.Full(CreatedAt.ToLocalTime()) : "";
+    [JsonIgnore] public string SentTime => "发送时间：" + DisplayTime + (Collapsed ? "（已折叠）" : "");
+    [JsonIgnore] public bool IsIncomplete => Incomplete ?? (AnsweredAt is null && (string.IsNullOrWhiteSpace(Answer) || Answer.StartsWith("[本轮未完成]") || FailureSegment is not null));
+    private AiSegment? FailureSegment => Segments.LastOrDefault(s => s.Kind == "activity" && (s.Id == "failure" || s.Text.StartsWith("已停止。") || s.Text.StartsWith("本轮未完成：")));
+    [JsonIgnore] public string AnswerTime
+    {
+        get
+        {
+            var end = IsIncomplete ? EndedAt ?? FailureSegment?.CreatedAt : AnsweredAt;
+            return "答复时间：" + (end is { } time ? AiTimestamp.Full(time) : "未记录") + (IsIncomplete ? "（未完成）" : "");
+        }
+    }
 }
 
 public sealed record AiContextMemory(string Summary, string[] TurnIds, string Fingerprint);

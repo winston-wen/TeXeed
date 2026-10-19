@@ -182,8 +182,6 @@ public partial class AiPanel
         view.Changed = Dirty;
         view.SourceRequested = OpenChatSource;
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
-        view.Refill = () => RetryTurn_Click(view, new RoutedEventArgs());
-        view.Delete = async () => { try { await DeleteTurnAsync(view.Turn.Id); } catch (Exception ex) { ShowError(ex); } };
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
         view.AnswerGone = answer => Answer_Unloaded(answer, new RoutedEventArgs());
         foreach (var answer in view.Answers.Where(a => a.IsLoaded)) Answer_Loaded(answer, new RoutedEventArgs());

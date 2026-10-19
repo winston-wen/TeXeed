@@ -99,6 +99,11 @@ internal static partial class Program
                     await CheckAiReliabilityAsync(window, output);
                     await CloseAndObserveAsync(window, "AI reliability regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-prototype-only"))
+                {
+                    await CheckAiPrototypeAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI prototype parity regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-header-only"))
                 {
                     await CheckAiHeaderAsync(window, output);

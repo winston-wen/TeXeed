@@ -29,7 +29,7 @@ internal static partial class Program
         { Prompt = "这些问题", SentAt = sent, AnsweredAt = sent.AddSeconds(54), SentAnnotations = [snapshot, pdf] };
         book.Turns.Add(turn); Invoke(panel, "RefreshTranscript"); await Task.Delay(200); host.UpdateLayout();
         var view = Descendants<AiTurnView>(panel).Single();
-        Check(turn.Footer == "发送: 2026-10-16 (+8) 10:44:09, 答复: 54 秒后", "Timestamp format/duration changed");
+        Check(turn.SentTime == "发送时间：2026-10-16 (+8) 10:44:09" && turn.AnswerTime == "答复时间：2026-10-16 (+8) 10:45:03", "Absolute timestamps changed");
         Check(AiTimestamp.Delay(sent, sent.AddSeconds(91)) == "1 分 31 秒后", "Minute duration missing");
         Check(!Descendants<TextBlock>(view).Any(t => t.Text == "答复"), "Legacy answer label remains");
         view.ShowPreview(snapshot, 1); host.UpdateLayout();
@@ -58,6 +58,7 @@ internal static partial class Program
         Check(book.Entries.Single().Id == two.Id && book.Entries[0].Number == 1, "Other pending annotation lost or numbering stale");
         Check(book.Turns.Last().SentAnnotations.Single().Number == 1, "Sent annotations not numbered per turn");
         Check(book.Turns.Last().Prompt == "", "Single annotation included main draft");
+        Check(book.Turns.Last().Incomplete == false && book.Turns.Last().AnsweredAt is not null && !book.Turns.Last().AnswerTime.Contains("未完成"), "Successful request retained its pending incomplete state");
         await panel.SaveAsync();
         var legacyProject = Path.Combine(output, "legacy-reading.tex");
         var legacyEntry = new AiEntry { Number = 8, Title = "历史圈点", Question = "旧批注", State = "已完成", Sources = [new("old.tex", 2, 2, 0, "原始内容", "old-revision")] };
@@ -66,7 +67,7 @@ internal static partial class Program
         var restored = (AiNotebook)Field(panel, "_book")!;
         Check(restored.Turns.Single().SentAnnotations.Single().Number == 1 && restored.Turns.Single().Prompt == "旧统一说明", "Legacy snapshots were not recovered/renumbered");
         Check(restored.Turns.Single().Question.Contains("#8") && restored.Entries.Count == 0, "Legacy migration overwrote original question or retained completed entry");
-        Check(restored.Turns.Single().Footer.EndsWith("答复: 未记录"), "Legacy answer was reported as unanswered");
+        Check(restored.Turns.Single().AnswerTime == "答复时间：未记录", "Legacy answer was reported as unanswered or given an invented answer time");
         await panel.SaveAsync(); Check(AiStorage.Load(legacyProject).Turns.Single().SentAnnotations.Single().Sources[0].Text == "原始内容", "Migrated snapshot lost source");
         host.Close();
         Console.WriteLine($"AI reading: {checks} checks passed (native layout, snapshots, folds, persistence, isolated single send).");

@@ -34,6 +34,7 @@ GitHub Light Default 的颜色取自 GitHub Theme 6.3.5，许可见发行包的 
 | Hover、Selection、SearchMatch | 悬停、选中、搜索匹配 |
 | TextSelectionBackground、TextSelectionForeground、InactiveTextSelectionBackground | 普通输入框、密码框及系统列表的文字选区底色、字色、失焦底色；与源码选区独立 |
 | ChatQuestionBackground、ChatFocus | 对话问题卡片和输入栏底色、输入栏焦点边框和发送按钮 |
+| ChatHeaderLine、ChatDivider、ChatThinking | 对话标题通栏金黄线、阅读提示与答复分隔灰线、思考中绿点 |
 | SyntaxCommand、SyntaxComment、SyntaxMath、SyntaxBrace、SyntaxNumber、SyntaxField | LaTeX/BibTeX 语法颜色 |
 | Todo、Badge | TODO 红点、层级徽标文字 |
 | ScrollTrack、ScrollThumb、ScrollThumbHover | 滚动条轨道、滑块、悬停或拖动滑块 |

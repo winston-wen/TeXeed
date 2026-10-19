@@ -6,7 +6,6 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using TeXeed.App.AI;
 
 namespace TeXeed.App.Controls;
@@ -16,18 +15,18 @@ public sealed class AiTurnView : StackPanel
 {
     public static readonly DependencyProperty TurnProperty = DependencyProperty.Register(nameof(Turn), typeof(AiTurn), typeof(AiTurnView), new PropertyMetadata(null, (d, _) => ((AiTurnView)d).Build()));
     public AiTurn Turn { get => (AiTurn)GetValue(TurnProperty); set => SetValue(TurnProperty, value); }
-    internal Action? Changed, Refill, Delete;
+    internal Action? Changed;
     internal Action<MarkdownView>? AnswerReady, AnswerGone;
     internal Action<AiEntry>? PreviewChanged;
     internal Action<string>? SourceRequested;
     internal List<MarkdownView> Answers { get; } = [];
     private readonly StackPanel _body = new(), _preview = new();
-    private readonly Button _collapsed = new() { Content = "（已折叠，点击展开）", BorderThickness = new Thickness(0), Background = Brushes.Transparent, FontSize = 16, FontFamily = new FontFamily("Times New Roman, Source Han Serif SC, FangSong"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 8) };
+    private readonly TextBlock _sentTime = new() { FontFamily = new FontFamily("Consolas, Microsoft YaHei"), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12, 4, 4, 8) };
     private FrameworkElement? _footer;
     private string? _previewId;
     private bool _bodyBuilt;
 
-    public AiTurnView() { KeyDown += (_, e) => { if (e.Key == Key.Escape && _previewId is not null) { ClosePreview(); e.Handled = true; } }; _collapsed.SetResourceReference(Control.ForegroundProperty, "Muted"); _collapsed.Click += (_, _) => Toggle(); }
+    public AiTurnView() { KeyDown += (_, e) => { if (e.Key == Key.Escape && _previewId is not null) { ClosePreview(); e.Handled = true; } }; _sentTime.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); }
     internal void Toggle()
     {
         Turn.Collapsed = !Turn.Collapsed; ApplyCollapsed(); Changed?.Invoke();
@@ -36,7 +35,7 @@ public sealed class AiTurnView : StackPanel
     {
         if (!Turn.Collapsed && !_bodyBuilt) BuildBody();
         _body.Visibility = Turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
-        _collapsed.Visibility = Turn.Collapsed ? Visibility.Visible : Visibility.Collapsed;
+        _sentTime.Text = Turn.SentTime;
         if (_footer is not null) System.Windows.Automation.AutomationProperties.SetHelpText(_footer, Turn.Collapsed ? "已折叠，双击展开" : "双击收起");
     }
     private void Build()
@@ -54,9 +53,10 @@ public sealed class AiTurnView : StackPanel
             Children.Add(links);
         }
         _preview.Visibility = Visibility.Collapsed; _preview.Margin = new Thickness(12, 8, 12, 10); Children.Add(_preview);
+        Children.Add(_sentTime);
         _body.Margin = new Thickness(12, 10, 4, 0); Children.Add(_body);
         _bodyBuilt = false;
-        Children.Add(_collapsed); _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
+        _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
     }
     private void BuildBody()
     {
@@ -117,27 +117,9 @@ public sealed class AiTurnView : StackPanel
     internal void ClosePreview() { _preview.Visibility = Visibility.Collapsed; _preview.Children.Clear(); _previewId = null; }
     private FrameworkElement Footer()
     {
-        var grid = new Grid { Margin = new Thickness(12, 16, 4, 0), MinHeight = 28, Background = Brushes.Transparent };
-        grid.ColumnDefinitions.Add(new ColumnDefinition()); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var toggle = new Grid { Background = Brushes.Transparent, Focusable = true, Cursor = Cursors.Hand };
-        toggle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4, GridUnitType.Star) }); toggle.ColumnDefinitions.Add(new ColumnDefinition());
-        System.Windows.Automation.AutomationProperties.SetName(toggle, Turn.Footer);
-        var stamp = new TextBlock { Text = Turn.Footer, FontFamily = new FontFamily("Consolas, Microsoft YaHei"), FontSize = 11, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center }; toggle.Children.Add(stamp);
-        var dots = new Line { X2 = 1, Stretch = Stretch.Fill, StrokeThickness = 1, StrokeDashArray = [1, 2], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 6, 0) };
-        dots.SetResourceReference(Shape.StrokeProperty, "Muted"); Grid.SetColumn(dots, 1); toggle.Children.Add(dots);
+        var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(12, 14, 4, 0), Focusable = true, Cursor = Cursors.Hand };
         toggle.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };
         toggle.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) Toggle(); e.Handled = true; } };
-        grid.Children.Add(toggle);
-        var actions = new StackPanel { Orientation = Orientation.Horizontal }; Grid.SetColumn(actions, 1);
-        actions.Children.Add(Icon("M7,2 H13 V10 H18 L10,18 2,10 H7 Z", "将问题重新放入编辑栏", () => Refill?.Invoke(), true));
-        actions.Children.Add(Icon("M5,5 L15,15 M15,5 L5,15", "删除此轮问题和回答", () => Delete?.Invoke())); grid.Children.Add(actions);
-        grid.SetResourceReference(TextElement.ForegroundProperty, "Muted"); return grid;
-    }
-    private static Button Icon(string data, string title, Action clicked, bool fill = false)
-    {
-        var path = new System.Windows.Shapes.Path { Data = Geometry.Parse(data), Width = 20, Height = 20, Stretch = Stretch.Uniform, StrokeThickness = 1.5 };
-        path.SetResourceReference(fill ? Shape.FillProperty : Shape.StrokeProperty, "Muted");
-        var button = new Button { Content = path, Width = 28, Height = 28, Padding = new Thickness(4), BorderThickness = new Thickness(0), ToolTip = title };
-        System.Windows.Automation.AutomationProperties.SetName(button, title); button.Click += (_, _) => clicked(); return button;
+        return toggle;
     }
 }

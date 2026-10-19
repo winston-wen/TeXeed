@@ -105,17 +105,6 @@ public partial class AiPanel
     }
     private void Options_Click(object sender, RoutedEventArgs e)
     { if (sender is Button { ContextMenu: { } menu } button) { menu.PlacementTarget = button; menu.IsOpen = true; } }
-    private void RetryTurn_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is not AiTurn turn) return;
-        Composer.Text = Composer.Text.Length == 0 ? turn.DisplayQuestion : Composer.Text + "\n" + turn.DisplayQuestion;
-        Composer.CaretIndex = Composer.Text.Length; Composer.Focus();
-    }
-    private async void DeleteTurn_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is not AiTurn turn) return;
-        try { await DeleteTurnAsync(turn.Id); } catch (Exception ex) { ShowError(ex); }
-    }
     private void FindMessage_Click(object sender, RoutedEventArgs e)
     {
         MessageSearchPanel.Visibility = MessageSearchPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;

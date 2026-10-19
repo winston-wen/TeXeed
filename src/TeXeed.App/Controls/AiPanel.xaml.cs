@@ -215,12 +215,12 @@ public partial class AiPanel : UserControl, IDisposable
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             ConversationTitle.Text = book.Active.Title;
             var buffer = new AiStreamBuffer();
-            var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Prompt = prompt, SentAnnotations = sentAnnotations };
+            var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations };
             var checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer);
             if (single is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
             foreach (var entry in selected) entry.State = "提交中"; Rebind();
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
-            LiveSentTime.Text = "发送: " + AiTimestamp.Full(sentAt) + ", 答复: 尚未答复";
+            LiveSentTime.Text = "发送时间：" + AiTimestamp.Full(sentAt);
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
             long renderedVersion = -1;
@@ -271,6 +271,7 @@ public partial class AiPanel : UserControl, IDisposable
             }
             finally
             {
+                var endedAt = answeredAt ?? DateTimeOffset.Now;
                 renderTimer.Stop();
                 await checkpoint.StopAsync();
                 if (_generation == generation)
@@ -279,7 +280,7 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    book.Turns.Add(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, Model = modelId, ReasoningEffort = effort, Segments = segments });
+                    book.Turns.Add(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, Model = modelId, ReasoningEffort = effort, Segments = segments });
                     if (answeredAt is not null) book.Entries.RemoveAll(e => selected.Any(sent => sent.Id == e.Id));
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
                     // Persist before constructing a settled rich document. Even an
