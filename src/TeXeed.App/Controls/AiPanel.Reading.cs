@@ -98,6 +98,7 @@ public partial class AiPanel
         }
     }
     private bool _headerTemporary;
+    private readonly System.Windows.Threading.DispatcherTimer _headerCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private void ApplyChatHeader()
     {
         var open = _headerTemporary || _book.Active.HeaderPinned;
@@ -107,18 +108,50 @@ public partial class AiPanel
         HeadingPeek.SetResourceReference(BackgroundProperty, _book.Active.HeaderPinned ? "Accent" : "ChatQuestionBackground");
         System.Windows.Automation.AutomationProperties.SetName(HeadingPeek, open ? "收起对话标题" : "展开对话标题");
     }
-    private void Header_MouseEnter(object sender, MouseEventArgs e) { _headerTemporary = true; ApplyChatHeader(); }
-    private void Header_MouseLeave(object sender, MouseEventArgs e) { _headerTemporary = false; ApplyChatHeader(); }
+    private void Header_MouseEnter(object sender, MouseEventArgs e)
+    {
+        _headerCloseTimer.Stop();
+        if (_disposed || _headerTemporary) return;
+        _headerTemporary = true; ApplyChatHeader();
+    }
+    private void Header_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_disposed || ChatHeader.IsMouseOver) return;
+        _headerCloseTimer.Stop(); _headerCloseTimer.Start();
+    }
+    private void Header_CloseTick(object? sender, EventArgs e)
+    {
+        _headerCloseTimer.Stop();
+        if (_disposed || ChatHeader.IsMouseOver) return;
+        // Keep the target stable until a press/drag finishes, even outside the box.
+        if (ChatHeader.IsMouseCaptureWithin) { _headerCloseTimer.Start(); return; }
+        _headerTemporary = false; ApplyChatHeader();
+    }
+    private void Header_Unloaded(object sender, RoutedEventArgs e) => ResetHeaderHover();
+    private void ResetHeaderHover()
+    {
+        _headerCloseTimer.Stop(); _headerTemporary = false; ApplyChatHeader();
+    }
+    private void ToggleHeaderPin()
+    {
+        _headerCloseTimer.Stop(); _book.Active.HeaderPinned = !_book.Active.HeaderPinned;
+        _headerTemporary = ChatHeader.IsMouseOver; ApplyChatHeader(); Dirty();
+    }
     private void Header_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key is not (Key.Enter or Key.Space)) return;
         e.Handled = true; if (e.IsRepeat) return;
-        _book.Active.HeaderPinned = !_book.Active.HeaderPinned; _headerTemporary = false; ApplyChatHeader(); Dirty();
+        ToggleHeaderPin();
     }
     private void Header_Click(object sender, RoutedEventArgs e)
     {
         // Mouse single-click does not compete with hover; double-click pins the header.
-        if (Keyboard.IsKeyDown(Key.Enter) || Keyboard.IsKeyDown(Key.Space)) { _book.Active.HeaderPinned = !_book.Active.HeaderPinned; ApplyChatHeader(); Dirty(); }
+        if (Keyboard.IsKeyDown(Key.Enter) || Keyboard.IsKeyDown(Key.Space)) ToggleHeaderPin();
+    }
+    private void Header_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left) return;
+        ToggleHeaderPin(); e.Handled = true;
     }
     private void OpenChatSource(string reference)
     {

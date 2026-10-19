@@ -99,6 +99,11 @@ internal static partial class Program
                     await CheckAiReliabilityAsync(window, output);
                     await CloseAndObserveAsync(window, "AI reliability regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-header-only"))
+                {
+                    await CheckAiHeaderAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI header hover regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-reading-only"))
                 {
                     await CheckAiReadingAsync(window, output);

@@ -51,7 +51,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
-        _restoringReading = true; _headerTemporary = false;
+        _restoringReading = true; ResetHeaderHover();
         _updating = true;
         Composer.Text = _book.Draft;
         _updating = false;

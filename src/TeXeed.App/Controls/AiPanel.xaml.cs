@@ -63,7 +63,8 @@ public partial class AiPanel : UserControl, IDisposable
             ScheduleReadingContext(); ResizeChoices();
         };
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
-        HeadingPeek.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { _book.Active.HeaderPinned = !_book.Active.HeaderPinned; _headerTemporary = false; ApplyChatHeader(); Dirty(); e.Handled = true; } };
+        _headerCloseTimer.Tick += Header_CloseTick;
+        HeadingPeek.MouseDoubleClick += Header_DoubleClick;
         MessagesScroll.ScrollChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.OriginalSource, MessagesScroll)) return;
@@ -289,5 +290,5 @@ public partial class AiPanel : UserControl, IDisposable
         });
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { _disposed = true; _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.Dispose(); _connection.Dispose(); _lifetime.Dispose(); }
+    public void Dispose() { _disposed = true; _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); _headerCloseTimer.Stop(); Settings.Dispose(); _connection.Dispose(); _lifetime.Dispose(); }
 }
