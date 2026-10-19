@@ -114,10 +114,12 @@ internal static partial class Program
         Capture(host, Path.Combine(output, "ai-stress.png"));
         host.Close();
         var recoveryProject = Path.Combine(output, "checkpoint.tex");
-        var original = new AiNotebook(); AiStorage.Save(recoveryProject, original);
+        var original = new AiNotebook();
         var buffer = new AiStreamBuffer(); var pending = new AiTurn("检查并纠正写错的公式", "") { Prompt = "检查并纠正写错的公式", SentAnnotations = [new() { Question = "保留批注", PdfBlocks = [new(1, 0, 0, 10, 10, "snapshot-data")] }] };
+        original.Entries.Add(pending.SentAnnotations.Single().Snapshot()); AiStorage.Save(recoveryProject, original);
         var journal = await AiTurnCheckpoint.StartAsync(recoveryProject, original.Active.Id, "恢复测试", pending, buffer);
         Check(AiStorage.Load(recoveryProject).Turns.Single().Question == pending.Question, "Accepted question was not durable before a response");
+        Check(AiStorage.Load(recoveryProject).Entries.Count == 0, "Crash between checkpoint and pending removal resurrected a sent annotation");
         buffer.Add(new("partial", "text", "正在检查公式 $x_i$，部分回答。"));
         // Deliberately stop pumping WPF: persistence must not depend on a UI timer.
         Thread.Sleep(1100);
@@ -154,13 +156,33 @@ internal static partial class Program
             var models = (ComboBox)sending.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("fixture", "测试模型") }; models.SelectedIndex = 0;
             await sending.Settings.SaveSelectionAsync(CancellationToken.None);
             ((TextBox)sending.FindName("Composer")).Text = "检查并纠正公式，网络尚未返回";
+            var sentEntry = new AiEntry { Question = "本轮发送的圈点", Sources = [new("main.tex", 1, 1, 0, "$x_i$", "revision")] };
+            var skippedEntry = new AiEntry { Question = "未勾选圈点", Selected = false };
+            sending.AddEntry(sentEntry); sending.AddEntry(skippedEntry);
             var send = sending.SubmitAsync(); await stalled.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Check(sending.AnnotationEntries.Select(e => e.Id).SequenceEqual(new[] { skippedEntry.Id }), "Accepted annotation still occupies the composer while response is pending");
+            var newEntry = new AiEntry { Question = "等待期间的新圈点" }; sending.AddEntry(newEntry);
             var accepted = await Task.Run(() => AiStorage.Load(sendProject));
             Check(accepted.Turns.Single().Question.Contains("网络尚未返回"), "Actual Submit cleared an unsaved accepted question");
+            Check(accepted.Turns.Single().SentAnnotations.Single().Sources.Single().Text == "$x_i$" && accepted.Entries.All(e => e.Id != sentEntry.Id), "Durable acceptance lost the sent snapshot or retained the pending duplicate");
             ((Button)sending.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await send.WaitAsync(TimeSpan.FromSeconds(10));
             var canceled = AiStorage.Load(sendProject);
             Check(canceled.Turns.Count == 1 && canceled.Turns.Single().Answer.StartsWith("[本轮未完成]") && !File.Exists(AiTurnCheckpoint.PathFor(sendProject)), "Stopped request lost/duplicated the accepted question");
+            Check(canceled.Entries.Select(e => e.Id).SequenceEqual(new[] { skippedEntry.Id, newEntry.Id }) && sending.AnnotationEntries.Count == 2, "Stop restored old circles or removed unselected/new pending circles");
+            Check(canceled.Turns.Single().SentAnnotations.Single().Id == sentEntry.Id, "Stop lost the sent annotation archive");
+            await sending.SetProjectAsync(sendProject);
+            Check(sending.AnnotationEntries.Select(e => e.Id).SequenceEqual(new[] { skippedEntry.Id, newEntry.Id }), "Reopening a stopped conversation resurrected sent circles");
+            var rejectedProject = Path.Combine(output, "rejected-acceptance.tex"); await sending.SetProjectAsync(rejectedProject);
+            var rejectedEntry = new AiEntry { Question = "尚未成功记录的圈点" }; sending.AddEntry(rejectedEntry);
+            var composer = (TextBox)sending.FindName("Composer"); composer.Text = "保留未接受的主草稿";
+            var journalPath = AiTurnCheckpoint.PathFor(rejectedProject);
+            using (var lockedJournal = new FileStream(journalPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
+            {
+                await sending.SubmitAsync();
+                Check(sending.AnnotationEntries.Single().Id == rejectedEntry.Id && composer.Text == "保留未接受的主草稿", "Failed durable acceptance consumed an unsent circle or composer draft");
+            }
+            File.Delete(journalPath); await sending.SaveAsync();
             sendHost.Close();
         }
         Console.WriteLine($"AI reliability: {checks} checks passed.");

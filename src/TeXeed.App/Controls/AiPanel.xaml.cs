@@ -90,9 +90,8 @@ public partial class AiPanel : UserControl, IDisposable
         _project = project; _book = loaded;
         _restoringReading = true;
         _updating = true; Composer.Text = _book.Draft; _updating = false;
-        MigrateSnapshots();
         foreach (var entry in _book.Entries.Where(e => e.State == "提交中")) entry.State = "上次提交未完成，可重试";
-        if (File.Exists(AiTurnCheckpoint.PathFor(project))) await SaveAsync();
+        if (_book.RequiresSave || File.Exists(AiTurnCheckpoint.PathFor(project))) await SaveAsync();
         ShowCurrentConversation();
     }
     public bool AddEntry(AiEntry entry, bool focusComposer = true)
@@ -138,11 +137,11 @@ public partial class AiPanel : UserControl, IDisposable
         if (_operation is not null) return;
         var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false;
         try { await work(operation.Token); }
-        catch (OperationCanceledException) { StatusText.Text = "已停止；未完成的条目可重新提交。"; }
+        catch (OperationCanceledException) { StatusText.Text = "已停止；本轮已保留，可继续提问。"; }
         catch (Exception ex) { ShowError(ex); }
         finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; } _operationDone = null; done.TrySetResult(); }
     }
-    private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。条目已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
+    private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。问题已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
     private void Remove_Click(object sender, RoutedEventArgs e) { if ((sender as FrameworkElement)?.DataContext is AiEntry entry && entry.State != "提交中") { RemoveAnnotation(entry); } }
     private void SelectAll_Click(object sender, RoutedEventArgs e) { foreach (var entry in _book.Entries) entry.Selected = true; Rebind(); Dirty(); }
@@ -218,7 +217,13 @@ public partial class AiPanel : UserControl, IDisposable
             var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations };
             var checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer);
             if (single is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
-            foreach (var entry in selected) entry.State = "提交中"; Rebind();
+            foreach (var entry in selected)
+            {
+                entry.State = "提交中";
+                entry.PropertyChanged -= AnnotationChanged;
+                book.Entries.Remove(entry);
+            }
+            Rebind();
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
             LiveSentTime.Text = "发送时间：" + AiTimestamp.Full(sentAt);
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
@@ -281,7 +286,6 @@ public partial class AiPanel : UserControl, IDisposable
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
                     book.Turns.Add(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, Model = modelId, ReasoningEffort = effort, Segments = segments });
-                    if (answeredAt is not null) book.Entries.RemoveAll(e => selected.Any(sent => sent.Id == e.Id));
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
                     // Persist before constructing a settled rich document. Even an
                     // unexpected renderer failure cannot erase the completed exchange.

@@ -161,6 +161,8 @@ internal static partial class Program
             var models = (ComboBox)failedPanel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
             var entry = new AiEntry { Question = "保留待重试" }; failedPanel.AddEntry(entry); await failedPanel.SubmitAsync();
             Check(entry.Selected && entry.State == "未完成，可重试", "Failed batch lost selection or marked successful");
+            var failedBook = AiStorage.Load(Path.Combine(output, "failure-fixture.tex"));
+            Check(failedPanel.AnnotationEntries.Count == 0 && failedBook.Entries.Count == 0 && failedBook.Turns.Single().SentAnnotations.Single().Id == entry.Id, "Failed response left an already submitted circle in the composer or lost its snapshot");
         }
         var switched = false;
         using (var changedConnection = new AiConnection(new AiFakeHandler { SwitchAccount = true }))

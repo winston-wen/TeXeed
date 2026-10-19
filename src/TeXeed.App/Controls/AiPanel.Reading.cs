@@ -80,23 +80,6 @@ public partial class AiPanel
             foreach (var descendant in VisualChildren<T>(child)) yield return descendant;
         }
     }
-    private void MigrateSnapshots()
-    {
-        foreach (var conversation in _book.Conversations)
-        {
-            for (var i = 0; i < conversation.Turns.Count; i++)
-            {
-                var turn = conversation.Turns[i];
-                if (turn.Prompt is not null || turn.SentAnnotations.Count > 0) continue;
-                var entries = conversation.Entries.Where(e => turn.Question.Contains(e.DisplayTitle + "：", StringComparison.Ordinal)).ToArray();
-                if (entries.Length == 0) continue;
-                var lines = turn.Question.Split('\n').Where(line => !entries.Any(e => line.StartsWith(e.DisplayTitle + "：", StringComparison.Ordinal)));
-                conversation.Turns[i] = turn with { Prompt = string.Join('\n', lines), SentAnnotations = entries.Select((e, n) => e.Snapshot(n + 1)).ToList() };
-            }
-            var saved = conversation.Turns.SelectMany(t => t.SentAnnotations).Select(e => e.Id).ToHashSet();
-            conversation.Entries.RemoveAll(e => e.State == "已完成" && saved.Contains(e.Id));
-        }
-    }
     private bool _headerTemporary;
     private readonly System.Windows.Threading.DispatcherTimer _headerCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private void ApplyChatHeader()

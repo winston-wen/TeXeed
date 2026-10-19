@@ -69,6 +69,27 @@ internal static partial class Program
         Check(restored.Turns.Single().Question.Contains("#8") && restored.Entries.Count == 0, "Legacy migration overwrote original question or retained completed entry");
         Check(restored.Turns.Single().AnswerTime == "答复时间：未记录", "Legacy answer was reported as unanswered or given an invented answer time");
         await panel.SaveAsync(); Check(AiStorage.Load(legacyProject).Turns.Single().SentAnnotations.Single().Sources[0].Text == "原始内容", "Migrated snapshot lost source");
+        var staleProject = Path.Combine(output, "stale-sent-annotations.tex");
+        var stale = new AiNotebook();
+        var old = new AiEntry { Question = "已经发走", State = "未完成，可重试", PdfBlocks = [new(3, 0, 0, 20, 20, "saved-pdf")] };
+        var edited = new AiEntry { Question = "原问题" }; var moved = new AiEntry { Question = "保留修改的来源", Sources = [new("main.tex", 1, 1, 0, "原文", "v1")] };
+        stale.Turns.Add(new("历史问题", "[本轮未完成]") { Prompt = "历史问题", SentAnnotations = [old.Snapshot(), edited.Snapshot(), moved.Snapshot()], Incomplete = true });
+        edited.Question = "编辑后的新草稿"; moved.Sources[0] = moved.Sources[0] with { Revision = "v2" };
+        var unsent = new AiEntry { Question = "从未发送" };
+        stale.Entries.AddRange([old, edited, moved, unsent]);
+        var other = stale.NewConversation(); var otherPending = new AiEntry { Question = "另一个会话的旧圈点" };
+        other.Entries.Add(otherPending); other.Turns.Add(new("已发送", "回答") { Prompt = "", SentAnnotations = [otherPending.Snapshot()] });
+        AiStorage.Save(staleProject, stale); await panel.SetProjectAsync(staleProject);
+        var cleaned = AiStorage.Load(staleProject);
+        Check(cleaned.Conversations[0].Entries.Select(e => e.Id).SequenceEqual(new[] { edited.Id, moved.Id, unsent.Id }), "Historical cleanup consumed an edited or unsent draft");
+        Check(cleaned.Conversations[1].Entries.Count == 0 && cleaned.Conversations[0].Turns.Single().SentAnnotations[0].PdfBlocks.Single().ImageBase64 == "saved-pdf", "Cleanup missed inactive conversations or lost the sent PDF snapshot");
+        using (var disk = System.Text.Json.JsonDocument.Parse(File.ReadAllText(AiStorage.NotebookPath(staleProject))))
+            Check(disk.RootElement.GetProperty("Conversations")[0].GetProperty("Entries").GetArrayLength() == 3, "Migration was only cosmetic and was not saved");
+        var changedLegacy = new AiConversation();
+        changedLegacy.Entries.Add(new() { Number = 1, Title = "同标题", Question = "新内容" });
+        changedLegacy.Turns.Add(new("#1 · 同标题：旧内容", "历史回答"));
+        changedLegacy.ReconcileSentAnnotations();
+        Check(changedLegacy.Entries.Count == 1 && changedLegacy.Turns[0].SentAnnotations.Count == 0, "Legacy title-only match consumed a modified draft");
         host.Close();
         Console.WriteLine($"AI reading: {checks} checks passed (native layout, snapshots, folds, persistence, isolated single send).");
     }

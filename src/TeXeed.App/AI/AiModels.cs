@@ -118,6 +118,31 @@ public sealed class AiConversation
         var text = CleanQuestion(question).Replace('\r', ' ').Replace('\n', ' ').Trim();
         return text.Length == 0 ? "新对话" : string.Concat(text.EnumerateRunes().Take(20));
     }
+    internal bool ReconcileSentAnnotations()
+    {
+        var changed = false;
+        for (var i = 0; i < Turns.Count; i++)
+        {
+            var turn = Turns[i];
+            if (turn.Prompt is not null || turn.SentAnnotations.Count > 0) continue;
+            // Legacy turns embedded the complete submitted question. A matching
+            // title alone must not consume a draft edited since that submission.
+            var prompt = "\n" + turn.Question + "\n";
+            var entries = Entries.Where(e => prompt.Contains("\n" + e.DisplayTitle + "：" + e.Question + "\n", StringComparison.Ordinal)).ToArray();
+            if (entries.Length == 0) continue;
+            foreach (var entry in entries) prompt = prompt.Replace("\n" + entry.DisplayTitle + "：" + entry.Question + "\n", "\n", StringComparison.Ordinal);
+            Turns[i] = turn with { Prompt = prompt.Trim('\n'), SentAnnotations = entries.Select((e, n) => e.Snapshot(n + 1)).ToList() };
+            changed = true;
+        }
+        var sent = Turns.SelectMany(t => t.SentAnnotations).GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.Last());
+        // Acceptance, rather than successful completion, consumes a pending entry.
+        // Compare the payload too so an edited/replaced draft remains untouched.
+        return Entries.RemoveAll(e => sent.TryGetValue(e.Id, out var snapshot)
+            && e.Title == snapshot.Title && e.Question == snapshot.Question
+            && e.PdfRevision == snapshot.PdfRevision && e.IsPoint == snapshot.IsPoint
+            && e.AnswerAnchor == snapshot.AnswerAnchor
+            && e.Sources.SequenceEqual(snapshot.Sources) && e.PdfBlocks.SequenceEqual(snapshot.PdfBlocks)) > 0 || changed;
+    }
     internal AiConversation Snapshot() => new()
     {
         NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
@@ -131,6 +156,7 @@ public sealed class AiConversation
 
 public sealed class AiNotebook
 {
+    internal bool RequiresSave { get; set; }
     public List<AiConversation> Conversations { get; set; } = [];
     public string ActiveConversationId { get; set; } = "";
     [JsonIgnore] public AiConversation Active
@@ -171,21 +197,28 @@ internal static class AiStorage
     internal static AiNotebook Load(string project)
     {
         var path = NotebookPath(project);
-        if (!File.Exists(path)) { var recovered = new AiNotebook(); AiTurnCheckpoint.Recover(project, recovered); return recovered; }
+        if (!File.Exists(path)) return Restore(new AiNotebook());
         var text = File.ReadAllText(path);
         var json = JsonNode.Parse(text)?.AsObject();
         if (json?.ContainsKey(nameof(AiNotebook.Conversations)) == true)
         {
             var book = json.Deserialize<AiNotebook>() ?? new();
             _ = book.Active;
-            AiTurnCheckpoint.Recover(project, book);
-            return book;
+            return Restore(book);
         }
         // Version 0.3.0/0.3.1 stored a single flat conversation. Preserve it in the new history.
         var previous = JsonSerializer.Deserialize<AiConversation>(text) ?? new();
         if (previous.Turns.Count > 0) previous.Title = AiConversation.MakeTitle(previous.Turns[0].Question);
         var migrated = new AiNotebook { Conversations = [previous], ActiveConversationId = previous.Id };
-        AiTurnCheckpoint.Recover(project, migrated); return migrated;
+        return Restore(migrated);
+
+        AiNotebook Restore(AiNotebook book)
+        {
+            AiTurnCheckpoint.Recover(project, book);
+            foreach (var conversation in book.Conversations)
+                if (conversation.ReconcileSentAnnotations()) book.RequiresSave = true;
+            return book;
+        }
     }
     internal static void Save(string project, AiNotebook book)
     {

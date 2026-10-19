@@ -22,7 +22,7 @@ public sealed class AiTurnView : StackPanel
     internal List<MarkdownView> Answers { get; } = [];
     private readonly StackPanel _body = new(), _preview = new();
     private readonly TextBlock _sentTime = new() { FontFamily = new FontFamily("Consolas, Microsoft YaHei"), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12, 4, 4, 8) };
-    private FrameworkElement? _footer;
+    private AiReplyStatus? _footer;
     private string? _previewId;
     private bool _bodyBuilt;
 
@@ -36,7 +36,15 @@ public sealed class AiTurnView : StackPanel
         if (!Turn.Collapsed && !_bodyBuilt) BuildBody();
         _body.Visibility = Turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
         _sentTime.Text = Turn.SentTime;
-        if (_footer is not null) System.Windows.Automation.AutomationProperties.SetHelpText(_footer, Turn.Collapsed ? "已折叠，双击展开" : "双击收起");
+        _sentTime.Visibility = Turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
+        if (_footer is not null)
+        {
+            // One TextBlock gives both collapsed timestamps the font's natural
+            // line spacing and a shared double-click/keyboard target.
+            _footer.Text = Turn.Collapsed ? Turn.SentTime + "\n" + Turn.AnswerTime : Turn.AnswerTime;
+            _footer.Margin = new Thickness(12, Turn.Collapsed ? 4 : 14, 4, 0);
+            System.Windows.Automation.AutomationProperties.SetHelpText(_footer, Turn.Collapsed ? "已折叠，双击任一时间行展开" : "双击收起");
+        }
     }
     private void Build()
     {
@@ -115,7 +123,7 @@ public sealed class AiTurnView : StackPanel
         _preview.Visibility = Visibility.Visible; PreviewChanged?.Invoke(entry);
     }
     internal void ClosePreview() { _preview.Visibility = Visibility.Collapsed; _preview.Children.Clear(); _previewId = null; }
-    private FrameworkElement Footer()
+    private AiReplyStatus Footer()
     {
         var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(12, 14, 4, 0), Focusable = true, Cursor = Cursors.Hand };
         toggle.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };

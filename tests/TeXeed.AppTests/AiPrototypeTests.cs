@@ -2,6 +2,7 @@ using System.IO;
 using Path = System.IO.Path;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -45,15 +46,41 @@ internal static partial class Program
             var first = views.Single(v => v.Turn.Id == completed.Id); var second = views.Single(v => v.Turn.Id == partial.Id);
             foreach (var view in views)
             {
-                var timestamp = Descendants<TextBlock>(view).Single(t => t.Text.StartsWith("发送时间："));
+                var timestamp = Descendants<TextBlock>(view).Single(t => t.IsVisible && t.Text.StartsWith("发送时间："));
                 var reply = Descendants<AiReplyStatus>(view).Single();
                 Check(Math.Abs(timestamp.TranslatePoint(new Point(), view).X - reply.TranslatePoint(new Point(), view).X) < .1, "Sent and answer timestamps must align");
                 Check(Descendants<Button>(view).All(b => !Equals(b.Content, "（已折叠，点击展开）") && b.ToolTip is not ("将问题重新放入编辑栏" or "删除此轮问题和回答")), "Removed hint or footer icons remain");
                 var stamp = Descendants<TextBlock>(reply).Single(); var line = Descendants<Line>(reply).Single();
                 Check(line.TranslatePoint(new Point(), reply).Y >= stamp.ActualHeight, "Timestamp still intersects the dotted separator");
             }
-            Check(Descendants<TextBlock>(second).Any(t => t.Text.EndsWith("（已折叠）")), "Collapsed turn lacks its sent-time marker");
+            Check(Descendants<TextBlock>(second).Any(t => t.IsVisible && t.Text.Contains("（已折叠）\n答复时间：")), "Collapsed turn must share one text block for both timestamps");
             var footer = Descendants<AiReplyStatus>(second).Single();
+            void CheckCollapsedSpacing()
+            {
+                var block = Descendants<TextBlock>(footer).Single();
+                Check(block.Text == partial.SentTime + "\n" + partial.AnswerTime, "Collapsed timestamps are not in the same text block");
+                Check(double.IsNaN(block.LineHeight) && block.Margin == new Thickness(0) && block.Padding == new Thickness(0), "Collapsed timestamps override natural text line spacing");
+                var reference = new TextBlock { Text = block.Text, FontFamily = block.FontFamily, FontSize = block.FontSize, TextWrapping = block.TextWrapping };
+                reference.Measure(new Size(block.ActualWidth, double.PositiveInfinity));
+                Check(Math.Abs(block.ActualHeight - reference.DesiredSize.Height) < .1, "Collapsed timestamp height differs from default block text");
+            }
+            CheckCollapsedSpacing();
+            foreach (var offset in new[] { 0, partial.SentTime.Length + 1 })
+            {
+                var block = Descendants<TextBlock>(footer).Single();
+                var position = block.Inlines.OfType<Run>().Single().ContentStart.GetPositionAtOffset(offset)!;
+                var rect = position.GetCharacterRect(LogicalDirection.Forward);
+                var point = block.TranslatePoint(new Point(rect.Left + 2, rect.Top + rect.Height / 2), host);
+                var target = host.InputHitTest(point);
+                Check(target is UIElement or ContentElement, "Timestamp line cannot be hit");
+                var click = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.MouseDownEvent };
+                typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(click, 2);
+                if (target is UIElement element) element.RaiseEvent(click); else ((ContentElement)target).RaiseEvent(click);
+                host.UpdateLayout();
+                Check(!partial.Collapsed, "Double-clicking either timestamp line must expand the turn");
+                footer.RaiseEvent(CreateKey(host, Key.Space, Keyboard.KeyDownEvent)); host.UpdateLayout();
+                Check(partial.Collapsed, "Keyboard fold did not restore the compact block");
+            }
             footer.RaiseEvent(CreateKey(host, Key.Enter, Keyboard.KeyDownEvent)); host.UpdateLayout();
             Check(!partial.Collapsed && !partial.SentTime.Contains("已折叠") && !partial.SentTime.Contains("未折叠"), "Expanding must remove the marker without an unfolded label");
             Check(footer.Text.EndsWith("（未完成）"), "Expanding lost the incomplete marker");
@@ -75,6 +102,7 @@ internal static partial class Program
                 Capture(host, Path.Combine(output, "ai-prototype-" + colors + ".png"));
                 host.Width = 420; host.UpdateLayout();
                 Check(Math.Abs(rule.ActualWidth - panel.ActualWidth) < .1, "Narrow header rule does not reach the pane edges");
+                CheckCollapsedSpacing();
                 Capture(host, Path.Combine(output, "ai-prototype-narrow-" + colors + ".png"));
             }
             ThemeManager.Apply(theme); host.Width = 820;
