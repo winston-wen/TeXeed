@@ -48,12 +48,17 @@ function showSnapshot(link){
  preview.dataset.number=String(number);preview.hidden=false;link.setAttribute('aria-expanded','true');
  requestAnimationFrame(()=>{preview.scrollIntoView({block:'nearest'});preview.querySelector('.snapshot-scroll').focus({preventScroll:true});});
 }
+function turnEnd(t){
+ const terminal=(t.segments||[]).findLast(s=>s.kind==='activity'&&/^(已停止[。.]|本轮未完成[:：]|公式排版检查通过\s*·\s*回放完成)/.test(s.text));
+ const incomplete=typeof t.incomplete==='boolean'?t.incomplete:terminal?!terminal.text.startsWith('公式排版检查通过'):!t.answeredAt&&!t.answer;
+ return {incomplete,at:t.answeredAt||t.endedAt||(incomplete&&terminal?.time)||null};
+}
 function turnHtml(t){
- const thinking=running?.turn.id===t.id,canFold=!thinking&&!!(t.answeredAt||t.answer);
+ const thinking=running?.turn.id===t.id,canFold=!thinking,end=turnEnd(t);
  const activities=(t.segments||[]).filter(s=>s.kind==='activity');
  const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
  const sent='<div class="turn-time sent-time">发送时间：'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+'</div>';
- const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':'答复时间：'+(t.answeredAt?'<time datetime="'+esc(t.answeredAt)+'">'+esc(time(t.answeredAt))+'</time>':t.answer?'未记录':'未完成');
+ const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':'答复时间：'+(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+(end.incomplete?'<span class="incomplete-label">（未完成）</span>':'');
  const footer='<div class="turn-footer" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+answerTime+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
  return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question">'+questionHtml(t)+'</div>'+sent+'<div class="segments" id="'+t.id+'-segments" '+(!thinking&&t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+footer+'</article>';
 }
@@ -67,7 +72,7 @@ function enhanceAnswers(){
  document.querySelectorAll('.answer code').forEach(code=>{const text=code.textContent.trim();if(/^(?:main\.tex|qa\.md)(?::\d+(?:[–—-]\d+)?)?$/.test(text)){const b=document.createElement('button');b.className='file-link';b.dataset.file=text;b.textContent=text;b.title='打开源码快照'+(text.includes(':')?'并跳转到行号':'');code.replaceChildren(b);}});
  document.querySelectorAll('.answer').forEach(answer=>{prepareReadingLayout(answer);const t=current().turns.find(t=>t.id===answer.dataset.turn);let hiding=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h2,h3,h4');if(h){const level=Number(h.tagName.slice(1));hiding=hiding.filter(x=>x<level);p.hidden=!!hiding.length||p.dataset.readingHidden==='true';const collapsed=!!t.sections?.[p.id],b=document.createElement('button');b.className='heading-toggle';b.dataset.section=p.id;b.setAttribute('aria-expanded',String(!collapsed));b.innerHTML='<span class="heading-label">'+h.innerHTML+'</span>'+(collapsed?'<span class="heading-collapsed">（已折叠）</span>':'');h.replaceChildren(b);if(collapsed)hiding.push(level);}else p.hidden=!!hiding.length||p.dataset.readingHidden==='true';}});
 }
-function toggleTurn(t){if(running?.turn.id===t.id||!(t.answeredAt||t.answer))return;const node=$(t.id+'-divider'),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
+function toggleTurn(t){if(running?.turn.id===t.id)return;const node=$(t.id+'-divider'),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
 
 function openSource(ref){const m=/^([^:]+)(?::(\d+)(?:[–—-](\d+))?)?$/.exec(ref),file=m[1],start=Number(m[2]||1),end=Number(m[3]||start);const text=DATA.sourceFiles[file];if(text===undefined){status('未收集此文件的源码。');return;}$('source-title').textContent=ref;$('source-lines').innerHTML=text.split('\n').map((line,i)=>'<div class="source-line '+(i+1>=start&&i+1<=end?'selected':'')+'" id="source-line-'+(i+1)+'"><span class="source-number">'+(i+1)+'</span><span class="source-code">'+esc(line||' ')+'</span></div>').join('');$('source-dialog').showModal();requestAnimationFrame(()=>$('source-line-'+start)?.scrollIntoView({block:'center'}));}
 
@@ -102,19 +107,19 @@ function send(entryId=null){
  const outgoing=clone(selected).map((e,i)=>({...e,number:i+1}));
  closePopups();c.updatedAt=new Date().toISOString();const question=[prompt,...outgoing.map(e=>'#'+e.number+' · '+e.title+'：'+e.question)].filter(Boolean).join('\n');
  const annotations=outgoing.map(e=>({...e,summary:summarizeSnapshot(e),block:null}));
- const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',sentAt:new Date().toISOString(),segments:[{kind:'activity',text:'原型回放 · 以下为现编 transcript，不调用实时模型。',details:'',time:new Date().toISOString()}]};
+ const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[{kind:'activity',text:'原型回放 · 以下为现编 transcript，不调用实时模型。',details:'',time:new Date().toISOString()}]};
  c.turns.push(t);if(c.title==='新对话')c.title=shortTitle(question);$('title').textContent=c.title;if(!entryId){c.draft='';$('composer').value='';refreshEditors();}if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');running={turn:t,selected};status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
  const mode=$('playback-mode').value;
  const finish=()=>{
   if(!running)return;const follow=$('reader').scrollHeight-$('reader').scrollTop-$('reader').clientHeight<40;
-  if(mode==='failure'){selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：网络连接失败。',details:'原型预编失败事件。',time:new Date().toISOString()});}
-  else {t.answer=DATA.playback.answer;t.answerHtml=DATA.playback.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+t.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+t.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+t.id+'-'+id+'"');t.answeredAt=new Date().toISOString();c.entries=c.entries.filter(e=>!selected.some(sent=>sent.id===e.id));t.segments.push({kind:'activity',text:'公式排版检查通过 · 回放完成',time:t.answeredAt});}
+  if(mode==='failure'){t.incomplete=true;t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：网络连接失败。',details:'原型预编失败事件。',time:t.endedAt});}
+  else {t.answer=DATA.playback.answer;t.answerHtml=DATA.playback.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+t.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+t.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+t.id+'-'+id+'"');t.incomplete=false;t.answeredAt=new Date().toISOString();c.entries=c.entries.filter(e=>!selected.some(sent=>sent.id===e.id));t.segments.push({kind:'activity',text:'公式排版检查通过 · 回放完成',time:t.answeredAt});}
   running=null;setBusy(false);renderTurns();if(follow)scrollEnd();record('finish',{mode});
  };
  if(mode==='repair')timers.push(setTimeout(()=>{if(running){t.segments.push({kind:'activity',text:'正在校对公式 · 第 1 次自动修正',details:'现编回放：公式定界符未闭合，已请求修正。',time:new Date().toISOString()});renderTurns();}},900));
  timers.push(setTimeout(finish,mode==='repair'?3200:1700));
 }
-function stop(){if(!running)return;timers.forEach(clearTimeout);timers=[];running.selected.forEach(e=>e.state='未完成，可重试');running.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:new Date().toISOString()});running=null;setBusy(false);renderTurns();status('已停止；未完成的条目可重新提交。');record('stop');}
+function stop(){if(!running)return;timers.forEach(clearTimeout);timers=[];running.turn.incomplete=true;running.turn.endedAt=new Date().toISOString();running.selected.forEach(e=>e.state='未完成，可重试');running.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:running.turn.endedAt});running=null;setBusy(false);renderTurns();status('已停止；未完成的条目可重新提交。');record('stop');}
 function relativeTime(c){if(c.sample&&!c.updatedAt)return '样例';const minutes=Math.max(0,(Date.now()-Date.parse(c.updatedAt||new Date().toISOString()))/60000);return minutes<1?'刚刚':minutes<60?Math.floor(minutes)+' 分钟':minutes<1440?Math.floor(minutes/60)+' 小时':Math.floor(minutes/1440)+' 天';}
 function history(){const query=$('history-search').value.toLowerCase();$('history-list').innerHTML=state.conversations.filter(c=>[c.title,...c.turns.map(t=>t.question+' '+t.answer)].join(' ').toLowerCase().includes(query)).map(c=>'<div class="history-row '+(c.id===state.active?'active':'')+'"><button class="history-open" data-history="'+c.id+'">'+esc(c.title)+'</button><small>'+relativeTime(c)+'</small><button data-delete-history="'+c.id+'" aria-label="删除对话">×</button></div>').join('')||'<div class="muted">没有匹配的对话</div>';}
 function newConversation(){saveReading();stop();const c={id:'c'+Date.now(),title:'新对话',turns:[],entries:[],next:1,draft:'',permission:'完全访问'};state.conversations.push(c);state.active=c.id;renderConversation();record('new-conversation');$('composer').focus();}
