@@ -18,13 +18,14 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
     private readonly Func<AiEntry, Point?> _anchor;
     private readonly Action<AiEntry> _remove;
     private readonly bool _margin;
+    private readonly Func<AiEntry, Task>? _send;
     private readonly Popup _popup = new() { StaysOpen = false, AllowsTransparency = true, Placement = PlacementMode.Relative };
     private List<(AiEntry Entry, Rect Bounds)> _positions = [];
     private AiEntry? _editing;
     private AiEntry? _pendingEdit;
-    internal AiAnnotationLayer(FrameworkElement host, Func<IReadOnlyList<AiEntry>> entries, Func<AiEntry, Point?> anchor, Action<AiEntry> remove, bool margin = false) : base(host)
+    internal AiAnnotationLayer(FrameworkElement host, Func<IReadOnlyList<AiEntry>> entries, Func<AiEntry, Point?> anchor, Action<AiEntry> remove, bool margin = false, Func<AiEntry, Task>? send = null) : base(host)
     {
-        _host = host; _entries = entries; _anchor = anchor; _remove = remove; _margin = margin;
+        _host = host; _entries = entries; _anchor = anchor; _remove = remove; _margin = margin; _send = send;
         _popup.PlacementTarget = host;
         host.Loaded += HostLoaded;
         host.Unloaded += HostUnloaded;
@@ -112,15 +113,29 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         _popup.IsOpen = false; _editing = entry;
         var stack = new StackPanel();
         stack.Children.Add(new TextBlock { Text = entry.DisplayTitle, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
-        var input = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72, MaxHeight = 200, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var input = new TextBox { Tag = entry, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72, MaxHeight = 200, AcceptsTab = true, FontFamily = new FontFamily("Cascadia Code, Consolas, Microsoft YaHei"), VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         input.SetBinding(TextBox.TextProperty, new Binding(nameof(AiEntry.Question)) { Source = entry, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         System.Windows.Automation.AutomationProperties.SetName(input, "原位批注内容");
-        stack.Children.Add(input);
+        input.PreviewKeyDown += async (_, e) =>
+        {
+            if (!AiPanel.IsSendGesture(e.Key, Keyboard.Modifiers)) return;
+            e.Handled = true;
+            if (!e.IsRepeat && _send is not null) { await _send(entry); if (!_entries().Any(x => x.Id == entry.Id)) _popup.IsOpen = false; }
+        };
+        var inputGrid = new Grid(); inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(25) }); inputGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        var numbers = new TextBlock { Text = "1", FontFamily = input.FontFamily, FontSize = input.FontSize, Margin = new Thickness(3, 4, 0, 0) }; numbers.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        input.TextChanged += (_, _) => numbers.Text = string.Join("\n", Enumerable.Range(1, input.Text.Count(c => c == '\n') + 1)); Grid.SetColumn(input, 1); inputGrid.Children.Add(numbers); inputGrid.Children.Add(input); stack.Children.Add(inputGrid);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
         var remove = new Button { Content = "删除", Margin = new Thickness(0, 0, 8, 0) };
         remove.Click += (_, _) => { _popup.IsOpen = false; _remove(entry); };
         var done = new Button { Content = "收起 · 自动保存" };
         done.Click += (_, _) => _popup.IsOpen = false;
+        if (_send is not null)
+        {
+            var send = new Button { Content = "↑", ToolTip = "发送此条 · Ctrl+Enter", Margin = new Thickness(0, 0, 8, 0) };
+            send.Click += async (_, _) => { await _send(entry); if (!_entries().Any(x => x.Id == entry.Id)) _popup.IsOpen = false; };
+            actions.Children.Add(send);
+        }
         actions.Children.Add(remove); actions.Children.Add(done); stack.Children.Add(actions);
         var surface = new Border { Child = stack, Width = Math.Clamp(_host.ActualWidth - 24, 220, 340), Padding = new Thickness(12), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1) };
         surface.SetResourceReference(Border.BackgroundProperty, "PanelBackground"); surface.SetResourceReference(Border.BorderBrushProperty, "Accent"); surface.SetResourceReference(TextElement.ForegroundProperty, "Ink");

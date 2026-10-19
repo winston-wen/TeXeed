@@ -89,6 +89,11 @@ internal static partial class Program
                     await CheckAiFocusAsync(window);
                     result = 0; app.Shutdown(); return;
                 }
+                if (args.Contains("--ai-reading-only"))
+                {
+                    await CheckAiReadingAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI reading regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-polish-only"))
                 {
                     await CheckAiPolishAsync(window, output);

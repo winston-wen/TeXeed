@@ -51,15 +51,17 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        _restoringReading = true; _headerTemporary = false;
         _updating = true;
         Composer.Text = _book.Draft;
         _updating = false;
         SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript();
-        ConversationTitle.Text = _book.Active.Title;
+        ConversationTitle.Text = AiConversation.MakeTitle(_book.Active.Title);
+        ApplyChatHeader();
         StatusText.Text = "";
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => MessagesScroll.ScrollToEnd()));
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { MessagesScroll.ScrollToVerticalOffset(_book.Active.ReadingOffset); _restoringReading = false; UpdateReadingContext(); }));
     }
     private async void NewConversation_Click(object sender, RoutedEventArgs e)
     { try { await NewConversationAsync(); Composer.Focus(); } catch (Exception ex) { ShowError(ex); } }

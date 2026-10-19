@@ -36,6 +36,7 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
     public List<AiSourceBlock> Sources { get; set; } = [];
     public List<AiPdfBlock> PdfBlocks { get; set; } = [];
     public string PdfRevision { get; set; } = "";
+    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], PdfRevision = PdfRevision, IsPoint = IsPoint };
     public bool IsPoint { get; set; }
 }
 public sealed record AiTurn(string Question, string Answer)
@@ -44,6 +45,11 @@ public sealed record AiTurn(string Question, string Answer)
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? SentAt { get; init; }
     public DateTimeOffset? AnsweredAt { get; init; }
+    public string? Prompt { get; init; }
+    public List<AiEntry> SentAnnotations { get; init; } = [];
+    public bool Collapsed { get; set; }
+    public Dictionary<string, bool> CollapsedSections { get; init; } = [];
+    [JsonIgnore] public string Footer => "发送: " + DisplayTime + ", 答复: " + (AnsweredAt is null ? (Answer.StartsWith("[本轮未完成]") ? "未完成" : "未记录") : AiTimestamp.Delay(SentAt ?? CreatedAt, AnsweredAt));
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";
     public List<AiSegment> Segments { get; init; } = [];
@@ -81,6 +87,8 @@ public sealed class AiConversation
     public AiPermission Permission { get; set; } = AiPermission.FullAccess;
     public AiContextUsage? ContextUsage { get; set; }
     public AiContextMemory? ContextMemory { get; set; }
+    public bool HeaderPinned { get; set; }
+    public double ReadingOffset { get; set; }
     [JsonIgnore] internal HashSet<string> ShellApprovals { get; } = [];
     [JsonIgnore] public string Summary => $"{Turns.Count} 轮 · {UpdatedAt.LocalDateTime:MM-dd HH:mm}";
     [JsonIgnore] public string RelativeTime
@@ -96,11 +104,11 @@ public sealed class AiConversation
     internal static string MakeTitle(string question)
     {
         var text = CleanQuestion(question).Replace('\r', ' ').Replace('\n', ' ').Trim();
-        return text.Length == 0 ? "新对话" : text[..Math.Min(text.Length, 45)];
+        return text.Length == 0 ? "新对话" : string.Concat(text.EnumerateRunes().Take(20));
     }
     internal AiConversation Snapshot() => new()
     {
-        NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, Turns = [.. Turns], Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => new AiEntry
         {
             Number = e.Number, AnswerAnchor = e.AnswerAnchor, Id = e.Id, Title = e.Title, Question = e.Question, Selected = e.Selected, State = e.State,

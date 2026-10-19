@@ -49,7 +49,7 @@ public sealed partial class MarkdownView
         var offset = 0;
         foreach (Match match in Regex.Matches(text, Regex.Escape(_math.Prefix) + @"\d+END"))
         {
-            target.Add(new Run(text[offset..match.Index]));
+            target.Add(MathRemainder(text[offset..match.Index]));
             var token = _math.Tokens[match.Value];
             if (token.Reference is { } reference)
             {
@@ -59,7 +59,14 @@ public sealed partial class MarkdownView
             else target.Add(FormulaInline(token));
             offset = match.Index + match.Length;
         }
-        target.Add(new Run(text[offset..]));
+        target.Add(MathRemainder(text[offset..]));
+    }
+    private Run MathRemainder(string text)
+    {
+        var run = new Run(text);
+        if (_math.HasUnclosedMath && (text.Contains('$') || text.Contains(@"\(") || text.Contains(@"\[")))
+        { run.FontFamily = new FontFamily("Consolas"); run.FontSize = 14; run.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); }
+        return run;
     }
     private Inline FormulaInline(ChatMath.Token token)
     {
@@ -91,7 +98,7 @@ public sealed partial class MarkdownView
         var link = new Hyperlink { ToolTip = "跳转到公式 " + label };
         if (text is not null) link.Inlines.Add(new Run(text));
         link.SetResourceReference(TextElement.ForegroundProperty, "Accent");
-        link.Click += (_, e) => { if (_equations.TryGetValue(label, out var target)) target.BringIntoView(); else link.ToolTip = "未找到公式：" + label; e.Handled = true; };
+        link.Click += (_, e) => { if (LocalLink is not null && label.StartsWith("snapshot-", StringComparison.Ordinal)) LocalLink(label); else if (_equations.TryGetValue(label, out var target)) { Reveal(target); target.BringIntoView(); } else link.ToolTip = "未找到公式：" + label; e.Handled = true; };
         return link;
     }
     private void AddColumns(BlockCollection target, CustomContainer source, int depth)

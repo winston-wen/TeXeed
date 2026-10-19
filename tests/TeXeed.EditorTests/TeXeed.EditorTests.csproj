@@ -7,7 +7,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/TeXeed.Core/TeXeed.Core.csproj" />
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
-    <Compile Include="../../src/TeXeed.App/Controls/LatexEditor*.cs" Link="%(Filename)%(Extension)" />
+    <!-- AI anchor integration is covered by AppTests; keep this editor-only host independent of AI storage. -->
+    <Compile Include="../../src/TeXeed.App/Controls/LatexEditor*.cs" Exclude="../../src/TeXeed.App/Controls/LatexEditor.Annotations.cs" Link="%(Filename)%(Extension)" />
     <Compile Include="../../src/TeXeed.App/Services/ThemeManager.cs" Link="Services/ThemeManager.cs" />
     <Compile Include="../../src/TeXeed.App/Services/WindowTheme.cs" Link="Services/WindowTheme.cs" />
     <EmbeddedResource Include="../../src/TeXeed.App/Themes/*.json" LogicalName="TeXeed.App.Themes.%(Filename)%(Extension)" />

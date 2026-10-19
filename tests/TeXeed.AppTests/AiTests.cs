@@ -128,7 +128,7 @@ internal static partial class Program
             ((TextBox)batchPanel.FindName("Composer")).Text = "草稿 B";
             batchPanel.AddEntry(new AiEntry { Title = "B 的圈点" });
             await batchPanel.SelectConversationAsync(firstId);
-            Check(((TextBox)batchPanel.FindName("Composer")).Text == "草稿 A" && batchBook.Entries.Count == 3, "Switching conversation lost its draft/context");
+            Check(((TextBox)batchPanel.FindName("Composer")).Text == "草稿 A" && batchBook.Entries.Count == 1, "Switching conversation lost its draft/context");
             Check(AiHistoryWindow.Search(batchBook, "第一问").Single().Id == firstId, "History search did not find question text");
             batchBook.Turns.Add(new("问题 C", "可搜索的回答关键词"));
             Check(AiHistoryWindow.Search(batchBook, "回答关键词").Single().Id == firstId, "History search did not find answer text");

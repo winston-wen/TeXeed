@@ -90,6 +90,7 @@ internal static partial class Program
         {
             for (var round = 0; round < 3; round++)
             {
+                Console.WriteLine("AI stream round " + round + " started");
                 input.Text = "连续追问 " + round;
                 var before = heartbeat;
                 var submission = panel.SubmitAsync();
@@ -108,6 +109,7 @@ internal static partial class Program
                 input.Text = "下一条草稿";
                 await panel.SubmitAsync(); // Duplicate clicks must not start another request.
                 await submission.WaitAsync(TimeSpan.FromSeconds(30));
+                Console.WriteLine("AI stream round " + round + " completed");
                 host.UpdateLayout();
                 var turns = ((AiNotebook)Field(panel, "_book")!).Turns;
                 Check(turns.Count == round + 1 && turns.Last().Answer == handler.Answer, "Follow-up answer was lost, duplicated or truncated");

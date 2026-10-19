@@ -43,13 +43,16 @@ public partial class AiPanel : UserControl, IDisposable
         {
             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
             Composer.MaxHeight = Math.Clamp(ActualHeight * .18, 66, 150);
-            ResizeChoices();
+            if (EntriesPopup.Child is FrameworkElement surface) surface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
+            UpdateReadingContext(); ResizeChoices();
         };
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
+        HeadingPeek.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { _book.Active.HeaderPinned = !_book.Active.HeaderPinned; _headerTemporary = false; ApplyChatHeader(); Dirty(); e.Handled = true; } };
+        MessagesScroll.ScrollChanged += (_, _) => { if (!_restoringReading) { _book.Active.ReadingOffset = MessagesScroll.VerticalOffset; Dirty(); } UpdateReadingContext(); };
         Loaded += async (_, _) => { SyncModelChoices(); if (Settings.SelectedModel is null) await RefreshModelChoicesAsync(); };
         PreviewKeyDown += (_, e) =>
         {
-            if (IsSendGesture(e.Key, Keyboard.Modifiers) && ComposerBorder.IsKeyboardFocusWithin)
+            if (IsSendGesture(e.Key, Keyboard.Modifiers) && Composer.IsKeyboardFocusWithin)
                 Composer_KeyDown(this, e);
             else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
             { MessageSearchPanel.Visibility = Visibility.Visible; MessageSearchBox.Focus(); MessageSearchBox.SelectAll(); e.Handled = true; }
@@ -63,25 +66,27 @@ public partial class AiPanel : UserControl, IDisposable
         _generation++; _saveTimer.Stop(); await SaveAsync();
         var loaded = await Task.Run(() => AiStorage.Load(project));
         _project = project; _book = loaded;
+        MigrateSnapshots();
         foreach (var entry in _book.Entries.Where(e => e.State == "提交中")) entry.State = "上次提交未完成，可重试";
         ShowCurrentConversation();
     }
     public bool AddEntry(AiEntry entry, bool focusComposer = true)
     {
         if (_project is null) { StatusText.Text = "请先打开项目。"; return false; }
-        if (_book.Conversations.Sum(c => c.Entries.Sum(e => e.PdfBlocks.Sum(p => (long)p.ImageBase64.Length))) + entry.PdfBlocks.Sum(p => (long)p.ImageBase64.Length) > 44_000_000) { StatusText.Text = "项目问题截图合计最多约 32 MB，请清除不再需要的条目。"; return false; }
+        if (_book.Conversations.Sum(c => c.Entries.Concat(c.Turns.SelectMany(t => t.SentAnnotations)).Sum(e => e.PdfBlocks.Sum(p => (long)p.ImageBase64.Length))) + entry.PdfBlocks.Sum(p => (long)p.ImageBase64.Length) > 44_000_000) { StatusText.Text = "项目问题截图合计最多约 32 MB，请清除不再需要的条目。"; return false; }
         if (_book.Entries.Count >= 100) { StatusText.Text = "最多保留 100 个条目，请清除已完成条目。"; return false; }
-        entry.Number = _book.Active.NextAnnotationNumber++;
+        entry.Number = _book.Entries.Count + 1;
         _book.Entries.Add(entry); Rebind(); Dirty();
         if (focusComposer) Composer.Focus();
         return true;
     }
     private void Rebind()
     {
-        _book.Active.NextAnnotationNumber = Math.Max(_book.Active.NextAnnotationNumber, _book.Entries.Select(e => e.Number).DefaultIfEmpty().Max() + 1);
+        _book.Active.NextAnnotationNumber = _book.Entries.Count + 1;
+        for (var i = 0; i < _book.Entries.Count; i++) _book.Entries[i].Number = i + 1;
         foreach (var entry in _book.Entries)
         {
-            if (entry.Number == 0) entry.Number = _book.Active.NextAnnotationNumber++;
+            if (entry.Number == 0) entry.Number = _book.Entries.Count + 1;
             entry.PropertyChanged -= AnnotationChanged; entry.PropertyChanged += AnnotationChanged;
         }
         AnnotationsChanged?.Invoke(this, EventArgs.Empty);
@@ -89,6 +94,7 @@ public partial class AiPanel : UserControl, IDisposable
         Entries.ItemsSource = _book.Entries.ToArray();
         ContextExpander.Visibility = _book.Entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         ContextExpander.Header = $"圈点与问题条目 · {_book.Entries.Count}";
+        EntriesButton.Content = $"圈点 · {_book.Entries.Count}";
     }
     private void Dirty() { if (_updating || _disposed) return; _saveTimer.Stop(); _saveTimer.Start(); }
     public async Task SaveAsync()
@@ -96,6 +102,7 @@ public partial class AiPanel : UserControl, IDisposable
         if (_project is null) return;
         var project = _project;
         _book.Draft = Composer.Text;
+        if (!_restoringReading) _book.Active.ReadingOffset = MessagesScroll.VerticalOffset;
         var snapshot = _book.Snapshot();
         await _saveGate.WaitAsync(); try { await Task.Run(() => AiStorage.Save(project, snapshot)); } finally { _saveGate.Release(); }
     }
@@ -131,7 +138,7 @@ public partial class AiPanel : UserControl, IDisposable
         foreach (var turn in _book.Turns.Skip(_visibleTurns.Count)) _visibleTurns.Add(turn);
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         LiveContainer.Visibility = Visibility.Collapsed;
-        ConversationTitle.Text = _book.Active.Title;
+        ConversationTitle.Text = AiConversation.MakeTitle(_book.Active.Title);
         MessageSearch_Changed(MessageSearchBox, null!);
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -144,7 +151,7 @@ public partial class AiPanel : UserControl, IDisposable
         }
         catch { ConnectionLabel.Text = "请在 AI 设置中检查连接"; }
     }
-    private void Composer_Changed(object sender, TextChangedEventArgs e) => Dirty();
+    private void Composer_Changed(object sender, TextChangedEventArgs e) { if (ComposerLines is not null) ComposerLines.Text = string.Join("\n", Enumerable.Range(1, Math.Max(1, Composer.LineCount))); Dirty(); }
     private async void Composer_KeyDown(object sender, KeyEventArgs e)
     {
         if (!IsSendGesture(e.Key, Keyboard.Modifiers)) return;
@@ -153,19 +160,20 @@ public partial class AiPanel : UserControl, IDisposable
     }
     internal static bool IsSendGesture(Key key, ModifierKeys modifiers) => key == Key.Enter && modifiers == ModifierKeys.Control;
     private async void Submit_Click(object sender, RoutedEventArgs e) => await SubmitAsync();
-    internal async Task SubmitAsync()
+    internal async Task SubmitAsync(AiEntry? single = null)
     {
         if (_project is null || _operation is not null) return;
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
-        var prompt = Composer.Text.Trim();
-        var selected = _book.Entries.Where(e => e.Selected).ToArray();
+        var prompt = single is null ? Composer.Text.Trim() : "";
+        var selected = _book.Entries.Where(e => single is null ? e.Selected : e.Id == single.Id).ToArray();
         if (selected.Length == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
-        if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
+        if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = single is null ? "请在编辑栏描述要问的问题。" : "请先填写这条批注的问题。"; if (single is null) Composer.Focus(); return; }
         if (selected.Length > 20 || selected.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || selected.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
+        var sentAnnotations = selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
         await RunOperationAsync(async token =>
         {
-            var batch = selected.Select(x => new AiEntry { Number = x.Number, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
+            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var generation = _generation; var book = _book;
             var sentAt = DateTimeOffset.Now;
@@ -177,11 +185,11 @@ public partial class AiPanel : UserControl, IDisposable
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             ConversationTitle.Text = book.Active.Title;
-            Composer.Clear(); StatusText.Text = "";
+            if (single is null) Composer.Clear(); StatusText.Text = "";
             foreach (var entry in selected) entry.State = "提交中"; Rebind();
             var buffer = new AiStreamBuffer();
-            _liveSegments.Clear(); LiveQuestion.Text = question;
-            LiveSentTime.Text = AiTimestamp.Full(sentAt);
+            _liveSegments.Clear(); LiveQuestion.Markdown = question;
+            LiveSentTime.Text = "发送: " + AiTimestamp.Full(sentAt) + ", 答复: 尚未答复";
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
             void Flush()
@@ -235,7 +243,8 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    book.Turns.Add(new(question, answer) { CreatedAt = sentAt, SentAt = sentAt, AnsweredAt = answeredAt, Model = modelId, ReasoningEffort = effort, Segments = segments });
+                    book.Turns.Add(new(question, answer) { CreatedAt = sentAt, SentAt = sentAt, AnsweredAt = answeredAt, Model = modelId, ReasoningEffort = effort, Segments = segments, Prompt = prompt, SentAnnotations = sentAnnotations });
+                    if (answeredAt is not null) book.Entries.RemoveAll(e => selected.Any(sent => sent.Id == e.Id));
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
                     Rebind(); RefreshTranscript(); await SaveAsync();
                 }

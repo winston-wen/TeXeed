@@ -35,7 +35,7 @@ public partial class AiPanel
             var pointer = view.AnnotationPointer(entry.Id, anchor);
             if (pointer is null || !pointer.HasValidLayout) return null;
             return pointer.GetCharacterRect(LogicalDirection.Forward).TopRight;
-        }, RemoveAnnotation, margin: true);
+        }, RemoveAnnotation, margin: true, send: SubmitEntryAsync);
         _answerLayers.Add(view, layer);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
         var menu = new ContextMenu();

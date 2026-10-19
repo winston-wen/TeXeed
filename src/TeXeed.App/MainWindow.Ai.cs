@@ -17,14 +17,14 @@ public partial class MainWindow
         _aiPanel.SettingsRequested += (_, _) => OpenAiSettings();
         _aiPanel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
         _aiPanel.CreateToolRunner = CreateAiToolRunner;
-        var pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, _aiPanel.RemoveAnnotation);
+        var pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, _aiPanel.RemoveAnnotation, send: _aiPanel.SubmitEntryAsync);
         _aiPanel.AnnotationsChanged += (_, _) => pdfAnnotations.Refresh();
         Preview.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) pdfAnnotations.Edit(entry); };
         Preview.AiMarkingChanged += (_, active) => SetAiMarking(active);
         foreach (var editor in Editors)
         {
             var annotations = new AiAnnotationLayer(editor, () => _aiPanel.AnnotationEntries,
-                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), _aiPanel.RemoveAnnotation, margin: true);
+                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), _aiPanel.RemoveAnnotation, margin: true, send: _aiPanel.SubmitEntryAsync);
             _sourceAnnotations[editor] = annotations;
             _aiPanel.AnnotationsChanged += (_, _) => annotations.Refresh();
             var menu = new ContextMenu();

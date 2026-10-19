@@ -103,6 +103,10 @@ internal static partial class Program
         var popup = (Popup)Field(sourceLayer, "_popup")!;
         Check(popup.IsOpen, "Source marking did not open a local annotation editor");
         var inputBox = AnnotationVisuals<TextBox>(popup.Child).Single();
+        inputBox.Focus();
+        var annotationKey = CreateKey(window, System.Windows.Input.Key.Enter, System.Windows.Input.Keyboard.PreviewKeyDownEvent);
+        await CallAsync(window, "HandleShortcutAsync", annotationKey, System.Windows.Input.ModifierKeys.Control);
+        Check(!annotationKey.Handled, "Annotation Ctrl+Enter was consumed as compile");
         inputBox.Text = "这里为什么是单射？";
         Check(sourceEntry.Question == inputBox.Text, "Local annotation did not update shared draft");
         sourceEntry.Question = "编辑栏同步";
@@ -122,7 +126,7 @@ internal static partial class Program
         Invoke(window, "OpenAiTab"); Invoke(ai, "RefreshTranscript");
         window.UpdateLayout(); await Task.Delay(100);
         var answer = AnnotationVisuals<MarkdownView>(ai).First(v => v.Markdown == MathFixture);
-        var first = (Paragraph)answer.Document.Blocks.First(); first.BringIntoView(); window.UpdateLayout(); await Task.Delay(100); answer.Selection.Select(first.ContentStart, first.ContentEnd);
+        var first = (Paragraph)((Section)answer.Document.Blocks.First()).Blocks.First(); first.BringIntoView(); window.UpdateLayout(); await Task.Delay(100); answer.Selection.Select(first.ContentStart, first.ContentEnd);
         ai.AnnotateAnswer(answer); window.UpdateLayout(); await Task.Delay(100);
         var answerEntry = book.Entries.Last();
         Check(answerEntry.Number == 2 && answerEntry.AnswerAnchor?.Quote.Contains("从集合到映射") == true, "AI answer selection was not anchored");
@@ -142,7 +146,7 @@ internal static partial class Program
         Check(ai.AnnotationEntries.Count == 2, "Conversation switch lost annotations");
         ai.RemoveAnnotation(answerEntry);
         var next = new AiEntry(); ai.AddEntry(next, false);
-        Check(next.Number == 3, "Deleted number was reused");
+        Check(next.Number == 2, "Pending annotations were not renumbered");
         var tabs = (TabWorkspace)Field(window, "_workspaceTabs")!;
         var preview = (PdfPreview)window.FindName("Preview");
         Invoke(window, "SelectWorkspaceTab", tabs.Owner(TabWorkspace.PreviewKey)!.Value, TabWorkspace.PreviewKey);

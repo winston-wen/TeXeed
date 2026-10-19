@@ -738,7 +738,7 @@ public partial class MainWindow : Window
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
         // Let the chat handle Ctrl+Enter before the window's compile shortcut.
-        if (e.Key == Key.Enter && modifiers == ModifierKeys.Control && _aiPanel.IsKeyboardFocusWithin) return;
+        if (e.Key == Key.Enter && modifiers == ModifierKeys.Control && (_aiPanel.IsKeyboardFocusWithin || AiPanel.IsAnnotationInput(Keyboard.FocusedElement))) return;
         if (e.Key == Key.P && modifiers is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift))
         { e.Handled = true; if (!e.IsRepeat) OpenPdfPrint(); return; }
         if (e.Key == Key.F4 && modifiers == ModifierKeys.Control)

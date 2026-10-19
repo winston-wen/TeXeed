@@ -45,7 +45,7 @@ internal sealed class ChatFormula : FrameworkElement
     }
     private double FontSize => (double)GetValue(TextElement.FontSizeProperty);
     private double Scale => FontSize * (_display ? 1.15 : 1) / (10 * 72d / 72.27);
-    private FormattedText Fallback() => new(Error is null ? "⋯" : Source, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+    private FormattedText Fallback() => new(Error is null ? "⋯" : (_display ? "$$\n" + Source + "\n$$" : "$" + Source + "$"), CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
         new Typeface("Consolas"), FontSize, (Brush)GetValue(TextElement.ForegroundProperty), VisualTreeHelper.GetDpi(this).PixelsPerDip);
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -60,7 +60,7 @@ internal sealed class ChatFormula : FrameworkElement
     }
     protected override void OnRender(DrawingContext drawing)
     {
-        if (_svg is not { } svg) { drawing.DrawText(Fallback(), new Point(1, 1)); return; }
+        if (_svg is not { } svg) { if (Error is not null) drawing.DrawRectangle((Brush?)TryFindResource("PanelBackground") ?? Brushes.Transparent, null, new Rect(RenderSize)); drawing.DrawText(Fallback(), new Point(1, 1)); return; }
         drawing.PushTransform(new TranslateTransform(1 - svg.Bounds.X * Scale, 1 - svg.Bounds.Y * Scale));
         drawing.PushTransform(new ScaleTransform(Scale, Scale));
         drawing.DrawGeometry((Brush)GetValue(TextElement.ForegroundProperty), null, svg.Geometry);

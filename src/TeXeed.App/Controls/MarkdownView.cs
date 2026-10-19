@@ -23,12 +23,15 @@ public sealed partial class MarkdownView : RichTextBox
         nameof(Markdown), typeof(string), typeof(MarkdownView), new PropertyMetadata("", (d, _) => ((MarkdownView)d).Render()));
     public string Markdown { get => (string)GetValue(MarkdownProperty); set => SetValue(MarkdownProperty, value); }
 
+    internal Action<string>? SourceLink { get; set; }
+    internal Action<string>? LocalLink { get; set; }
+    internal bool LinkListNumbers { get; set; }
     public MarkdownView()
     {
         IsReadOnly = true; IsReadOnlyCaretVisible = false; IsDocumentEnabled = true; IsUndoEnabled = false;
         BorderThickness = new Thickness(0); Background = Brushes.Transparent; Padding = new Thickness(0, 0, 34, 0);
         VerticalScrollBarVisibility = ScrollBarVisibility.Disabled; HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        FontSize = 15; FontFamily = new FontFamily("Segoe UI, Microsoft YaHei UI");
+        FontSize = 16; FontFamily = new FontFamily("Times New Roman, Source Han Serif SC, FangSong");
         SetResourceReference(ForegroundProperty, "Ink");
         SetResourceReference(SelectionBrushProperty, "TextSelectionBackground");
         SetResourceReference(SelectionTextBrushProperty, "TextSelectionForeground");
@@ -54,7 +57,9 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
         _math = new ChatMath(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear();
         var source = _math.Prepare(Markdown ?? "", Pipeline);
-        AddBlocks(document.Blocks, Markdig.Markdown.Parse(source, Pipeline), 0);
+        try { AddBlocks(document.Blocks, Markdig.Markdown.Parse(source, Pipeline), 0); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { document.Blocks.Clear(); document.Blocks.Add(new Paragraph(new Run(Markdown ?? "")) { FontFamily = new FontFamily("Consolas"), Background = (Brush?)TryFindResource("PanelBackground") }); }
+        ApplyFolding(document);
         Document = document;
     }
 
@@ -71,6 +76,8 @@ public sealed partial class MarkdownView : RichTextBox
                 case HeadingBlock heading:
                     var h = Paragraph(heading.Inline, depth);
                     h.FontSize = heading.Level switch { 1 => 24, 2 => 21, 3 => 18, _ => 16 };
+                    h.Tag = new HeadingInfo(heading.Level, heading.Span.Start);
+                    h.FontFamily = new FontFamily("Source Han Sans SC, Microsoft YaHei");
                     h.FontWeight = FontWeights.SemiBold; h.Margin = new Thickness(0, 16, 0, 10);
                     target.Add(h); break;
                 case ParagraphBlock paragraph:
@@ -90,8 +97,12 @@ public sealed partial class MarkdownView : RichTextBox
                     var items = new System.Windows.Documents.List { MarkerStyle = list.IsOrdered ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
                         Padding = new Thickness(24, 0, 0, 0), Margin = new Thickness(0, 4, 0, 12) };
                     if (list.IsOrdered && int.TryParse(list.OrderedStart, out var start) && start > 0) items.StartIndex = start;
+                    var itemNumber = items.StartIndex;
                     foreach (var child in list.OfType<ListItemBlock>())
-                    { var item = new ListItem(); AddBlocks(item.Blocks, child, depth + 1); items.ListItems.Add(item); }
+                    { var item = new ListItem(); AddBlocks(item.Blocks, child, depth + 1);
+                        if (LinkListNumbers && list.IsOrdered && item.Blocks.FirstBlock is Paragraph paragraph && paragraph.Inlines.FirstInline is Hyperlink link)
+                        { items.MarkerStyle = TextMarkerStyle.None; link.Inlines.InsertBefore(link.Inlines.FirstInline, new Run(itemNumber + ". ")); }
+                        itemNumber++; items.ListItems.Add(item); }
                     target.Add(items); break;
                 case MdTable table:
                     var result = new Table { CellSpacing = 0, Margin = new Thickness(0, 6, 0, 16) };
@@ -135,6 +146,11 @@ public sealed partial class MarkdownView : RichTextBox
             {
                 case LiteralInline literal: AddMathText(target, literal.Content.ToString()); break;
                 case CodeInline code:
+                    if (SourceLink is not null && System.Text.RegularExpressions.Regex.IsMatch(code.Content, @"^[\w./\\ -]+\.(?:tex|md)(?::\d+(?:[–—-]\d+)?)?$"))
+                    {
+                        var sourceLink = new Hyperlink(new Run(code.Content)); sourceLink.SetResourceReference(TextElement.ForegroundProperty, "Accent");
+                        sourceLink.Click += (_, e) => { SourceLink?.Invoke(code.Content); e.Handled = true; }; target.Add(sourceLink); break;
+                    }
                     var run = new Run(code.Content) { FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 14 };
                     run.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); target.Add(run); break;
                 case LineBreakInline: target.Add(new LineBreak()); break;
