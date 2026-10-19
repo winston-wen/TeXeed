@@ -57,7 +57,7 @@ function turnHtml(t){
  const thinking=running?.turn.id===t.id,canFold=!thinking,end=turnEnd(t);
  const activities=(t.segments||[]).filter(s=>s.kind==='activity');
  const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
- const sent='<div class="turn-time sent-time">发送时间：'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+'</div>';
+ const sent='<div class="turn-time sent-time">发送时间：'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+(!thinking&&t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
  const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':'答复时间：'+(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+(end.incomplete?'<span class="incomplete-label">（未完成）</span>':'');
  const footer='<div class="turn-footer" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+answerTime+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
  return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question">'+questionHtml(t)+'</div>'+sent+'<div class="segments" id="'+t.id+'-segments" '+(!thinking&&t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+footer+'</article>';
