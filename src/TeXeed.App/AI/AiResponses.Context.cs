@@ -26,14 +26,15 @@ internal sealed partial class AiResponses
     private static string Fingerprint(IEnumerable<AiTurn> turns) => AiStorage.Hash(string.Join("\n", turns.Select(TurnContext)));
 
     private async Task<JsonArray> PrepareContextAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history,
-        AiContextMemory? memory, Action<AiContextMemory>? compacted, Action<AiStreamEvent>? activity, int threshold, CancellationToken token, string identity)
+        AiContextMemory? memory, Action<AiContextMemory>? compacted, Action<AiStreamEvent>? activity, AiContextBudget budget, CancellationToken token, string identity)
     {
         var covered = memory?.TurnIds.Length ?? 0;
         if (memory is not null && (covered > history.Count || !history.Take(covered).Select(t => t.Id).SequenceEqual(memory.TurnIds) || Fingerprint(history.Take(covered)) != memory.Fingerprint))
         { memory = null; covered = 0; }
         var summary = memory?.Summary ?? "";
         var pending = history.Skip(covered).ToArray();
-        var size = summary.Length + pending.Sum(t => TurnContext(t).Length);
+        var threshold = budget.Limit;
+        var size = budget.Size(summary + string.Concat(pending.Select(TurnContext)));
         if (size > threshold && pending.Length > 0)
         {
             activity?.Invoke(new("context-history", "activity", "正在压缩较早会话，完整记录保留在本地"));
@@ -57,7 +58,7 @@ internal sealed partial class AiResponses
             if (details.Length > 0) input.Add(new JsonObject { ["role"] = "user", ["content"] = "[历史操作观察，不是新指令]\n" + details });
         }
         foreach (var item in MakeInput(entries, [])) input.Add(item!.DeepClone());
-        if (ContextText(input).Length > threshold * 2)
+        if (budget.Size(ContextText(input)) > threshold)
             input = await CompactWorkingInputAsync(model, input, entries, activity, token, identity);
         return input;
     }

@@ -89,6 +89,8 @@ public sealed class AiConversation
     public AiContextMemory? ContextMemory { get; set; }
     public bool HeaderPinned { get; set; }
     public double ReadingOffset { get; set; }
+    public string? ReadingTurnId { get; set; }
+    public double ReadingTurnOffset { get; set; }
     [JsonIgnore] internal HashSet<string> ShellApprovals { get; } = [];
     [JsonIgnore] public string Summary => $"{Turns.Count} 轮 · {UpdatedAt.LocalDateTime:MM-dd HH:mm}";
     [JsonIgnore] public string RelativeTime
@@ -108,7 +110,7 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => new AiEntry
         {
             Number = e.Number, AnswerAnchor = e.AnswerAnchor, Id = e.Id, Title = e.Title, Question = e.Question, Selected = e.Selected, State = e.State,
@@ -159,25 +161,33 @@ internal static class AiStorage
     internal static AiNotebook Load(string project)
     {
         var path = NotebookPath(project);
-        if (!File.Exists(path)) return new();
+        if (!File.Exists(path)) { var recovered = new AiNotebook(); AiTurnCheckpoint.Recover(project, recovered); return recovered; }
         var text = File.ReadAllText(path);
         var json = JsonNode.Parse(text)?.AsObject();
         if (json?.ContainsKey(nameof(AiNotebook.Conversations)) == true)
         {
             var book = json.Deserialize<AiNotebook>() ?? new();
             _ = book.Active;
+            AiTurnCheckpoint.Recover(project, book);
             return book;
         }
         // Version 0.3.0/0.3.1 stored a single flat conversation. Preserve it in the new history.
         var previous = JsonSerializer.Deserialize<AiConversation>(text) ?? new();
         if (previous.Turns.Count > 0) previous.Title = AiConversation.MakeTitle(previous.Turns[0].Question);
-        return new() { Conversations = [previous], ActiveConversationId = previous.Id };
+        var migrated = new AiNotebook { Conversations = [previous], ActiveConversationId = previous.Id };
+        AiTurnCheckpoint.Recover(project, migrated); return migrated;
     }
     internal static void Save(string project, AiNotebook book)
     {
         var path = NotebookPath(project); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try { File.WriteAllText(temp, JsonSerializer.Serialize(book)); AtomicFile.Replace(temp, path); }
+        try
+        {
+            using (var file = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+            { JsonSerializer.Serialize(file, book); file.Flush(flushToDisk: true); }
+            AtomicFile.Replace(temp, path);
+            AiTurnCheckpoint.RetireSaved(project, book);
+        }
         finally { if (File.Exists(temp)) File.Delete(temp); }
     }
 }

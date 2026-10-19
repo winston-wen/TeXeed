@@ -10,6 +10,8 @@ internal static partial class Program
     private static async Task AwaitMathAsync(FrameworkElement root)
     {
         root.UpdateLayout();
+        await Task.WhenAll(AnnotationVisuals<MarkdownView>(root).Select(v => v.RenderTask)).WaitAsync(TimeSpan.FromSeconds(30));
+        root.UpdateLayout();
         var formulas = AnnotationVisuals<ChatFormula>(root).ToArray();
         await Task.WhenAll(formulas.Select(f => f.RenderTask)).WaitAsync(TimeSpan.FromSeconds(90));
         foreach (var formula in formulas)
@@ -70,6 +72,7 @@ internal static partial class Program
         foreach (var theme in new[] { "ristretto", "github-light-default" })
         {
             TeXeed.App.Services.ThemeManager.Apply(theme); window.UpdateLayout();
+            Check(AnnotationVisuals<ChatFormula>(view).All(f => Equals(f.GetValue(System.Windows.Documents.TextElement.ForegroundProperty), view.TryFindResource("Ink"))), "Equation numbers changed the formula ink color");
             Capture(window, Path.Combine(output, "expectation-formulas-" + theme + ".png"));
         }
         var fullView = new MarkdownView { Markdown = content + "\n\n行内基线：\\(g_i+\\frac{a}{b}+\\sqrt{x^2}\\) 与中文、Latin、上下标排在同一段。", Margin = new Thickness(28) };
@@ -92,7 +95,7 @@ internal static partial class Program
             window.UpdateLayout(); await Task.Delay(30); window.UpdateLayout();
         }
         Check(scroll.ScrollableHeight > 500, "Wheel fixture has no conversation overflow");
-        var question = AnnotationVisuals<TextBox>(ai).First(t => t.Text == "解释这三个期望公式");
+        var question = AnnotationVisuals<MarkdownView>(ai).First(t => t.Markdown == "解释这三个期望公式");
         foreach (var target in new UIElement[] { question, view, AnnotationVisuals<ChatFormula>(view).First() })
         {
             scroll.ScrollToVerticalOffset(200); window.UpdateLayout(); var before = scroll.VerticalOffset;

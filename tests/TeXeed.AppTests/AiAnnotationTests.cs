@@ -105,6 +105,7 @@ internal static partial class Program
         var inputBox = AnnotationVisuals<TextBox>(popup.Child).Single();
         inputBox.Focus();
         var annotationKey = CreateKey(window, System.Windows.Input.Key.Enter, System.Windows.Input.Keyboard.PreviewKeyDownEvent);
+        annotationKey.Source = inputBox;
         await CallAsync(window, "HandleShortcutAsync", annotationKey, System.Windows.Input.ModifierKeys.Control);
         Check(!annotationKey.Handled, "Annotation Ctrl+Enter was consumed as compile");
         inputBox.Text = "这里为什么是单射？";
@@ -169,6 +170,13 @@ internal static partial class Program
         Check(((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 0, "Completed PDF annotation still has a draft bubble");
         pdfEntry.State = "未完成，可重试"; pdfLayer.Refresh();
         Check(((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 1, "Retry lost the PDF draft bubble");
+        var previewSide = tabs.Owner(TabWorkspace.PreviewKey)!.Value;
+        Invoke(window, "MoveWorkspaceTab", project.MainPath, previewSide, 0, true);
+        Invoke(window, "SelectWorkspaceTab", previewSide, project.MainPath); window.UpdateLayout(); await Task.Delay(100);
+        Check(!preview.IsVisible && !pdfLayer.IsVisible && ((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 0,
+            "Hidden PDF annotation leaked into the source tab");
+        Invoke(window, "SelectWorkspaceTab", previewSide, TabWorkspace.PreviewKey); window.UpdateLayout(); await Task.Delay(100);
+        Check(pdfLayer.IsVisible && ((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 1, "Returning to PDF lost its annotation");
         Console.WriteLine("AI annotations: math vectors/copy/references, columns/resizing/themes, source popup/binding/anchors, answer quotes, persistence and isolation passed.");
     }
 }

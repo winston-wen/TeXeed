@@ -101,7 +101,7 @@ public static class ScrollActivity
 
         private void Reveal()
         {
-            if (!_bar.IsVisible) return;
+            if (!_bar.IsVisible || !_bar.IsEnabled) return;
             if (!_shown)
             {
                 _shown = true;

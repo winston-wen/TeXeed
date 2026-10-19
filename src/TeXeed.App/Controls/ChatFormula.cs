@@ -11,6 +11,7 @@ internal sealed class ChatFormula : FrameworkElement
 {
     private ChatSvg? _svg;
     private readonly bool _display;
+    private readonly Action? _layoutChanged;
     internal string Source { get; }
     internal string? Error { get; private set; }
     internal string? SvgPath => _svg?.Path;
@@ -22,9 +23,9 @@ internal sealed class ChatFormula : FrameworkElement
         TextElement.FontSizeProperty.OverrideMetadata(typeof(ChatFormula),
             new FrameworkPropertyMetadata(15d, FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
     }
-    internal ChatFormula(string source, bool display)
+    internal ChatFormula(string source, bool display, Action? layoutChanged = null)
     {
-        Source = source; _display = display;
+        Source = source; _display = display; _layoutChanged = layoutChanged;
         ToolTip = "LaTeX 排版中…\n" + source;
         System.Windows.Automation.AutomationProperties.SetName(this, source);
         RenderTask = LoadAsync();
@@ -41,12 +42,16 @@ internal sealed class ChatFormula : FrameworkElement
             Error = ex.Message;
             ToolTip = Error + "\n" + Source;
         }
-        InvalidateMeasure(); InvalidateVisual();
+        _layoutChanged?.Invoke(); InvalidateMeasure(); InvalidateVisual();
     }
     private double FontSize => (double)GetValue(TextElement.FontSizeProperty);
     private double Scale => FontSize * (_display ? 1.15 : 1) / (10 * 72d / 72.27);
     private FormattedText Fallback() => new(Error is null ? "⋯" : (_display ? "$$\n" + Source + "\n$$" : "$" + Source + "$"), CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
         new Typeface("Consolas"), FontSize, (Brush)GetValue(TextElement.ForegroundProperty), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+    // WPF's default drawing hit test walks every glyph outline in the SVG. Pointer
+    // movement must cost O(1), independently of a formula's path complexity.
+    protected override HitTestResult? HitTestCore(PointHitTestParameters hit) =>
+        new Rect(RenderSize).Contains(hit.HitPoint) ? new PointHitTestResult(this, hit.HitPoint) : null;
     protected override Size MeasureOverride(Size availableSize)
     {
         if (_svg is { } svg)

@@ -9,7 +9,7 @@ public sealed record AiContextUsage(string Model, long InputTokens, long OutputT
     [JsonIgnore] public string Display => ContextWindow is > 0
         ? ((InputTokens + OutputTokens) * 100d / ContextWindow.Value).ToString("F1", CultureInfo.InvariantCulture) + "%" : "—";
     [JsonIgnore] public string Description => $"最近一次模型请求的上下文占用（输入与输出，非累计用量）：{InputTokens + OutputTokens:N0} tokens。" +
-        (ContextWindow is > 0 ? $"模型窗口：{ContextWindow:N0} tokens。" : "服务端未提供上下文窗口大小，无法计算百分比。");
+        (ContextWindow is > 0 ? $"模型窗口：{ContextWindow:N0} tokens。压缩按当前工作上下文的估算或实测占用达到窗口 75% 触发；新工具结果尚未计入上次实测用量。" : "服务端未提供上下文窗口大小，无法计算百分比。");
     internal static AiContextUsage? FromResponse(string model, JsonNode? response, long? contextWindow)
     {
         var usage = response?["usage"];

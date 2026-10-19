@@ -1,9 +1,7 @@
-using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
 using Markdig.Extensions.CustomContainers;
@@ -18,6 +16,22 @@ public sealed partial class MarkdownView
     private readonly Dictionary<string, FrameworkContentElement> _equations = [];
     private readonly Dictionary<string, TextPointer?> _annotationPointers = [];
     private readonly Dictionary<InlineUIContainer, ChatMath.Token> _clipboardMath = [];
+    private readonly List<(FrameworkElement Grid, int Columns)> _formulaWidths = [];
+    private double _measuredWidth = double.NaN;
+    private static double FormulaAvailableWidth(double width, int columns) => Math.Max(80, (width - 34) / columns - (columns > 1 ? 64 : 32));
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        // Size embedded formula rows BEFORE FlowDocument formats its paragraphs.
+        // Binding every row to ActualWidth used to invalidate the whole document
+        // after arrange, causing repeated bottomless formatting and scroll stalls.
+        if (double.IsFinite(availableSize.Width) && availableSize.Width != _measuredWidth)
+        {
+            _measuredWidth = availableSize.Width;
+            foreach (var (grid, columns) in _formulaWidths) grid.Width = FormulaAvailableWidth(_measuredWidth, columns);
+        }
+        var measured = base.MeasureOverride(availableSize);
+        return _renderPending ? new Size(measured.Width, Math.Max(measured.Height, _estimatedHeight)) : measured;
+    }
     internal TextPointer? AnnotationPointer(string id, TeXeed.App.AI.AiAnswerAnchor anchor)
     {
         if (_annotationPointers.TryGetValue(id, out var cached)) return cached;
@@ -70,7 +84,7 @@ public sealed partial class MarkdownView
     }
     private Inline FormulaInline(ChatMath.Token token)
     {
-        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display))
+        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display, () => LayoutVersion++))
             { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
         _clipboardMath.Add(inline, token);
         return inline;
@@ -78,14 +92,10 @@ public sealed partial class MarkdownView
     private Paragraph DisplayFormula(ChatMath.Token token)
     {
         var paragraph = new Paragraph { Margin = new Thickness(0, 12, 0, 18), Padding = new Thickness(8), LineHeight = double.NaN };
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition()); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var formula = new ChatFormula(token.Source, true);
-        var scroller = new ScrollViewer { Content = formula, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Padding = new Thickness(6), HorizontalContentAlignment = HorizontalAlignment.Center };
-        grid.Children.Add(scroller);
-        var number = new TextBlock { Text = $"({token.Number})", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), FontSize = 13 };
-        number.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); Grid.SetColumn(number, 1); grid.Children.Add(number);
-        grid.SetBinding(FrameworkElement.WidthProperty, new Binding(nameof(ActualWidth)) { Source = this, Converter = new FormulaWidth(_columnCount) });
+        var formula = new ChatFormula(token.Source, true, () => LayoutVersion++);
+        var grid = new ChatFormulaRow(formula, token.Number);
+        _formulaWidths.Add((grid, _columnCount));
+        grid.Width = FormulaAvailableWidth(double.IsFinite(_measuredWidth) ? _measuredWidth : 0, _columnCount);
         var inline = new InlineUIContainer(grid) { Tag = "$$" + token.Source + (token.Label is null ? "" : @"\label{" + token.Label + "}") + @"\tag{" + token.Number + "}$$" };
         paragraph.Inlines.Add(inline);
         _clipboardMath.Add(inline, token);
@@ -133,10 +143,5 @@ public sealed partial class MarkdownView
             p = p.GetNextContextPosition(LogicalDirection.Forward);
         }
         return output.ToString();
-    }
-    private sealed class FormulaWidth(int columns) : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => Math.Max(80, ((double)value - 34) / columns - (columns > 1 ? 64 : 32));
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
     }
 }

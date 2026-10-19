@@ -7,12 +7,12 @@ public sealed class AiSegment : INotifyPropertyChanged
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     private string _kind = "text", _text = "";
-    public string Kind { get => _kind; set { _kind = value; Changed(nameof(Kind)); } }
-    public string Text { get => _text; set { _text = value; Changed(nameof(Text)); } }
+    public string Kind { get => _kind; set { if (_kind == value) return; _kind = value; Changed(nameof(Kind)); } }
+    public string Text { get => _text; set { if (_text == value) return; _text = value; Changed(nameof(Text)); } }
     private string _details = "";
-    public string Details { get => _details; set { _details = value; Changed(nameof(Details)); } }
+    public string Details { get => _details; set { if (_details == value) return; _details = value; Changed(nameof(Details)); } }
     private DateTimeOffset _createdAt = DateTimeOffset.Now;
-    public DateTimeOffset CreatedAt { get => _createdAt; set { _createdAt = value; Changed(nameof(DisplayTime)); } }
+    public DateTimeOffset CreatedAt { get => _createdAt; set { if (_createdAt == value) return; _createdAt = value; Changed(nameof(DisplayTime)); } }
     [JsonIgnore] public DateTimeOffset ReferenceTime { get; set; }
     [JsonIgnore] public string DisplayTime => AiTimestamp.Activity(CreatedAt, ReferenceTime == default ? CreatedAt : ReferenceTime);
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -35,10 +35,13 @@ internal sealed class AiStreamBuffer
     private readonly object _gate = new();
     private readonly List<Node> _nodes = [];
     private readonly Dictionary<string, Node> _byId = [];
+    private long _version;
+    internal long Version { get { lock (_gate) return _version; } }
     internal void Add(AiStreamEvent value)
     {
         lock (_gate)
         {
+            _version++;
             if (!_byId.TryGetValue(value.Id, out var node)) { node = new(value); _nodes.Add(node); _byId.Add(value.Id, node); }
             if (!value.Append) node.Time = DateTimeOffset.Now;
             node.Kind = value.Kind;

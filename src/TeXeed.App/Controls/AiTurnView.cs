@@ -25,6 +25,7 @@ public sealed class AiTurnView : StackPanel
     private readonly Button _collapsed = new() { Content = "（已折叠，点击展开）", BorderThickness = new Thickness(0), Background = Brushes.Transparent, FontSize = 16, FontFamily = new FontFamily("Times New Roman, Source Han Serif SC, FangSong"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 8) };
     private FrameworkElement? _footer;
     private string? _previewId;
+    private bool _bodyBuilt;
 
     public AiTurnView() { KeyDown += (_, e) => { if (e.Key == Key.Escape && _previewId is not null) { ClosePreview(); e.Handled = true; } }; _collapsed.SetResourceReference(Control.ForegroundProperty, "Muted"); _collapsed.Click += (_, _) => Toggle(); }
     internal void Toggle()
@@ -33,6 +34,7 @@ public sealed class AiTurnView : StackPanel
     }
     private void ApplyCollapsed()
     {
+        if (!Turn.Collapsed && !_bodyBuilt) BuildBody();
         _body.Visibility = Turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
         _collapsed.Visibility = Turn.Collapsed ? Visibility.Visible : Visibility.Collapsed;
         if (_footer is not null) System.Windows.Automation.AutomationProperties.SetHelpText(_footer, Turn.Collapsed ? "已折叠，双击展开" : "双击收起");
@@ -53,6 +55,12 @@ public sealed class AiTurnView : StackPanel
         }
         _preview.Visibility = Visibility.Collapsed; _preview.Margin = new Thickness(12, 8, 12, 10); Children.Add(_preview);
         _body.Margin = new Thickness(12, 10, 4, 0); Children.Add(_body);
+        _bodyBuilt = false;
+        Children.Add(_collapsed); _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
+    }
+    private void BuildBody()
+    {
+        _bodyBuilt = true;
         foreach (var segment in Turn.DisplaySegments)
         {
             if (segment.Kind == "activity")
@@ -62,18 +70,18 @@ public sealed class AiTurnView : StackPanel
                 var text = new TextBlock { Text = segment.Text, TextWrapping = TextWrapping.Wrap, FontSize = 12 }; text.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); row.Children.Add(text);
                 UIElement content = row;
                 if (!string.IsNullOrEmpty(segment.Details)) content = new Expander { Header = row, IsExpanded = false, Content = new TextBox { Text = segment.Details, IsReadOnly = true, FontFamily = new FontFamily("Consolas"), FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxHeight = 320, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
-                var border = new Border { Child = content, Padding = new Thickness(8, 2, 8, 2), CornerRadius = new CornerRadius(4), BorderThickness = new Thickness(2, 0, 0, 0), Margin = new Thickness(0, 0, 0, 7) };
+                var border = new Border { Child = content, DataContext = segment, Padding = new Thickness(8, 2, 8, 2), CornerRadius = new CornerRadius(4), BorderThickness = new Thickness(2, 0, 0, 0), Margin = new Thickness(0, 0, 0, 7) };
                 border.SetResourceReference(Border.BackgroundProperty, "ChatQuestionBackground"); border.SetResourceReference(Border.BorderBrushProperty, "Guide"); _body.Children.Add(border);
             }
             else
             {
-                var answer = Rich(segment.Text, new Thickness(0, 0, 0, 10)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
+                var answer = Rich("", new Thickness(0, 0, 0, 10)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
                 answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => Changed?.Invoke());
+                answer.Markdown = segment.Text;
                 answer.Loaded += (_, _) => AnswerReady?.Invoke(answer); answer.Unloaded += (_, _) => AnswerGone?.Invoke(answer);
                 Answers.Add(answer); _body.Children.Add(answer);
             }
         }
-        Children.Add(_collapsed); _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
     }
     internal static string LinkLabel(AiEntry entry) => AnnotationSummary(entry).Replace("[", "\\[").Replace("]", "\\]");
     internal static string AnnotationSummary(AiEntry entry)
@@ -112,10 +120,9 @@ public sealed class AiTurnView : StackPanel
         var grid = new Grid { Margin = new Thickness(12, 16, 4, 0), MinHeight = 28, Background = Brushes.Transparent };
         grid.ColumnDefinitions.Add(new ColumnDefinition()); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var toggle = new Grid { Background = Brushes.Transparent, Focusable = true, Cursor = Cursors.Hand };
-        toggle.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); toggle.ColumnDefinitions.Add(new ColumnDefinition());
+        toggle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4, GridUnitType.Star) }); toggle.ColumnDefinitions.Add(new ColumnDefinition());
         System.Windows.Automation.AutomationProperties.SetName(toggle, Turn.Footer);
         var stamp = new TextBlock { Text = Turn.Footer, FontFamily = new FontFamily("Consolas, Microsoft YaHei"), FontSize = 11, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center }; toggle.Children.Add(stamp);
-        toggle.SizeChanged += (_, _) => stamp.MaxWidth = Math.Max(80, toggle.ActualWidth - 16);
         var dots = new Line { X2 = 1, Stretch = Stretch.Fill, StrokeThickness = 1, StrokeDashArray = [1, 2], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 6, 0) };
         dots.SetResourceReference(Shape.StrokeProperty, "Muted"); Grid.SetColumn(dots, 1); toggle.Children.Add(dots);
         toggle.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };

@@ -10,12 +10,58 @@ public partial class AiPanel
 {
     internal static bool IsAnnotationInput(IInputElement? input) => input is FrameworkElement { Tag: AiEntry } or FrameworkElement { DataContext: AiEntry };
     private bool _restoringReading;
+    private readonly Dictionary<string, AiTurnView> _turnViews = [];
+    private bool _readingQueued;
+    private int _readingRestoreVersion;
+    private AiTurnView? ActiveReadingTurn() => _turnViews.Values.Where(v => v.IsLoaded && v.IsVisible)
+        .OrderBy(v => v.TranslatePoint(new Point(), MessagesScroll).Y)
+        .FirstOrDefault(v => v.TranslatePoint(new Point(0, v.ActualHeight), MessagesScroll).Y > 0);
+    private void CaptureReadingAnchor()
+    {
+        if (_restoringReading) return;
+        if (ActiveReadingTurn() is { } active)
+        {
+            _book.Active.ReadingTurnId = active.Turn.Id;
+            _book.Active.ReadingTurnOffset = Math.Max(0, -active.TranslatePoint(new Point(), MessagesScroll).Y);
+        }
+    }
+    private void RestoreReadingAnchor() => _ = RestoreReadingAnchorAsync(_book.Active, ++_readingRestoreVersion);
+    private async Task RestoreReadingAnchorAsync(AiConversation conversation, int version)
+    {
+        try
+        {
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+            if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
+            var index = conversation.Turns.FindIndex(t => t.Id == conversation.ReadingTurnId);
+            if (index >= 0) VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index + 1);
+            else MessagesScroll.ScrollToVerticalOffset(conversation.ReadingOffset);
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+            if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
+            if (conversation.ReadingTurnId is { } id && _turnViews.TryGetValue(id, out var view))
+            {
+                await Task.WhenAll(view.Answers.Select(a => a.RenderTask));
+                await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+                if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
+                MessagesScroll.ScrollToVerticalOffset(MessagesScroll.VerticalOffset + view.TranslatePoint(new Point(), MessagesScroll).Y + conversation.ReadingTurnOffset);
+            }
+            _restoringReading = false; ScheduleReadingContext();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { _restoringReading = false; if (!_disposed) ShowError(ex); }
+    }
+    private void ScheduleReadingContext()
+    {
+        if (_readingQueued || _disposed) return;
+        _readingQueued = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+        { _readingQueued = false; if (!_disposed) UpdateReadingContext(); }));
+    }
     private void UpdateReadingContext()
     {
         if (!IsLoaded || ReadingContext is null) return;
-        var turns = History.Items.Cast<AiTurn>().Select(t => History.ItemContainerGenerator.ContainerFromItem(t)).OfType<DependencyObject>()
-            .Select(container => VisualChildren<AiTurnView>(container).FirstOrDefault()).OfType<AiTurnView>().Where(v => v.IsVisible).ToArray();
-        var active = turns.FirstOrDefault(v => v.TranslatePoint(new Point(0, v.ActualHeight), MessagesScroll).Y > 0);
+        // Only native virtualized containers in/near the viewport are registered.
+        // Never walk document descendants or force layout of off-screen history.
+        var active = ActiveReadingTurn();
+        CaptureReadingAnchor();
         if (active is null || active.TranslatePoint(new Point(), MessagesScroll).Y >= -24)
         { ReadingContext.Visibility = Visibility.Collapsed; return; }
         ReadingContextTitle.Text = (active.Turn.Prompt ?? active.Turn.DisplayQuestion).Split('\n').FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "圈点提问";
@@ -97,6 +143,9 @@ public partial class AiPanel
     private void Turn_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not AiTurnView view) return;
+        _turnViews[view.Turn.Id] = view;
+        view.Unloaded -= Turn_Unloaded; view.Unloaded += Turn_Unloaded;
+        ScheduleReadingContext();
         view.Changed = Dirty;
         view.SourceRequested = OpenChatSource;
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
@@ -105,5 +154,9 @@ public partial class AiPanel
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
         view.AnswerGone = answer => Answer_Unloaded(answer, new RoutedEventArgs());
         foreach (var answer in view.Answers.Where(a => a.IsLoaded)) Answer_Loaded(answer, new RoutedEventArgs());
+    }
+    private void Turn_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is AiTurnView view && _turnViews.GetValueOrDefault(view.Turn.Id) == view) _turnViews.Remove(view.Turn.Id);
     }
 }

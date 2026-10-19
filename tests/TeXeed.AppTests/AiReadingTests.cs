@@ -38,15 +38,15 @@ internal static partial class Program
         Check(Descendants<Image>(view).Any(i => i.Source is not null), "PDF snapshot did not load");
         view.ClosePreview();
         var answer = view.Answers.Single();
-        var heading = Descendants<Button>(answer).First(b => b.Content is TextBlock text && new TextRange(text.ContentStart, text.ContentEnd).Text.Contains("第一节"));
-        heading.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); host.UpdateLayout();
+        var heading = ((Paragraph)((Section)answer.Document.Blocks.First()).Blocks.First()).Inlines.OfType<Hyperlink>().Single();
+        heading.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); host.UpdateLayout();
         Check(turn.CollapsedSections.Values.Any(x => x), "Heading collapse was not recorded");
         Check(!new TextRange(answer.Document.ContentStart, answer.Document.ContentEnd).Text.Contains("子节正文"), "Collapsed heading body still visible");
         view.Toggle(); Check(turn.Collapsed, "Turn did not collapse");
         await panel.SaveAsync(); var persisted = AiStorage.Load(project).Turns.Single();
         Check(persisted.Collapsed && persisted.CollapsedSections.Values.Any(x => x), "Fold state did not persist");
         Check(persisted.SentAnnotations[1].PdfBlocks[0].Page == 2, "PDF snapshot was not saved with turn");
-        view.Toggle(); heading.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); host.UpdateLayout();
+        view.Toggle(); heading.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); host.UpdateLayout();
         await AwaitMathAsync(answer);
         Capture(host, Path.Combine(output, "ai-reading-expanded.png"));
         host.Width = 420; await Task.Delay(80); host.UpdateLayout();

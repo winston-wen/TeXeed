@@ -22,6 +22,11 @@ public sealed partial class MarkdownView : RichTextBox
     public static readonly DependencyProperty MarkdownProperty = DependencyProperty.Register(
         nameof(Markdown), typeof(string), typeof(MarkdownView), new PropertyMetadata("", (d, _) => ((MarkdownView)d).Render()));
     public string Markdown { get => (string)GetValue(MarkdownProperty); set => SetValue(MarkdownProperty, value); }
+    public static readonly DependencyProperty IsStreamingProperty = DependencyProperty.Register(
+        nameof(IsStreaming), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
+    public bool IsStreaming { get => (bool)GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
+    private Run? _streamRun;
+    private string _streamText = "";
 
     internal Action<string>? SourceLink { get; set; }
     internal Action<string>? LocalLink { get; set; }
@@ -38,7 +43,9 @@ public sealed partial class MarkdownView : RichTextBox
         // RichTextBox always paints selection in an adorner, unlike TextBox/PasswordBox.
         // An opaque brush would cover the glyphs even with SelectionTextBrush set.
         SelectionOpacity = .35;
-        SizeChanged += (_, e) => { if ((e.PreviousSize.Width < 560) != (e.NewSize.Width < 560)) Render(); };
+        Unloaded += (_, _) => { if (_renderPending) { _renderVersion++; _renderPaused = true; } };
+        Loaded += (_, _) => { if (_renderPaused) Render(); };
+        SizeChanged += (_, e) => { if (!IsStreaming && Markdown.Contains("columns") && (e.PreviousSize.Width < 560) != (e.NewSize.Width < 560)) Render(); };
         // Own the copy command so rich editors cannot prefer the default RTF/XAML formula images.
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, e) =>
         {
@@ -49,84 +56,162 @@ public sealed partial class MarkdownView : RichTextBox
     }
 
     internal string Revision { get; private set; } = "";
+    internal int LayoutVersion { get; private set; }
+    internal Task RenderTask { get; private set; } = Task.CompletedTask;
+    private int _renderVersion;
+    private bool _renderPending, _renderPaused;
+    private double _estimatedHeight;
+    private const int BackgroundRenderThreshold = 4000, UiRenderSliceMilliseconds = 6;
     private void Render()
     {
+        var version = ++_renderVersion;
+        _renderPending = false; _renderPaused = false;
+        LayoutVersion++;
         Revision = TeXeed.App.AI.AiStorage.Hash(Markdown ?? "");
+        if (IsStreaming)
+        {
+            // A growing stream is not a succession of complete documents. Reuse the
+            // text run and append the suffix; compile/render Markdown once it settles.
+            if (_streamRun is null)
+            {
+                _streamRun = new Run();
+                _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _revealSections.Clear(); _formulaWidths.Clear();
+                Document = new FlowDocument(new Paragraph(_streamRun)) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
+                Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
+            }
+            var next = Markdown ?? "";
+            if (next.StartsWith(_streamText, StringComparison.Ordinal)) _streamRun.ContentEnd.InsertTextInRun(next[_streamText.Length..]);
+            else _streamRun.Text = next;
+            _streamText = next;
+            RenderTask = Task.CompletedTask;
+            return;
+        }
+        _streamRun = null; _streamText = "";
+        var source = Markdown ?? "";
+        if (source.Length > BackgroundRenderThreshold)
+        {
+            _renderPending = true;
+            _estimatedHeight = Math.Max(80, (source.Count(c => c == '\n') + source.Length / 90) * 18);
+            Document = NewDocument(); Document.Blocks.Add(new Paragraph(new Run("正在排版…")));
+            RenderTask = RenderDeferredAsync(source, version);
+        }
+        else
+        {
+            var document = NewDocument(); ClearRichState(); _math = new ChatMath();
+            try { AddBlocks(document.Blocks, Markdig.Markdown.Parse(_math.Prepare(source, Pipeline), Pipeline), 0); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { CodeFallback(document, source); }
+            ApplyFolding(document); Document = document; RenderTask = Task.CompletedTask;
+        }
+    }
+    private FlowDocument NewDocument()
+    {
         var document = new FlowDocument { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
             FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
-        document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
-        _math = new ChatMath(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear();
-        var source = _math.Prepare(Markdown ?? "", Pipeline);
-        try { AddBlocks(document.Blocks, Markdig.Markdown.Parse(source, Pipeline), 0); }
-        catch (Exception ex) when (ex is not OutOfMemoryException) { document.Blocks.Clear(); document.Blocks.Add(new Paragraph(new Run(Markdown ?? "")) { FontFamily = new FontFamily("Consolas"), Background = (Brush?)TryFindResource("PanelBackground") }); }
-        ApplyFolding(document);
-        Document = document;
+        document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
+    }
+    private void ClearRichState()
+    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); }
+    private void CodeFallback(FlowDocument document, string source)
+    {
+        ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(new Paragraph(new Run(source))
+        { FontFamily = new FontFamily("Consolas"), Background = (Brush?)TryFindResource("PanelBackground") });
+    }
+    private async Task RenderDeferredAsync(string source, int version)
+    {
+        var document = NewDocument();
+        try
+        {
+            var prepared = await Task.Run(() =>
+            {
+                var math = new ChatMath(); var text = math.Prepare(source, Pipeline);
+                return (Math: math, Blocks: Markdig.Markdown.Parse(text, Pipeline));
+            });
+            if (version != _renderVersion) return;
+            ClearRichState(); _math = prepared.Math;
+            var slice = Stopwatch.StartNew();
+            foreach (var block in prepared.Blocks)
+            {
+                if (version != _renderVersion) return;
+                AddBlock(document.Blocks, block, 0);
+                if (slice.ElapsedMilliseconds < UiRenderSliceMilliseconds) continue;
+                await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                slice.Restart();
+            }
+            if (version != _renderVersion) return;
+            ApplyFolding(document);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        { if (version != _renderVersion) return; CodeFallback(document, source); }
+        if (version != _renderVersion) return;
+        _renderPending = false; _annotationPointers.Clear(); LayoutVersion++;
+        Document = document; InvalidateMeasure();
     }
 
     private void AddBlocks(BlockCollection target, ContainerBlock source, int depth)
     {
         // Bound nesting independently of model output, including malformed streaming fragments.
         if (depth > 32) return;
-        foreach (var block in source)
+        foreach (var block in source) AddBlock(target, block, depth);
+    }
+    private void AddBlock(BlockCollection target, Markdig.Syntax.Block block, int depth)
+    {
+        switch (block)
         {
-            switch (block)
-            {
-                case Markdig.Extensions.CustomContainers.CustomContainer columns when columns.Info == "columns":
-                    AddColumns(target, columns, depth); break;
-                case HeadingBlock heading:
-                    var h = Paragraph(heading.Inline, depth);
-                    h.FontSize = heading.Level switch { 1 => 24, 2 => 21, 3 => 18, _ => 16 };
-                    h.Tag = new HeadingInfo(heading.Level, heading.Span.Start);
-                    h.FontFamily = new FontFamily("Source Han Sans SC, Microsoft YaHei");
-                    h.FontWeight = FontWeights.SemiBold; h.Margin = new Thickness(0, 16, 0, 10);
-                    target.Add(h); break;
-                case ParagraphBlock paragraph:
-                    if (paragraph.Inline?.FirstChild is LiteralInline literal && _math.Tokens.TryGetValue(literal.Content.ToString().Trim(), out var math) && math.Display)
-                        target.Add(DisplayFormula(math));
-                    else target.Add(Paragraph(paragraph.Inline, depth)); break;
-                case CodeBlock code:
-                    var p = new Paragraph(new Run(code.Lines.ToString())) { FontFamily = new FontFamily("Cascadia Mono, Consolas"),
-                        FontSize = 14, LineHeight = 23, Padding = new Thickness(14), Margin = new Thickness(0, 6, 0, 14) };
-                    p.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground");
-                    target.Add(p); break;
-                case QuoteBlock quote:
-                    var section = new Section { BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(14, 2, 0, 2), Margin = new Thickness(0, 6, 0, 14) };
-                    section.SetResourceReference(Block.BorderBrushProperty, "Accent");
-                    AddBlocks(section.Blocks, quote, depth + 1); target.Add(section); break;
-                case ListBlock list:
-                    var items = new System.Windows.Documents.List { MarkerStyle = list.IsOrdered ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
-                        Padding = new Thickness(24, 0, 0, 0), Margin = new Thickness(0, 4, 0, 12) };
-                    if (list.IsOrdered && int.TryParse(list.OrderedStart, out var start) && start > 0) items.StartIndex = start;
-                    var itemNumber = items.StartIndex;
-                    foreach (var child in list.OfType<ListItemBlock>())
-                    { var item = new ListItem(); AddBlocks(item.Blocks, child, depth + 1);
-                        if (LinkListNumbers && list.IsOrdered && item.Blocks.FirstBlock is Paragraph paragraph && paragraph.Inlines.FirstInline is Hyperlink link)
-                        { items.MarkerStyle = TextMarkerStyle.None; link.Inlines.InsertBefore(link.Inlines.FirstInline, new Run(itemNumber + ". ")); }
-                        itemNumber++; items.ListItems.Add(item); }
-                    target.Add(items); break;
-                case MdTable table:
-                    var result = new Table { CellSpacing = 0, Margin = new Thickness(0, 6, 0, 16) };
-                    var rows = new TableRowGroup(); result.RowGroups.Add(rows);
-                    foreach (var row in table.OfType<MdRow>())
+            case Markdig.Extensions.CustomContainers.CustomContainer columns when columns.Info == "columns":
+                AddColumns(target, columns, depth); break;
+            case HeadingBlock heading:
+                var h = Paragraph(heading.Inline, depth);
+                h.FontSize = heading.Level switch { 1 => 24, 2 => 21, 3 => 18, _ => 16 };
+                h.Tag = new HeadingInfo(heading.Level, heading.Span.Start);
+                h.FontFamily = new FontFamily("Source Han Sans SC, Microsoft YaHei");
+                h.FontWeight = FontWeights.SemiBold; h.Margin = new Thickness(0, 16, 0, 10);
+                target.Add(h); break;
+            case ParagraphBlock paragraph:
+                if (paragraph.Inline?.FirstChild is LiteralInline literal && _math.Tokens.TryGetValue(literal.Content.ToString().Trim(), out var math) && math.Display)
+                    target.Add(DisplayFormula(math));
+                else target.Add(Paragraph(paragraph.Inline, depth)); break;
+            case CodeBlock code:
+                var p = new Paragraph(new Run(code.Lines.ToString())) { FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+                    FontSize = 14, LineHeight = 23, Padding = new Thickness(14), Margin = new Thickness(0, 6, 0, 14) };
+                p.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground");
+                target.Add(p); break;
+            case QuoteBlock quote:
+                var section = new Section { BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(14, 2, 0, 2), Margin = new Thickness(0, 6, 0, 14) };
+                section.SetResourceReference(Block.BorderBrushProperty, "Accent");
+                AddBlocks(section.Blocks, quote, depth + 1); target.Add(section); break;
+            case ListBlock list:
+                var items = new System.Windows.Documents.List { MarkerStyle = list.IsOrdered ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
+                    Padding = new Thickness(24, 0, 0, 0), Margin = new Thickness(0, 4, 0, 12) };
+                if (list.IsOrdered && int.TryParse(list.OrderedStart, out var start) && start > 0) items.StartIndex = start;
+                var itemNumber = items.StartIndex;
+                foreach (var child in list.OfType<ListItemBlock>())
+                { var item = new ListItem(); AddBlocks(item.Blocks, child, depth + 1);
+                    if (LinkListNumbers && list.IsOrdered && item.Blocks.FirstBlock is Paragraph paragraph && paragraph.Inlines.FirstInline is Hyperlink link)
+                    { items.MarkerStyle = TextMarkerStyle.None; link.Inlines.InsertBefore(link.Inlines.FirstInline, new Run(itemNumber + ". ")); }
+                    itemNumber++; items.ListItems.Add(item); }
+                target.Add(items); break;
+            case MdTable table:
+                var result = new Table { CellSpacing = 0, Margin = new Thickness(0, 6, 0, 16) };
+                var rows = new TableRowGroup(); result.RowGroups.Add(rows);
+                foreach (var row in table.OfType<MdRow>())
+                {
+                    var r = new TableRow(); rows.Rows.Add(r);
+                    foreach (var cell in row.OfType<MdCell>())
                     {
-                        var r = new TableRow(); rows.Rows.Add(r);
-                        foreach (var cell in row.OfType<MdCell>())
-                        {
-                            var c = new TableCell { Padding = new Thickness(9, 6, 9, 6), BorderThickness = new Thickness(0, 0, 0, 1) };
-                            c.SetResourceReference(TableCell.BorderBrushProperty, "Guide");
-                            if (row.IsHeader) { c.FontWeight = FontWeights.SemiBold; c.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); }
-                            AddBlocks(c.Blocks, cell, depth + 1); r.Cells.Add(c);
-                        }
+                        var c = new TableCell { Padding = new Thickness(9, 6, 9, 6), BorderThickness = new Thickness(0, 0, 0, 1) };
+                        c.SetResourceReference(TableCell.BorderBrushProperty, "Guide");
+                        if (row.IsHeader) { c.FontWeight = FontWeights.SemiBold; c.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); }
+                        AddBlocks(c.Blocks, cell, depth + 1); r.Cells.Add(c);
                     }
-                    target.Add(result); break;
-                case ThematicBreakBlock:
-                    var line = new Paragraph { BorderThickness = new Thickness(0, 0, 0, 1), Margin = new Thickness(0, 12, 0, 16) };
-                    line.SetResourceReference(Block.BorderBrushProperty, "Guide"); target.Add(line); break;
-                case ContainerBlock container:
-                    AddBlocks(target, container, depth + 1); break;
-                case LeafBlock leaf:
-                    target.Add(Paragraph(leaf.Inline, depth)); break;
-            }
+                }
+                target.Add(result); break;
+            case ThematicBreakBlock:
+                var line = new Paragraph { BorderThickness = new Thickness(0, 0, 0, 1), Margin = new Thickness(0, 12, 0, 16) };
+                line.SetResourceReference(Block.BorderBrushProperty, "Guide"); target.Add(line); break;
+            case ContainerBlock container:
+                AddBlocks(target, container, depth + 1); break;
+            case LeafBlock leaf:
+                target.Add(Paragraph(leaf.Inline, depth)); break;
         }
     }
 

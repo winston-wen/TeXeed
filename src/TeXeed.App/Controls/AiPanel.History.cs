@@ -61,7 +61,7 @@ public partial class AiPanel
         ConversationTitle.Text = AiConversation.MakeTitle(_book.Active.Title);
         ApplyChatHeader();
         StatusText.Text = "";
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { MessagesScroll.ScrollToVerticalOffset(_book.Active.ReadingOffset); _restoringReading = false; UpdateReadingContext(); }));
+        RestoreReadingAnchor();
     }
     private async void NewConversation_Click(object sender, RoutedEventArgs e)
     { try { await NewConversationAsync(); Composer.Focus(); } catch (Exception ex) { ShowError(ex); } }
@@ -136,6 +136,7 @@ public partial class AiPanel
         MessageMatchStatus.Text = _messageMatches.Count == 0 ? "0" : $"{(_messageMatchIndex = (_messageMatchIndex % _messageMatches.Count + _messageMatches.Count) % _messageMatches.Count) + 1}/{_messageMatches.Count}";
         if (_messageMatches.Count == 0) return;
         var target = _messageMatches[_messageMatchIndex];
+        VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(_transcriptItems.IndexOf(target));
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         { if (History.ItemContainerGenerator.ContainerFromItem(target) is FrameworkElement item) item.BringIntoView(); }));
     }

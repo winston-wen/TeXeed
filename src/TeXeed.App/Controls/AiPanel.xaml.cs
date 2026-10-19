@@ -15,10 +15,12 @@ namespace TeXeed.App.Controls;
 public partial class AiPanel : UserControl, IDisposable
 {
     private readonly AiConnection _connection;
+    private readonly ScrollViewer MessagesScroll;
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private readonly SemaphoreSlim _saveGate = new(1);
     private AiNotebook _book = new();
     private readonly ObservableCollection<AiTurn> _visibleTurns = [];
+    private readonly ObservableCollection<object> _transcriptItems = [];
     private readonly ObservableCollection<AiSegment> _liveSegments = [];
     internal Func<AiToolRunner>? CreateToolRunner { get; set; }
     internal HashSet<string> ShellApprovals => _book.Active.ShellApprovals;
@@ -34,7 +36,21 @@ public partial class AiPanel : UserControl, IDisposable
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection)
     {
-        _connection = connection; InitializeComponent(); History.ItemsSource = _visibleTurns; LiveSegments.ItemsSource = _liveSegments;
+        _connection = connection; InitializeComponent();
+        History.ApplyTemplate();
+        MessagesScroll = (ScrollViewer)History.Template.FindName("MessagesScroll", History);
+        RegisterName(nameof(MessagesScroll), MessagesScroll);
+        // The ItemsPresenter must be the direct ScrollViewer content so WPF can
+        // use IScrollInfo. A wrapping StackPanel silently disables virtualization.
+        History.Items.Clear(); _transcriptItems.Add(EmptyConversation); _transcriptItems.Add(LiveContainer);
+        History.ItemsSource = _transcriptItems; LiveSegments.ItemsSource = _liveSegments;
+        _visibleTurns.CollectionChanged += (_, change) =>
+        {
+            if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+            { _transcriptItems.Clear(); _transcriptItems.Add(EmptyConversation); _transcriptItems.Add(LiveContainer); }
+            else if (change.NewItems is not null)
+                for (var i = 0; i < change.NewItems.Count; i++) _transcriptItems.Insert(change.NewStartingIndex + i + 1, change.NewItems[i]!);
+        };
         Settings = new AiSettingsPanel(connection);
         PermissionPicker.ItemsSource = AiPermissionChoice.Choices;
         SyncPermission();
@@ -44,11 +60,16 @@ public partial class AiPanel : UserControl, IDisposable
             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
             Composer.MaxHeight = Math.Clamp(ActualHeight * .18, 66, 150);
             if (EntriesPopup.Child is FrameworkElement surface) surface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
-            UpdateReadingContext(); ResizeChoices();
+            ScheduleReadingContext(); ResizeChoices();
         };
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
         HeadingPeek.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { _book.Active.HeaderPinned = !_book.Active.HeaderPinned; _headerTemporary = false; ApplyChatHeader(); Dirty(); e.Handled = true; } };
-        MessagesScroll.ScrollChanged += (_, _) => { if (!_restoringReading) { _book.Active.ReadingOffset = MessagesScroll.VerticalOffset; Dirty(); } UpdateReadingContext(); };
+        MessagesScroll.ScrollChanged += (_, e) =>
+        {
+            if (!ReferenceEquals(e.OriginalSource, MessagesScroll)) return;
+            if (!_restoringReading && e.VerticalChange != 0) { _book.Active.ReadingOffset = MessagesScroll.VerticalOffset; Dirty(); }
+            ScheduleReadingContext();
+        };
         Loaded += async (_, _) => { SyncModelChoices(); if (Settings.SelectedModel is null) await RefreshModelChoicesAsync(); };
         PreviewKeyDown += (_, e) =>
         {
@@ -66,8 +87,11 @@ public partial class AiPanel : UserControl, IDisposable
         _generation++; _saveTimer.Stop(); await SaveAsync();
         var loaded = await Task.Run(() => AiStorage.Load(project));
         _project = project; _book = loaded;
+        _restoringReading = true;
+        _updating = true; Composer.Text = _book.Draft; _updating = false;
         MigrateSnapshots();
         foreach (var entry in _book.Entries.Where(e => e.State == "提交中")) entry.State = "上次提交未完成，可重试";
+        if (File.Exists(AiTurnCheckpoint.PathFor(project))) await SaveAsync();
         ShowCurrentConversation();
     }
     public bool AddEntry(AiEntry entry, bool focusComposer = true)
@@ -90,6 +114,7 @@ public partial class AiPanel : UserControl, IDisposable
             entry.PropertyChanged -= AnnotationChanged; entry.PropertyChanged += AnnotationChanged;
         }
         AnnotationsChanged?.Invoke(this, EventArgs.Empty);
+        foreach (var layer in _answerLayers.Values) layer.Refresh();
         Entries.ItemsSource = null;
         Entries.ItemsSource = _book.Entries.ToArray();
         ContextExpander.Visibility = _book.Entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -103,6 +128,7 @@ public partial class AiPanel : UserControl, IDisposable
         var project = _project;
         _book.Draft = Composer.Text;
         if (!_restoringReading) _book.Active.ReadingOffset = MessagesScroll.VerticalOffset;
+        CaptureReadingAnchor();
         var snapshot = _book.Snapshot();
         await _saveGate.WaitAsync(); try { await Task.Run(() => AiStorage.Save(project, snapshot)); } finally { _saveGate.Release(); }
     }
@@ -138,6 +164,7 @@ public partial class AiPanel : UserControl, IDisposable
         foreach (var turn in _book.Turns.Skip(_visibleTurns.Count)) _visibleTurns.Add(turn);
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         LiveContainer.Visibility = Visibility.Collapsed;
+        _liveSegments.Clear();
         ConversationTitle.Text = AiConversation.MakeTitle(_book.Active.Title);
         MessageSearch_Changed(MessageSearchBox, null!);
     }
@@ -164,7 +191,8 @@ public partial class AiPanel : UserControl, IDisposable
     {
         if (_project is null || _operation is not null) return;
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
-        var prompt = single is null ? Composer.Text.Trim() : "";
+        var submittedDraft = Composer.Text;
+        var prompt = single is null ? submittedDraft.Trim() : "";
         var selected = _book.Entries.Where(e => single is null ? e.Selected : e.Id == single.Id).ToArray();
         if (selected.Length == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
         if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = single is null ? "请在编辑栏描述要问的问题。" : "请先填写这条批注的问题。"; if (single is null) Composer.Focus(); return; }
@@ -185,16 +213,22 @@ public partial class AiPanel : UserControl, IDisposable
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             ConversationTitle.Text = book.Active.Title;
-            if (single is null) Composer.Clear(); StatusText.Text = "";
-            foreach (var entry in selected) entry.State = "提交中"; Rebind();
             var buffer = new AiStreamBuffer();
+            var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Prompt = prompt, SentAnnotations = sentAnnotations };
+            var checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer);
+            if (single is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
+            foreach (var entry in selected) entry.State = "提交中"; Rebind();
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
             LiveSentTime.Text = "发送: " + AiTimestamp.Full(sentAt) + ", 答复: 尚未答复";
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
+            long renderedVersion = -1;
             void Flush()
             {
                 if (_generation != generation || _disposed) return;
+                var version = buffer.Version;
+                if (version == renderedVersion) return;
+                renderedVersion = version;
                 var follow = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset < 40;
                 foreach (var segment in buffer.Snapshot())
                 {
@@ -237,16 +271,19 @@ public partial class AiPanel : UserControl, IDisposable
             finally
             {
                 renderTimer.Stop();
+                await checkpoint.StopAsync();
                 if (_generation == generation)
                 {
                     Flush();
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    book.Turns.Add(new(question, answer) { CreatedAt = sentAt, SentAt = sentAt, AnsweredAt = answeredAt, Model = modelId, ReasoningEffort = effort, Segments = segments, Prompt = prompt, SentAnnotations = sentAnnotations });
+                    book.Turns.Add(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, Model = modelId, ReasoningEffort = effort, Segments = segments });
                     if (answeredAt is not null) book.Entries.RemoveAll(e => selected.Any(sent => sent.Id == e.Id));
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
-                    Rebind(); RefreshTranscript(); await SaveAsync();
+                    // Persist before constructing a settled rich document. Even an
+                    // unexpected renderer failure cannot erase the completed exchange.
+                    await SaveAsync(); checkpoint.Commit(); Rebind(); RefreshTranscript();
                 }
             }
         });

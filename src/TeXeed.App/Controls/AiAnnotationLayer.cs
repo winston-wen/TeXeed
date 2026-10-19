@@ -23,6 +23,10 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
     private List<(AiEntry Entry, Rect Bounds)> _positions = [];
     private AiEntry? _editing;
     private AiEntry? _pendingEdit;
+    private bool _refreshQueued, _disposed;
+    private Rect _lastClip = Rect.Empty;
+    private Size _lastSize;
+    private int _lastDocumentVersion = -1;
     internal AiAnnotationLayer(FrameworkElement host, Func<IReadOnlyList<AiEntry>> entries, Func<AiEntry, Point?> anchor, Action<AiEntry> remove, bool margin = false, Func<AiEntry, Task>? send = null) : base(host)
     {
         _host = host; _entries = entries; _anchor = anchor; _remove = remove; _margin = margin; _send = send;
@@ -30,14 +34,34 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         host.Loaded += HostLoaded;
         host.Unloaded += HostUnloaded;
         host.LayoutUpdated += HostLayout;
+        host.IsVisibleChanged += HostVisible;
         if (host.IsLoaded) Attach();
     }
     private void HostLoaded(object sender, RoutedEventArgs e) => Attach();
     private void HostUnloaded(object sender, RoutedEventArgs e) { _pendingEdit = null; _popup.IsOpen = false; AdornerLayer.GetAdornerLayer(_host)?.Remove(this); }
-    private void HostLayout(object? sender, EventArgs e) => Refresh();
+    private void HostVisible(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        Visibility = _host.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+        if (!_host.IsVisible) ClearPositions(); else Refresh();
+    }
+    private void ClearPositions()
+    {
+        _popup.IsOpen = false;
+        if (_positions.Count > 0) { _positions.Clear(); InvalidateVisual(); }
+        _lastClip = Rect.Empty;
+    }
+    private void HostLayout(object? sender, EventArgs e)
+    {
+        // LayoutUpdated is global in WPF. An idle/empty annotation layer must not
+        // walk ancestors or force FlowDocument character layout on unrelated input.
+        if (_disposed || _refreshQueued || !_host.IsVisible || _entries().Count == 0) return;
+        _refreshQueued = true;
+        _host.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+        { _refreshQueued = false; if (!_disposed) Refresh(false); }));
+    }
     public void Dispose()
     {
-        _popup.IsOpen = false; _host.Loaded -= HostLoaded; _host.Unloaded -= HostUnloaded; _host.LayoutUpdated -= HostLayout;
+        _disposed = true; _popup.IsOpen = false; _host.Loaded -= HostLoaded; _host.Unloaded -= HostUnloaded; _host.LayoutUpdated -= HostLayout; _host.IsVisibleChanged -= HostVisible;
         AdornerLayer.GetAdornerLayer(_host)?.Remove(this);
     }
     private void Attach()
@@ -46,13 +70,22 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         if (layer is not null && !(layer.GetAdorners(_host)?.Contains(this) ?? false)) layer.Add(this);
         Refresh();
     }
-    internal void Refresh()
+    internal void Refresh() => Refresh(true);
+    private void Refresh(bool force)
     {
-        if (!_host.IsLoaded || !_host.IsVisible) { _popup.IsOpen = false; return; }
+        if (!_host.IsLoaded || !_host.IsVisible) { ClearPositions(); return; }
+        if (_entries().Count == 0) { ClearPositions(); return; }
         var visible = new Rect(_host.RenderSize);
         for (DependencyObject? parent = VisualTreeHelper.GetParent(_host); parent is Visual; parent = VisualTreeHelper.GetParent(parent))
             if (parent is ScrollContentPresenter clip)
                 visible.Intersect(clip.TransformToDescendant(_host).TransformBounds(new Rect(clip.RenderSize)));
+        var documentVersion = (_host as MarkdownView)?.LayoutVersion ?? -1;
+        // Source/PDF positions also depend on their inner viewport, zoom and text
+        // edits, even when the outer control's size and clip have not changed.
+        if (!force && _host is MarkdownView && documentVersion == _lastDocumentVersion && visible == _lastClip && _host.RenderSize == _lastSize && _pendingEdit is null) return;
+        _lastDocumentVersion = documentVersion;
+        _lastClip = visible; _lastSize = _host.RenderSize;
+        if (visible.IsEmpty) { ClearPositions(); return; }
         var positions = new List<(AiEntry, Rect)>();
         foreach (var entry in _entries().Where(e => e.State != "已完成" && e.State != "提交中"))
         {
@@ -83,6 +116,8 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
     }
     protected override void OnRender(DrawingContext drawing)
     {
+        if (!_host.IsVisible || _lastClip.IsEmpty) return;
+        drawing.PushClip(new RectangleGeometry(_lastClip));
         var background = (Brush?)TryFindResource("ChatFocus") ?? Brushes.SteelBlue;
         foreach (var (entry, bounds) in _positions)
         {
@@ -91,9 +126,10 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
                 FlowDirection.LeftToRight, new Typeface("Segoe UI"), 12, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
             drawing.DrawText(text, new Point(bounds.X + (bounds.Width - text.Width) / 2, bounds.Y + 3));
         }
+        drawing.Pop();
     }
     protected override HitTestResult? HitTestCore(PointHitTestParameters parameters) =>
-        _positions.Any(x => x.Bounds.Contains(parameters.HitPoint)) ? new PointHitTestResult(this, parameters.HitPoint) : null;
+        _host.IsVisible && _positions.Any(x => x.Bounds.Contains(parameters.HitPoint)) ? new PointHitTestResult(this, parameters.HitPoint) : null;
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         var hit = _positions.FirstOrDefault(x => x.Bounds.Contains(e.GetPosition(this)));
