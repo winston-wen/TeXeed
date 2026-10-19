@@ -25,7 +25,6 @@ function svgHtml(turn){
 }
 function activity(s){return '<details class="activity '+(!s.details?'no-details':'')+'"><summary><span>'+esc(s.text)+'</span><time>'+time(s.time,true)+'</time></summary>'+(s.details?'<pre>'+esc(s.details)+'</pre>':'')+'</details>';}
 const ICON_CLOSE='<svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg>';
-const ICON_REFILL='<svg class="icon" viewBox="0 0 20 20"><path d="M7 2H13V10H18L10 18L2 10H7Z" fill="currentColor" stroke="none"/></svg>';
 const ICON_SEND='<svg class="icon" viewBox="0 0 20 20"><path d="M10 17V3M4 9L10 3L16 9"/></svg>';
 let restoring=false,scrollTimer;
 function readingPosition(){const area=$('reader'),top=area.getBoundingClientRect().top;const nodes=[...area.querySelectorAll('.passage,.question')].filter(n=>n.getClientRects().length);const anchor=nodes.find(n=>n.getBoundingClientRect().bottom>top+2);return {top:area.scrollTop,anchor:anchor?.id||anchor?.closest('.turn')?.id,offset:anchor?anchor.getBoundingClientRect().top-top:0};}
@@ -49,19 +48,14 @@ function showSnapshot(link){
  preview.dataset.number=String(number);preview.hidden=false;link.setAttribute('aria-expanded','true');
  requestAnimationFrame(()=>{preview.scrollIntoView({block:'nearest'});preview.querySelector('.snapshot-scroll').focus({preventScroll:true});});
 }
-function answerDelay(t){
- if(!t.answeredAt)return '尚未答复';
- const seconds=Math.round((Date.parse(t.answeredAt)-Date.parse(t.sentAt))/1000);
- if(!Number.isFinite(seconds)||seconds<0)return time(t.answeredAt);
- if(seconds===0)return '同秒';
- const units=[[86400,'天'],[3600,'小时'],[60,'分'],[1,'秒']];let remaining=seconds;
- return units.map(([size,label])=>{const n=Math.floor(remaining/size);remaining%=size;return n?n+' '+label:'';}).filter(Boolean).join(' ')+'后';
-}
 function turnHtml(t){
+ const thinking=running?.turn.id===t.id,canFold=!thinking&&!!(t.answeredAt||t.answer);
  const activities=(t.segments||[]).filter(s=>s.kind==='activity');
  const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
- const footer='<div class="turn-tools answer-divider" data-turn-divider="'+t.id+'"><div class="turn-divider" id="'+t.id+'-divider" tabindex="0" role="button" data-toggle-turn="'+t.id+'" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"><span class="timestamp">发送: '+(time(t.sentAt)||'无实际发送时间')+', 答复: '+answerDelay(t)+'</span><span class="divider-leader" aria-hidden="true"></span></div><div class="turn-actions"><button data-refill="'+t.id+'" title="将问题重新放入编辑栏" aria-label="将问题重新放入编辑栏">'+ICON_REFILL+'</button><button data-delete-turn="'+t.id+'" title="删除此轮问题和回答" aria-label="删除此轮问题和回答">'+ICON_CLOSE+'</button></div></div>';
- return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question">'+questionHtml(t)+'</div><div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+(t.collapsed?'<div class="collapsed-answer"><button data-expand-turn="'+t.id+'">（已折叠，点击展开）</button></div>':'')+footer+'</article>';
+ const sent='<div class="turn-time sent-time">发送时间：'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+'</div>';
+ const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':'答复时间：'+(t.answeredAt?'<time datetime="'+esc(t.answeredAt)+'">'+esc(time(t.answeredAt))+'</time>':t.answer?'未记录':'未完成');
+ const footer='<div class="turn-footer" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+answerTime+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
+ return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question">'+questionHtml(t)+'</div>'+sent+'<div class="segments" id="'+t.id+'-segments" '+(!thinking&&t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+footer+'</article>';
 }
 function renderTurns(){
  const pos=$('reader').scrollTop;
@@ -73,7 +67,7 @@ function enhanceAnswers(){
  document.querySelectorAll('.answer code').forEach(code=>{const text=code.textContent.trim();if(/^(?:main\.tex|qa\.md)(?::\d+(?:[–—-]\d+)?)?$/.test(text)){const b=document.createElement('button');b.className='file-link';b.dataset.file=text;b.textContent=text;b.title='打开源码快照'+(text.includes(':')?'并跳转到行号':'');code.replaceChildren(b);}});
  document.querySelectorAll('.answer').forEach(answer=>{prepareReadingLayout(answer);const t=current().turns.find(t=>t.id===answer.dataset.turn);let hiding=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h2,h3,h4');if(h){const level=Number(h.tagName.slice(1));hiding=hiding.filter(x=>x<level);p.hidden=!!hiding.length||p.dataset.readingHidden==='true';const collapsed=!!t.sections?.[p.id],b=document.createElement('button');b.className='heading-toggle';b.dataset.section=p.id;b.setAttribute('aria-expanded',String(!collapsed));b.innerHTML='<span class="heading-label">'+h.innerHTML+'</span>'+(collapsed?'<span class="heading-collapsed">（已折叠）</span>':'');h.replaceChildren(b);if(collapsed)hiding.push(level);}else p.hidden=!!hiding.length||p.dataset.readingHidden==='true';}});
 }
-function toggleTurn(t,fromHint=false){const node=$(t.id+(fromHint?'-question':'-divider')),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
+function toggleTurn(t){if(running?.turn.id===t.id||!(t.answeredAt||t.answer))return;const node=$(t.id+'-divider'),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
 
 function openSource(ref){const m=/^([^:]+)(?::(\d+)(?:[–—-](\d+))?)?$/.exec(ref),file=m[1],start=Number(m[2]||1),end=Number(m[3]||start);const text=DATA.sourceFiles[file];if(text===undefined){status('未收集此文件的源码。');return;}$('source-title').textContent=ref;$('source-lines').innerHTML=text.split('\n').map((line,i)=>'<div class="source-line '+(i+1>=start&&i+1<=end?'selected':'')+'" id="source-line-'+(i+1)+'"><span class="source-number">'+(i+1)+'</span><span class="source-code">'+esc(line||' ')+'</span></div>').join('');$('source-dialog').showModal();requestAnimationFrame(()=>$('source-line-'+start)?.scrollIntoView({block:'center'}));}
 
@@ -139,7 +133,7 @@ $('collapse-annotation').onclick=()=>{record('collapse-annotation',{id:editing})
 $('delete-annotation').onclick=()=>removeEntry(editing);
 $('thread').addEventListener('contextmenu',e=>{const ctx=targetContext(e.target);if(!ctx)return;e.preventDefault();context=ctx;closePopups();const menu=$('answer-menu');menu.hidden=false;menu.style.left=Math.min(e.clientX,innerWidth-menu.offsetWidth-6)+'px';menu.style.top=Math.min(e.clientY,innerHeight-menu.offsetHeight-6)+'px';$('copy-selection').disabled=!ctx.selected;});
 $('thread').addEventListener('mouseup',e=>{if(marking&&e.button===0&&!e.target.closest('button,a,input,textarea')&&!running){const ctx=targetContext(e.target);setTimeout(()=>addAnnotation(ctx),0);}});
-$('thread').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.bubble)openEditor(b.dataset.bubble);else if(b.dataset.refill){const t=current().turns.find(t=>t.id===b.dataset.refill);current().draft=[current().draft,t.question].filter(Boolean).join('\n');$('composer').value=current().draft;refreshEditors();$('composer').focus();record('refill-question');}else if(b.dataset.deleteTurn&&!running){current().turns=current().turns.filter(t=>t.id!==b.dataset.deleteTurn);renderTurns();record('delete-turn');}});
+$('thread').addEventListener('click',e=>{const b=e.target.closest('[data-bubble]');if(b)openEditor(b.dataset.bubble);});
 $('annotate').onclick=()=>{const ctx=context;closePopups();addAnnotation(ctx);};$('copy-selection').onclick=()=>context&&copy(context.quote);$('copy-answer').onclick=()=>{const t=current().turns.find(t=>t.id===context?.turn);if(t)copy(mdMath(t.answer));};
 $('reader').onscroll=()=>{updateReadingContext();positionEditor();$('answer-menu').hidden=true;if(!restoring){current().reading=readingPosition();clearTimeout(scrollTimer);scrollTimer=setTimeout(persist,160);}};
 window.addEventListener('pagehide',saveReading);
@@ -187,7 +181,7 @@ $('thread').addEventListener('click',event=>{const b=event.target.closest('butto
 // Only answer/subheading folds are stored; native process disclosures start closed.
 $('thread').addEventListener('dblclick',event=>{const divider=event.target.closest('[data-turn-divider]');if(!divider||event.target.closest('button,a'))return;event.preventDefault();const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t);});
 $('thread').addEventListener('keydown',event=>{const id=event.target.dataset.toggleTurn;if(id&&(event.key==='Enter'||event.key===' ')){event.preventDefault();if(event.repeat)return;const t=current().turns.find(t=>t.id===id);if(t){toggleTurn(t);$(id+'-divider').focus({preventScroll:true});}}});
-$('thread').addEventListener('click',event=>{const link=event.target.closest('[data-snapshot-turn]');if(link){event.preventDefault();showSnapshot(link);return;}const close=event.target.closest('[data-close-preview]');if(close){const preview=$(close.dataset.closePreview+'-preview'),number=preview.dataset.number;hideSnapshot(preview);document.querySelector('[data-snapshot-turn="'+close.dataset.closePreview+'"][data-snapshot-number="'+number+'"]').focus({preventScroll:true});return;}const expand=event.target.closest('[data-expand-turn]');if(expand){const t=current().turns.find(t=>t.id===expand.dataset.expandTurn);if(t?.collapsed)toggleTurn(t,true);}});
+$('thread').addEventListener('click',event=>{const link=event.target.closest('[data-snapshot-turn]');if(link){event.preventDefault();showSnapshot(link);return;}const close=event.target.closest('[data-close-preview]');if(close){const preview=$(close.dataset.closePreview+'-preview'),number=preview.dataset.number;hideSnapshot(preview);document.querySelector('[data-snapshot-turn="'+close.dataset.closePreview+'"][data-snapshot-number="'+number+'"]').focus({preventScroll:true});}});
 $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const preview=event.target.closest('.snapshot-preview');if(preview){event.preventDefault();preview.querySelector('[data-close-preview]').click();}}});
 // SVG is display content, never a focus or navigation target.
 $('thread').addEventListener('click',event=>{if(event.target.closest('.math'))event.preventDefault();});
