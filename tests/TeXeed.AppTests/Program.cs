@@ -89,6 +89,11 @@ internal static partial class Program
                     await CheckAiFocusAsync(window);
                     result = 0; app.Shutdown(); return;
                 }
+                if (args.Contains("--literal-text-only"))
+                {
+                    await CheckLiteralTextAsync(window, output);
+                    await CloseAndObserveAsync(window, "Literal text regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-reading-only"))
                 {
                     await CheckAiReadingAsync(window, output);

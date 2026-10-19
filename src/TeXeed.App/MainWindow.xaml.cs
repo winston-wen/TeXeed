@@ -117,7 +117,7 @@ public partial class MainWindow : Window
         RecentMenu.Items.Clear(); RecentList.Children.Clear();
         foreach (var path in _settings.RecentProjects.Take(8))
         {
-            var item = new MenuItem { Header = path };
+            var item = new MenuItem { Header = path, ToolTip = path };
             item.Click += async (_, _) => await OpenAsync(path); RecentMenu.Items.Add(item);
             if (RecentList.Children.Count >= 3) continue;
             var button = new Button { Content = Path.GetFileName(path), ToolTip = path, HorizontalContentAlignment = HorizontalAlignment.Left, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 3, 0, 3) };

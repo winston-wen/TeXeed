@@ -86,7 +86,7 @@ public partial class MainWindow
             if (matches.Length == 0) return;
             TreeViewItem Folder(string title, string id, bool root = false) => new()
             {
-                Header = title, Uid = id, IsExpanded = _fileTreeFiltering || _fileTreeExpanded.GetValueOrDefault(id, true),
+                Header = title, HeaderTemplate = (DataTemplate)FindResource("LiteralTextTemplate"), Uid = id, IsExpanded = _fileTreeFiltering || _fileTreeExpanded.GetValueOrDefault(id, true),
                 FontWeight = root ? FontWeights.SemiBold : FontWeights.Normal, Margin = new Thickness(0, 4, 0, 0)
             };
             var root = Folder(_project.Name, "", true);
@@ -103,6 +103,7 @@ public partial class MainWindow
                 var item = new TreeViewItem
                 {
                     Header = file.Name + (file.Path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase) ? "  · 主文件" : ""),
+                    HeaderTemplate = (DataTemplate)FindResource("LiteralTextTemplate"),
                     Tag = file.Path, ToolTip = file.RelativePath, FontWeight = FontWeights.Normal, Margin = new Thickness(0, 4, 0, 0)
                 };
                 item.SetResourceReference(Control.ForegroundProperty, file.IsEditable ? "Ink" : "Muted"); parent.Items.Add(item);

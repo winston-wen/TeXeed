@@ -1,3 +1,4 @@
+using TeXeed.App.Controls;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -123,7 +124,7 @@ public partial class MainWindow
     {
         var name = key.ToString();
         if (name.Length != 1) return null;
-        foreach (var menu in _titleMenus.Where(item => item.IsEnabled))
+        foreach (var menu in _titleMenus.Where(item => item.IsEnabled && LiteralText.GetRecognizesAccessKey(item)))
         {
             var header = menu.Header?.ToString() ?? "";
             for (var i = 0; i < header.Length - 1; i++)

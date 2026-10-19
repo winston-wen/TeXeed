@@ -63,7 +63,7 @@ public sealed class CompactMenuPanel : Border
         var button = _buttons.FirstOrDefault(b => ReferenceEquals(b.Tag, item));
         button?.Focus(); button?.BringIntoView();
     }
-    private static string Label(MenuItem? item) => (item?.Header?.ToString() ?? "").Replace("_", "");
+    private static string Label(MenuItem? item) => LiteralText.MenuLabel(item);
     private void Render(double offset = 0, MenuItem? selected = null)
     {
         _rows.Children.Clear(); _buttons.Clear();

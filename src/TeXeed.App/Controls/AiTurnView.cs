@@ -75,12 +75,13 @@ public sealed class AiTurnView : StackPanel
         }
         Children.Add(_collapsed); _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
     }
-    internal static string LinkLabel(AiEntry entry)
+    internal static string LinkLabel(AiEntry entry) => AnnotationSummary(entry).Replace("[", "\\[").Replace("]", "\\]");
+    internal static string AnnotationSummary(AiEntry entry)
     {
         var text = string.IsNullOrWhiteSpace(entry.Question) ? entry.AnswerAnchor?.Quote ?? entry.Sources.FirstOrDefault()?.Text ?? entry.Title : entry.Question;
         text = Regex.Replace(text, @"\s+", " ").Trim();
         text = string.Concat(text.EnumerateRunes().Take(80));
-        return text.Replace("[", "\\[").Replace("]", "\\]");
+        return text;
     }
     private MarkdownView Rich(string source, Thickness margin, bool numbers = false) => new() { SourceLink = source => SourceRequested?.Invoke(source), LinkListNumbers = numbers, Markdown = source, Margin = margin, Padding = new Thickness(0) };
     internal void ShowPreview(AiEntry entry, int number)
