@@ -348,6 +348,12 @@ internal static partial class Program
                     await CloseAndObserveAsync(window, "outline regression");
                     result = 0; return;
                 }
+                if (args.Contains("--outline-preview-only", StringComparer.Ordinal))
+                {
+                    await CheckOutlinePreviewAsync(window, output);
+                    await CloseAndObserveAsync(window, "outline preview-only navigation regression");
+                    result = 0; return;
+                }
                 if (args.Contains("--close-only", StringComparer.Ordinal))
                 {
                     await CheckClosingAsync(window, main);
@@ -1038,14 +1044,14 @@ internal static partial class Program
             Console.WriteLine("PASS: manual PDF scrolling cancels a pending automatic follow; a later source scroll resumes following");
 
             var topLine = 145;
-            foreach (var command in new[] { "ZoomIn_Click", "ZoomOut_Click", "AutoWidth_Click" })
+            foreach (var direction in new[] { 1, -1, 0 })
             {
                 await ScrollSourceAsync(topLine);
-                if (command == "AutoWidth_Click") ((System.Windows.Controls.Primitives.ToggleButton)window.FindName("AutoWidthButton")).IsChecked = true;
-                Invoke(window, command, window, new RoutedEventArgs());
+                if (direction == 0) Invoke(window, "AutoWidth_Click", window, new RoutedEventArgs());
+                else Invoke(window, "SetManualZoom", preview.Zoom * (direction > 0 ? 1.1 : 1 / 1.1));
                 await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
                 await AssertPdfOffsetStableAsync(pdfScroll, pdfScroll.VerticalOffset,
-                    "A pending source-view follow overrode the PDF toolbar action " + command);
+                    "A pending source-view follow overrode the PDF zoom/fit-width action " + direction);
                 topLine += 25;
             }
             Console.WriteLine("PASS: PDF zoom and fit-width toolbar actions cancel pending source-view navigation");

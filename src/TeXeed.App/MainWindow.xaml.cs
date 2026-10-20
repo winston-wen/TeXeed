@@ -678,8 +678,9 @@ public partial class MainWindow : Window
     }
     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (e.NewValue is TreeViewItem { Tag: string path }) ActivateFile(path); }
-    private void Outline_NavigateRequested(object? sender, SourceLocation location)
+    private async void Outline_NavigateRequested(object? sender, SourceLocation location)
     {
+        if (await TryNavigateOutlinePreviewAsync(location)) return;
         ActivateFile(location.Path); Editor.NavigateTo(location, center: true);
         // A repeated click can leave the caret/viewport unchanged. It must still
         // resynchronize after the user has manually moved the PDF preview.
