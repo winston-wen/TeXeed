@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.13</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.14</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
@@ -91,13 +91,39 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 .thinking-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#80c693;animation:thinking-breathe 1.6s ease-in-out infinite}
 @keyframes thinking-breathe{0%,100%{opacity:.35;box-shadow:0 0 0 0 #80c69300}50%{opacity:1;box-shadow:0 0 0 3px #80c69322}}
 @media(prefers-reduced-motion:reduce){.thinking-dot{animation:none}}
+
+/* v0.4.14: native parity and history management layout. */
+.composer-shell{border-radius:0;padding:0;margin:8px 0 0;overflow:hidden}
+.composer-toolbar{margin:0;padding:2px;min-height:33px;gap:6px}
+.composer-toolbar button,.composer-toolbar select{height:28px;min-height:28px;margin-top:0;margin-bottom:0;padding-top:0;padding-bottom:0;box-sizing:border-box}
+.composer-toolbar .icon-button{width:28px;min-width:28px;height:28px;border-radius:0;padding:4px}
+.composer-shell>.code-editor{margin:0;width:100%}
+.composer-shell>.code-editor textarea{height:86px}
+.composer-toolbar .models{gap:5px}
+#title{cursor:text}#title-edit{display:flex;min-width:0;flex:1;gap:4px}#title-editor{min-width:0;width:100%;font:16px/24px var(--sans);padding:0 4px}#title-accept{padding:0 6px}
+.turn-footer.folded{margin-top:4px}.turn-footer.folded .turn-time{margin:0;padding:0;line-height:normal;white-space:pre-line}
+.history{position:fixed;inset:0;margin:auto;width:620px;height:600px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);min-width:min(400px,calc(100vw - 24px));min-height:350px;border:1px solid var(--guide);border-radius:8px;background:var(--bg);color:var(--ink);padding:18px;resize:both;overflow:hidden;box-shadow:0 8px 28px #0005}
+.history[open]{display:grid;grid-template-rows:auto auto auto auto minmax(0,1fr) auto;gap:8px}.history::backdrop{background:#0006}
+.history-heading{display:flex;align-items:center;justify-content:space-between;font:14px var(--sans);margin-bottom:4px}.history-heading button{font-size:20px;padding:0 6px}
+.history input{margin:0;border:1px solid var(--guide);border-radius:3px;font:13px var(--sans);width:auto;background:var(--sidebar)}
+.history-search-row{display:flex;gap:8px}.history-search-row input{min-width:0;flex:1;padding:6px 8px}.history button{font:13px var(--sans);padding:5px 9px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+.history-tools{display:flex;align-items:center;gap:4px}.history-tools #history-selected{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.history-hint{font:11px/1.5 var(--sans);color:var(--muted);margin:0}
+#history-viewport{min-height:0;display:grid;grid-template-columns:16px minmax(0,1fr);gap:8px;overflow:hidden}
+#history-scroll{appearance:none;writing-mode:vertical-lr;width:16px;height:100%;padding:0;border:0;accent-color:var(--guide);direction:ltr;min-height:0;cursor:default;background:transparent}
+#history-scroll::-webkit-slider-runnable-track{width:12px;background:var(--line);border-radius:2px}
+#history-scroll::-webkit-slider-thumb{appearance:none;width:12px;height:var(--history-thumb-size,40px);background:var(--guide);border-radius:2px}
+#history-list{min-height:0;overflow:hidden}.history-row{display:flex;height:36px;min-height:36px;padding:0;gap:8px;border-radius:0;align-items:center}.history-row.active{background:none;color:var(--accent)}
+.history-row input[type=checkbox]{width:16px;height:16px;flex:none}.history-title{font:16px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;flex:1;min-width:0}.history-title-editor{font:16px var(--sans)!important;min-width:0;flex:1;padding:3px 4px}.history-row button{width:30px;padding:3px}
+.history-pagination{display:flex;align-items:center;gap:6px;font:13px var(--sans)}#history-page{width:46px;padding:5px}#history-go{margin-left:auto}
+@media(max-width:540px){.composer-toolbar{row-gap:2px}.history{padding:12px}.history-tools button{padding:5px 6px}.history-tools #history-selected{font-size:11px}}
 </style>
 </head>
 <body>
 <main class="app">
  <div class="tabs"><div class="app-tab" id="chat-tab">AI 对话<button id="close-chat" aria-label="关闭 AI 对话"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg></button></div><button id="mark-button" aria-label="AI 圈点" aria-pressed="false" title="AI 圈点 · Esc 退出">AI 圈点</button><button id="settings-tab" class="app-tab settings-tab" hidden>AI 设置 ×</button></div>
  <section class="chat" id="chat">
-  <header class="heading" id="heading"><div id="heading-content" hidden><div class="heading-top"><h1 id="title"></h1><div class="heading-actions">
+  <header class="heading" id="heading"><div id="heading-content" hidden><div class="heading-top"><h1 id="title" tabindex="0" title="双击修改标题；F2 改名"></h1><div id="title-edit" hidden><input id="title-editor" maxlength="200" aria-label="修改对话标题"><button id="title-accept" aria-label="提交对话标题">✓</button></div><div class="heading-actions">
    <button class="icon-button" id="settings-button" aria-label="AI 设置" title="AI 设置"><svg class="icon" viewBox="0 0 16 16"><path d="M6,1 L8,1 8.5,3 10,4 12,3.5 13,5.5 11.5,7 11.5,9 13,10.5 12,12.5 10,12 8.5,13 8,15 6,15 5.5,13 4,12 2,12.5 1,10.5 2.5,9 2.5,7 1,5.5 2,3.5 4,4 5.5,3 Z M9.5,8 A2.5,2.5 0 1 1 4.5,8 A2.5,2.5 0 1 1 9.5,8"/></svg></button>
    <button class="icon-button" id="search-button" aria-label="查找当前对话" title="查找当前对话 · Ctrl+F"><svg class="icon" viewBox="0 0 20 20"><path d="M8,1 A7,7 0 1 0 8,15 A7,7 0 1 0 8,1 M13,13 L19,19"/></svg></button>
    <button class="icon-button" id="history-button" aria-label="历史对话" title="历史对话"><svg class="icon" viewBox="0 0 20 20"><path d="M10,1 A9,9 0 1 0 10,19 A9,9 0 1 0 10,1 M10,4 V10 L14,12"/></svg></button>
@@ -122,15 +148,23 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 <div class="menu" id="options" hidden><button data-option="add">添加圈点说明</button><button data-option="all">全选圈点</button><button data-option="clear">清理已完成圈点</button><hr><button data-option="refresh">刷新模型</button><button data-option="settings">AI 设置</button></div>
 <div class="menu" id="answer-menu" hidden><button id="annotate">批注所选内容</button><button id="copy-selection">复制</button><button id="copy-answer">复制这段回答</button></div>
 <section class="popup" id="annotation-editor" role="dialog" aria-label="原位批注" hidden><div class="popup-title" id="annotation-title"></div><textarea id="annotation-input" aria-label="原位批注内容"></textarea><div class="popup-footer"><button id="delete-annotation">删除</button><button id="collapse-annotation">收起 · 自动保存</button></div></section>
-<section class="history" id="history" hidden aria-label="历史对话弹窗"><input id="history-search" placeholder="搜索对话…" aria-label="搜索历史对话"><div class="history-list" id="history-list"></div></section>
-<dialog id="entries-dialog" aria-label="本次圈点编辑"><div class="row"><h2>本次圈点</h2><span class="spacer"></span><button id="close-entries">完成</button></div><p class="muted">保留选取时的原文快照；成功发送后移出，失败可重试。</p><div class="entries-scroll" id="entries"></div></dialog>
+<dialog class="history" id="history" aria-label="AI 会话历史管理">
+ <div class="history-heading"><span>AI 会话历史管理</span><button id="history-close" aria-label="关闭历史管理">×</button></div>
+ <div class="history-search-row"><input id="history-search" placeholder="搜索标题、问题或回答" aria-label="搜索 AI 历史对话"><button id="history-search-button" aria-label="搜索历史对话">⌕</button></div>
+ <div class="history-tools"><button id="history-refresh" aria-label="刷新历史">⟳</button><button id="history-all">全选</button><button id="history-clear">取消选择</button><button id="history-delete" disabled>删除所选</button><span id="history-selected">已选中 0 条</span></div>
+ <p class="history-hint">单击标题打开，双击标题改名；只有复选框用于批量选择</p>
+ <div id="history-viewport"><input type="range" id="history-scroll" min="0" max="0" value="0" step="1" aria-label="滚动历史" aria-orientation="vertical"><div id="history-list"></div></div>
+ <div class="history-pagination"><span>第</span><input id="history-page" value="1" inputmode="numeric" aria-label="历史页码"><span id="history-count"></span><button id="history-go" aria-label="跳转页码">➜</button></div>
+</dialog>
+<dialog id="entries-dialog" aria-label="本次圈点编辑"><div class="row"><h2>本次圈点</h2><span class="spacer"></span><button id="close-entries">完成</button></div><p class="muted">发送快照保存后即移出编辑区；停止或失败也可从历史查看原文。</p><div class="entries-scroll" id="entries"></div></dialog>
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>
 <div id="context-tooltip" role="tooltip" hidden></div>
-<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>此面板在产品之外。按 Ctrl+Alt+T 打开。基线：TeXeed 0.3.16；默认展示截图中的原会话末尾。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">请求失败</option></select></label><button id="restore">恢复截图状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>已收集 / 现编</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
+<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>此面板在产品之外。按 Ctrl+Alt+T 打开。界面对齐 TeXeed 0.3.24；会话素材源于 0.3.16，默认保留已打开会话的位置。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">请求失败</option></select></label><button id="restore">恢复截图状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>已收集 / 现编</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
 <dialog id="copy-dialog"><div class="row"><h2>复制文本</h2><span class="spacer"></span><button id="close-copy">关闭</button></div><textarea id="copy-text" aria-label="复制文本"></textarea></dialog>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
 <script src="vendor/katex/katex.min.js"></script>
 <script src="rich-text.js"></script>
+<script src="history.js"></script>
 <script>/*__APP__*/</script>
 </body>
 </html>

@@ -90,6 +90,13 @@ internal static partial class Program
         changedLegacy.Turns.Add(new("#1 · 同标题：旧内容", "历史回答"));
         changedLegacy.ReconcileSentAnnotations();
         Check(changedLegacy.Entries.Count == 1 && changedLegacy.Turns[0].SentAnnotations.Count == 0, "Legacy title-only match consumed a modified draft");
+        changedLegacy.Entries[0].Question = "旧内容";
+        changedLegacy.ReconcileSentAnnotations();
+        Check(changedLegacy.Entries.Count == 1, "An unsent draft matching an old question was consumed without a sent ID");
+        changedLegacy.Entries[0].State = "未完成，可重试";
+        changedLegacy.Turns[0] = new("同标题：旧内容", "[本轮未完成]");
+        changedLegacy.ReconcileSentAnnotations();
+        Check(changedLegacy.Entries.Count == 0 && changedLegacy.Turns[0].SentAnnotations.Count == 1, "Legacy unnumbered failed submission was not archived");
         host.Close();
         Console.WriteLine($"AI reading: {checks} checks passed (native layout, snapshots, folds, persistence, isolated single send).");
     }

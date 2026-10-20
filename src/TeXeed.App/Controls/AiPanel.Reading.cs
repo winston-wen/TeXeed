@@ -84,7 +84,7 @@ public partial class AiPanel
     private readonly System.Windows.Threading.DispatcherTimer _headerCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private void ApplyChatHeader()
     {
-        var open = _headerTemporary || _book.Active.HeaderPinned;
+        var open = _headerTemporary || _book.Active.HeaderPinned || _titleEditingId is not null;
         HeadingContent.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         ChatHeader.MinHeight = 18;
         HeadingArrow.RenderTransform = open ? new RotateTransform(180, 5, 2) : Transform.Identity;

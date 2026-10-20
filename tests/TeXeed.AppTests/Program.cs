@@ -94,6 +94,11 @@ internal static partial class Program
                     await CheckLiteralTextAsync(window, output);
                     await CloseAndObserveAsync(window, "Literal text regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-history-only"))
+                {
+                    await CheckAiHistoryAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI history management regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-reliability-only"))
                 {
                     await CheckAiReliabilityAsync(window, output);

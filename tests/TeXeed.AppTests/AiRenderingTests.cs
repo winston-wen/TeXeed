@@ -175,19 +175,14 @@ internal static partial class Program
             Capture(window, Path.Combine(output, "ai-markdown-" + theme + ".png"));
             ((Button)ai.FindName("HistoryButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await Task.Delay(150);
-            ((TextBox)ai.FindName("HistorySearchBox")).Text = "阅读";
-            Check(((ListBox)ai.FindName("HistoryList")).Items.Count == 1, "History popup search failed");
-            var popup = (Popup)ai.FindName("HistoryPopup");
-            var surface = (FrameworkElement)popup.Child;
-            surface.UpdateLayout();
-            var bitmap = new RenderTargetBitmap((int)surface.ActualWidth, (int)surface.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-            bitmap.Render(surface);
-            var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap));
-            using (var file = File.Create(Path.Combine(output, "ai-history-popup-" + theme + ".png"))) png.Save(file);
-            popup.IsOpen = false;
+            var historyDialog = Application.Current.Windows.OfType<AiHistoryWindow>().Single();
+            ((TextBox)historyDialog.FindName("SearchBox")).Text = "阅读";
+            Check(((ItemsControl)historyDialog.FindName("ConversationList")).Items.Count == 1, "History dialog search failed");
+            Capture(historyDialog, Path.Combine(output, "ai-history-dialog-" + theme + ".png"));
+            historyDialog.Close();
         }
         ThemeManager.Apply("ristretto");
-        Console.WriteLine("AI rendering: Markdown, immediate/persisted titles, visible long streaming follow-ups, context, cancellation/retry, keyboard routing, history popup and selection contrast passed.");
+        Console.WriteLine("AI rendering: Markdown, immediate/persisted titles, visible long streaming follow-ups, context, cancellation/retry, keyboard routing, history dialog and selection contrast passed.");
     }
 
     private static async Task CheckSelectionPixelsAsync(Window owner, string output, string theme)

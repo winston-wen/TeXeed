@@ -95,7 +95,7 @@ public partial class AiPanel
         var compact = ActualWidth > 0 && ActualWidth < PermissionPicker.Width + ModelPicker.Width + EffortPicker.Width + 175;
         Grid.SetRow(ModelControls, compact ? 1 : 0); Grid.SetColumn(ModelControls, compact ? 0 : 3); Grid.SetColumnSpan(ModelControls, compact ? 4 : 1);
         ModelControls.HorizontalAlignment = HorizontalAlignment.Right;
-        ModelControls.Margin = new Thickness(0, compact ? 6 : 0, 0, 0);
+        ModelControls.Margin = new Thickness(0, compact ? 2 : 0, 0, 0);
         Grid.SetRow(SendControls, compact ? 1 : 0);
     }
 }

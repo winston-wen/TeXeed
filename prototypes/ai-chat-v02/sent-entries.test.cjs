@@ -1,0 +1,21 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const app=fs.readFileSync(__dirname+'/app.js','utf8');
+const pure=app.slice(app.indexOf('function migrateSnapshots(){'),app.indexOf("$('entries-button').onclick"));
+const fixture=JSON.parse(fs.readFileSync(__dirname+'/transcripts.json','utf8'));
+function run(state){const context=vm.createContext({state,DATA:fixture,clone:x=>JSON.parse(JSON.stringify(x))});vm.runInContext(pure+';migrateSnapshots();reconcileSentEntries();',context);return context.state;}
+let original=JSON.parse(JSON.stringify(fixture.entries));
+let loaded=run({conversations:[{entries:original,turns:JSON.parse(JSON.stringify(fixture.turns))}]});
+assert.equal(loaded.conversations[0].entries.length,0);
+assert.equal(loaded.conversations[0].turns.flatMap(t=>t.annotations||[]).length,7);
+const entry={id:'sent',number:1,title:'原文',question:'同一个问题',state:'未完成，可重试',sources:[{text:'原文'}]};
+let stopped=run({conversations:[{entries:[structuredClone(entry)],turns:[{question:'统一说明\n原文：同一个问题',answer:''}]}]});
+assert.equal(stopped.conversations[0].entries.length,0);assert.equal(stopped.conversations[0].turns[0].prompt,'统一说明');
+let unsent={...entry,state:'待提交'};
+let safe=run({conversations:[{entries:[unsent],turns:[{question:'#1 · 原文：同一个问题',answer:'历史回答'}]}]});
+assert.equal(safe.conversations[0].entries.length,1);
+let changed={...entry,sources:[{text:'修改过的来源'}]};
+let untouched={...entry,id:'new',state:'待提交'};
+let modern=run({snapshotVersion:1,conversations:[{entries:[changed,untouched],turns:[{question:'历史问题',annotations:[structuredClone(entry)]}]}]});
+assert.equal(modern.conversations[0].entries.length,2);
+console.log('Sent entry migration: collected source/PDF snapshots, failed submissions, unsubmitted duplicates and edited sources passed.');

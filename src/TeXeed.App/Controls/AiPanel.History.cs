@@ -51,6 +51,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        CancelTitleRename();
         _restoringReading = true; ResetHeaderHover();
         _updating = true;
         Composer.Text = _book.Draft;
@@ -58,49 +59,41 @@ public partial class AiPanel
         SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript();
-        ConversationTitle.Text = AiConversation.MakeTitle(_book.Active.Title);
+        ConversationTitle.Text = _book.Active.Title;
         ApplyChatHeader();
         StatusText.Text = "";
         RestoreReadingAnchor();
     }
     private async void NewConversation_Click(object sender, RoutedEventArgs e)
     { try { await NewConversationAsync(); Composer.Focus(); } catch (Exception ex) { ShowError(ex); } }
+    internal async Task DeleteConversationsAsync(IReadOnlyCollection<string> ids)
+    {
+        await FinishConversationWorkAsync();
+        var removed = ids.ToHashSet();
+        _book.Conversations.RemoveAll(c => removed.Contains(c.Id));
+        _ = _book.Active;
+        ShowCurrentConversation(); await SaveAsync();
+    }
+    internal async Task RenameConversationAsync(string id, string title)
+    {
+        title = title.Trim();
+        if (title.Length is 0 or > 200) throw new ArgumentException("标题需为 1–200 个字符。");
+        var conversation = _book.Conversations.FirstOrDefault(c => c.Id == id);
+        if (conversation is null) return;
+        var previous = conversation.Title; conversation.Title = title;
+        if (id == _book.ActiveConversationId) ConversationTitle.Text = title;
+        try { await SaveAsync(); }
+        catch { conversation.Title = previous; if (id == _book.ActiveConversationId) ConversationTitle.Text = previous; throw; }
+    }
     private async void History_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            await SaveAsync();
-            HistorySearchBox.Clear(); RefreshHistory();
-            HistoryPopup.IsOpen = true;
-            HistorySearchBox.Focus();
+            await CommitTitleRenameAsync(); await SaveAsync();
+            var dialog = new AiHistoryWindow(_book, DeleteConversationsAsync, RenameConversationAsync) { Owner = Window.GetWindow(this) };
+            if (dialog.ShowDialog() == true && dialog.SelectedConversationId is { } id) await SelectConversationAsync(id);
+            Composer.Focus();
         }
-        catch (Exception ex) { ShowError(ex); }
-    }
-    private void RefreshHistory()
-    {
-        var matches = AiHistoryWindow.Search(_book, HistorySearchBox.Text.Trim());
-        HistoryList.ItemsSource = matches;
-        HistoryList.SelectedItem = matches.FirstOrDefault(c => c.Id == _book.ActiveConversationId) ?? matches.FirstOrDefault();
-        HistoryEmpty.Visibility = matches.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-    }
-    private void HistorySearch_Changed(object sender, TextChangedEventArgs e) { if (HistoryList is not null) RefreshHistory(); }
-    private async void HistoryOpen_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is not AiConversation conversation) return;
-        try { HistoryPopup.IsOpen = false; await SelectConversationAsync(conversation.Id); Composer.Focus(); }
-        catch (Exception ex) { ShowError(ex); }
-    }
-    private async void HistoryDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is not AiConversation conversation) return;
-        try { await DeleteConversationAsync(conversation.Id); RefreshHistory(); }
-        catch (Exception ex) { ShowError(ex); }
-    }
-    private async void HistoryList_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter || HistoryList.SelectedItem is not AiConversation conversation) return;
-        e.Handled = true;
-        try { HistoryPopup.IsOpen = false; await SelectConversationAsync(conversation.Id); Composer.Focus(); }
         catch (Exception ex) { ShowError(ex); }
     }
     private void Options_Click(object sender, RoutedEventArgs e)

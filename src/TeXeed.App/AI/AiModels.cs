@@ -128,9 +128,12 @@ public sealed class AiConversation
             // Legacy turns embedded the complete submitted question. A matching
             // title alone must not consume a draft edited since that submission.
             var prompt = "\n" + turn.Question + "\n";
-            var entries = Entries.Where(e => prompt.Contains("\n" + e.DisplayTitle + "：" + e.Question + "\n", StringComparison.Ordinal)).ToArray();
+            var entries = Entries.Where(e => e.State is "已完成" or "提交中" or "未完成，可重试" or "上次提交未完成，可重试")
+                .Where(e => new[] { e.DisplayTitle, e.Title }.Any(label => prompt.Contains("\n" + label + "：" + e.Question + "\n", StringComparison.Ordinal))).ToArray();
             if (entries.Length == 0) continue;
-            foreach (var entry in entries) prompt = prompt.Replace("\n" + entry.DisplayTitle + "：" + entry.Question + "\n", "\n", StringComparison.Ordinal);
+            foreach (var entry in entries)
+                foreach (var label in new[] { entry.DisplayTitle, entry.Title })
+                    prompt = prompt.Replace("\n" + label + "：" + entry.Question + "\n", "\n", StringComparison.Ordinal);
             Turns[i] = turn with { Prompt = prompt.Trim('\n'), SentAnnotations = entries.Select((e, n) => e.Snapshot(n + 1)).ToList() };
             changed = true;
         }

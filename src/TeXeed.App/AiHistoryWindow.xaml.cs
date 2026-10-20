@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using TeXeed.App.AI;
 using TeXeed.App.Services;
 
@@ -8,47 +10,137 @@ namespace TeXeed.App;
 
 public partial class AiHistoryWindow : Window
 {
+    private const double RowHeight = 36;
     private readonly AiNotebook _book;
-    private readonly Func<string, Task> _delete;
+    private readonly Func<IReadOnlyCollection<string>, Task> _delete;
+    private readonly Func<string, string, Task> _rename;
+    private readonly AiHistoryPage _page;
+    private readonly DispatcherTimer _openTimer = new();
+    private string? _openId;
+    private TextBox? _editor;
+    private string? _editingId;
+    private bool _rendering, _busy;
+    internal AiHistoryPage Page => _page;
     public string? SelectedConversationId { get; private set; }
 
-    internal AiHistoryWindow(AiNotebook book, Func<string, Task> delete)
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+    internal AiHistoryWindow(AiNotebook book, Func<IReadOnlyCollection<string>, Task> delete, Func<string, string, Task> rename)
     {
-        _book = book;
-        _delete = delete;
-        InitializeComponent();
-        WindowTheme.Attach(this);
-        Refresh();
-        Loaded += (_, _) => SearchBox.Focus();
+        _book = book; _delete = delete; _rename = rename; _page = new(book);
+        InitializeComponent(); WindowTheme.Attach(this);
+        _openTimer.Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime());
+        _openTimer.Tick += (_, _) => { _openTimer.Stop(); if (_openId is { } id && _editor is null) Open(id); };
+        Closed += (_, _) => _openTimer.Stop();
+        Closing += async (_, e) =>
+        {
+            if (_busy) { e.Cancel = true; return; }
+            if (_editor is null) return;
+            e.Cancel = true; await CommitRenameAsync();
+            if (_editor is null) Close();
+        };
+        KeyDown += (_, e) => { if (e.Key == Key.Escape && _editor is null) { e.Handled = true; Close(); } };
+        Refresh(); Loaded += (_, _) => SearchBox.Focus();
     }
-    internal static IReadOnlyList<AiConversation> Search(AiNotebook book, string query) => book.Conversations
-        .Where(c => query.Length == 0 || c.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
-            || c.Turns.Any(t => t.Question.Contains(query, StringComparison.OrdinalIgnoreCase) || t.Answer.Contains(query, StringComparison.OrdinalIgnoreCase)))
-        .OrderByDescending(c => c.UpdatedAt).ToArray();
-
-    private void Refresh()
+    internal static IReadOnlyList<AiConversation> Search(AiNotebook book, string query) => AiHistoryPage.Search(book, query);
+    private void Refresh(bool reset = false) { _page.Refresh(SearchBox.Text, reset); Render(); }
+    private void Render()
     {
-        var matches = Search(_book, SearchBox.Text.Trim());
-        ConversationList.ItemsSource = matches;
-        ConversationList.SelectedItem = matches.FirstOrDefault(c => c.Id == _book.ActiveConversationId) ?? matches.FirstOrDefault();
-        ResultCount.Text = $"{matches.Count} 个对话";
+        _rendering = true;
+        ConversationList.Items.Clear();
+        foreach (var conversation in _page.Visible)
+        {
+            var row = new Grid { Height = RowHeight, Tag = conversation.Id };
+            row.ColumnDefinitions.Add(new() { Width = new GridLength(28) });
+            row.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+            var check = new CheckBox { IsChecked = _page.Selected.Contains(conversation.Id), VerticalAlignment = VerticalAlignment.Center };
+            System.Windows.Automation.AutomationProperties.SetName(check, "选择对话：" + conversation.Title);
+            check.Click += (_, _) => { _openTimer.Stop(); if (check.IsChecked == true) _page.Selected.Add(conversation.Id); else _page.Selected.Remove(conversation.Id); UpdateSelection(); };
+            var title = new TextBlock { Text = conversation.Title, FontSize = 16, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, ToolTip = conversation.Title, Cursor = Cursors.Hand, Focusable = true };
+            title.SetResourceReference(ForegroundProperty, conversation.Id == _book.ActiveConversationId ? "Accent" : "Ink");
+            title.MouseLeftButtonDown += (_, e) =>
+            {
+                e.Handled = true; title.Focus(); _openTimer.Stop();
+                if (e.ClickCount == 2) BeginRename(conversation.Id);
+                else { _openId = conversation.Id; _openTimer.Start(); }
+            };
+            title.KeyDown += (_, e) => { if (e.Key == Key.F2) { BeginRename(conversation.Id); e.Handled = true; } else if (e.Key == Key.Enter) { Open(conversation.Id); e.Handled = true; } };
+            Grid.SetColumn(title, 1); row.Children.Add(check); row.Children.Add(title); ConversationList.Items.Add(row);
+        }
+        HistoryScrollbar.Maximum = _page.MaximumFirst; HistoryScrollbar.ViewportSize = _page.Capacity;
+        HistoryScrollbar.IsEnabled = _page.MaximumFirst > 0;
+        HistoryScrollbar.LargeChange = _page.Capacity; HistoryScrollbar.Value = _page.First;
+        PageBox.Text = _page.PageNumber.ToString(); ResultCount.Text = $"页，共 {_page.PageCount} 页、{_page.Matches.Count} 条";
+        EmptyText.Visibility = _page.Matches.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateSelection(); _rendering = false;
     }
-    private void Search_Changed(object sender, TextChangedEventArgs e) { if (ConversationList is not null) Refresh(); }
-    private void Selection_Changed(object sender, SelectionChangedEventArgs e)
-    { OpenButton.IsEnabled = DeleteButton.IsEnabled = ConversationList.SelectedItem is AiConversation; }
-    private void Open_Click(object sender, RoutedEventArgs e)
+    private void UpdateSelection() { SelectedCount.Text = $"已选中 {_page.Selected.Count} 条"; DeleteButton.IsEnabled = !_busy && _page.Selected.Count > 0; }
+    internal void BeginRename(string id)
     {
-        if (ConversationList.SelectedItem is not AiConversation conversation) return;
-        SelectedConversationId = conversation.Id;
-        DialogResult = true;
+        _openTimer.Stop();
+        if (_busy || _editor is not null) return;
+        var row = ConversationList.Items.Cast<Grid>().FirstOrDefault(r => (string)r.Tag == id);
+        var conversation = _book.Conversations.FirstOrDefault(c => c.Id == id);
+        if (row is null || conversation is null) return;
+        _editingId = id; ((TextBlock)row.Children[1]).Visibility = Visibility.Collapsed;
+        _editor = new TextBox { Text = conversation.Title, FontSize = 16, MaxLength = 200, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 4, 2) };
+        Grid.SetColumn(_editor, 1); row.Children.Add(_editor);
+        var accept = new Button { Content = "✓", ToolTip = "提交标题", Width = 30, Margin = new Thickness(0) };
+        System.Windows.Automation.AutomationProperties.SetName(accept, "提交标题");
+        accept.Click += async (_, _) => await CommitRenameAsync(); Grid.SetColumn(accept, 2); row.Children.Add(accept);
+        _editor.PreviewKeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await CommitRenameAsync(); } else if (e.Key == Key.Escape) { e.Handled = true; CancelRename(); } };
+        _editor.Focus(); _editor.SelectAll();
     }
-    private void Conversation_DoubleClick(object sender, MouseButtonEventArgs e)
-    { if (e.OriginalSource is DependencyObject) Open_Click(sender, e); }
+    internal async Task CommitRenameAsync()
+    {
+        if (_editor is null || _editingId is null || _busy) return;
+        var name = _editor.Text.Trim(); if (name.Length == 0) { _editor.Focus(); return; }
+        var id = _editingId; _busy = true; DialogBody.IsEnabled = false;
+        try { await _rename(id, name); _editor = null; _editingId = null; Refresh(); }
+        catch (Exception ex) { ResultCount.Text = "改名未完成：" + ex.Message; }
+        finally { _busy = false; DialogBody.IsEnabled = true; UpdateSelection(); }
+    }
+    private void CancelRename() { _editor = null; _editingId = null; Render(); }
+    private async void Window_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _openTimer.Stop();
+        if (_editor is null || _busy) return;
+        var source = e.OriginalSource as DependencyObject;
+        while (source is not null) { if (ReferenceEquals(source, _editor)) return; source = source is Visual ? VisualTreeHelper.GetParent(source) : LogicalTreeHelper.GetParent(source); }
+        e.Handled = true;
+        await CommitRenameAsync(); // An outside click submits, without also opening/deleting a row.
+    }
+    private void Open(string id)
+    {
+        _openTimer.Stop(); if (_busy || !_book.Conversations.Any(c => c.Id == id)) return;
+        SelectedConversationId = id;
+        if (System.Windows.Interop.ComponentDispatcher.IsThreadModal) DialogResult = true; else Close();
+    }
+    private async void Search_Changed(object sender, TextChangedEventArgs e) { if (ConversationList is null) return; _openTimer.Stop(); await CommitRenameAsync(); Refresh(true); }
+    private async void Search_Click(object sender, RoutedEventArgs e) { await CommitRenameAsync(); Refresh(true); }
+    private async void Refresh_Click(object sender, RoutedEventArgs e) { await CommitRenameAsync(); Refresh(); }
+    private void SelectAll_Click(object sender, RoutedEventArgs e) { _openTimer.Stop(); _page.Selected.UnionWith(_page.Matches.Select(c => c.Id)); Render(); }
+    private void ClearSelection_Click(object sender, RoutedEventArgs e) { _openTimer.Stop(); _page.Selected.Clear(); Render(); }
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (ConversationList.SelectedItem is not AiConversation conversation) return;
-        DeleteButton.IsEnabled = false;
-        try { await _delete(conversation.Id); Refresh(); }
+        if (_busy || _page.Selected.Count == 0) return;
+        _openTimer.Stop(); _busy = true; DialogBody.IsEnabled = false;
+        try { await _delete(_page.Selected.ToArray()); Refresh(); }
         catch (Exception ex) { ResultCount.Text = "删除未完成：" + ex.Message; }
+        finally { _busy = false; DialogBody.IsEnabled = true; UpdateSelection(); }
     }
+    private void Viewport_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_page is null) return;
+        var capacity = Math.Max(1, (int)(RowsViewport.ActualHeight / RowHeight));
+        if (capacity == _page.Capacity) return;
+        _openTimer.Stop();
+        _page.Resize(capacity);
+        if (_editor is null) Render(); // Keep an unfinished rename when the window changes size.
+    }
+    private void Scroll_Changed(object sender, RoutedPropertyChangedEventArgs<double> e) { if (_rendering || _editor is not null) return; _openTimer.Stop(); _page.Scroll((int)Math.Round(e.NewValue)); Render(); }
+    private void Rows_Wheel(object sender, MouseWheelEventArgs e) { if (_editor is not null) return; _openTimer.Stop(); _page.Scroll(_page.First - Math.Sign(e.Delta) * 3); Render(); e.Handled = true; }
+    private void Go_Click(object sender, RoutedEventArgs e) { if (_editor is not null) return; _openTimer.Stop(); if (int.TryParse(PageBox.Text, out var page)) _page.GoTo(page); Render(); }
+    private void Page_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { Go_Click(sender, e); e.Handled = true; } }
 }

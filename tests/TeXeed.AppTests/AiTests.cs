@@ -220,9 +220,9 @@ internal static partial class Program
         var search = (TextBox)ai.FindName("MessageSearchBox"); search.Text = "唯一";
         Check(((TextBlock)ai.FindName("MessageMatchStatus")).Text == "1/1", "In-conversation search failed to find the answer");
         Capture(window, Path.Combine(output, "ai-tab.png"));
-        var historyDialog = new AiHistoryWindow(book, ai.DeleteConversationAsync) { Owner = window };
+        var historyDialog = new AiHistoryWindow(book, ai.DeleteConversationsAsync, ai.RenameConversationAsync) { Owner = window };
         historyDialog.Show(); ((TextBox)historyDialog.FindName("SearchBox")).Text = "单位元"; historyDialog.UpdateLayout();
-        Check(((ListBox)historyDialog.FindName("ConversationList")).Items.Count == 1 && ((Button)historyDialog.FindName("DeleteButton")).IsEnabled, "History UI cannot search or delete a selected conversation");
+        Check(((ItemsControl)historyDialog.FindName("ConversationList")).Items.Count == 1 && !((Button)historyDialog.FindName("DeleteButton")).IsEnabled, "History search failed or implicitly checked a conversation");
         Capture(historyDialog, Path.Combine(output, "ai-history.png")); historyDialog.Close();
         Invoke(window, "OpenAiSettings"); window.UpdateLayout(); Capture(window, Path.Combine(output, "ai-settings.png")); Invoke(window, "OpenAiTab");
         var context = editor.ContextMenu; context.IsOpen = true; window.UpdateLayout();

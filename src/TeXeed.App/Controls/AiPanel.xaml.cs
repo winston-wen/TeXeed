@@ -165,7 +165,7 @@ public partial class AiPanel : UserControl, IDisposable
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         LiveContainer.Visibility = Visibility.Collapsed;
         _liveSegments.Clear();
-        ConversationTitle.Text = AiConversation.MakeTitle(_book.Active.Title);
+        ConversationTitle.Text = _book.Active.Title;
         MessageSearch_Changed(MessageSearchBox, null!);
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
