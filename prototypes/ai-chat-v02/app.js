@@ -233,7 +233,8 @@ window.addEventListener('resize',()=>{refreshEditors();updateReadingContext();})
 function shortTitle(value){return [...value.replace(/\s+/g,' ').trim()].slice(0,20).join('')||'新对话';}
 function migrateReadingDesign(){if(state.readingDesignVersion===4)return;for(const c of state.conversations){c.title=c.id==='collected'?DATA.title:shortTitle(c.title);}state.readingDesignVersion=4;}
 function updateReadingContext(){const shell=$('reading-shell'),reader=$('reader'),box=$('reading-context');const top=reader.getBoundingClientRect().top;let turn;
- if(shell.clientHeight>=420)turn=current().turns.find(t=>{const node=$(t.id),q=$(t.id+'-question');return !t.collapsed&&node&&q&&node.getBoundingClientRect().bottom>top+12&&q.getBoundingClientRect().bottom<top;});
+ if(shell.clientHeight>=420)turn=current().turns.find(t=>{const node=$(t.id);return node&&node.getBoundingClientRect().bottom>top+12;});
+ if(turn&&(turn.collapsed||$(turn.id+'-question')?.getBoundingClientRect().bottom>=top))turn=null;
  box.hidden=!turn;if(!turn){box.dataset.turn='';return;}box.dataset.turn=turn.id;
  const first=(turn.prompt??turn.question).split('\n').map(x=>x.trim()).find(Boolean)||'圈点提问';$('reading-context-title').textContent=first;$('reading-context-title').title=first;
  $('reading-context-notes').innerHTML=turnAnnotations(turn).slice(0,3).map(e=>'<span title="'+esc(e.summary)+'">#'+e.number+' · '+esc(e.summary)+'</span>').join('')||'<span>本轮没有圈点</span>';

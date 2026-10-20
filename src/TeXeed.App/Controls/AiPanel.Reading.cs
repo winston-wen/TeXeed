@@ -62,7 +62,7 @@ public partial class AiPanel
         // Never walk document descendants or force layout of off-screen history.
         var active = ActiveReadingTurn();
         CaptureReadingAnchor();
-        if (active is null || active.TranslatePoint(new Point(), MessagesScroll).Y >= -24)
+        if (active is null || active.Turn.Collapsed || active.TranslatePoint(new Point(), MessagesScroll).Y >= -24)
         { ReadingContext.Visibility = Visibility.Collapsed; return; }
         ReadingContextTitle.Text = (active.Turn.Prompt ?? active.Turn.DisplayQuestion).Split('\n').FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "圈点提问";
         if (string.IsNullOrWhiteSpace(ReadingContextTitle.Text)) ReadingContextTitle.Text = "圈点提问";
@@ -106,7 +106,7 @@ public partial class AiPanel
         _turnViews[view.Turn.Id] = view;
         view.Unloaded -= Turn_Unloaded; view.Unloaded += Turn_Unloaded;
         ScheduleReadingContext();
-        view.Changed = Dirty;
+        view.Changed = () => { Dirty(); ScheduleReadingContext(); };
         view.SourceRequested = OpenChatSource;
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
