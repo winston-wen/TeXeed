@@ -20,6 +20,7 @@ public partial class AiPanel
     }
     internal async Task NewConversationAsync()
     {
+        if (_store is not null) throw new InvalidOperationException("请从 AI 菜单新建独立会话窗口。");
         if (_project is null) return;
         await FinishConversationWorkAsync();
         if (_book.Turns.Count > 0 || _book.Entries.Count > 0 || Composer.Text.Length > 0) _book.NewConversation();
@@ -28,6 +29,7 @@ public partial class AiPanel
     }
     internal async Task SelectConversationAsync(string id)
     {
+        if (_store is not null && id != ConversationId) throw new InvalidOperationException("会话与窗口固定对应，请打开该会话的窗口。");
         if (!_book.Conversations.Any(c => c.Id == id)) return;
         await FinishConversationWorkAsync();
         _book.ActiveConversationId = id;
@@ -36,6 +38,7 @@ public partial class AiPanel
     }
     internal async Task DeleteConversationAsync(string id)
     {
+        if (_store is not null) throw new InvalidOperationException("请先关闭会话窗口，再从历史管理删除。");
         await FinishConversationWorkAsync();
         if (!_book.RemoveConversation(id)) return;
         ShowCurrentConversation();
@@ -51,16 +54,13 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
-        CancelTitleRename();
-        _restoringReading = true; ResetHeaderHover();
+        _restoringReading = true;
         _updating = true;
         Composer.Text = _book.Draft;
         _updating = false;
         SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript();
-        ConversationTitle.Text = _book.Active.Title;
-        ApplyChatHeader();
         StatusText.Text = "";
         RestoreReadingAnchor();
     }
@@ -68,6 +68,7 @@ public partial class AiPanel
     { try { await NewConversationAsync(); Composer.Focus(); } catch (Exception ex) { ShowError(ex); } }
     internal async Task DeleteConversationsAsync(IReadOnlyCollection<string> ids)
     {
+        if (_store is not null) throw new InvalidOperationException("请先关闭会话窗口，再从历史管理删除。");
         await FinishConversationWorkAsync();
         var removed = ids.ToHashSet();
         _book.Conversations.RemoveAll(c => removed.Contains(c.Id));
@@ -81,20 +82,8 @@ public partial class AiPanel
         var conversation = _book.Conversations.FirstOrDefault(c => c.Id == id);
         if (conversation is null) return;
         var previous = conversation.Title; conversation.Title = title;
-        if (id == _book.ActiveConversationId) ConversationTitle.Text = title;
         try { await SaveAsync(); }
-        catch { conversation.Title = previous; if (id == _book.ActiveConversationId) ConversationTitle.Text = previous; throw; }
-    }
-    private async void History_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await CommitTitleRenameAsync(); await SaveAsync();
-            var dialog = new AiHistoryWindow(_book, DeleteConversationsAsync, RenameConversationAsync) { Owner = Window.GetWindow(this) };
-            if (dialog.ShowDialog() == true && dialog.SelectedConversationId is { } id) await SelectConversationAsync(id);
-            Composer.Focus();
-        }
-        catch (Exception ex) { ShowError(ex); }
+        catch { conversation.Title = previous; throw; }
     }
     private void Options_Click(object sender, RoutedEventArgs e)
     { if (sender is Button { ContextMenu: { } menu } button) { menu.PlacementTarget = button; menu.IsOpen = true; } }

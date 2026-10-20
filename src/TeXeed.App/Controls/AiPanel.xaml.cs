@@ -15,6 +15,11 @@ namespace TeXeed.App.Controls;
 public partial class AiPanel : UserControl, IDisposable
 {
     private readonly AiConnection _connection;
+    private readonly bool _ownsSettings;
+    private readonly EventHandler _settingsChanged;
+    private AiWorkspaceStore? _store;
+    internal string ConversationId => _book.ActiveConversationId;
+    internal AiConversation Conversation => _book.Active;
     private readonly ScrollViewer MessagesScroll;
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private readonly SemaphoreSlim _saveGate = new(1);
@@ -34,7 +39,7 @@ public partial class AiPanel : UserControl, IDisposable
     private TaskCompletionSource? _operationDone;
     public Func<IReadOnlyList<ProjectFile>>? ProjectFiles { get; set; }
     public AiPanel() : this(new AiConnection()) { }
-    internal AiPanel(AiConnection connection)
+    internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
     {
         _connection = connection; InitializeComponent();
         History.ApplyTemplate();
@@ -51,10 +56,10 @@ public partial class AiPanel : UserControl, IDisposable
             else if (change.NewItems is not null)
                 for (var i = 0; i < change.NewItems.Count; i++) _transcriptItems.Insert(change.NewStartingIndex + i + 1, change.NewItems[i]!);
         };
-        Settings = new AiSettingsPanel(connection);
+        _ownsSettings = sharedSettings is null; Settings = sharedSettings ?? new AiSettingsPanel(connection);
         PermissionPicker.ItemsSource = AiPermissionChoice.Choices;
         SyncPermission();
-        Settings.ConnectionChanged += (_, _) => SyncModelChoices();
+        _settingsChanged = (_, _) => SyncModelChoices(); Settings.ConnectionChanged += _settingsChanged;
         SizeChanged += (_, _) =>
         {
             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
@@ -63,8 +68,6 @@ public partial class AiPanel : UserControl, IDisposable
             ScheduleReadingContext(); ResizeChoices();
         };
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
-        _headerCloseTimer.Tick += Header_CloseTick;
-        HeadingPeek.MouseDoubleClick += Header_DoubleClick;
         MessagesScroll.ScrollChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.OriginalSource, MessagesScroll)) return;
@@ -86,6 +89,7 @@ public partial class AiPanel : UserControl, IDisposable
     {
         _operation?.Cancel(); if (_operationDone is { } pending) await pending.Task;
         _generation++; _saveTimer.Stop(); await SaveAsync();
+        _store = null;
         var loaded = await Task.Run(() => AiStorage.Load(project));
         _project = project; _book = loaded;
         _restoringReading = true;
@@ -93,6 +97,11 @@ public partial class AiPanel : UserControl, IDisposable
         foreach (var entry in _book.Entries.Where(e => e.State == "提交中")) entry.State = "上次提交未完成，可重试";
         if (_book.RequiresSave || File.Exists(AiTurnCheckpoint.PathFor(project))) await SaveAsync();
         ShowCurrentConversation();
+    }
+    internal Task BindAsync(AiWorkspaceStore store, string id)
+    {
+        _store = store; _project = store.Project; _book = store.View(id);
+        ShowCurrentConversation(); return Task.CompletedTask;
     }
     public bool AddEntry(AiEntry entry, bool focusComposer = true)
     {
@@ -129,17 +138,17 @@ public partial class AiPanel : UserControl, IDisposable
         _book.Draft = Composer.Text;
         if (!_restoringReading) _book.Active.ReadingOffset = MessagesScroll.VerticalOffset;
         CaptureReadingAnchor();
-        var snapshot = _book.Snapshot();
-        await _saveGate.WaitAsync(); try { await Task.Run(() => AiStorage.Save(project, snapshot)); } finally { _saveGate.Release(); }
+        if (_store is not null) { await _store.SaveAsync(); return; }
+        await _saveGate.WaitAsync(); try { var snapshot = _book.Snapshot(); await Task.Run(() => AiStorage.Save(project, snapshot)); } finally { _saveGate.Release(); }
     }
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
         if (_operation is not null) return;
-        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false;
+        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; if (_ownsSettings) Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false;
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；本轮已保留，可继续提问。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; } _operationDone = null; done.TrySetResult(); }
+        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。问题已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
@@ -165,20 +174,10 @@ public partial class AiPanel : UserControl, IDisposable
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         LiveContainer.Visibility = Visibility.Collapsed;
         _liveSegments.Clear();
-        ConversationTitle.Text = _book.Active.Title;
         MessageSearch_Changed(MessageSearchBox, null!);
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
-    private void UpdateConnectionLabel()
-    {
-        try
-        {
-            var saved = AiCredentials.Load();
-            ConnectionLabel.Text = (saved.UseApiKey ? "API Key" : "ChatGPT") + " · " + (string.IsNullOrEmpty(saved.Model) ? "选择模型" : saved.Model);
-        }
-        catch { ConnectionLabel.Text = "请在 AI 设置中检查连接"; }
-    }
-    private void Composer_Changed(object sender, TextChangedEventArgs e) { if (ComposerLines is not null) ComposerLines.Text = string.Join("\n", Enumerable.Range(1, Math.Max(1, Composer.LineCount))); Dirty(); }
+    private void Composer_Changed(object sender, TextChangedEventArgs e) { if (!_updating) _book.Draft = Composer.Text; if (ComposerLines is not null) ComposerLines.Text = string.Join("\n", Enumerable.Range(1, Math.Max(1, Composer.LineCount))); Dirty(); }
     private async void Composer_KeyDown(object sender, KeyEventArgs e)
     {
         if (!IsSendGesture(e.Key, Keyboard.Modifiers)) return;
@@ -212,10 +211,10 @@ public partial class AiPanel : UserControl, IDisposable
             // initial save below persists it before any model request can fail or stall.
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
-            ConversationTitle.Text = book.Active.Title;
             var buffer = new AiStreamBuffer();
             var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations };
-            var checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer);
+            var checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null);
+            book.Active.LastSentAt = sentAt;
             if (single is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
             foreach (var entry in selected)
             {
@@ -294,6 +293,6 @@ public partial class AiPanel : UserControl, IDisposable
             }
         });
     }
-    public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { _disposed = true; _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); _headerCloseTimer.Stop(); Settings.Dispose(); _connection.Dispose(); _lifetime.Dispose(); }
+    public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
+    public void Dispose() { _disposed = true; _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }

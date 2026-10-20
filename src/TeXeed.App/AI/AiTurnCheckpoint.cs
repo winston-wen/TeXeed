@@ -14,12 +14,22 @@ internal sealed class AiTurnCheckpoint
     private readonly CancellationTokenSource _stop = new();
     private Task _worker = Task.CompletedTask;
     private long _writtenVersion = -1;
-    private AiTurnCheckpoint(string project, string conversationId, string title, AiTurn turn, AiStreamBuffer buffer)
-    { _path = PathFor(project); _pending = new(conversationId, title, turn); _buffer = buffer; }
+    private AiTurnCheckpoint(string project, string conversationId, string title, AiTurn turn, AiStreamBuffer buffer, bool scoped)
+    { _path = scoped ? PathFor(project, conversationId) : PathFor(project); _pending = new(conversationId, title, turn); _buffer = buffer; }
     internal static string PathFor(string project) => AiStorage.NotebookPath(project) + ".pending";
-    internal static async Task<AiTurnCheckpoint> StartAsync(string project, string conversationId, string title, AiTurn turn, AiStreamBuffer buffer)
+    internal static string PathFor(string project, string conversationId) => PathFor(project) + "." + AiStorage.Hash(conversationId);
+    internal static IEnumerable<string> PathsFor(string project)
     {
-        var checkpoint = new AiTurnCheckpoint(project, conversationId, title, turn, buffer);
+        var path = PathFor(project);
+        if (File.Exists(path)) yield return path;
+        var directory = Path.GetDirectoryName(path)!;
+        if (Directory.Exists(directory))
+            foreach (var file in Directory.EnumerateFiles(directory, Path.GetFileName(path) + ".*"))
+                if (!file.EndsWith(".tmp", StringComparison.Ordinal)) yield return file;
+    }
+    internal static async Task<AiTurnCheckpoint> StartAsync(string project, string conversationId, string title, AiTurn turn, AiStreamBuffer buffer, bool scoped = false)
+    {
+        var checkpoint = new AiTurnCheckpoint(project, conversationId, title, turn, buffer, scoped);
         // Acceptance is durable before clearing the composer or starting network/render work.
         await Task.Run(checkpoint.Write);
         checkpoint._worker = Task.Run(checkpoint.RunAsync);
@@ -61,20 +71,23 @@ internal sealed class AiTurnCheckpoint
     internal void Commit() { if (File.Exists(_path)) File.Delete(_path); }
     internal static void RetireSaved(string project, AiNotebook book)
     {
-        var path = PathFor(project);
-        if (!File.Exists(path)) return;
-        var pending = JsonSerializer.Deserialize<Pending>(File.ReadAllText(path));
-        if (pending is not null && book.Conversations.Any(c => c.Id == pending.ConversationId && c.Turns.Any(t => t.Id == pending.Turn.Id))) File.Delete(path);
+        foreach (var path in PathsFor(project))
+        {
+            var pending = JsonSerializer.Deserialize<Pending>(File.ReadAllText(path));
+            if (pending is not null && book.Conversations.Any(c => c.Id == pending.ConversationId && c.Turns.Any(t => t.Id == pending.Turn.Id))) File.Delete(path);
+        }
     }
     internal static void Recover(string project, AiNotebook book)
     {
-        var path = PathFor(project);
-        if (!File.Exists(path)) return;
-        var pending = JsonSerializer.Deserialize<Pending>(File.ReadAllText(path)) ?? throw new InvalidDataException("未完成对话恢复文件为空。");
-        var conversation = book.Conversations.FirstOrDefault(c => c.Id == pending.ConversationId);
-        if (conversation is null) { conversation = new() { Id = pending.ConversationId, Title = pending.Title }; book.Conversations.Add(conversation); }
-        if (!conversation.Turns.Any(t => t.Id == pending.Turn.Id)) conversation.Turns.Add(pending.Turn);
-        book.ActiveConversationId = conversation.Id;
-        // Do not delete here: only a successful normal notebook save retires this journal.
+        foreach (var path in PathsFor(project))
+        {
+            var pending = JsonSerializer.Deserialize<Pending>(File.ReadAllText(path)) ?? throw new InvalidDataException("未完成对话恢复文件为空。");
+            var conversation = book.Conversations.FirstOrDefault(c => c.Id == pending.ConversationId);
+            if (conversation is null) { conversation = new() { Id = pending.ConversationId, Title = pending.Title }; book.Conversations.Add(conversation); }
+            if (!conversation.Turns.Any(t => t.Id == pending.Turn.Id)) conversation.Turns.Add(pending.Turn);
+            conversation.LastSentAt = conversation.LastSend;
+            if (!book.Conversations.Any(c => c.Id == book.ActiveConversationId)) book.ActiveConversationId = conversation.Id;
+            // Only a successful notebook save retires this journal.
+        }
     }
 }

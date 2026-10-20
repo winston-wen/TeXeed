@@ -43,7 +43,7 @@ internal static partial class Program
         Check(result.Contains("退出码：0"), "Shell source edit failed");
         result = await runner("read_source", "{\"file\":\"main.tex\",\"start_line\":1,\"line_count\":20}", CancellationToken.None);
         Check(result.Contains("Changed by shell."), "read_source returned stale buffer after shell edit");
-        Check(((TabWorkspace)Field(window, "_workspaceTabs")!).FocusedTab == TabWorkspace.AiKey, "Shell refresh stole chat focus");
+        Check(TabWorkspace.IsAiConversation(((TabWorkspace)Field(window, "_workspaceTabs")!).FocusedTab ?? ""), "Shell refresh stole chat focus");
         result = await AiShell.ExecuteAsync(folder, "[Console]::Error.WriteLine('expected error'); exit 7", "", 20, CancellationToken.None);
         Check(result.Contains("退出码：7") && result.Contains("expected error"), "Exit code/stderr were not preserved");
         result = await AiShell.ExecuteAsync(folder, "[Console]::Write(('x' * 50000))", "", 20, CancellationToken.None);

@@ -174,7 +174,7 @@ internal static partial class Program
         Check(!((TexProject)Field(window, "_project")!).Files.Any(f => f.Path == templatePath), "Read-only discovery polluted the loaded source graph");
         await runner("replace_source", JsonSerializer.Serialize(new { file = "template/nested/ruledprotocol.sty", expected_sha256 = hash, old_text = "OriginalProtocol", new_text = "RevisedProtocol" }), CancellationToken.None);
         Check(((TexProject)Field(window, "_project")!).Files.Any(f => f.Path == templatePath && f.IsEditable), "Unreferenced edit was not registered for safe saving");
-        Check(((TabWorkspace)Field(window, "_workspaceTabs")!).FocusedTab == TabWorkspace.AiKey, "Importing an unreferenced source stole chat focus");
+        Check(TabWorkspace.IsAiConversation(((TabWorkspace)Field(window, "_workspaceTabs")!).FocusedTab ?? ""), "Importing an unreferenced source stole chat focus");
         await runner("save_project", "{}", CancellationToken.None);
         var bytes = File.ReadAllBytes(templatePath);
         Check(bytes.AsSpan().StartsWith(new byte[] { 0xff, 0xfe }) && File.ReadAllText(templatePath) == original.Replace("OriginalProtocol", "RevisedProtocol"), "Imported source save changed BOM, newline convention or unrelated text");

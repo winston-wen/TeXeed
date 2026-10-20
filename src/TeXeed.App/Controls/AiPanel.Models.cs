@@ -21,7 +21,6 @@ public partial class AiPanel
             EffortPicker.SelectedItem = efforts.FirstOrDefault(e => e.Value == Settings.SelectedEffort) ?? efforts[0];
         }
         finally { _syncingChoices = false; }
-        UpdateConnectionLabel();
         EffortPicker.ToolTip = Settings.SelectedEffort.Length > 0 ? "本次请求明确使用：" + AiEffort.Label(Settings.SelectedEffort) :
             "不发送 reasoning.effort，由服务端决定。" + (Settings.SelectedModel?.DefaultReasoningEffort is { Length: > 0 } value ? "模型目录默认值：" + AiEffort.Label(value) : "模型目录未报告默认强度。");
         UpdateContextUsage();

@@ -24,6 +24,17 @@ public static class TabWorkspaceTests
         tabs.Open("new.tex"); Check.Equal(TabSide.Left, tabs.Owner("new.tex")!.Value);
         tabs.Close("main.tex", TabCloseRange.All); Check.True(tabs.Owner(TabWorkspace.PreviewKey) is not null);
         Check.Equal(1, tabs.Tabs(TabSide.Right).Count);
+        var first = TabWorkspace.AiConversationKey("first");
+        var second = TabWorkspace.AiConversationKey("second");
+        tabs.Open(first); tabs.Open(second); tabs.Open(first); tabs.Open(TabWorkspace.AiHistoryKey);
+        Check.Equal(1, tabs.Tabs(TabSide.Right).Count(key => key == first));
+        Check.True(!TabWorkspace.IsSource(first) && !TabWorkspace.IsSource(TabWorkspace.AiHistoryKey));
+        Check.True(!tabs.Sources.Contains(first) && !tabs.Sources.Contains(TabWorkspace.AiHistoryKey));
+        tabs.Move(first, TabSide.Left);
+        Check.Equal(TabSide.Left, tabs.Owner(first)!.Value);
+        Check.Equal(TabSide.Right, tabs.Owner(second)!.Value);
+        tabs.Close(first, TabCloseRange.This);
+        Check.True(tabs.Owner(second) is not null && tabs.Owner(TabWorkspace.AiHistoryKey) is not null);
         Console.WriteLine("PASS: source-left defaults, protected singleton preview, reorder/move, edge splitting, empty-pane collapse and scoped bulk close");
     }
 }

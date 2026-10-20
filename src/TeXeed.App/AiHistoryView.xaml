@@ -1,4 +1,4 @@
-<Window x:Class="TeXeed.App.AiHistoryWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="AI 会话历史管理" Width="620" Height="600" MinWidth="440" MinHeight="350" WindowStartupLocation="CenterOwner" Style="{StaticResource {x:Type Window}}" PreviewMouseDown="Window_MouseDown">
+<UserControl x:Class="TeXeed.App.AiHistoryView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" PreviewMouseDown="Window_MouseDown">
  <Grid Margin="18" x:Name="DialogBody">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <DockPanel Margin="0,0,0,10"><Button DockPanel.Dock="Right" Padding="4" Click="Search_Click" Width="30" Margin="8,0,0,0" ToolTip="搜索标题、问题或回答" AutomationProperties.Name="搜索历史对话"><Path Width="16" Height="16" Stretch="Uniform" Data="M8,1 A7,7 0 1 0 8,15 A7,7 0 1 0 8,1 M13,13 L19,19" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/></Button><TextBox x:Name="SearchBox" TextChanged="Search_Changed" ToolTip="搜索标题、问题或回答" AutomationProperties.Name="搜索 AI 历史对话"/></DockPanel>
@@ -6,16 +6,15 @@
    <TextBlock x:Name="SelectedCount" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
    <StackPanel Orientation="Horizontal"><Button Content="⟳" Click="Refresh_Click" ToolTip="刷新历史" AutomationProperties.Name="刷新历史"/><Button Content="全选" Click="SelectAll_Click"/><Button Content="取消选择" Click="ClearSelection_Click"/><Button x:Name="DeleteButton" Content="删除所选" Click="Delete_Click" IsEnabled="False"/></StackPanel>
   </DockPanel>
-  <TextBlock Grid.Row="2" Text="单击标题打开，双击标题改名；只有复选框用于批量选择" Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,0,0,6" TextWrapping="Wrap"/>
+  <TextBlock Grid.Row="2" Text="单击标题打开，双击标题改名；已打开的会话须先关闭窗口才能删除" Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,0,0,6" TextWrapping="Wrap"/>
   <Grid Grid.Row="3" x:Name="RowsViewport" SizeChanged="Viewport_SizeChanged" PreviewMouseWheel="Rows_Wheel" ClipToBounds="True" Background="Transparent">
-   <Grid.ColumnDefinitions><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-   <ScrollBar x:Name="HistoryScrollbar" Orientation="Vertical" ValueChanged="Scroll_Changed" Minimum="0" SmallChange="1"/>
-   <ItemsControl x:Name="ConversationList" Grid.Column="1" Margin="8,0,0,0"/>
-   <TextBlock x:Name="EmptyText" Grid.Column="1" Text="没有匹配的对话" Foreground="{DynamicResource Muted}" Margin="12,12,0,0" Visibility="Collapsed"/>
+
+   <ItemsControl x:Name="ConversationList" Margin="0"/>
+   <TextBlock x:Name="EmptyText" Text="没有匹配的对话" Foreground="{DynamicResource Muted}" Margin="12,12,0,0" Visibility="Collapsed"/>
   </Grid>
   <DockPanel Grid.Row="4" Margin="0,10,0,0">
-   <Button DockPanel.Dock="Right" Content="➜" Click="Go_Click" ToolTip="跳转到输入的页码" AutomationProperties.Name="跳转页码"/>
+   <Button DockPanel.Dock="Right" Content="→" Click="Next_Click" ToolTip="下一页" AutomationProperties.Name="下一页"/><Button DockPanel.Dock="Right" Content="←" Click="Previous_Click" ToolTip="上一页" AutomationProperties.Name="上一页"/><Button DockPanel.Dock="Right" Content="➜" Click="Go_Click" ToolTip="跳转到输入的页码" AutomationProperties.Name="跳转页码"/>
    <StackPanel Orientation="Horizontal"><TextBlock Text="第" VerticalAlignment="Center"/><TextBox x:Name="PageBox" Width="46" Text="1" Margin="6,0" VerticalContentAlignment="Center" PreviewKeyDown="Page_KeyDown" AutomationProperties.Name="历史页码"/><TextBlock x:Name="ResultCount" VerticalAlignment="Center"/></StackPanel>
   </DockPanel>
  </Grid>
-</Window>
+</UserControl>

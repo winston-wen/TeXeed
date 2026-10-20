@@ -90,6 +90,18 @@ public sealed class AiConversation
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "新对话";
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? LastSentAt { get; set; }
+    [JsonIgnore] public DateTimeOffset? LastSend => Turns.Select(t => (DateTimeOffset?)(t.SentAt ?? t.CreatedAt)).Append(LastSentAt).Max();
+    [JsonIgnore] public string TabTitle
+    {
+        get
+        {
+            var elements = System.Globalization.StringInfo.GetTextElementEnumerator(Title);
+            var text = new StringBuilder(); var count = 0;
+            while (elements.MoveNext()) { if (count++ == 15) return text + "…"; text.Append(elements.GetTextElement()); }
+            return text.ToString();
+        }
+    }
     public int NextAnnotationNumber { get; set; } = 1;
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
@@ -148,7 +160,7 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        NextAnnotationNumber = NextAnnotationNumber, Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => new AiEntry
         {
             Number = e.Number, AnswerAnchor = e.AnswerAnchor, Id = e.Id, Title = e.Title, Question = e.Question, Selected = e.Selected, State = e.State,

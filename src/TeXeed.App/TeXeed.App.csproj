@@ -8,7 +8,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.3.24</Version>
+    <Version>0.3.25</Version>
     <ApplicationIcon>Assets/TeXeed.ico</ApplicationIcon>
     <Description>A native Windows LaTeX workspace</Description>
   </PropertyGroup>

@@ -25,5 +25,5 @@ internal sealed class AiHistoryPage(AiNotebook book)
     internal static IReadOnlyList<AiConversation> Search(AiNotebook book, string query) => book.Conversations
         .Where(c => query.Length == 0 || c.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
             || c.Turns.Any(t => t.Question.Contains(query, StringComparison.OrdinalIgnoreCase) || t.Answer.Contains(query, StringComparison.OrdinalIgnoreCase)))
-        .OrderByDescending(c => c.UpdatedAt).ToArray();
+        .OrderByDescending(c => c.LastSend).ThenByDescending(c => c.UpdatedAt).ToArray();
 }

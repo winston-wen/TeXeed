@@ -48,6 +48,7 @@ internal static partial class Program
     private static async Task CheckAiRenderingAsync(MainWindow window, string output)
     {
         void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+        Invoke(window, "OpenAiTab"); await Task.Delay(100);
         var ai = (AiPanel)Field(window, "_aiPanel")!;
         var composer = (TextBox)ai.FindName("Composer");
         foreach (var mods in new[] { ModifierKeys.None, ModifierKeys.Shift, ModifierKeys.Control | ModifierKeys.Shift, ModifierKeys.Alt })
@@ -96,7 +97,7 @@ internal static partial class Program
                 var submission = panel.SubmitAsync();
                 for (var wait = 0; input.Text.Length > 0 && wait < 100; wait++) await Task.Delay(10);
                 Check(input.Text.Length == 0 && !input.IsReadOnly, "Durable acceptance must clear the composer before the response and permit a new draft");
-                Check(((TextBlock)panel.FindName("ConversationTitle")).Text == "连续追问 0", "Title must update immediately and stay stable on follow-ups");
+                Check(((AiNotebook)Field(panel,"_book")!).Active.Title == "连续追问 0", "Title must update immediately and stay stable on follow-ups");
                 if (round == 0)
                 {
                     await handler.FirstRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -132,7 +133,7 @@ internal static partial class Program
             await panel.NewConversationAsync();
             input.Text = "首次取消的问题";
             pending = panel.SubmitAsync();
-            Check(((TextBlock)panel.FindName("ConversationTitle")).Text == "首次取消的问题", "First canceled request was not named immediately");
+            Check(((AiNotebook)Field(panel,"_book")!).Active.Title == "首次取消的问题", "First canceled request was not named immediately");
             ((Button)panel.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await pending.WaitAsync(TimeSpan.FromSeconds(5));
             var canceledBook = AiStorage.Load(panelProject);
@@ -150,7 +151,7 @@ internal static partial class Program
             handler.FailNextRequest = true;
             input.Text = "不应覆盖已有标题";
             pending = panel.SubmitAsync();
-            Check(((TextBlock)panel.FindName("ConversationTitle")).Text == "保留自定义标题", "First submission replaced an existing title");
+            Check(((AiNotebook)Field(panel,"_book")!).Active.Title == "保留自定义标题", "First submission replaced an existing title");
             await pending.WaitAsync(TimeSpan.FromSeconds(5));
             Check(AiStorage.Load(panelProject).Active.Title == "保留自定义标题", "Completion replaced an existing title");
         }
@@ -173,13 +174,12 @@ internal static partial class Program
             ((ScrollViewer)ai.FindName("MessagesScroll")).ScrollToTop();
             await Task.Delay(150); window.UpdateLayout();
             Capture(window, Path.Combine(output, "ai-markdown-" + theme + ".png"));
-            ((Button)ai.FindName("HistoryButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            await Task.Delay(150);
-            var historyDialog = Application.Current.Windows.OfType<AiHistoryWindow>().Single();
-            ((TextBox)historyDialog.FindName("SearchBox")).Text = "阅读";
-            Check(((ItemsControl)historyDialog.FindName("ConversationList")).Items.Count == 1, "History dialog search failed");
-            Capture(historyDialog, Path.Combine(output, "ai-history-dialog-" + theme + ".png"));
-            historyDialog.Close();
+            Invoke(window,"OpenAiHistory"); await Task.Delay(50);
+            var historyView=(AiHistoryView)Field(window,"_aiHistory")!;
+            ((TextBox)historyView.FindName("SearchBox")).Text="阅读";
+            Check(((ItemsControl)historyView.FindName("ConversationList")).Items.Count==1,"History tab search failed");
+            Capture(window,Path.Combine(output,"ai-history-tab-"+theme+".png"));
+            Invoke(window,"OpenAiTab");
         }
         ThemeManager.Apply("ristretto");
         Console.WriteLine("AI rendering: Markdown, immediate/persisted titles, visible long streaming follow-ups, context, cancellation/retry, keyboard routing, history dialog and selection contrast passed.");

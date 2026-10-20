@@ -148,7 +148,7 @@ public partial class MainWindow : Window
             await Task.Run(() => preparedIndex.Update(project.Files));
             _session++; _revision = 0; _pdfRevision = -1; _pdfGeneration++; _navigationRequest++;
             _externalChangePending = false; _assetChangePending = false;
-            await _aiPanel.SetProjectAsync(project.MainPath);
+            await InitializeAiProjectAsync(project.MainPath);
             SetAiMarking(false);
             _previewWarning = false; _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
             _sidebarIndex = preparedIndex; _outlineIndex = null;
@@ -777,7 +777,7 @@ public partial class MainWindow : Window
             await Dispatcher.Yield(DispatcherPriority.Background);
             await PauseWorkAsync();
             if (!await ConfirmLeaveAsync()) return;
-            await _aiPanel.StopAndSaveAsync(); _aiPanel.Dispose();
+            await StopAiWorkspaceAsync(); await _aiSettings.StopAsync(); _aiSettings.Dispose(); _aiConnection.Dispose();
             _allowClose = true; _session++; _compiler.Cancel(); _watcher?.Dispose();
             _liveTimer.Stop(); _indexTimer.Stop(); _syncTimer.Stop(); _watchTimer.Stop(); Preview.Dispose(); Close();
         }

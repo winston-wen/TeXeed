@@ -39,7 +39,7 @@ internal static partial class Program
             var project = Path.Combine(output, "prototype.tex"); await panel.SetProjectAsync(project);
             var book = (AiNotebook)Field(panel, "_book")!;
             book.Turns.Clear(); book.Turns.Add(completed); book.Turns.Add(partial); book.Active.HeaderPinned = true;
-            Invoke(panel, "ApplyChatHeader"); Invoke(panel, "RefreshTranscript"); await Task.Delay(150); host.UpdateLayout();
+            Invoke(panel, "RefreshTranscript"); await Task.Delay(150); host.UpdateLayout();
             await AwaitMathAsync(panel);
             var views = Descendants<AiTurnView>(panel).ToArray();
             Check(views.Length == 2, "Fixture turns did not render");
@@ -95,13 +95,10 @@ internal static partial class Program
             foreach (var colors in new[] { "ristretto", "github-light-default" })
             {
                 ThemeManager.Apply(colors); host.Width = 820; host.UpdateLayout();
-                var rule = (Border)panel.FindName("HeaderRule"); var reading = (Border)panel.FindName("ReadingContext");
-                Check(rule.ActualHeight == 2 && Math.Abs(rule.ActualWidth - panel.ActualWidth) < .1 && Math.Abs(rule.TranslatePoint(new Point(), panel).X) < .1, "Header rule does not reach both pane edges");
-                Check(((SolidColorBrush)rule.Background).Color == ThemeManager.Brush("ChatHeaderLine").Color, "Header rule has the wrong theme color");
-                Check(reading.BorderThickness.Bottom == 2 && ((SolidColorBrush)reading.BorderBrush).Color == ThemeManager.Brush("ChatDivider").Color, "Reading hint rule must remain gray and 2px");
+                Check(panel.FindName("ChatHeader") is null && panel.FindName("HeadingPeek") is null,"Removed header remains in conversation body");
                 Capture(host, Path.Combine(output, "ai-prototype-" + colors + ".png"));
                 host.Width = 420; host.UpdateLayout();
-                Check(Math.Abs(rule.ActualWidth - panel.ActualWidth) < .1, "Narrow header rule does not reach the pane edges");
+                Check(panel.FindName("ChatHeader") is null,"Narrow layout resurrected the removed header");
                 CheckCollapsedSpacing();
                 Capture(host, Path.Combine(output, "ai-prototype-narrow-" + colors + ".png"));
             }

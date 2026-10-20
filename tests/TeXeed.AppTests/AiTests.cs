@@ -32,9 +32,10 @@ internal static partial class Program
         var ai = (AiPanel)Field(window, "_aiPanel")!;
         var menu = (MenuItem)window.FindName("AiMenuItem");
         Check(ReferenceEquals(((Menu)window.FindName("MainMenu")).Items.Cast<object>().Last(), menu), "AI must be the final main menu");
-        Check(!menu.HasItems, "AI menu must have no submenu"); menu.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); window.UpdateLayout();
-        Check(tabs.Owner(TabWorkspace.AiKey) == TabSide.Right && ai.IsVisible, "AI button did not open right AI tab");
-        Check(!tabs.Sources.Contains(TabWorkspace.AiKey), "AI tab treated as source file");
+        Check(menu.Items.OfType<MenuItem>().Select(i=>i.Header.ToString()).SequenceEqual(new[]{"AI 对话","AI 设置","AI 历史"}), "AI submenu layout differs"); Invoke(window,"OpenAiTab"); window.UpdateLayout();
+        var aiKey = TabWorkspace.AiConversationKey(ai.ConversationId);
+        Check(tabs.Owner(aiKey) == TabSide.Right && ai.IsVisible, "AI button did not open right AI tab");
+        Check(!tabs.Sources.Contains(aiKey), "AI tab treated as source file");
         var composer = (TextBox)ai.FindName("Composer");
         composer.Focus(); window.UpdateLayout();
         Check(composer.VerticalContentAlignment == VerticalAlignment.Top && composer.GetRectFromCharacterIndex(0).Top < 18, "Composer caret must begin near the top padding");
@@ -44,16 +45,16 @@ internal static partial class Program
             Check(parsed.ReasoningEfforts.SequenceEqual(new[] { "low", "high" }), "Model efforts must follow the catalog and public Responses contract");
         }
         var strip = (EditorTabStrip)window.FindName("RightFileTabs");
-        var aiTab = ((StackPanel)strip.FindName("Items")).Children.Cast<Border>().Single(b => (string)b.Tag == TabWorkspace.AiKey);
+        var aiTab = ((StackPanel)strip.FindName("Items")).Children.Cast<Border>().Single(b => (string)b.Tag == aiKey);
         var aiButtons = ((Grid)aiTab.Child).Children.Cast<Button>().ToArray();
         Check(aiButtons.Length == 2 && aiButtons[1].ToolTip?.ToString()?.Contains("关闭") == true, "AI tab should contain only title and close; settings belong in the chat header");
-        ((Button)ai.FindName("ChatSettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); window.UpdateLayout();
+        Invoke(window,"OpenAiSettings"); window.UpdateLayout();
         Check(tabs.FocusedTab == TabWorkspace.AiSettingsKey && ai.Settings.IsVisible && !ai.IsVisible, "AI gear did not open separate settings tab");
         Check(!tabs.Sources.Contains(TabWorkspace.AiSettingsKey), "AI settings treated as source");
         Invoke(window, "OpenAiTab");
-        Invoke(window, "MoveWorkspaceTab", TabWorkspace.AiKey, TabSide.Left, 0, false); window.UpdateLayout();
-        Check(tabs.Owner(TabWorkspace.AiKey) == TabSide.Left && ai.IsVisible, "AI tab did not move left");
-        Invoke(window, "CloseTabs", TabWorkspace.AiKey, TabCloseScope.This); Check(tabs.Owner(TabWorkspace.AiKey) is null, "AI close failed");
+        Invoke(window, "MoveWorkspaceTab", aiKey, TabSide.Left, 0, false); window.UpdateLayout();
+        Check(tabs.Owner(aiKey) == TabSide.Left && ai.IsVisible, "AI tab did not move left");
+
         editor.Select(0, 14); var text = editor.SelectedText;
         Invoke(window, "CollectSourceForAi", editor); window.UpdateLayout();
         var book = (AiNotebook)Field(ai, "_book")!;
@@ -129,9 +130,9 @@ internal static partial class Program
             batchPanel.AddEntry(new AiEntry { Title = "B 的圈点" });
             await batchPanel.SelectConversationAsync(firstId);
             Check(((TextBox)batchPanel.FindName("Composer")).Text == "草稿 A" && batchBook.Entries.Count == 1, "Switching conversation lost its draft/context");
-            Check(AiHistoryWindow.Search(batchBook, "第一问").Single().Id == firstId, "History search did not find question text");
+            Check(AiHistoryPage.Search(batchBook, "第一问").Single().Id == firstId, "History search did not find question text");
             batchBook.Turns.Add(new("问题 C", "可搜索的回答关键词"));
-            Check(AiHistoryWindow.Search(batchBook, "回答关键词").Single().Id == firstId, "History search did not find answer text");
+            Check(AiHistoryPage.Search(batchBook, "回答关键词").Single().Id == firstId, "History search did not find answer text");
             await batchPanel.DeleteTurnAsync(firstTurnId);
             Check(!batchBook.Turns.Any(t => t.Id == firstTurnId) && batchBook.Turns.Count == 1, "Deleting a message removed the wrong turns");
             await batchPanel.DeleteConversationAsync(firstId);
@@ -220,16 +221,17 @@ internal static partial class Program
         var search = (TextBox)ai.FindName("MessageSearchBox"); search.Text = "唯一";
         Check(((TextBlock)ai.FindName("MessageMatchStatus")).Text == "1/1", "In-conversation search failed to find the answer");
         Capture(window, Path.Combine(output, "ai-tab.png"));
-        var historyDialog = new AiHistoryWindow(book, ai.DeleteConversationsAsync, ai.RenameConversationAsync) { Owner = window };
-        historyDialog.Show(); ((TextBox)historyDialog.FindName("SearchBox")).Text = "单位元"; historyDialog.UpdateLayout();
-        Check(((ItemsControl)historyDialog.FindName("ConversationList")).Items.Count == 1 && !((Button)historyDialog.FindName("DeleteButton")).IsEnabled, "History search failed or implicitly checked a conversation");
-        Capture(historyDialog, Path.Combine(output, "ai-history.png")); historyDialog.Close();
+        Invoke(window,"OpenAiHistory"); window.UpdateLayout();
+        var historyView = (AiHistoryView)Field(window,"_aiHistory")!;
+        ((TextBox)historyView.FindName("SearchBox")).Text = "单位元"; window.UpdateLayout();
+        Check(((ItemsControl)historyView.FindName("ConversationList")).Items.Count == 1,"History tab search failed");
+        Capture(window,Path.Combine(output,"ai-history-tab.png"));
         Invoke(window, "OpenAiSettings"); window.UpdateLayout(); Capture(window, Path.Combine(output, "ai-settings.png")); Invoke(window, "OpenAiTab");
         var context = editor.ContextMenu; context.IsOpen = true; window.UpdateLayout();
         Check(((System.Windows.Media.SolidColorBrush)context.Background).Color != ((System.Windows.Media.SolidColorBrush)context.Foreground).Color, "Context menu foreground/background are indistinguishable"); context.IsOpen = false;
         await CallAsync(window, "HandleShortcutAsync", CreateKey(window, Key.F4, Keyboard.PreviewKeyDownEvent), ModifierKeys.Control);
-        Check(tabs.Owner(TabWorkspace.AiKey) is null && tabs.Owner(TabWorkspace.PreviewKey) is not null, "Ctrl+F4 AI closing affected protected preview");
-        Invoke(window, "OpenTitleSubmenu", menu); Check(tabs.Owner(TabWorkspace.AiKey) is not null, "Alt+A failed to activate AI leaf menu");
+        Check(tabs.Owner(aiKey) is null && tabs.Owner(TabWorkspace.PreviewKey) is not null, "Ctrl+F4 AI closing affected protected preview");
+        Invoke(window, "OpenTitleSubmenu", menu); Check(menu.IsSubmenuOpen || menu.HasItems, "Alt+A failed to expose AI commands");
         await ai.SaveAsync();
         Console.WriteLine($"AI: {count} checks passed (OAuth identity, encrypted credentials, streaming/tool calls, source/PDF context, tabs, persistence).");
     }

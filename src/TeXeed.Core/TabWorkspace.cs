@@ -8,7 +8,10 @@ public sealed class TabWorkspace
 {
     public const string AiSettingsKey = "@texeed:ai-settings";
     public const string AiKey = "@texeed:ai";
-    public static bool IsSource(string key) => key != PreviewKey && key != AiKey && key != AiSettingsKey;
+    public const string AiHistoryKey = "@texeed:ai-history";
+    public static string AiConversationKey(string id) => AiKey + ":" + id;
+    public static bool IsAiConversation(string key) => key == AiKey || key.StartsWith(AiKey + ":", StringComparison.Ordinal);
+    public static bool IsSource(string key) => key != PreviewKey && !IsAiConversation(key) && key != AiSettingsKey && key != AiHistoryKey;
     public const string PreviewKey = "@texeed:preview";
     private List<string> _left = [], _right = [PreviewKey];
     private string? _leftActive, _rightActive = PreviewKey;
@@ -26,7 +29,7 @@ public sealed class TabWorkspace
     { _left = [main]; _right = [PreviewKey]; _leftActive = main; _rightActive = PreviewKey; FocusedSide = TabSide.Left; }
     public void Open(string path)
     {
-        var side = Owner(path) ?? ((path == AiKey || path == AiSettingsKey) ? TabSide.Right : TabSide.Left);
+        var side = Owner(path) ?? (IsSource(path) ? TabSide.Left : TabSide.Right);
         if (Owner(path) is null) List(side).Add(path);
         Select(side, path);
     }

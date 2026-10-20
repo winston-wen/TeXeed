@@ -9,24 +9,20 @@ using TeXeed.Core;
 namespace TeXeed.App;
 public partial class MainWindow
 {
-    private readonly AiPanel _aiPanel = new();
+    private AiPanel _aiPanel = null!;
     private bool _aiMarking;
     private readonly Dictionary<LatexEditor, AiAnnotationLayer> _sourceAnnotations = [];
     private void InitializeAi()
     {
-        _aiPanel.SettingsRequested += (_, _) => OpenAiSettings();
-        _aiPanel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
-        _aiPanel.CreateToolRunner = CreateAiToolRunner;
-        var pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, _aiPanel.RemoveAnnotation, send: _aiPanel.SubmitEntryAsync);
-        _aiPanel.AnnotationsChanged += (_, _) => pdfAnnotations.Refresh();
-        Preview.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) pdfAnnotations.Edit(entry); };
+        _aiSettings = new AiSettingsPanel(_aiConnection); _aiPanel = CreateAiPanel();
+        _pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, entry=>_aiPanel.RemoveAnnotation(entry), send: entry=>_aiPanel.SubmitEntryAsync(entry));
+        Preview.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) _pdfAnnotations.Edit(entry); };
         Preview.AiMarkingChanged += (_, active) => SetAiMarking(active);
         foreach (var editor in Editors)
         {
             var annotations = new AiAnnotationLayer(editor, () => _aiPanel.AnnotationEntries,
-                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), _aiPanel.RemoveAnnotation, margin: true, send: _aiPanel.SubmitEntryAsync);
+                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), entry=>_aiPanel.RemoveAnnotation(entry), margin: true, send: entry=>_aiPanel.SubmitEntryAsync(entry));
             _sourceAnnotations[editor] = annotations;
-            _aiPanel.AnnotationsChanged += (_, _) => annotations.Refresh();
             var menu = new ContextMenu();
             editor.AiMarked += (_, mark) => CollectSourceMark(editor, mark);
             void Command(string title, RoutedCommand command, string gesture)
@@ -50,7 +46,7 @@ public partial class MainWindow
         if (active && (_project is null || _transitioning)) return;
         if (_aiMarking == active) return;
         _aiMarking = active;
-        _aiPanel.IsMarking = active;
+        foreach(var panel in _aiPanels.Values) panel.IsMarking = active;
         UpdateWorkspaceIcons();
         foreach (var editor in Editors) editor.SetAiMarking(active);
         Preview.SetAiMarking(active);
@@ -67,11 +63,11 @@ public partial class MainWindow
             mark.Offset, editor.Document.GetText(mark.Offset, mark.Length), AiStorage.Hash(editor.Text)));
         if (_aiPanel.AddEntry(entry, false)) _sourceAnnotations[editor].Edit(entry);
     }
-    private void Ai_Click(object sender, RoutedEventArgs e) { HideMainMenu(false); OpenAiTab(); }
+    private async void Ai_Click(object sender, RoutedEventArgs e) { HideMainMenu(false); await OpenNewAiConversationAsync(); }
     private void OpenAiTab()
     {
         if (_project is null) { Status("请先打开项目，再使用 AI。"); return; }
-        _workspaceTabs.Open(TabWorkspace.AiKey); RefreshWorkspaceViews();
+        if (_aiStore is not null) _ = OpenAiConversationAsync(_aiPanel.ConversationId);
     }
     private void OpenAiSettings()
     {
