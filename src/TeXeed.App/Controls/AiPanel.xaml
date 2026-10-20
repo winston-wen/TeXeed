@@ -10,20 +10,12 @@
    <Setter Property="Width" Value="28"/><Setter Property="Height" Value="28"/><Setter Property="Margin" Value="0"/><Setter Property="Padding" Value="0"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="0"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.8"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.6"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
-  <Style x:Key="ActivityExpander" TargetType="Expander">
-   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander"><StackPanel>
-    <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Content="{TemplateBinding Header}"><ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"><DockPanel><Path x:Name="Arrow" Data="M0,0 L3,3 0,6" Stroke="{DynamicResource Muted}" StrokeThickness="1.2" VerticalAlignment="Center" Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5"/><ContentPresenter/></DockPanel></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="RenderTransform"><Setter.Value><RotateTransform Angle="90"/></Setter.Value></Setter></Trigger><DataTrigger Binding="{Binding Details}" Value=""><Setter TargetName="Arrow" Property="Visibility" Value="Collapsed"/><Setter Property="IsEnabled" Value="False"/></DataTrigger></ControlTemplate.Triggers></ControlTemplate></ToggleButton.Template></ToggleButton>
-    <ContentPresenter x:Name="Body" Visibility="Collapsed"/>
-   </StackPanel><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="Body" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
-  </Style>
   <DataTemplate x:Key="SegmentTemplate">
    <StackPanel x:Name="SegmentRow" Margin="0,0,0,14">
-    <Border x:Name="Activity" Background="{DynamicResource ChatQuestionBackground}" CornerRadius="4" BorderBrush="{DynamicResource Guide}" BorderThickness="2,0,0,0" Padding="8,2" Visibility="Collapsed">
-     <Expander Style="{StaticResource ActivityExpander}" HorizontalContentAlignment="Stretch"><Expander.Header><DockPanel LastChildFill="True"><TextBlock DockPanel.Dock="Right" Text="{Binding DisplayTime}" Foreground="{DynamicResource Muted}" FontSize="10" Margin="12,0,0,0" VerticalAlignment="Center"/><TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="12" LineHeight="17"/></DockPanel></Expander.Header><TextBox Text="{Binding Details, Mode=OneWay}" IsReadOnly="True" FontFamily="Cascadia Code, Consolas" FontSize="12" Background="{DynamicResource EditorBackground}" TextWrapping="Wrap" MaxHeight="320" VerticalScrollBarVisibility="Auto" Margin="0,6,0,4"/></Expander>
-    </Border>
+    <local:AiActivityView x:Name="Activity" Visibility="Collapsed"/>
     <local:MarkdownView x:Name="Content" IsStreaming="True" Markdown="{Binding Text}" Loaded="Answer_Loaded" Unloaded="Answer_Unloaded"/>
    </StackPanel>
-   <DataTemplate.Triggers><DataTrigger Binding="{Binding Kind}" Value="activity"><Setter TargetName="SegmentRow" Property="Margin" Value="0,0,0,7"/><Setter TargetName="Activity" Property="Visibility" Value="Visible"/><Setter TargetName="Content" Property="Visibility" Value="Collapsed"/></DataTrigger></DataTemplate.Triggers>
+   <DataTemplate.Triggers><DataTrigger Binding="{Binding Kind}" Value="activity"><Setter TargetName="SegmentRow" Property="Margin" Value="0"/><Setter TargetName="Activity" Property="Visibility" Value="Visible"/><Setter TargetName="Content" Property="Visibility" Value="Collapsed"/></DataTrigger></DataTemplate.Triggers>
   </DataTemplate>
  </UserControl.Resources>
  <Grid Background="{DynamicResource EditorBackground}" Margin="20,0,14,14">
@@ -50,13 +42,14 @@
   <TextBlock x:Name="StatusText" Grid.Row="2" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="6,4,8,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
   <Border x:Name="ComposerBorder" Grid.Row="3" BorderThickness="1.5" Background="{DynamicResource ChatQuestionBackground}" CornerRadius="0" Padding="0" Margin="0,8,0,0">
    <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource Guide}"/><Style.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ChatFocus}"/></Trigger></Style.Triggers></Style></Border.Style>
-   <StackPanel>
-    <Grid x:Name="ComposerEditor"><Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <TextBlock x:Name="ComposerLines" Text="1" Foreground="{DynamicResource Muted}" FontFamily="Consolas, Microsoft YaHei" Margin="4,8,0,0" FontSize="15" IsHitTestVisible="False"/>
-     <TextBox Grid.Column="1" x:Name="Composer" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="66" MaxHeight="150" Padding="8,8" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent" TextChanged="Composer_Changed" PreviewKeyDown="Composer_KeyDown" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="15" AcceptsTab="True" ToolTip="Enter / Shift+Enter 换行；Ctrl+Enter 发送" AutomationProperties.Name="AI 对话编辑栏"/>
+   <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid x:Name="ComposerEditor"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <local:TextBoxLineNumbers x:Name="ComposerLines" Foreground="{DynamicResource Muted}" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}"/>
+     <TextBox Grid.Column="1" x:Name="Composer" AcceptsReturn="True" TextWrapping="Wrap" TextBlock.LineHeight="20" TextBlock.LineStackingStrategy="BlockLineHeight" Padding="8,8" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent" TextChanged="Composer_Changed" PreviewKeyDown="Composer_KeyDown" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="15" AcceptsTab="True" ToolTip="Enter / Shift+Enter 换行；Ctrl+Enter 发送" AutomationProperties.Name="AI 对话编辑栏"/>
 
     </Grid>
-    <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Margin="0" Padding="2" x:Name="ComposerToolbar">
+    <Thumb x:Name="ComposerResize" Grid.Row="0" VerticalAlignment="Top" Height="4" Cursor="SizeNS" DragDelta="ComposerResize_DragDelta" AutomationProperties.Name="调整编辑栏高度"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template></Thumb>
+    <Border Grid.Row="1" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Margin="0" Padding="2" x:Name="ComposerToolbar">
      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <Button x:Name="AddButton" Click="Options_Click" Style="{StaticResource ComposerIcon}" ToolTip="添加圈点与对话操作" Margin="0,0,8,0" AutomationProperties.Name="添加圈点与对话操作">
        <Path Data="M 8,1 V 15 M 1,8 H 15" Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
@@ -75,7 +68,7 @@
       </Grid>
      </Grid>
     </Border>
-   </StackPanel>
+   </Grid>
   </Border>
   <Popup x:Name="EntriesPopup" PlacementTarget="{Binding ElementName=EntriesButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True"><Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}" BorderThickness="1" CornerRadius="10" Padding="12" Width="430"><StackPanel><Button Content="完成" Click="CloseEntries_Click" HorizontalAlignment="Right"/>
     <Expander x:Name="ContextExpander" Header="圈点与问题条目" IsExpanded="True" Visibility="Collapsed">

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.16</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.17</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
@@ -92,7 +92,7 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 @keyframes thinking-breathe{0%,100%{opacity:.35;box-shadow:0 0 0 0 #80c69300}50%{opacity:1;box-shadow:0 0 0 3px #80c69322}}
 @media(prefers-reduced-motion:reduce){.thinking-dot{animation:none}}
 
-/* v0.4.16: native parity and history management layout. */
+/* v0.4.17: native parity and history management layout. */
 .composer-shell{border-radius:0;padding:0;margin:8px 0 0;overflow:hidden}
 .composer-toolbar{margin:0;padding:2px;min-height:33px;gap:6px}
 .composer-toolbar button,.composer-toolbar select{height:28px;min-height:28px;margin-top:0;margin-bottom:0;padding-top:0;padding-bottom:0;box-sizing:border-box}
@@ -117,10 +117,19 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 .history-row input[type=checkbox]{width:16px;height:16px;flex:none}.history-title{font:16px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;flex:1;min-width:0}.history-title-editor{font:16px var(--sans)!important;min-width:0;flex:1;padding:3px 4px}.history-row button{width:30px;padding:3px}
 .history-pagination{display:flex;align-items:center;gap:6px;font:13px var(--sans)}#history-page{width:46px;padding:5px}#history-go{margin-left:auto}
 @media(max-width:540px){.composer-toolbar{row-gap:2px}.history{padding:12px}.history-tools button{padding:5px 6px}.history-tools #history-selected{font-size:11px}}
-/* v0.4.16: conversation tabs and paged history workspace. */
+/* v0.4.17: conversation tabs and paged history workspace. */
 .tabs{overflow:hidden;gap:4px}.tabs>button{flex:none}#workspace-tabs{display:flex;align-items:center;gap:4px;min-width:0;overflow:auto;scrollbar-width:thin}.app-tab{background:var(--sidebar);border-color:transparent;border-radius:20px;font-weight:400;flex:none;cursor:pointer}.app-tab[aria-selected=true]{background:linear-gradient(var(--sidebar),var(--sidebar)) padding-box,linear-gradient(110deg,#fd6883,#f9cc6c) border-box;color:var(--ink)}.app-tab .tab-label{max-width:15em;overflow:hidden;white-space:nowrap}.app-tab button{color:var(--muted);flex:none}.chat{grid-template-rows:auto minmax(0,1fr) auto auto;padding-top:4px}.search{grid-row:1}.reading-shell{grid-row:2}.status{grid-row:3}.composer-shell{grid-row:4}
 .history{position:static;inset:auto;margin:0;width:auto;height:auto;max-width:none;max-height:none;min-height:0;min-width:0;resize:none;border:0;border-radius:0;box-shadow:none;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;gap:8px;padding:16px;overflow:hidden}
 #history-viewport{display:block}#history-list{height:100%;overflow:hidden}.history-open-status{font-size:11px;color:var(--muted);white-space:nowrap}.history-pagination{flex-wrap:wrap}.history-hint{white-space:normal}
+/* Compact logical-line editor and unboxed activity text. */
+.composer-shell{position:relative}.composer-shell>.code-editor{grid-template-columns:auto minmax(0,1fr)}
+.composer-shell>.code-editor textarea{height:56px;min-height:36px;max-height:none;padding:8px;line-height:20px}
+.composer-shell .line-numbers{width:calc(1ch + 8px);font:15px/20px var(--editor-font);padding:8px 4px;background:var(--panel);border-right:1px solid var(--guide)}
+.composer-shell .line-numbers>div{top:8px;right:4px}.composer-shell .line-numbers span{min-height:20px}
+.composer-resize{position:absolute;z-index:3;left:0;right:0;top:0;height:4px;cursor:ns-resize;touch-action:none}.composer-resize:focus-visible{outline:1px solid var(--accent)}
+.activity{background:transparent;border:0;border-radius:0;padding:0;margin:0 0 17px;font-size:12px;line-height:17px}
+.activity summary{align-items:baseline}.activity summary:before{display:none}.activity summary>span{min-width:0}.activity time{margin:0 8px 0 0;padding:0;line-height:17px;text-align:left}.activity-state{white-space:nowrap}
+.activity pre{background:transparent;margin:6px 0 0;padding:0}.process-log .activity:first-of-type{margin-top:0}
 </style>
 </head>
 <body>
@@ -158,7 +167,7 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 <dialog id="entries-dialog" aria-label="本次圈点编辑"><div class="row"><h2>本次圈点</h2><span class="spacer"></span><button id="close-entries">完成</button></div><p class="muted">发送快照保存后即移出编辑区；停止或失败也可从历史查看原文。</p><div class="entries-scroll" id="entries"></div></dialog>
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>
 <div id="context-tooltip" role="tooltip" hidden></div>
-<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>此面板在产品之外。按 Ctrl+Alt+T 打开。界面对齐 TeXeed 0.3.26；会话素材源于 0.3.16，默认保留已打开会话的位置。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">请求失败</option></select></label><button id="restore">恢复截图状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>已收集 / 现编</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
+<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>此面板在产品之外。按 Ctrl+Alt+T 打开。界面对齐 TeXeed 0.3.27；会话素材源于 0.3.16，默认保留已打开会话的位置。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">请求失败</option></select></label><button id="restore">恢复截图状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>已收集 / 现编</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
 <dialog id="copy-dialog"><div class="row"><h2>复制文本</h2><span class="spacer"></span><button id="close-copy">关闭</button></div><textarea id="copy-text" aria-label="复制文本"></textarea></dialog>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
 <script src="vendor/katex/katex.min.js"></script>
@@ -176,7 +185,7 @@ function fresh(){return {sampleHistoryVersion:1,active:'collected',conversations
 let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');}catch{}if(!state?.conversations?.length)state=fresh();
 // Seed once: preserve the active conversation and drafts, and respect later deletions.
 if(!state.sampleHistoryVersion){for(const c of DATA.sampleConversations)if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.sampleHistoryVersion=1;}
-const requests=new Map();
+const requests=new Map(),composerHeights=new Map();
 let activeView=state.active,openTabs=(state.openTabs||[state.active]).filter(id=>['settings','history'].includes(id)||state.conversations.some(c=>c.id===id));
 let running=null,editing=null,context=null,marking=false,timers=[],matchIndex=0,matches=[];
 function current(){return state.conversations.find(c=>c.id===state.active)||state.conversations[0];}
@@ -191,7 +200,7 @@ function svgHtml(turn){
  const source=[DATA.playback,...BUNDLED_TURNS].find(t=>t.answer===turn.answer);
  return source?source.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+turn.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+turn.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+turn.id+'-'+id+'"'):'';
 }
-function activity(s){return '<details class="activity '+(!s.details?'no-details':'')+'"><summary><span>'+esc(s.text)+'</span><time>'+time(s.time,true)+'</time></summary>'+(s.details?'<pre>'+esc(s.details)+'</pre>':'')+'</details>';}
+function activity(s){return '<details class="activity"><summary><time>'+time(s.time,true)+'</time><span>'+esc(s.text)+'<span class="activity-state">（已收起）</span></span></summary><pre>'+esc(s.details||s.text)+'</pre></details>';}
 const ICON_CLOSE='<svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg>';
 const ICON_SEND='<svg class="icon" viewBox="0 0 20 20"><path d="M10 17V3M4 9L10 3L16 9"/></svg>';
 let restoring=false,scrollTimer;
@@ -257,7 +266,7 @@ function renderEntries(){
 }
 
 function renderBubbles(){document.querySelectorAll('.margin-notes').forEach(e=>e.replaceChildren());for(const e of current().entries){if(!e.block||['已完成','提交中'].includes(e.state))continue;let p=$(e.block);if(p?.dataset.joinedInto)p=$(p.dataset.joinedInto);if(!p)continue;const b=document.createElement('button');b.className='bubble';b.textContent=e.number;b.dataset.bubble=e.id;b.setAttribute('aria-label','编辑批注 '+e.number);p.querySelector('.margin-notes').append(b);}}
-function renderConversation(){running=requests.get(state.active)||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';restoring=true;renderTurns();setBusy(!!running);refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading));}
+function renderConversation(){running=requests.get(state.active)||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';restoring=true;renderTurns();setBusy(!!running);restoreComposerHeight();refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading));}
 
 function removeEntry(id){const e=current().entries.find(e=>e.id===id);if(!e||e.state==='提交中')return;current().entries=current().entries.filter(e=>e.id!==id);if(editing===id){editing=null;$('annotation-editor').hidden=true;}renderEntries();record('remove-entry',{number:e.number});}
 function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h3,h4,blockquote,.equation,.passage'))text+='\n';return text;}
@@ -357,7 +366,16 @@ function mountEditors(root){for(const field of root.querySelectorAll('textarea')
  field.addEventListener('input',()=>updateEditor(field));field.addEventListener('scroll',()=>{gutter.firstElementChild.style.transform='translateY(-'+field.scrollTop+'px)';});
  field.addEventListener('keydown',event=>{if(event.key==='Enter'&&event.ctrlKey&&!event.shiftKey&&!event.altKey&&(field.dataset.question||field.id==='annotation-input')){event.preventDefault();event.stopPropagation();const id=field.dataset.question||editing;if(!event.repeat&&!event.isComposing&&id)send(id);}else if(event.key==='Tab'){event.preventDefault();field.setRangeText('    ',field.selectionStart,field.selectionEnd,'end');field.dispatchEvent(new Event('input',{bubbles:true}));}});updateEditor(field);
  }}
-function updateEditor(field){const box=field.closest('.code-editor');if(!box||!field.clientWidth)return;const style=getComputedStyle(field),measure=document.createElement('div');measure.className='editor-measure';measure.style.font=style.font;measure.style.lineHeight=style.lineHeight;measure.style.width=(field.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight))+'px';measure.style.tabSize=style.tabSize;box.append(measure);const heights=field.value.split('\n').map(line=>{measure.textContent=line||' ';return Math.max(24,measure.getBoundingClientRect().height);});measure.remove();box.querySelector('.line-numbers>div').innerHTML=heights.map((height,i)=>'<span style="height:'+height+'px">'+(i+1)+'</span>').join('');box.querySelector('.line-numbers>div').style.transform='translateY(-'+field.scrollTop+'px)';}
+function updateEditor(field){const box=field.closest('.code-editor');if(!box||!field.clientWidth)return;const style=getComputedStyle(field),measure=document.createElement('div');measure.className='editor-measure';measure.style.font=style.font;measure.style.lineHeight=style.lineHeight;measure.style.width=(field.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight))+'px';measure.style.tabSize=style.tabSize;box.append(measure);const lineHeight=parseFloat(style.lineHeight)||24;const heights=field.value.split('\n').map(line=>{measure.textContent=line||' ';return Math.max(lineHeight,measure.getBoundingClientRect().height);});measure.remove();if(field.id==='composer')box.querySelector('.line-numbers').style.width='calc('+String(heights.length).length+'ch + 8px)';box.querySelector('.line-numbers>div').innerHTML=heights.map((height,i)=>'<span style="height:'+height+'px">'+(i+1)+'</span>').join('');box.querySelector('.line-numbers>div').style.transform='translateY(-'+field.scrollTop+'px)';}
+function restoreComposerHeight(){const field=$('composer');field.style.height=Math.max(36,Math.min(composerHeights.get(current().id)||56,Math.max(36,$('chat').clientHeight*.65)))+'px';}
+function resizeComposer(height){composerHeights.set(current().id,height);restoreComposerHeight();updateEditor($('composer'));}
+function installComposerResize(){const grip=document.createElement('div');grip.className='composer-resize';grip.setAttribute('role','separator');grip.setAttribute('aria-orientation','horizontal');grip.setAttribute('aria-label','调整编辑栏高度');grip.tabIndex=0;$('composer').closest('.composer-shell').prepend(grip);let start;
+ grip.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();start={y:e.clientY,height:$('composer').clientHeight};grip.setPointerCapture(e.pointerId);};
+ grip.onpointermove=e=>{if(start)resizeComposer(start.height+start.y-e.clientY);};
+ grip.onpointerup=grip.onpointercancel=()=>{start=null;};
+ grip.onkeydown=e=>{if(['ArrowUp','ArrowDown','Home'].includes(e.key)){e.preventDefault();resizeComposer(e.key==='Home'?56:$('composer').clientHeight+(e.key==='ArrowUp'?20:-20));}};
+}
+$('thread').addEventListener('toggle',e=>{if(e.target.matches('.activity'))e.target.querySelector('.activity-state').textContent=e.target.open?'（已展开）':'（已收起）';},true);
 function refreshEditors(){document.querySelectorAll('.code-editor textarea').forEach(updateEditor);}
 function summarizeSnapshot(e){const text=contextText(e);if(/平均.*码长|平均信息量|1\.5/.test(text))return '平均信息量与编码长度';if(/碰撞|信息损失/.test(text))return '碰撞与信息损失';if(/Poisson|泊松|固定.*k/.test(text))return '泊松近似与极限条件';return e.summary||text.replace(/\s+/g,' ').slice(0,48)||e.question.trim().slice(0,48)||'圈选内容';}
 function migrateSnapshots(){
@@ -392,7 +410,7 @@ $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const pr
 $('thread').addEventListener('click',event=>{if(event.target.closest('.math'))event.preventDefault();});
 $('annotation-input').addEventListener('input',()=>{const field=$('entries').querySelector('[data-question="'+editing+'"]');if(field)updateEditor(field);});
 $('entries').addEventListener('input',event=>{if(event.target.dataset.question===editing)updateEditor($('annotation-input'));});
-window.addEventListener('resize',()=>{refreshEditors();updateReadingContext();});
+window.addEventListener('resize',()=>{restoreComposerHeight();refreshEditors();updateReadingContext();});
 
 
 // Layout transforms are for the prototype's reading view; raw transcript/snapshots remain intact.
@@ -431,7 +449,7 @@ $('thread').addEventListener('click',event=>{const b=event.target.closest('[data
 window.addEventListener('resize',positionEditor);
 for(const c of state.conversations)for(const e of c.entries)if(e.state==='提交中')e.state='上次提交未完成，可重试';
 
-mountEditors(document);migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();restoreReading(current().reading);});
+mountEditors(document);installComposerResize();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();restoreReading(current().reading);});
 if(location.search.includes('tools=1'))openLab();
 </script>
 </body>

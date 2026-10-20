@@ -73,13 +73,7 @@ public sealed class AiTurnView : StackPanel
         {
             if (segment.Kind == "activity")
             {
-                var row = new DockPanel(); var timestamp = new TextBlock { Text = segment.DisplayTime, FontSize = 10, Margin = new Thickness(12, 0, 0, 0) };
-                timestamp.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); DockPanel.SetDock(timestamp, Dock.Right); row.Children.Add(timestamp);
-                var text = new TextBlock { Text = segment.Text, TextWrapping = TextWrapping.Wrap, FontSize = 12 }; text.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); row.Children.Add(text);
-                UIElement content = row;
-                if (!string.IsNullOrEmpty(segment.Details)) content = new Expander { Header = row, IsExpanded = false, Content = new TextBox { Text = segment.Details, IsReadOnly = true, FontFamily = new FontFamily("Consolas"), FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxHeight = 320, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
-                var border = new Border { Child = content, DataContext = segment, Padding = new Thickness(8, 2, 8, 2), CornerRadius = new CornerRadius(4), BorderThickness = new Thickness(2, 0, 0, 0), Margin = new Thickness(0, 0, 0, 7) };
-                border.SetResourceReference(Border.BackgroundProperty, "ChatQuestionBackground"); border.SetResourceReference(Border.BorderBrushProperty, "Guide"); _body.Children.Add(border);
+                _body.Children.Add(new AiActivityView { DataContext = segment });
             }
             else
             {

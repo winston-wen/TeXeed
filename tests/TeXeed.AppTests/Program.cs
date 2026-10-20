@@ -124,6 +124,11 @@ internal static partial class Program
                     await CheckAiPolishAsync(window, output);
                     await CloseAndObserveAsync(window, "AI polish regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-compact-only"))
+                {
+                    await CheckAiCompactAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI compact composer and activity regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-dependency-only"))
                 {
                     await CheckAiCompileDependenciesAsync(window, root, output);

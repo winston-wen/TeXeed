@@ -41,7 +41,7 @@ public partial class AiPanel : UserControl, IDisposable
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
     {
-        _connection = connection; InitializeComponent();
+        _connection = connection; InitializeComponent(); InitializeComposer();
         History.ApplyTemplate();
         MessagesScroll = (ScrollViewer)History.Template.FindName("MessagesScroll", History);
         RegisterName(nameof(MessagesScroll), MessagesScroll);
@@ -63,7 +63,7 @@ public partial class AiPanel : UserControl, IDisposable
         SizeChanged += (_, _) =>
         {
             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
-            Composer.MaxHeight = Math.Clamp(ActualHeight * .18, 66, 150);
+            LimitComposerHeight();
             if (EntriesPopup.Child is FrameworkElement surface) surface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
             ScheduleReadingContext(); ResizeChoices();
         };
@@ -177,7 +177,7 @@ public partial class AiPanel : UserControl, IDisposable
         MessageSearch_Changed(MessageSearchBox, null!);
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
-    private void Composer_Changed(object sender, TextChangedEventArgs e) { if (!_updating) _book.Draft = Composer.Text; if (ComposerLines is not null) ComposerLines.Text = string.Join("\n", Enumerable.Range(1, Math.Max(1, Composer.LineCount))); Dirty(); }
+    private void Composer_Changed(object sender, TextChangedEventArgs e) { if (!_updating) _book.Draft = Composer.Text; Dirty(); }
     private async void Composer_KeyDown(object sender, KeyEventArgs e)
     {
         if (!IsSendGesture(e.Key, Keyboard.Modifiers)) return;

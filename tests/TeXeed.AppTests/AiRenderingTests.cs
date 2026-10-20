@@ -48,13 +48,15 @@ internal static partial class Program
     private static async Task CheckAiRenderingAsync(MainWindow window, string output)
     {
         void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+        Invoke(window, "HideMainMenu", false);
+        for (var i = 0; i < 200 && ((HashSet<string>)Field(window, "_closingAi")!).Count > 0; i++) await Task.Delay(10);
         Invoke(window, "OpenAiTab"); await Task.Delay(100);
         var ai = (AiPanel)Field(window, "_aiPanel")!;
         var composer = (TextBox)ai.FindName("Composer");
         foreach (var mods in new[] { ModifierKeys.None, ModifierKeys.Shift, ModifierKeys.Control | ModifierKeys.Shift, ModifierKeys.Alt })
             Check(!AiPanel.IsSendGesture(Key.Enter, mods), "Enter sent with an unauthorized modifier");
         Check(AiPanel.IsSendGesture(Key.Enter, ModifierKeys.Control) && !AiPanel.IsSendGesture(Key.ImeProcessed, ModifierKeys.Control), "Send or IME gesture is incorrect");
-        composer.Focus(); window.UpdateLayout();
+        window.Activate(); composer.Focus(); window.UpdateLayout();
         var key = CreateKey(window, Key.Enter, Keyboard.PreviewKeyDownEvent);
         await CallAsync(window, "HandleShortcutAsync", key, ModifierKeys.Control);
         Check(!key.Handled, "Window consumed chat Ctrl+Enter as compile");
