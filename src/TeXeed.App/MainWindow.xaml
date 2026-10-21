@@ -39,12 +39,12 @@
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceTodosIcon}" Tag="todos" ToolTip="待办" AutomationProperties.Name="待办" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceAiMarkButton}" Tag="ai-mark" ToolTip="AI 圈点" AutomationProperties.Name="AI 圈点" Click="AiMarking_Click"/>
      </UniformGrid></Border>
-   <Border Grid.Column="1" x:Name="SidebarPanel" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}">
+   <Border Grid.Column="1" x:Name="SidebarPanel" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}" PreviewMouseLeftButtonDown="Sidebar_BlankDoubleClick">
     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
 
      <StackPanel Margin="14,10,14,8">
       <Grid Height="26"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <TextBlock x:Name="SidebarTitle" Text="文档大纲" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+       <controls:HoverMarquee x:Name="SidebarTitle" Text="文档大纲" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
        <StackPanel x:Name="SidebarTreeActions" Grid.Column="1" Orientation="Horizontal" Margin="4,0,0,0">
         <Button x:Name="ExpandAllButton" Style="{StaticResource SidebarActionButton}" Content="{StaticResource ExpandAllIcon}" ToolTip="全部展开" AutomationProperties.Name="全部展开" Click="ExpandAll_Click"/>
         <Button x:Name="CollapseAllButton" Style="{StaticResource SidebarActionButton}" Content="{StaticResource CollapseAllIcon}" ToolTip="全部收起" AutomationProperties.Name="全部收起" Click="CollapseAll_Click"/>
@@ -64,7 +64,7 @@
        <Button Content="{StaticResource ClearSearchIcon}" HorizontalAlignment="Right" ToolTip="清空文件名搜索" AutomationProperties.Name="清空文件名搜索" Click="ClearFileSearch_Click"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource SidebarActionButton}"><Setter Property="Width" Value="22"/><Setter Property="Height" Value="24"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=FileSearchBox}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Button.Style></Button>
       </Grid>
      </StackPanel>
-     <Grid Grid.Row="1"><controls:DocumentOutline x:Name="OutlineTree" NavigateRequested="Outline_NavigateRequested"/><controls:DocumentOutline x:Name="BookmarkTree" JoinFiles="True" ShowLevelBadges="False" Visibility="Collapsed" NavigateRequested="Outline_NavigateRequested"/><TreeView x:Name="FileTree" Background="Transparent" BorderThickness="0" Margin="8" Visibility="Collapsed" SelectedItemChanged="FileTree_Selected" PreviewMouseLeftButtonUp="FileTree_LeftUp" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True"/><ListBox x:Name="IndexList" SelectionChanged="Index_Selected"><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}"/><TextBlock Text="{Binding Location}" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox><TextBlock x:Name="EmptyIndex" Text="暂无条目" Margin="18,15" Foreground="{DynamicResource Muted}" IsHitTestVisible="False" Visibility="Collapsed"/></Grid>
+     <Grid Grid.Row="1"><controls:DocumentOutline x:Name="OutlineTree" NavigateRequested="Outline_NavigateRequested"/><controls:DocumentOutline x:Name="BookmarkTree" JoinFiles="True" ShowLevelBadges="False" Visibility="Collapsed" NavigateRequested="Outline_NavigateRequested"/><TreeView x:Name="FileTree" Background="Transparent" BorderThickness="0" Margin="8" Visibility="Collapsed" SelectedItemChanged="FileTree_Selected" PreviewMouseLeftButtonUp="FileTree_LeftUp" PreviewMouseLeftButtonDown="FileTree_LeftDown" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"><TreeView.Resources><ResourceDictionary Source="ProjectFiles.xaml"/></TreeView.Resources></TreeView><ListBox x:Name="IndexList" SelectionChanged="Index_Selected"><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}"/><TextBlock Text="{Binding Location}" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox><TextBlock x:Name="EmptyIndex" Text="暂无条目" Margin="18,15" Foreground="{DynamicResource Muted}" IsHitTestVisible="False" Visibility="Collapsed"/></Grid>
     </Grid>
    </Border>
    </Grid>
@@ -145,21 +145,7 @@
     </Grid>
     <Border x:Name="WelcomeTutorial" Grid.Column="2" Background="{DynamicResource SidebarBackground}" CornerRadius="12" Padding="28">
      <ScrollViewer x:Name="TutorialScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Margin="0,0,12,0">
-       <TextBlock Text="LaTeX 教程" FontSize="24" FontWeight="SemiBold"/>
-       <TextBlock Text="从第一份文档开始" Foreground="{DynamicResource Muted}" Margin="0,6,0,24"/>
-       <TextBlock Text="01  创建与排版" FontSize="16" FontWeight="SemiBold"/>
-       <TextBlock Text="点击“新建文档”，保存为 main.tex。中文文档可使用下面的示例，在“排版 → 设置”中选择 XeLaTeX，然后按 Ctrl+S 保存并编译。" TextWrapping="Wrap" LineHeight="23" Margin="0,8,0,12"/>
-       <Border Background="{DynamicResource EditorBackground}" CornerRadius="6" Padding="16"><TextBlock x:Name="TutorialExample" Text="\documentclass{ctexart}&#x0a;\begin{document}&#x0a;\section{你好，LaTeX}&#x0a;这是我的第一份文档。&#x0a;\[ E = mc^2 \]&#x0a;\end{document}" FontFamily="Consolas, Microsoft YaHei UI" FontSize="13" Foreground="{DynamicResource Accent}" TextWrapping="Wrap" LineHeight="23"/></Border>
-       <TextBlock Text="首次编译前，请先安装 TeX Live 或 MiKTeX，并确保已安装 ctex 宏包。" Foreground="{DynamicResource Muted}" FontSize="12" TextWrapping="Wrap" LineHeight="21" Margin="0,10,0,24"/>
-       <TextBlock Text="02  章节与文字" FontSize="16" FontWeight="SemiBold"/>
-       <TextBlock Text="用 \section{标题} 创建章节，\subsection{小标题} 创建小节。空一行开始新段落；\textbf{文字} 表示粗体，\emph{文字} 表示强调。" TextWrapping="Wrap" LineHeight="23" Margin="0,8,0,24"/>
-       <TextBlock Text="03  数学公式" FontSize="16" FontWeight="SemiBold"/>
-       <TextBlock Text="行内公式放在 $…$ 中，独立公式放在 \[ … \] 中。用 ^ 和 _ 表示上下标，\frac{a}{b} 表示分式，\sqrt{x} 表示根号。" TextWrapping="Wrap" LineHeight="23" Margin="0,8,0,12"/>
-       <Border Background="{DynamicResource EditorBackground}" CornerRadius="6" Padding="16"><StackPanel><TextBlock Text="\[ \sum_{k=1}^{n} k = \frac{n(n+1)}{2} \]" FontFamily="Consolas" FontSize="13" Foreground="{DynamicResource Accent}" TextWrapping="Wrap"/><TextBlock Text="∑ₖ₌₁ⁿ k = n(n + 1) / 2" FontFamily="Cambria Math" FontSize="22" TextWrapping="Wrap" Margin="0,14,0,0"/></StackPanel></Border>
-       <TextBlock Text="04  在 TeXeed 中继续写作" FontSize="16" FontWeight="SemiBold" Margin="0,24,0,8"/>
-       <TextBlock Text="Ctrl+S：保存并编译&#x0a;Ctrl+Enter：编译文档&#x0a;Ctrl+J：从源码定位到 PDF&#x0a;Ctrl+左键点击 PDF：返回对应源码&#x0a;Ctrl+Space：命令补全" TextWrapping="Wrap" LineHeight="25"/>
-      </StackPanel>
+      <controls:MarkdownView x:Name="TutorialView" UseSystemFont="True" FontFamily="{x:Static SystemFonts.MessageFontFamily}" FontSize="16" Padding="0" Margin="0,0,12,0"/>
      </ScrollViewer>
     </Border>
    </Grid>

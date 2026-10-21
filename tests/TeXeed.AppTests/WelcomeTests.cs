@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using TeXeed.App;
 using TeXeed.App.Services;
+using TeXeed.App.Controls;
 using TeXeed.Core;
 
 internal static partial class Program
@@ -33,11 +34,18 @@ internal static partial class Program
         var originalFiles = paths.ToDictionary(path => path, File.ReadAllText);
         settingsField.SetValue(window, ((AppSettings)settingsField.GetValue(window)!) with { RecentProjects = paths });
         Invoke(window, "UpdateRecent"); await Settle();
+        var tutorial = Named<MarkdownView>("TutorialView");
+        await tutorial.RenderTask;
+        var formulas = Descendants<ChatFormula>(tutorial).ToArray();
+        Check(tutorial.UseSystemFont && tutorial.FontFamily == SystemFonts.MessageFontFamily && tutorial.Document.FontFamily == SystemFonts.MessageFontFamily, "Tutorial does not use the system font");
+        Check(formulas.Length == 2 && formulas.All(formula => formula.Error is null && formula.SvgPath?.StartsWith("embedded:tutorial-") == true), "Tutorial formulas are not bundled SVG vectors");
+        Check(!Descendants<System.Windows.Controls.Image>(tutorial).Any(), "Tutorial uses bitmap formulas");
         Check(Named<StackPanel>("RecentList").Children.Count == 10, "Welcome page discarded older recent entries");
         Check(Named<Grid>("WelcomeProjects").IsVisible && Named<Border>("WelcomeTutorial").IsVisible && !Named<Border>("WelcomePager").IsVisible, "Wide welcome page must show both columns");
         var rows = Named<StackPanel>("RecentList");
         var recentRows = rows.Children.OfType<Grid>().ToArray();
-        Check(recentRows.All(row => row.Margin == new Thickness(0) && Math.Abs(row.ActualHeight - 40) < 1), "Recent rows must have a 20px text line and one line of spacing");
+        Check(recentRows.All(row => row.Margin == new Thickness(0) && Math.Abs(row.ActualHeight - 44) < 1), "Recent rows must have a 22px text line and one line of spacing");
+        Check(Descendants<TextBlock>(rows).All(label => Math.Abs(label.FontSize - 11 * 96d / 72) < .01), "Recent filenames are not 11pt");
         Check(recentRows.SelectMany(row => row.Children.OfType<Border>()).All(rule => Grid.GetColumnSpan(rule) == 2 && rule.BorderThickness.Left == 0 && rule.BorderThickness.Right == 0 && rule.BorderThickness.Bottom == 1), "Recent rules do not extend underneath the checkbox or still have side borders");
         Check(recentRows.Skip(1).All(row => row.Children.OfType<Border>().Single().BorderThickness.Top == 0), "Adjacent recent entries have duplicated rules");
         Check(Descendants<Button>(rows).All(button => button.BorderThickness == new Thickness(0)), "Recent entries still have individual button boxes");

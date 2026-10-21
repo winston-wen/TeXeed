@@ -7,6 +7,8 @@
  <Geometry x:Key="WorkspaceTodosIcon">M 2,4 L 4,6 7,2 M 10,4 L 18,4 M 2,10 L 4,12 7,8 M 10,10 L 18,10 M 3,16 L 6,16 M 10,16 L 18,16</Geometry>
  <Geometry x:Key="ExpandAllIcon">M 4,4 L 10,10 16,4 M 4,10 L 10,16 16,10</Geometry>
  <Geometry x:Key="CollapseAllIcon">M 4,10 L 10,4 16,10 M 4,16 L 10,10 16,16</Geometry>
+ <Geometry x:Key="ExpandFoldersIcon">M2,7 V4 H8 L10,6 H17 V8 M2,8 H19 L16,17 H1 Z</Geometry>
+ <Geometry x:Key="CollapseFoldersIcon">M2,4 H8 L10,6 H18 V17 H2 Z M2,8 H18</Geometry>
  <Geometry x:Key="ClearSearchIcon">M 5,5 L 15,15 M 15,5 L 5,15</Geometry>
  <Style x:Key="WorkspaceIconButton" TargetType="Button">
   <Setter Property="Height" Value="32"/><Setter Property="Margin" Value="1,2"/>

@@ -238,6 +238,11 @@ internal static partial class Program
                     await CloseAndObserveAsync(window, "sidebar trees regression");
                     result = 0; return;
                 }
+                if (args.Contains("--file-explorer-only"))
+                {
+                    await CheckFileExplorerAsync(window, output);
+                    await CloseAndObserveAsync(window, "file explorer regression"); result = 0; return;
+                }
                 if (args.Contains("--tabs-only"))
                 {
                     await CheckEditorTabsAsync(window, output);

@@ -30,7 +30,7 @@ internal static partial class Program
         Check(recent.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(paths), "Recent paths were mutated before display");
         foreach (var item in recent.Items.Cast<MenuItem>()) Check(Equals(item.ToolTip, item.Header), "Recent path tooltip is not the full literal path");
         var project = (TexProject)Field(window, "_project")!;
-        Invoke(window, "BuildFileTree", project.Files); var tree = (TreeView)window.FindName("FileTree"); tree.Visibility = Visibility.Visible;
+        await EnsureDirectoryTreeAsync(window); var tree = (TreeView)window.FindName("FileTree"); tree.Visibility = Visibility.Visible;
         var folders = tree.Items.OfType<TreeViewItem>().SelectMany(LiteralTreeItems).ToArray();
         Check(folders.All(i => i.HeaderTemplate is not null), "File tree title uses implicit mnemonic rendering");
         var leaf = folders.Single(i => Equals(i.Tag, file));

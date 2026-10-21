@@ -14,3 +14,5 @@ TeXeed uses the following separately licensed components. TeX distributions are 
 | Unicode East Asian Width data | 17.0.0 | Unicode License V3 | https://www.unicode.org/Public/17.0.0/ucd/EastAsianWidth.txt |
 
 Exact transitive versions are recorded in `packages.lock.json`. Redistribution notices from the native PDFium package and license texts are included in the application's `licenses` directory when published using this repository's packaging script.
+
+The two tutorial formula SVGs in `src/TeXeed.App/Assets/Tutorial` are generated LaTeX document output containing vector glyph paths. They contain no font files, scripts, or external resources. Regenerate them with `scripts/build-tutorial-math.py` using an external TeX installation and dvisvgm; those development tools are not bundled. Project-explorer icons are native vector drawings authored in this repository.

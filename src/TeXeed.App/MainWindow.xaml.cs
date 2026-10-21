@@ -137,6 +137,7 @@ public partial class MainWindow : Window
             await InitializeAiProjectAsync(project.MainPath);
             SetAiMarking(false);
             _previewWarning = false; _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
+            ResetDirectoryCatalog();
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
             Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;
@@ -490,7 +491,7 @@ public partial class MainWindow : Window
         if (_project == null) return;
         var files = CurrentFiles().ToArray(); var index = _sidebarIndex.Update(files);
         foreach (var sourceEditor in Editors) sourceEditor.SetProjectFiles(files);
-        SidebarTitle.ToolTip = $"{files.Length} 个文件 · {index.Labels.Count} 个标签\n{index.Citations.Count} 条参考文献";
+        SidebarTitle.ToolTip = (_sidebar == "files" ? _project.Root + "\n" : "") + $"{files.Length} 个依赖文件 · {index.Labels.Count} 个标签\n{index.Citations.Count} 条参考文献";
         if (_project.Warnings.Count > 0) SidebarTitle.ToolTip += "\n" + string.Join(Environment.NewLine, _project.Warnings);
         FileTree.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
         OutlineTree.Visibility = _sidebar == "outline" ? Visibility.Visible : Visibility.Collapsed;
@@ -508,7 +509,9 @@ public partial class MainWindow : Window
         SearchBox.Visibility = _sidebar is "search" or "labels" ? Visibility.Visible : Visibility.Collapsed;
         FileSearchPanel.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
         SidebarTreeActions.Visibility = _sidebar is "outline" or "files" or "bookmarks" ? Visibility.Visible : Visibility.Collapsed;
-        SidebarTitle.Text = _sidebar switch { "files" => "项目文件", "search" => "全文搜索", "bookmarks" => "书签", "labels" => "标签与引用", "todos" => "待办事项", _ => "文档大纲" };
+        ExpandAllButton.SetResourceReference(ContentControl.ContentProperty, _sidebar == "files" ? "ExpandFoldersIcon" : "ExpandAllIcon");
+        CollapseAllButton.SetResourceReference(ContentControl.ContentProperty, _sidebar == "files" ? "CollapseFoldersIcon" : "CollapseAllIcon");
+        SidebarTitle.Text = _sidebar switch { "files" => new DirectoryInfo(_project.Root).Name, "search" => "全文搜索", "bookmarks" => "书签", "labels" => "标签与引用", "todos" => "待办事项", _ => "文档大纲" };
         if (_sidebar == "files") { BuildFileTree(files); return; }
         if (_sidebar == "bookmarks") { UpdateBookmarkEmptyState(); return; }
         if (_sidebar == "outline")
@@ -534,6 +537,14 @@ public partial class MainWindow : Window
         var session = _session; var root = _project.Root;
         var watcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size };
         _watcher = watcher;
+        void CatalogChanged()
+        {
+            if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(() =>
+            {
+                if (session == _session && ReferenceEquals(watcher, _watcher) && !_closing) InvalidateDirectoryCatalog();
+            });
+        }
+        watcher.Created += (_, _) => CatalogChanged(); watcher.Deleted += (_, _) => CatalogChanged(); watcher.Renamed += (_, _) => CatalogChanged();
         void Changed(string path)
         {
             if (Dispatcher.HasShutdownStarted || !IsWatchedCompileLocation(root, path)) return;
@@ -663,7 +674,7 @@ public partial class MainWindow : Window
             System.Windows.Controls.Primitives.Selector.SetIsSelected(button, Equals(button.Tag, "ai-mark") ? _aiMarking : _workspaceExpanded && Equals(button.Tag, _sidebar));
     }
     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
-    private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (e.NewValue is TreeViewItem { Tag: string path }) ActivateFile(path); }
+    private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (!_buildingFileTree && e.NewValue is TreeViewItem { Tag: string path }) OpenExplorerFile(path); }
     private async void Outline_NavigateRequested(object? sender, SourceLocation location)
     {
         if (await TryNavigateOutlinePreviewAsync(location)) return;
@@ -766,6 +777,7 @@ public partial class MainWindow : Window
             if (!await ConfirmLeaveAsync()) return;
             await StopAiWorkspaceAsync(); await _aiSettings.StopAsync(); _aiSettings.Dispose(); _aiConnection.Dispose();
             _allowClose = true; _session++; _compiler.Cancel(); _watcher?.Dispose();
+            ResetDirectoryCatalog();
             _liveTimer.Stop(); _indexTimer.Stop(); _syncTimer.Stop(); _watchTimer.Stop(); Preview.Dispose(); Close();
         }
         catch (Exception ex) { Error(ex); }

@@ -13,6 +13,8 @@ public partial class MainWindow
     private void InitializeWelcome()
     {
         _welcomeReady = true;
+        TutorialView.FormulaAsset = TutorialContent.Formula;
+        TutorialView.Markdown = TutorialContent.Markdown;
         UpdateWelcomeLayout();
     }
 
@@ -88,12 +90,12 @@ public partial class MainWindow
             selection.Checked += RecentSelection_Changed;
             selection.Unchecked += RecentSelection_Changed;
             row.Children.Add(selection);
-            var label = new TextBlock { Text = path, TextTrimming = TextTrimming.CharacterEllipsis, LineHeight = 20, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
+            var label = new TextBlock { Text = path, FontSize = 11 * 96d / 72, TextTrimming = TextTrimming.CharacterEllipsis, LineHeight = 22, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
             var button = new Button
             {
                 Content = label, Tag = path, ToolTip = path,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0), Padding = new Thickness(8, 10, 8, 10), BorderThickness = new Thickness(0)
+                Margin = new Thickness(0), Padding = new Thickness(8, 11, 8, 11), BorderThickness = new Thickness(0)
             };
             // The shared button template centers its content; stretch this path label
             // explicitly so long paths are constrained and ellipsized inside the row.

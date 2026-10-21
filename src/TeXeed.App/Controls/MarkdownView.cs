@@ -31,6 +31,8 @@ public sealed partial class MarkdownView : RichTextBox
     internal Action<string>? SourceLink { get; set; }
     internal Action<string>? LocalLink { get; set; }
     internal bool LinkListNumbers { get; set; }
+    public bool UseSystemFont { get; set; }
+    internal Func<string, bool, ChatSvg?>? FormulaAsset { get; set; }
     public MarkdownView()
     {
         IsReadOnly = true; IsReadOnlyCaretVisible = false; IsDocumentEnabled = true; IsUndoEnabled = false;
@@ -163,7 +165,7 @@ public sealed partial class MarkdownView : RichTextBox
                 var h = Paragraph(heading.Inline, depth);
                 h.FontSize = heading.Level switch { 1 => 24, 2 => 21, 3 => 18, _ => 16 };
                 h.Tag = new HeadingInfo(heading.Level, heading.Span.Start);
-                h.FontFamily = new FontFamily("Source Han Sans SC, Microsoft YaHei");
+                h.FontFamily = UseSystemFont ? FontFamily : new FontFamily("Source Han Sans SC, Microsoft YaHei");
                 h.FontWeight = FontWeights.SemiBold; h.Margin = new Thickness(0, 16, 0, 10);
                 target.Add(h); break;
             case ParagraphBlock paragraph:
@@ -171,7 +173,7 @@ public sealed partial class MarkdownView : RichTextBox
                     target.Add(DisplayFormula(math));
                 else target.Add(Paragraph(paragraph.Inline, depth)); break;
             case CodeBlock code:
-                var p = new Paragraph(new Run(code.Lines.ToString())) { FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+                var p = new Paragraph(new Run(code.Lines.ToString())) { FontFamily = UseSystemFont ? FontFamily : new FontFamily("Cascadia Mono, Consolas"),
                     FontSize = 14, LineHeight = 23, Padding = new Thickness(14), Margin = new Thickness(0, 6, 0, 14) };
                 p.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground");
                 target.Add(p); break;
@@ -236,7 +238,7 @@ public sealed partial class MarkdownView : RichTextBox
                         var sourceLink = new Hyperlink(new Run(code.Content)); sourceLink.SetResourceReference(TextElement.ForegroundProperty, "Accent");
                         sourceLink.Click += (_, e) => { SourceLink?.Invoke(code.Content); e.Handled = true; }; target.Add(sourceLink); break;
                     }
-                    var run = new Run(code.Content) { FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 14 };
+                    var run = new Run(code.Content) { FontFamily = UseSystemFont ? FontFamily : new FontFamily("Cascadia Mono, Consolas"), FontSize = 14 };
                     run.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); target.Add(run); break;
                 case LineBreakInline: target.Add(new LineBreak()); break;
                 case EmphasisInline emphasis:

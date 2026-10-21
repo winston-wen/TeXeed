@@ -23,12 +23,14 @@ internal sealed class ChatFormula : FrameworkElement
         TextElement.FontSizeProperty.OverrideMetadata(typeof(ChatFormula),
             new FrameworkPropertyMetadata(15d, FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
     }
-    internal ChatFormula(string source, bool display, Action? layoutChanged = null)
+    internal ChatFormula(string source, bool display, Action? layoutChanged = null, ChatSvg? asset = null)
     {
         Source = source; _display = display; _layoutChanged = layoutChanged;
         ToolTip = "LaTeX 排版中…\n" + source;
         System.Windows.Automation.AutomationProperties.SetName(this, source);
-        RenderTask = LoadAsync();
+        _svg = asset;
+        if (asset is not null) { ToolTip = Source; RenderTask = Task.CompletedTask; }
+        else RenderTask = LoadAsync();
     }
     private async Task LoadAsync()
     {

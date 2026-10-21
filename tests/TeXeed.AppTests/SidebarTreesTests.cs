@@ -34,6 +34,7 @@ internal static partial class Program
             throw new Exception("Expand-all missed outline descendants or navigated the editor");
         Capture(window, Path.Combine(output, "outline-bulk-buttons.png"));
         Mode("files");
+        await EnsureDirectoryTreeAsync(window);
         var files = (TreeView)window.FindName("FileTree"); var search = (TextBox)window.FindName("FileSearchBox");
         IEnumerable<TreeViewItem> Items(ItemCollection items) => items.OfType<TreeViewItem>().SelectMany(item => new[] { item }.Concat(Items(item.Items)));
         string[] Paths() => Items(files.Items).Select(item => item.Tag).OfType<string>().Select(Path.GetFileName).OrderBy(name => name).ToArray()!;
@@ -55,9 +56,10 @@ internal static partial class Program
         search.Text = "chapters";
         if (files.Items.Count != 0 || ((TextBlock)window.FindName("EmptyIndex")).Visibility != Visibility.Visible) throw new Exception("File-name search matched only a directory or lacks its empty state");
         var key = CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(key);
-        if (!key.Handled || search.Text.Length != 0 || Paths().Length != 4 || Items(files.Items).Where(item => item.Tag is null).Any(item => item.IsExpanded))
+        if (!key.Handled || search.Text.Length != 0 || Paths().Length != 2 || Items(files.Items).Where(item => item.Tag is null).Any(item => item.IsExpanded))
             throw new Exception("Clearing filter failed to restore all files and original fold state");
         expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        if (Paths().Length != 4) throw new Exception("Expand-all did not populate lazy file directories");
         if (Items(files.Items).Where(item => item.Tag is null).Any(item => !item.IsExpanded)) throw new Exception("Expand-all missed file directories");
         search.Text = "Alpha"; Mode("search"); ((TextBox)window.FindName("SearchBox")).Text = "Body"; Mode("files");
         if (search.Text != "Alpha" || Paths().Length != 2) throw new Exception("File-name and full-text searches share state");
