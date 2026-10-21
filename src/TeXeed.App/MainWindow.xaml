@@ -115,11 +115,60 @@
    </Grid>
    <Canvas x:Name="DockDropOverlay" Grid.Column="2" Grid.ColumnSpan="3" Panel.ZIndex="100" IsHitTestVisible="False"><Border x:Name="DockDropCue" Visibility="Collapsed" Background="{DynamicResource Accent}" Opacity="0.18" BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="4"/></Canvas>
   </Grid>
-  <Grid Grid.Row="1" x:Name="Welcome">
-   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-   <StackPanel VerticalAlignment="Center" Margin="90,40,40,40" MaxWidth="470" HorizontalAlignment="Left"><TextBlock Text="A LITTLE SPACE FOR BIG IDEAS" FontSize="11" Foreground="{DynamicResource Accent}" FontWeight="SemiBold"/><TextBlock Text="写作，&#x0a;从这里开始。" FontSize="46" FontWeight="Light" LineHeight="64" Margin="0,20,0,20"/><TextBlock Text="让结构、公式与灵感自然相遇。&#x0a;打开主 TeX 文件，即可进入完整的写作工作区。" FontSize="15" Foreground="{DynamicResource Muted}" LineHeight="26"/><StackPanel Orientation="Horizontal" Margin="0,30,0,0"><Button Content="打开 LaTeX 项目" Padding="20,12" Style="{StaticResource PrimaryButton}" Click="Open_Click"/><Button Content="新建文档" Padding="20,12" Margin="12,0,0,0" Click="New_Click"/></StackPanel><TextBlock Text="也可以将 .tex 文件拖入窗口" FontSize="12" Foreground="{DynamicResource Muted}" Margin="3,18,0,0"/></StackPanel>
-   <Border Grid.Column="1" Background="{DynamicResource SidebarBackground}" CornerRadius="16" Margin="25,65,80,65" Padding="34" MaxWidth="450" VerticalAlignment="Center">
-    <StackPanel><TextBlock Text="你的下一篇，正在酝酿" FontSize="20" FontWeight="SemiBold"/><TextBlock Text="原生 Windows 工作区 · 为 LaTeX 而设计" Foreground="{DynamicResource Muted}" Margin="0,10,0,24"/><Border Background="{DynamicResource EditorBackground}" Padding="24" CornerRadius="8"><StackPanel><TextBlock Text="\section{A new beginning}" FontFamily="Consolas" Foreground="{DynamicResource Accent}" FontSize="14"/><TextBlock Text="Every idea deserves a little space." FontFamily="Consolas" FontSize="13" Margin="0,12,0,0"/><TextBlock Text="E = mc²" FontFamily="Cambria Math" FontSize="30" HorizontalAlignment="Center" Margin="0,28,0,18"/></StackPanel></Border><TextBlock Text="最近打开" FontSize="12" FontWeight="SemiBold" Margin="0,28,0,8"/><StackPanel x:Name="RecentList"/><TextBlock x:Name="NoRecent" Text="打开第一份文档，开始积累你的想法。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="12"/></StackPanel>
+  <Grid Grid.Row="1" x:Name="Welcome" SizeChanged="Welcome_SizeChanged" controls:ScrollActivity.IsScope="True">
+   <Grid.Resources>
+    <Style x:Key="WelcomePathButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+      <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/></Border>
+      <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.7"/></Trigger></ControlTemplate.Triggers>
+     </ControlTemplate></Setter.Value></Setter>
+    </Style>
+   </Grid.Resources>
+   <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <Grid x:Name="WelcomePages" Margin="48,42,48,32" MaxWidth="1440">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="WelcomeGap" Width="56"/><ColumnDefinition x:Name="WelcomeTutorialColumn" Width="*"/></Grid.ColumnDefinitions>
+    <Grid x:Name="WelcomeProjects">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <StackPanel>
+      <WrapPanel><Button x:Name="WelcomeOpenButton" Content="打开 LaTeX 项目" Style="{StaticResource PrimaryButton}" Padding="18,11" Margin="0,0,12,10" Click="Open_Click"/><Button x:Name="WelcomeNewButton" Content="新建文档" Padding="18,11" Margin="0,0,0,10" Click="New_Click"/></WrapPanel>
+      <TextBlock x:Name="WelcomeDropHint" Text="也可以将 .tex 文件拖入窗口" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,2,0,24"/>
+     </StackPanel>
+     <Grid x:Name="RecentHeading" Grid.Row="1" Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="最近打开" FontSize="18" FontWeight="SemiBold"/><TextBlock x:Name="RecentSelectionSummary" Grid.Column="1" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="12"/></Grid>
+     <Grid Grid.Row="2">
+      <ScrollViewer x:Name="RecentScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="RecentList"/></ScrollViewer>
+      <TextBlock x:Name="NoRecent" Text="还没有最近打开的项目。&#x0a;打开或新建一份文档，从这里开始。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" LineHeight="24" Margin="0,12,0,0" IsHitTestVisible="False"/>
+     </Grid>
+     <StackPanel x:Name="RecentActions" Grid.Row="3" Margin="0,16,0,0">
+      <WrapPanel><Button x:Name="RecentSelectAllButton" Content="全选" Margin="0,0,8,6" Click="RecentSelectAll_Click"/><Button x:Name="RecentCancelButton" Content="取消" Margin="0,0,8,6" Click="RecentCancel_Click"/><Button x:Name="RecentDeleteButton" Content="删除" Margin="0,0,0,6" ToolTip="仅移除选中的最近打开记录，保留磁盘上的文件" Click="RecentDelete_Click"/></WrapPanel>
+      <TextBlock x:Name="RecentRemovalHint" Text="删除仅移除记录，保留文件。" FontSize="12" Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
+     </StackPanel>
+    </Grid>
+    <Border x:Name="WelcomeTutorial" Grid.Column="2" Background="{DynamicResource SidebarBackground}" CornerRadius="12" Padding="28">
+     <ScrollViewer x:Name="TutorialScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="0,0,12,0">
+       <TextBlock Text="LaTeX 教程" FontSize="24" FontWeight="SemiBold"/>
+       <TextBlock Text="从第一份文档开始" Foreground="{DynamicResource Muted}" Margin="0,6,0,24"/>
+       <TextBlock Text="01  创建与排版" FontSize="16" FontWeight="SemiBold"/>
+       <TextBlock Text="点击“新建文档”，保存为 main.tex。中文文档可使用下面的示例，在“排版 → 设置”中选择 XeLaTeX，然后按 Ctrl+S 保存并编译。" TextWrapping="Wrap" LineHeight="23" Margin="0,8,0,12"/>
+       <Border Background="{DynamicResource EditorBackground}" CornerRadius="6" Padding="16"><TextBlock x:Name="TutorialExample" Text="\documentclass{ctexart}&#x0a;\begin{document}&#x0a;\section{你好，LaTeX}&#x0a;这是我的第一份文档。&#x0a;\[ E = mc^2 \]&#x0a;\end{document}" FontFamily="Consolas, Microsoft YaHei UI" FontSize="13" Foreground="{DynamicResource Accent}" TextWrapping="Wrap" LineHeight="23"/></Border>
+       <TextBlock Text="首次编译前，请先安装 TeX Live 或 MiKTeX，并确保已安装 ctex 宏包。" Foreground="{DynamicResource Muted}" FontSize="12" TextWrapping="Wrap" LineHeight="21" Margin="0,10,0,24"/>
+       <TextBlock Text="02  章节与文字" FontSize="16" FontWeight="SemiBold"/>
+       <TextBlock Text="用 \section{标题} 创建章节，\subsection{小标题} 创建小节。空一行开始新段落；\textbf{文字} 表示粗体，\emph{文字} 表示强调。" TextWrapping="Wrap" LineHeight="23" Margin="0,8,0,24"/>
+       <TextBlock Text="03  数学公式" FontSize="16" FontWeight="SemiBold"/>
+       <TextBlock Text="行内公式放在 $…$ 中，独立公式放在 \[ … \] 中。用 ^ 和 _ 表示上下标，\frac{a}{b} 表示分式，\sqrt{x} 表示根号。" TextWrapping="Wrap" LineHeight="23" Margin="0,8,0,12"/>
+       <Border Background="{DynamicResource EditorBackground}" CornerRadius="6" Padding="16"><StackPanel><TextBlock Text="\[ \sum_{k=1}^{n} k = \frac{n(n+1)}{2} \]" FontFamily="Consolas" FontSize="13" Foreground="{DynamicResource Accent}" TextWrapping="Wrap"/><TextBlock Text="∑ₖ₌₁ⁿ k = n(n + 1) / 2" FontFamily="Cambria Math" FontSize="22" TextWrapping="Wrap" Margin="0,14,0,0"/></StackPanel></Border>
+       <TextBlock Text="04  在 TeXeed 中继续写作" FontSize="16" FontWeight="SemiBold" Margin="0,24,0,8"/>
+       <TextBlock Text="Ctrl+S：保存并编译&#x0a;Ctrl+Enter：编译文档&#x0a;Ctrl+J：从源码定位到 PDF&#x0a;Ctrl+左键点击 PDF：返回对应源码&#x0a;Ctrl+Space：命令补全" TextWrapping="Wrap" LineHeight="25"/>
+      </StackPanel>
+     </ScrollViewer>
+    </Border>
+   </Grid>
+   <Border x:Name="WelcomePager" Grid.Row="1" Visibility="Collapsed" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="14,10">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Button x:Name="WelcomePreviousButton" Content="← 最近打开" HorizontalAlignment="Left" Margin="0" Padding="10,8" Click="WelcomePrevious_Click"/>
+     <TextBlock x:Name="WelcomePageNumber" Grid.Column="1" Text="1 / 2" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="12" Margin="6,0"/>
+     <Button x:Name="WelcomeNextButton" Grid.Column="2" Content="LaTeX 教程 →" HorizontalAlignment="Right" Margin="0" Padding="10,8" Click="WelcomeNext_Click"/>
+    </Grid>
    </Border>
   </Grid>
   <Border x:Name="FullscreenToast" Grid.RowSpan="2" Panel.ZIndex="100" Visibility="Collapsed" Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,54,0,0" Padding="20,10" CornerRadius="6" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1"><TextBlock x:Name="FullscreenToastText" Foreground="{DynamicResource Ink}"/></Border>

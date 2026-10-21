@@ -47,6 +47,7 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException)
         { ThemeManager.UseDefault(); _settings = _settings with { ThemeId = ThemeManager.DefaultId }; }
         InitializeComponent();
+        InitializeWelcome();
         InitializeTitleBar();
         InitializeFullscreen();
         InitializeTabs();
@@ -111,21 +112,6 @@ public partial class MainWindow : Window
     private void PersistSettings()
     {
         try { SettingsStore.Save(_settings); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Status("设置暂未保存：" + ex.Message); }
-    }
-    private void UpdateRecent()
-    {
-        RecentMenu.Items.Clear(); RecentList.Children.Clear();
-        foreach (var path in _settings.RecentProjects.Take(8))
-        {
-            var item = new MenuItem { Header = path, ToolTip = path };
-            item.Click += async (_, _) => await OpenAsync(path); RecentMenu.Items.Add(item);
-            if (RecentList.Children.Count >= 3) continue;
-            var button = new Button { Content = Path.GetFileName(path), ToolTip = path, HorizontalContentAlignment = HorizontalAlignment.Left, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 3, 0, 3) };
-
-            button.Click += async (_, _) => await OpenAsync(path); RecentList.Children.Add(button);
-        }
-        NoRecent.Visibility = RecentList.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        RecentMenu.IsEnabled = RecentMenu.Items.Count > 0;
     }
     private async Task<bool> ConfirmLeaveAsync()
     {

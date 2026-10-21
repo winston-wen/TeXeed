@@ -56,6 +56,11 @@ internal static partial class Program
                 if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
                     throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
+                if (args.Contains("--welcome-only"))
+                {
+                    await CheckWelcomeAsync(window, output);
+                    await CloseAndObserveAsync(window, "Welcome page regression"); result = 0; return;
+                }
                 var fixture = Path.Combine(output, "project"); Directory.CreateDirectory(Path.Combine(fixture, "sections"));
                 var main = Path.Combine(fixture, "main.tex");
                 File.WriteAllText(main, "\\documentclass{article}\n\\begin{document}\n\\section{Introduction}\n\\label{sec:intro}\nHello from TeXeed.\n\\input{sections/method}\n\\end{document}\n");
