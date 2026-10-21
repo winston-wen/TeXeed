@@ -37,9 +37,10 @@ public sealed partial class MarkdownView
         if (_annotationPointers.TryGetValue(id, out var cached)) return cached;
         var offset = anchor.TextOffset;
         TextPointer? result = null;
-        if (offset < 0) result = Document.ContentStart.GetPositionAtOffset(anchor.Offset);
+        if (offset < 0) result = LegacyAnnotationPointer(anchor.Offset);
         else for (var p = Document.ContentStart; p is not null && p.CompareTo(Document.ContentEnd) < 0;)
         {
+            if (IsCodePadding(p, out var paddingEnd)) { p = paddingEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             {
                 if (offset <= source.Length) { result = p; break; }
@@ -132,6 +133,7 @@ public sealed partial class MarkdownView
         var output = new StringBuilder();
         for (var p = start; p is not null && p.CompareTo(end) < 0;)
         {
+            if (IsCodePadding(p, out var paddingEnd)) { p = paddingEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             { output.Append(source); p = ui.ElementEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)

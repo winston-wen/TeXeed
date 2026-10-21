@@ -33,6 +33,7 @@ public sealed partial class MarkdownView
         }
         for (var p = start; p is not null && p.CompareTo(end) < 0;)
         {
+            if (IsCodePadding(p, out var paddingEnd)) { p = paddingEnd; continue; }
             var context = p.GetPointerContext(LogicalDirection.Forward);
             var inline = context == TextPointerContext.ElementStart
                 ? p.GetAdjacentElement(LogicalDirection.Forward) as InlineUIContainer : p.Parent as InlineUIContainer;

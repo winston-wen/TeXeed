@@ -45,6 +45,7 @@ public sealed partial class MarkdownView : RichTextBox
         // RichTextBox always paints selection in an adorner, unlike TextBox/PasswordBox.
         // An opaque brush would cover the glyphs even with SelectionTextBrush set.
         SelectionOpacity = .35;
+        InitializeCodeSurfaces();
         Unloaded += (_, _) => { if (_renderPending) { _renderVersion++; _renderPaused = true; } };
         Loaded += (_, _) => { if (_renderPaused) Render(); };
         SizeChanged += (_, e) => { if (!IsStreaming && Markdown.Contains("columns") && (e.PreviousSize.Width < 560) != (e.NewSize.Width < 560)) Render(); };
@@ -77,7 +78,7 @@ public sealed partial class MarkdownView : RichTextBox
             if (_streamRun is null)
             {
                 _streamRun = new Run();
-                _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _revealSections.Clear(); _formulaWidths.Clear();
+                ClearRichState();
                 Document = new FlowDocument(new Paragraph(_streamRun)) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
                 Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
             }
@@ -112,11 +113,10 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); }
+    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
-        ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(new Paragraph(new Run(source))
-        { FontFamily = new FontFamily("Consolas"), Background = (Brush?)TryFindResource("PanelBackground") });
+        ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));
     }
     private async Task RenderDeferredAsync(string source, int version)
     {
@@ -173,10 +173,7 @@ public sealed partial class MarkdownView : RichTextBox
                     target.Add(DisplayFormula(math));
                 else target.Add(Paragraph(paragraph.Inline, depth)); break;
             case CodeBlock code:
-                var p = new Paragraph(new Run(code.Lines.ToString())) { FontFamily = UseSystemFont ? FontFamily : new FontFamily("Cascadia Mono, Consolas"),
-                    FontSize = 14, LineHeight = 23, Padding = new Thickness(14), Margin = new Thickness(0, 6, 0, 14) };
-                p.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground");
-                target.Add(p); break;
+                target.Add(CodeParagraph(code.Lines.ToString())); break;
             case QuoteBlock quote:
                 var section = new Section { BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(14, 2, 0, 2), Margin = new Thickness(0, 6, 0, 14) };
                 section.SetResourceReference(Block.BorderBrushProperty, "Accent");
@@ -233,13 +230,7 @@ public sealed partial class MarkdownView : RichTextBox
             {
                 case LiteralInline literal: AddMathText(target, literal.Content.ToString()); break;
                 case CodeInline code:
-                    if (SourceLink is not null && System.Text.RegularExpressions.Regex.IsMatch(code.Content, @"^[\w./\\ -]+\.(?:tex|md)(?::\d+(?:[–—-]\d+)?)?$"))
-                    {
-                        var sourceLink = new Hyperlink(new Run(code.Content)); sourceLink.SetResourceReference(TextElement.ForegroundProperty, "Accent");
-                        sourceLink.Click += (_, e) => { SourceLink?.Invoke(code.Content); e.Handled = true; }; target.Add(sourceLink); break;
-                    }
-                    var run = new Run(code.Content) { FontFamily = UseSystemFont ? FontFamily : new FontFamily("Cascadia Mono, Consolas"), FontSize = 14 };
-                    run.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); target.Add(run); break;
+                    target.Add(CodeSpan(code.Content)); break;
                 case LineBreakInline: target.Add(new LineBreak()); break;
                 case EmphasisInline emphasis:
                     var span = new Span();

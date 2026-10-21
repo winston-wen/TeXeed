@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.19</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.20</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
@@ -135,6 +135,13 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 #annotation-editor .code-editor{grid-template-columns:auto minmax(0,1fr);border:1.5px solid var(--guide);border-radius:0;background:var(--question)}#annotation-editor .code-editor:focus-within{border-color:var(--focus)}
 #annotation-editor textarea{font:15px/20px var(--editor-font);padding:8px;min-height:72px;max-height:200px}
 #annotation-editor .line-numbers{width:calc(1ch + 8px);font:15px/20px var(--editor-font);padding:8px 4px;background:var(--panel);border-right:1px solid var(--guide)}#annotation-editor .line-numbers>div{top:8px;right:4px}#annotation-editor .line-numbers span{min-height:20px}
+/* Shared Markdown code surfaces: preserve foreground; keep equal inline padding. */
+:root{--code-font:"Cascadia Mono",Consolas,monospace;--inline-code-padding:4.365px}
+.answer,.rich-text{line-height:25px}
+.passage code,.rich-text code,.sent-summary code{font:14px/normal var(--code-font);background:var(--panel);padding:var(--inline-code-padding);border-radius:4px;box-decoration-break:clone;-webkit-box-decoration-break:clone;overflow-wrap:anywhere;white-space:break-spaces}
+.passage pre,.rich-text pre{font:14px/23px var(--code-font);white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;background:var(--panel);padding:14px;margin:6px 0 14px;border-radius:8px}
+.passage pre code,.rich-text pre code{font:inherit;white-space:inherit;background:none;padding:0;border-radius:0;box-decoration-break:slice;-webkit-box-decoration-break:slice}
+.passage code .file-link{font:inherit;background:none;padding:0}
 </style>
 </head>
 <body>

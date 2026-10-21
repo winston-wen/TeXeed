@@ -61,6 +61,11 @@ internal static partial class Program
                     await CheckWelcomeAsync(window, output);
                     await CloseAndObserveAsync(window, "Welcome page regression"); result = 0; return;
                 }
+                if (args.Contains("--code-style-only"))
+                {
+                    await CheckMarkdownCodeAsync(window, output);
+                    await CloseAndObserveAsync(window, "Markdown code style regression"); result = 0; return;
+                }
                 var fixture = Path.Combine(output, "project"); Directory.CreateDirectory(Path.Combine(fixture, "sections"));
                 var main = Path.Combine(fixture, "main.tex");
                 File.WriteAllText(main, "\\documentclass{article}\n\\begin{document}\n\\section{Introduction}\n\\label{sec:intro}\nHello from TeXeed.\n\\input{sections/method}\n\\end{document}\n");
