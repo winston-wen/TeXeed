@@ -36,6 +36,11 @@ internal static partial class Program
         Check(Named<StackPanel>("RecentList").Children.Count == 10, "Welcome page discarded older recent entries");
         Check(Named<Grid>("WelcomeProjects").IsVisible && Named<Border>("WelcomeTutorial").IsVisible && !Named<Border>("WelcomePager").IsVisible, "Wide welcome page must show both columns");
         var rows = Named<StackPanel>("RecentList");
+        var recentRows = rows.Children.OfType<Grid>().ToArray();
+        Check(recentRows.All(row => row.Margin == new Thickness(0) && Math.Abs(row.ActualHeight - 40) < 1), "Recent rows must have a 20px text line and one line of spacing");
+        Check(recentRows.SelectMany(row => row.Children.OfType<Border>()).All(rule => Grid.GetColumnSpan(rule) == 2 && rule.BorderThickness.Left == 0 && rule.BorderThickness.Right == 0 && rule.BorderThickness.Bottom == 1), "Recent rules do not extend underneath the checkbox or still have side borders");
+        Check(recentRows.Skip(1).All(row => row.Children.OfType<Border>().Single().BorderThickness.Top == 0), "Adjacent recent entries have duplicated rules");
+        Check(Descendants<Button>(rows).All(button => button.BorderThickness == new Thickness(0)), "Recent entries still have individual button boxes");
         Check(Descendants<TextBlock>(rows).Select(t => t.Text).SequenceEqual(paths), "Recent paths lost literal characters or directory names");
         var selections = rows.Children.OfType<Grid>().SelectMany(row => row.Children.OfType<CheckBox>()).ToArray();
         selections[1].IsChecked = true; selections[7].IsChecked = true;

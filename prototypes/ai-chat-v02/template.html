@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.17</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.18</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
@@ -130,6 +130,11 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 .activity{background:transparent;border:0;border-radius:0;padding:0;margin:0 0 17px;font-size:12px;line-height:17px}
 .activity summary{align-items:baseline}.activity summary:before{display:none}.activity summary>span{min-width:0}.activity time{margin:0 8px 0 0;padding:0;line-height:17px;text-align:left}.activity-state{white-space:nowrap}
 .activity pre{background:transparent;margin:6px 0 0;padding:0}.process-log .activity:first-of-type{margin-top:0}
+/* v0.4.18: persistent pin editor, matching the composer gutter. */
+.annotation-header{display:flex;gap:4px;align-items:flex-start;margin-bottom:8px}.annotation-header .popup-title{flex:1;min-width:0;margin:0;align-self:center}.annotation-header .icon-button{width:28px;height:28px;flex:none;padding:5px;border:0;background:transparent}
+#annotation-editor .code-editor{grid-template-columns:auto minmax(0,1fr);border:1.5px solid var(--guide);border-radius:0;background:var(--question)}#annotation-editor .code-editor:focus-within{border-color:var(--focus)}
+#annotation-editor textarea{font:15px/20px var(--editor-font);padding:8px;min-height:72px;max-height:200px}
+#annotation-editor .line-numbers{width:calc(1ch + 8px);font:15px/20px var(--editor-font);padding:8px 4px;background:var(--panel);border-right:1px solid var(--guide)}#annotation-editor .line-numbers>div{top:8px;right:4px}#annotation-editor .line-numbers span{min-height:20px}
 </style>
 </head>
 <body>
@@ -162,7 +167,7 @@ input,textarea{font-family:var(--editor-font);font-size:15px}h1,h2,h3,h4,h5,h6{f
 <div class="menu" id="ai-menu" role="menu" hidden><button id="ai-new" role="menuitem">AI 对话</button><button id="ai-settings" role="menuitem">AI 设置</button><button id="ai-recent" role="menuitem" aria-haspopup="menu" aria-expanded="false">AI 历史 ›</button></div><div class="menu" id="ai-history-menu" role="menu" hidden></div>
 <div class="menu" id="options" hidden><button data-option="add">添加圈点说明</button><button data-option="all">全选圈点</button><button data-option="clear">清理已完成圈点</button><hr><button data-option="refresh">刷新模型</button><button data-option="settings">AI 设置</button></div>
 <div class="menu" id="answer-menu" hidden><button id="annotate">批注所选内容</button><button id="copy-selection">复制</button><button id="copy-answer">复制这段回答</button></div>
-<section class="popup" id="annotation-editor" role="dialog" aria-label="原位批注" hidden><div class="popup-title" id="annotation-title"></div><textarea id="annotation-input" aria-label="原位批注内容"></textarea><div class="popup-footer"><button id="delete-annotation">删除</button><button id="collapse-annotation">收起 · 自动保存</button></div></section>
+<section class="popup" id="annotation-editor" role="dialog" aria-label="原位批注" hidden><div class="annotation-header"><div class="popup-title" id="annotation-title"></div><button id="delete-annotation" class="icon-button" aria-label="删除此条批注" title="删除此条批注"><svg class="icon" viewBox="0 0 20 20"><path d="M3 5H17M7 5V2H13V5M5 5L6 18H14L15 5M8 8V15M12 8V15"/></svg></button><button id="send-annotation" class="icon-button" aria-label="发送此条批注" title="发送此条 · Ctrl+Enter"></button></div><textarea id="annotation-input" aria-label="原位批注内容"></textarea></section>
 
 <dialog id="entries-dialog" aria-label="本次圈点编辑"><div class="row"><h2>本次圈点</h2><span class="spacer"></span><button id="close-entries">完成</button></div><p class="muted">发送快照保存后即移出编辑区；停止或失败也可从历史查看原文。</p><div class="entries-scroll" id="entries"></div></dialog>
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>

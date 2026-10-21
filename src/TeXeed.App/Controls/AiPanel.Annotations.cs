@@ -14,6 +14,11 @@ public partial class AiPanel
     internal bool IsMarking { get; set; }
     private readonly Dictionary<MarkdownView, AiAnnotationLayer> _answerLayers = [];
     private void AnnotationChanged(object? sender, PropertyChangedEventArgs e) => Dirty();
+    internal async void SaveAnnotationChanges()
+    {
+        try { await SaveAsync(); }
+        catch (Exception ex) { ShowError(ex); }
+    }
     internal void RemoveAnnotation(AiEntry entry)
     {
         if (entry.State == "提交中") return;
@@ -35,7 +40,7 @@ public partial class AiPanel
             var pointer = view.AnnotationPointer(entry.Id, anchor);
             if (pointer is null || !pointer.HasValidLayout) return null;
             return pointer.GetCharacterRect(LogicalDirection.Forward).TopRight;
-        }, RemoveAnnotation, margin: true, send: SubmitEntryAsync);
+        }, RemoveAnnotation, margin: true, send: SubmitEntryAsync, commit: SaveAnnotationChanges);
         _answerLayers.Add(view, layer);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
         var menu = new ContextMenu();

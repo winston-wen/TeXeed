@@ -190,6 +190,11 @@ internal static partial class Program
                     await CheckAiAnnotationsAsync(window, output);
                     await CloseAndObserveAsync(window, "AI annotation and block rendering regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-pins-only"))
+                {
+                    await CheckAiPinsAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI pin editor regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-only"))
                 {
                     await CheckAiAsync(window, output);

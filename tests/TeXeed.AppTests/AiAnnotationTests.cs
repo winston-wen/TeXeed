@@ -141,10 +141,10 @@ internal static partial class Program
         await ai.SaveAsync();
         Check(AiStorage.Load(project.MainPath).Entries.Last().AnswerAnchor == answerEntry.AnswerAnchor, "Answer annotation failed persistence");
         var oldId = book.Active.Id;
-        await ai.NewConversationAsync(); window.UpdateLayout();
-        Check(ai.AnnotationEntries.Count == 0, "Annotation leaked to another conversation");
-        await ai.SelectConversationAsync(oldId); window.UpdateLayout();
-        Check(ai.AnnotationEntries.Count == 2, "Conversation switch lost annotations");
+        await CallAsync(window, "OpenNewAiConversationAsync"); window.UpdateLayout();
+        Check(((AiPanel)Field(window, "_aiPanel")!).AnnotationEntries.Count == 0, "Annotation leaked to another conversation");
+        await CallAsync(window, "OpenAiConversationAsync", oldId); window.UpdateLayout();
+        Check(ReferenceEquals(Field(window, "_aiPanel"), ai) && ai.AnnotationEntries.Count == 2, "Conversation switch lost annotations");
         ai.RemoveAnnotation(answerEntry);
         var next = new AiEntry(); ai.AddEntry(next, false);
         Check(next.Number == 2, "Pending annotations were not renumbered");
@@ -162,19 +162,22 @@ internal static partial class Program
         var pdfLayer = AdornerLayer.GetAdornerLayer(preview)!.GetAdorners(preview)!.OfType<AiAnnotationLayer>().Single();
         var pdfPopup = (Popup)Field(pdfLayer, "_popup")!;
         Check(pdfPopup.IsOpen && preview.IsVisible && preview.AnnotationPosition(pdfEntry) is not null, "PDF marking lost its original editor or position");
-        pdfEntry.Question = "请解释这一区域"; pdfPopup.IsOpen = false;
+        pdfEntry.Question = "请解释这一区域";
         preview.SetZoom(preview.Zoom * 1.2); window.UpdateLayout(); await Task.Delay(100);
+        Check(!pdfPopup.IsOpen && pdfEntry.Question == "请解释这一区域" && ai.AnnotationEntries.Contains(pdfEntry), "PDF zoom must close the editor and keep its editable annotation");
         Check(preview.AnnotationPosition(pdfEntry) is not null, "PDF zoom lost the annotation anchor");
         Capture(window, Path.Combine(output, "ai-pdf-bubble.png"));
         pdfEntry.State = "已完成"; pdfLayer.Refresh();
         Check(((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 0, "Completed PDF annotation still has a draft bubble");
         pdfEntry.State = "未完成，可重试"; pdfLayer.Refresh();
         Check(((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 1, "Retry lost the PDF draft bubble");
+        pdfLayer.Edit(pdfEntry); await Task.Delay(100); Check(pdfPopup.IsOpen, "PDF pin cannot reopen after zoom");
         var previewSide = tabs.Owner(TabWorkspace.PreviewKey)!.Value;
         Invoke(window, "MoveWorkspaceTab", project.MainPath, previewSide, 0, true);
         Invoke(window, "SelectWorkspaceTab", previewSide, project.MainPath); window.UpdateLayout(); await Task.Delay(100);
         Check(!preview.IsVisible && !pdfLayer.IsVisible && ((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 0,
             "Hidden PDF annotation leaked into the source tab");
+        Check(!pdfPopup.IsOpen && ai.AnnotationEntries.Contains(pdfEntry), "Switching document panes left a popup or removed its editable annotation");
         Invoke(window, "SelectWorkspaceTab", previewSide, TabWorkspace.PreviewKey); window.UpdateLayout(); await Task.Delay(100);
         Check(pdfLayer.IsVisible && ((System.Collections.ICollection)Field(pdfLayer, "_positions")!).Count == 1, "Returning to PDF lost its annotation");
         Console.WriteLine("AI annotations: math vectors/copy/references, columns/resizing/themes, source popup/binding/anchors, answer quotes, persistence and isolation passed.");

@@ -71,7 +71,12 @@ public partial class MainWindow
             item.Click += async (_, _) => await OpenAsync(path);
             RecentMenu.Items.Add(item);
 
-            var row = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+            var row = new Grid();
+            // One shared rule per boundary, continuing underneath the checkbox.
+            var rule = new Border { BorderThickness = new Thickness(0, RecentList.Children.Count == 0 ? 1 : 0, 0, 1), IsHitTestVisible = false };
+            rule.SetResourceReference(Border.BorderBrushProperty, "Line");
+            Grid.SetColumnSpan(rule, 2);
+            row.Children.Add(rule);
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition());
             var selection = new CheckBox
@@ -83,12 +88,12 @@ public partial class MainWindow
             selection.Checked += RecentSelection_Changed;
             selection.Unchecked += RecentSelection_Changed;
             row.Children.Add(selection);
-            var label = new TextBlock { Text = path, TextTrimming = TextTrimming.CharacterEllipsis };
+            var label = new TextBlock { Text = path, TextTrimming = TextTrimming.CharacterEllipsis, LineHeight = 20, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
             var button = new Button
             {
                 Content = label, Tag = path, ToolTip = path,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0), Padding = new Thickness(12, 12, 12, 12)
+                Margin = new Thickness(0), Padding = new Thickness(8, 10, 8, 10), BorderThickness = new Thickness(0)
             };
             // The shared button template centers its content; stretch this path label
             // explicitly so long paths are constrained and ellipsized inside the row.

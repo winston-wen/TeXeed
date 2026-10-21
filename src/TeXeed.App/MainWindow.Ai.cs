@@ -15,13 +15,13 @@ public partial class MainWindow
     private void InitializeAi()
     {
         _aiSettings = new AiSettingsPanel(_aiConnection); _aiPanel = CreateAiPanel();
-        _pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, entry=>_aiPanel.RemoveAnnotation(entry), send: entry=>_aiPanel.SubmitEntryAsync(entry));
+        _pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, entry=>_aiPanel.RemoveAnnotation(entry), send: entry=>_aiPanel.SubmitEntryAsync(entry), commit: () => _aiPanel.SaveAnnotationChanges());
         Preview.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) _pdfAnnotations.Edit(entry); };
         Preview.AiMarkingChanged += (_, active) => SetAiMarking(active);
         foreach (var editor in Editors)
         {
             var annotations = new AiAnnotationLayer(editor, () => _aiPanel.AnnotationEntries,
-                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), entry=>_aiPanel.RemoveAnnotation(entry), margin: true, send: entry=>_aiPanel.SubmitEntryAsync(entry));
+                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), entry=>_aiPanel.RemoveAnnotation(entry), margin: true, send: entry=>_aiPanel.SubmitEntryAsync(entry), commit: () => _aiPanel.SaveAnnotationChanges());
             _sourceAnnotations[editor] = annotations;
             var menu = new ContextMenu();
             editor.AiMarked += (_, mark) => CollectSourceMark(editor, mark);

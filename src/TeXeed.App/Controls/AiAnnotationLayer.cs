@@ -19,7 +19,12 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
     private readonly Action<AiEntry> _remove;
     private readonly bool _margin;
     private readonly Func<AiEntry, Task>? _send;
-    private readonly Popup _popup = new() { StaysOpen = false, AllowsTransparency = true, Placement = PlacementMode.Relative };
+    private readonly Action? _commit;
+    private readonly Popup _popup = new() { StaysOpen = true, AllowsTransparency = true, Placement = PlacementMode.Relative };
+    private Window? _contextWindow;
+    private Rect _editingHostBounds, _editingClip, _editingAnchor;
+    private int _editingDocumentVersion;
+    private double _editingZoom;
     private List<(AiEntry Entry, Rect Bounds)> _positions = [];
     private AiEntry? _editing;
     private AiEntry? _pendingEdit;
@@ -27,15 +32,58 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
     private Rect _lastClip = Rect.Empty;
     private Size _lastSize;
     private int _lastDocumentVersion = -1;
-    internal AiAnnotationLayer(FrameworkElement host, Func<IReadOnlyList<AiEntry>> entries, Func<AiEntry, Point?> anchor, Action<AiEntry> remove, bool margin = false, Func<AiEntry, Task>? send = null) : base(host)
+    internal AiAnnotationLayer(FrameworkElement host, Func<IReadOnlyList<AiEntry>> entries, Func<AiEntry, Point?> anchor, Action<AiEntry> remove, bool margin = false, Func<AiEntry, Task>? send = null, Action? commit = null) : base(host)
     {
-        _host = host; _entries = entries; _anchor = anchor; _remove = remove; _margin = margin; _send = send;
+        _host = host; _entries = entries; _anchor = anchor; _remove = remove; _margin = margin; _send = send; _commit = commit;
         _popup.PlacementTarget = host;
+        _popup.Closed += (_, _) =>
+        {
+            var hadEditor = _editing is not null;
+            _editing = null;
+            ObserveContext(false);
+            if (hadEditor) _commit?.Invoke();
+        };
         host.Loaded += HostLoaded;
         host.Unloaded += HostUnloaded;
         host.LayoutUpdated += HostLayout;
         host.IsVisibleChanged += HostVisible;
         if (host.IsLoaded) Attach();
+    }
+    private void CloseEditor() { _pendingEdit = null; _popup.IsOpen = false; }
+    private Rect HostBounds() => new(_host.PointToScreen(new Point()), _host.RenderSize);
+    private void ObserveContext(bool observe)
+    {
+        if (_contextWindow is { } previous)
+        {
+            previous.RemoveHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ContextScrolled));
+            previous.LocationChanged -= ContextChanged;
+            previous.SizeChanged -= ContextSizeChanged;
+        }
+        _host.SizeChanged -= ContextSizeChanged;
+        if (_host is LatexEditor oldEditor) oldEditor.TextArea.TextView.ScrollOffsetChanged -= ContextChanged;
+        if (_host is PdfPreview oldPreview) oldPreview.ZoomChanged -= ContextZoomChanged;
+        _contextWindow = observe ? Window.GetWindow(_host) : null;
+        if (!observe) return;
+        if (_contextWindow is { } window)
+        {
+            window.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ContextScrolled), true);
+            window.LocationChanged += ContextChanged;
+            window.SizeChanged += ContextSizeChanged;
+        }
+        _host.SizeChanged += ContextSizeChanged;
+        if (_host is LatexEditor editor) editor.TextArea.TextView.ScrollOffsetChanged += ContextChanged;
+        if (_host is PdfPreview preview) preview.ZoomChanged += ContextZoomChanged;
+    }
+    private void ContextScrolled(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.OriginalSource is not Visual scroll || !(_host.IsAncestorOf(scroll) || scroll.IsAncestorOf(_host))) return;
+        if (e.VerticalChange != 0 || e.HorizontalChange != 0 || e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0) CloseEditor();
+    }
+    private void ContextChanged(object? sender, EventArgs e) => CloseEditor();
+    private void ContextSizeChanged(object sender, SizeChangedEventArgs e) => CloseEditor();
+    private void ContextZoomChanged(object? sender, EventArgs e)
+    {
+        if (_host is PdfPreview preview && preview.Zoom != _editingZoom) CloseEditor();
     }
     private void HostLoaded(object sender, RoutedEventArgs e) => Attach();
     private void HostUnloaded(object sender, RoutedEventArgs e) { _pendingEdit = null; _popup.IsOpen = false; AdornerLayer.GetAdornerLayer(_host)?.Remove(this); }
@@ -82,7 +130,7 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         var documentVersion = (_host as MarkdownView)?.LayoutVersion ?? -1;
         // Source/PDF positions also depend on their inner viewport, zoom and text
         // edits, even when the outer control's size and clip have not changed.
-        if (!force && _host is MarkdownView && documentVersion == _lastDocumentVersion && visible == _lastClip && _host.RenderSize == _lastSize && _pendingEdit is null) return;
+        if (!force && _host is MarkdownView && documentVersion == _lastDocumentVersion && visible == _lastClip && _host.RenderSize == _lastSize && _pendingEdit is null && !_popup.IsOpen) return;
         _lastDocumentVersion = documentVersion;
         _lastClip = visible; _lastSize = _host.RenderSize;
         if (visible.IsEmpty) { ClearPositions(); return; }
@@ -110,8 +158,8 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         if (_popup.IsOpen && _editing is { } editing)
         {
             var position = _positions.FirstOrDefault(x => x.Entry == editing);
-            if (position.Entry is null) _popup.IsOpen = false;
-            else { _popup.HorizontalOffset = position.Bounds.X; _popup.VerticalOffset = position.Bounds.Bottom + 4; }
+            if (position.Entry is null || position.Bounds != _editingAnchor || visible != _editingClip
+                || HostBounds() != _editingHostBounds || documentVersion != _editingDocumentVersion) CloseEditor();
         }
     }
     protected override void OnRender(DrawingContext drawing)
@@ -148,8 +196,21 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         if (position.Entry is null) return;
         _popup.IsOpen = false; _editing = entry;
         var stack = new StackPanel();
-        stack.Children.Add(new TextBlock { Text = entry.DisplayTitle, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
-        var input = new TextBox { Tag = entry, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72, MaxHeight = 200, AcceptsTab = true, FontFamily = new FontFamily("Cascadia Code, Consolas, Microsoft YaHei"), VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.Children.Add(new TextBlock { Text = entry.DisplayTitle, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+        stack.Children.Add(header);
+        var input = new TextBox
+        {
+            Tag = entry, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72, MaxHeight = 200,
+            AcceptsTab = true, FontFamily = new FontFamily("Cascadia Code, Consolas, Microsoft YaHei"), FontSize = 15,
+            Padding = new Thickness(8), BorderThickness = new Thickness(0), Background = Brushes.Transparent,
+            VerticalContentAlignment = VerticalAlignment.Top, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        TextBlock.SetLineHeight(input, 20);
+        TextBlock.SetLineStackingStrategy(input, LineStackingStrategy.BlockLineHeight);
         input.SetBinding(TextBox.TextProperty, new Binding(nameof(AiEntry.Question)) { Source = entry, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         System.Windows.Automation.AutomationProperties.SetName(input, "原位批注内容");
         input.PreviewKeyDown += async (_, e) =>
@@ -158,26 +219,45 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
             e.Handled = true;
             if (!e.IsRepeat && _send is not null) { await _send(entry); if (!_entries().Any(x => x.Id == entry.Id)) _popup.IsOpen = false; }
         };
-        var inputGrid = new Grid(); inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(25) }); inputGrid.ColumnDefinitions.Add(new ColumnDefinition());
-        var numbers = new TextBlock { Text = "1", FontFamily = input.FontFamily, FontSize = input.FontSize, Margin = new Thickness(3, 4, 0, 0) }; numbers.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-        input.TextChanged += (_, _) => numbers.Text = string.Join("\n", Enumerable.Range(1, input.Text.Count(c => c == '\n') + 1)); Grid.SetColumn(input, 1); inputGrid.Children.Add(numbers); inputGrid.Children.Add(input); stack.Children.Add(inputGrid);
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
-        var remove = new Button { Content = "删除", Margin = new Thickness(0, 0, 8, 0) };
-        remove.Click += (_, _) => { _popup.IsOpen = false; _remove(entry); };
-        var done = new Button { Content = "收起 · 自动保存" };
-        done.Click += (_, _) => _popup.IsOpen = false;
+        var inputGrid = new Grid(); inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); inputGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        var numbers = new TextBoxLineNumbers();
+        numbers.SetResourceReference(Control.ForegroundProperty, "Muted");
+        numbers.SetResourceReference(Control.BackgroundProperty, "PanelBackground");
+        numbers.SetResourceReference(Control.BorderBrushProperty, "Guide");
+        numbers.Attach(input);
+        Grid.SetColumn(input, 1); inputGrid.Children.Add(numbers); inputGrid.Children.Add(input);
+        var editor = new Border { Child = inputGrid, BorderThickness = new Thickness(1.5) };
+        editor.SetResourceReference(Border.BackgroundProperty, "ChatQuestionBackground");
+        var editorStyle = new Style(typeof(Border));
+        editorStyle.Setters.Add(new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("Guide")));
+        var focused = new Trigger { Property = IsKeyboardFocusWithinProperty, Value = true };
+        focused.Setters.Add(new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("ChatFocus")));
+        editorStyle.Triggers.Add(focused); editor.Style = editorStyle;
+        stack.Children.Add(editor);
+        Button Icon(string name, string tooltip, string geometry, int column)
+        {
+            var path = new System.Windows.Shapes.Path { Data = Geometry.Parse(geometry), Width = 16, Height = 16, Stretch = Stretch.Uniform, StrokeThickness = 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round };
+            path.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Ink");
+            var button = new Button { Name = name, Content = path, ToolTip = tooltip, Width = 28, Height = 28, Padding = new Thickness(5), Margin = new Thickness(2, 0, 0, 0), BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Top };
+            System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
+            Grid.SetColumn(button, column); header.Children.Add(button); return button;
+        }
+        var remove = Icon("AnnotationDelete", "删除此条批注", "M3,5 H17 M7,5 V2 H13 V5 M5,5 L6,18 H14 L15,5 M8,8 V15 M12,8 V15", 1);
+        remove.Click += (_, _) => { _remove(entry); CloseEditor(); };
         if (_send is not null)
         {
-            var send = new Button { Content = "↑", ToolTip = "发送此条 · Ctrl+Enter", Margin = new Thickness(0, 0, 8, 0) };
+            var send = Icon("AnnotationSend", "发送此条 · Ctrl+Enter", "M8,15 V1 M2,7 L8,1 L14,7", 2);
             send.Click += async (_, _) => { await _send(entry); if (!_entries().Any(x => x.Id == entry.Id)) _popup.IsOpen = false; };
-            actions.Children.Add(send);
         }
-        actions.Children.Add(remove); actions.Children.Add(done); stack.Children.Add(actions);
         var surface = new Border { Child = stack, Width = Math.Clamp(_host.ActualWidth - 24, 220, 340), Padding = new Thickness(12), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1) };
         surface.SetResourceReference(Border.BackgroundProperty, "PanelBackground"); surface.SetResourceReference(Border.BorderBrushProperty, "Accent"); surface.SetResourceReference(TextElement.ForegroundProperty, "Ink");
-        surface.PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { _popup.IsOpen = false; e.Handled = true; } };
+        // The editor stays open through focus changes, mouse release and Escape.
+        // View changes save the same editable annotation; only sending freezes its snapshot.
         _popup.Child = surface; _popup.HorizontalOffset = position.Bounds.X; _popup.VerticalOffset = position.Bounds.Bottom + 4;
+        _editingHostBounds = HostBounds(); _editingClip = _lastClip; _editingAnchor = position.Bounds;
+        _editingDocumentVersion = _lastDocumentVersion; _editingZoom = (_host as PdfPreview)?.Zoom ?? 0;
         _popup.IsOpen = true;
+        ObserveContext(true);
         input.Dispatcher.BeginInvoke(new Action(() => { if (_popup.IsOpen) { input.Focus(); input.CaretIndex = input.Text.Length; } }));
     }
 }
