@@ -12,6 +12,8 @@ public partial class AiPanel
     public event EventHandler? AnnotationsChanged;
     internal IReadOnlyList<AiEntry> AnnotationEntries => _book.Entries;
     internal bool IsMarking { get; set; }
+    internal bool HasActiveOperation => _operation is not null;
+    internal void RetargetProject(string path) => _project = path;
     private readonly Dictionary<MarkdownView, AiAnnotationLayer> _answerLayers = [];
     private void AnnotationChanged(object? sender, PropertyChangedEventArgs e) => Dirty();
     internal async void SaveAnnotationChanges()

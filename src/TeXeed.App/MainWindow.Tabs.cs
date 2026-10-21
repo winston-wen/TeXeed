@@ -71,12 +71,14 @@ public partial class MainWindow
         foreach (var editor in Editors)
             if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
         RefreshTabs();
+        var aiClose = CloseAiPanelsAsync(closed); _aiCloseTasks.Add(aiClose);
         try
         {
-            await CloseAiPanelsAsync(closed);
+            await aiClose;
             if (closed.Contains(TabWorkspace.AiHistoryKey) && _aiHistory is not null) await _aiHistory.CommitRenameAsync();
         }
         catch (Exception ex) { Error(ex); }
+        finally { _aiCloseTasks.Remove(aiClose); }
         if (_workspaceTabs.FocusedTab is { } active && TabWorkspace.IsSource(active)) SourceEditor(_workspaceTabs.FocusedSide).TextArea.Focus();
         if (closed.Any(tab => _changes.ContainsKey(tab))) Status("标签已关闭 · 未保存内容仍保留，重新打开可继续编辑");
     }

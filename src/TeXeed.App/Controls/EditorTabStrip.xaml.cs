@@ -99,6 +99,19 @@ public partial class EditorTabStrip : UserControl
         grid.Children.Add(select);
         Grid.SetColumn(close, 1); grid.Children.Add(close);
         var view = new Border { Child = grid, Background = Brushes.Transparent, Height = 32, CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(1.5), Margin = new Thickness(3, 4, 3, 4), Tag = path };
+        var middlePressed = false;
+        view.PreviewMouseDown += (_, e) =>
+        {
+            if (e.ChangedButton == MouseButton.Middle) { middlePressed = true; e.Handled = true; }
+        };
+        view.PreviewMouseUp += (_, e) =>
+        {
+            if (e.ChangedButton != MouseButton.Middle) return;
+            e.Handled = true;
+            if (middlePressed && !preview) CloseRequested?.Invoke(path, TabCloseScope.This);
+            middlePressed = false;
+        };
+        view.MouseLeave += (_, _) => middlePressed = false;
         view.PreviewMouseLeftButtonDown += (_, e) =>
         {
             if (IsInside(e.OriginalSource as DependencyObject, close)) return;

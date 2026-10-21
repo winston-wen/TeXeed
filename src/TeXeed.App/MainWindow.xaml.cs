@@ -494,6 +494,7 @@ public partial class MainWindow : Window
         SidebarTitle.ToolTip = (_sidebar == "files" ? _project.Root + "\n" : "") + $"{files.Length} 个依赖文件 · {index.Labels.Count} 个标签\n{index.Citations.Count} 条参考文献";
         if (_project.Warnings.Count > 0) SidebarTitle.ToolTip += "\n" + string.Join(Environment.NewLine, _project.Warnings);
         FileTree.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
+        FileExplorer.Visibility = FileTree.Visibility;
         OutlineTree.Visibility = _sidebar == "outline" ? Visibility.Visible : Visibility.Collapsed;
         BookmarkTree.Visibility = _sidebar == "bookmarks" ? Visibility.Visible : Visibility.Collapsed;
         BookmarkSearchPanel.Visibility = _sidebar == "bookmarks" ? Visibility.Visible : Visibility.Collapsed;
@@ -509,8 +510,6 @@ public partial class MainWindow : Window
         SearchBox.Visibility = _sidebar is "search" or "labels" ? Visibility.Visible : Visibility.Collapsed;
         FileSearchPanel.Visibility = _sidebar == "files" ? Visibility.Visible : Visibility.Collapsed;
         SidebarTreeActions.Visibility = _sidebar is "outline" or "files" or "bookmarks" ? Visibility.Visible : Visibility.Collapsed;
-        ExpandAllButton.SetResourceReference(ContentControl.ContentProperty, _sidebar == "files" ? "ExpandFoldersIcon" : "ExpandAllIcon");
-        CollapseAllButton.SetResourceReference(ContentControl.ContentProperty, _sidebar == "files" ? "CollapseFoldersIcon" : "CollapseAllIcon");
         SidebarTitle.Text = _sidebar switch { "files" => new DirectoryInfo(_project.Root).Name, "search" => "全文搜索", "bookmarks" => "书签", "labels" => "标签与引用", "todos" => "待办事项", _ => "文档大纲" };
         if (_sidebar == "files") { BuildFileTree(files); return; }
         if (_sidebar == "bookmarks") { UpdateBookmarkEmptyState(); return; }
@@ -537,14 +536,9 @@ public partial class MainWindow : Window
         var session = _session; var root = _project.Root;
         var watcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size };
         _watcher = watcher;
-        void CatalogChanged()
-        {
-            if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(() =>
-            {
-                if (session == _session && ReferenceEquals(watcher, _watcher) && !_closing) InvalidateDirectoryCatalog();
-            });
-        }
-        watcher.Created += (_, _) => CatalogChanged(); watcher.Deleted += (_, _) => CatalogChanged(); watcher.Renamed += (_, _) => CatalogChanged();
+        watcher.Created += (_, e) => QueueDirectoryCatalogChange(e.FullPath, session, watcher);
+        watcher.Deleted += (_, e) => QueueDirectoryCatalogChange(e.FullPath, session, watcher);
+        watcher.Renamed += (_, e) => { QueueDirectoryCatalogChange(e.OldFullPath, session, watcher); QueueDirectoryCatalogChange(e.FullPath, session, watcher); };
         void Changed(string path)
         {
             if (Dispatcher.HasShutdownStarted || !IsWatchedCompileLocation(root, path)) return;
@@ -571,6 +565,7 @@ public partial class MainWindow : Window
             {
                 if (session != _session || !ReferenceEquals(watcher, _watcher) || _closing) return;
                 InvalidateCompileInputTracking();
+                InvalidateDirectoryCatalog();
             });
         };
         watcher.EnableRaisingEvents = true;
@@ -663,6 +658,7 @@ public partial class MainWindow : Window
         if (_workspaceExpanded && _sidebar == mode) { ToggleWorkspace(); ((Button)sender).Focus(); return; }
         if (!_workspaceExpanded) ToggleWorkspace();
         if (_sidebar != mode) { _sidebar = mode; RefreshIndex(); }
+        if (_sidebar == "files" && _catalogDirty) InvalidateDirectoryCatalog();
         UpdateWorkspaceIcons();
         if (_sidebar == "search") SearchBox.Focus();
         else WorkspaceIconBar.Children.OfType<Button>().First(button => Equals(button.Tag, mode)).Focus();

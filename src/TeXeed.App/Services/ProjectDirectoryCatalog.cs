@@ -3,8 +3,17 @@ using System.IO;
 namespace TeXeed.App.Services;
 
 internal sealed record DirectoryEntry(string Path, string RelativePath, bool IsDirectory);
+internal sealed record DirectorySnapshot(DirectoryEntry[] Entries, Dictionary<string, DirectoryEntry[]> Children);
 internal static class ProjectDirectoryCatalog
 {
+    internal static DirectorySnapshot Snapshot(string root, CancellationToken cancellation)
+    {
+        var entries = Read(root, cancellation);
+        var children = entries.GroupBy(entry => (Path.GetDirectoryName(entry.RelativePath) ?? "").Replace('\\', '/'))
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(entry => entry.IsDirectory)
+                .ThenBy(entry => Path.GetFileName(entry.Path), StringComparer.OrdinalIgnoreCase).ToArray(), StringComparer.OrdinalIgnoreCase);
+        return new(entries, children);
+    }
     // Metadata only: include hidden files, generated output and empty directories.
     // Display junctions/symlinks too, but do not traverse outside the project.
     internal static DirectoryEntry[] Read(string root, CancellationToken cancellation)

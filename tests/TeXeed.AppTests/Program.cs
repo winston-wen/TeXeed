@@ -243,6 +243,11 @@ internal static partial class Program
                     await CheckFileExplorerAsync(window, output);
                     await CloseAndObserveAsync(window, "file explorer regression"); result = 0; return;
                 }
+                if (args.Contains("--file-priority-only"))
+                {
+                    await CheckFilePriorityAsync(window, output);
+                    await CloseAndObserveAsync(window, "file priority, rename, middle click and performance regression"); result = 0; return;
+                }
                 if (args.Contains("--tabs-only"))
                 {
                     await CheckEditorTabsAsync(window, output);
@@ -577,7 +582,11 @@ internal static partial class Program
             firstCloseReturned = true;
             if (beforeCompletion != null) await beforeCompletion(closed.Task);
             // The timeout is only a failure bound; success is signaled by the actual WPF Closed event.
-            await closed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            try { await closed.Task.WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch (TimeoutException ex)
+            {
+                throw new Exception($"{description}: close timed out; closing={Field(window, "_closing")}, transitioning={Field(window, "_transitioning")}, status={((TextBlock)window.FindName("StatusText")).Text}", ex);
+            }
             if (window.IsVisible) throw new Exception($"{description}: Closed fired but the window is still visible");
         }
         finally { window.Closed -= onClosed; }

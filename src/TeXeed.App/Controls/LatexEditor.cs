@@ -118,6 +118,12 @@ public sealed partial class LatexEditor : TextEditor
 
     public void SetProjectFiles(IEnumerable<ProjectFile> files) => _files = files.ToArray();
     internal bool HasFileSession(string path) => _sessions.ContainsKey(path);
+    internal void RenameFileSession(string previous, string next)
+    {
+        if (_sessions.Remove(previous, out var session)) _sessions[next] = session;
+        _files = _files.Select(file => file.Path.Equals(previous, StringComparison.OrdinalIgnoreCase) ? file with { Path = next } : file).ToArray();
+        if (string.Equals(CurrentFilePath, previous, StringComparison.OrdinalIgnoreCase)) CurrentFilePath = next;
+    }
     internal void ApplyAiReplacement(ProjectFile file, int offset, int length, string replacement)
     {
         if (!_sessions.TryGetValue(file.Path, out var session))

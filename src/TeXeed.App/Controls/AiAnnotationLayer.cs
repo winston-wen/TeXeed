@@ -49,7 +49,7 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         host.IsVisibleChanged += HostVisible;
         if (host.IsLoaded) Attach();
     }
-    private void CloseEditor() { _pendingEdit = null; _popup.IsOpen = false; }
+    internal void CloseEditor() { _pendingEdit = null; _popup.IsOpen = false; }
     private Rect HostBounds() => new(_host.PointToScreen(new Point()), _host.RenderSize);
     private void ObserveContext(bool observe)
     {

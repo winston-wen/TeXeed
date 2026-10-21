@@ -46,7 +46,7 @@ internal static partial class Program
         Check(tree.Items.OfType<TreeViewItem>().All(node => (string)node.Header != title.Text), "Explorer duplicated the root directory row");
         Check(tree.Items.OfType<TreeViewItem>().TakeWhile(node => node.Tag is null).Count() >= 6, "Directories are not grouped before files or empty/hidden folders are absent");
         Check(!Descendants<ToggleButton>(tree).Any(), "Native collapse chevrons remain in file rows");
-        Check(ReferenceEquals(((Button)window.FindName("ExpandAllButton")).Content, window.FindResource("ExpandFoldersIcon")) && ReferenceEquals(((Button)window.FindName("CollapseAllButton")).Content, window.FindResource("CollapseFoldersIcon")), "File explorer bulk actions still use collapse arrow marks");
+        Check(ReferenceEquals(((Button)window.FindName("ExpandAllButton")).Content, window.FindResource("ExpandAllIcon")) && ReferenceEquals(((Button)window.FindName("CollapseAllButton")).Content, window.FindResource("CollapseAllIcon")), "File explorer bulk actions differ from the other sidebar tabs");
         var catalog = (DirectoryEntry[])Field(window, "_directoryEntries")!;
         Check(samples.Keys.All(path => catalog.Any(entry => entry.RelativePath.Replace('\\', '/') == path)), "Explorer omitted a non-TeX, hidden, generated or unreferenced file");
         var folder = tree.Items.OfType<TreeViewItem>().Single(node => (string)node.Header == "chapters");
@@ -81,6 +81,7 @@ internal static partial class Program
         File.Delete(newFile);
         for (var i = 0; i < 100 && Nodes(tree.Items).Any(node => Equals(node.Tag, newFile)); i++) await Task.Delay(30);
         Check(!Nodes(tree.Items).Any(node => Equals(node.Tag, newFile)), "File-system delete left a stale row");
+        Check(!((Dictionary<string, TreeViewItem>)Field(window, "_fileNodeCache")!).ContainsKey("created-after-open.txt"), "Deleted row leaked in the file-node cache");
         foreach (var mode in new[] { "outline", "files", "search", "bookmarks", "labels", "todos" })
         {
             Mode(mode);
@@ -90,7 +91,10 @@ internal static partial class Program
             Check((bool)Field(window, "_workspaceExpanded")!, "Double-clicking a control collapsed the sidebar: " + mode);
             var blank = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent };
             typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(blank, 2); ((UIElement)window.FindName("SidebarPanel")).RaiseEvent(blank);
-            Check(!(bool)Field(window, "_workspaceExpanded")! && blank.Handled, "Blank double-click did not collapse sidebar mode: " + mode);
+            Check((bool)Field(window, "_workspaceExpanded")! && !blank.Handled, "Content-area blank double-click still collapses sidebar mode: " + mode);
+            var rail = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent };
+            typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(rail, 2); ((UIElement)window.FindName("WorkspaceRail")).RaiseEvent(rail);
+            Check(!(bool)Field(window, "_workspaceExpanded")! && rail.Handled, "Rail blank double-click did not collapse sidebar mode: " + mode);
         }
         Mode("files"); ThemeManager.Apply("ristretto");
         Console.WriteLine($"PASS: file explorer {count} checks: all files, sorted lazy directories, type/open-folder icons, search, on-demand opening, live updates, heading marquee, both palettes and all sidebar blank-double-click modes.");

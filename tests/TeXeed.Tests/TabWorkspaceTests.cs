@@ -35,6 +35,11 @@ public static class TabWorkspaceTests
         Check.Equal(TabSide.Right, tabs.Owner(second)!.Value);
         tabs.Close(first, TabCloseRange.This);
         Check.True(tabs.Owner(second) is not null && tabs.Owner(TabWorkspace.AiHistoryKey) is not null);
-        Console.WriteLine("PASS: source-left defaults, protected singleton preview, reorder/move, edge splitting, empty-pane collapse and scoped bulk close");
+        var renamed = new TabWorkspace(); renamed.Reset("old.tex"); renamed.Open("second.tex"); renamed.Move("old.tex", TabSide.Right, 0);
+        var order = renamed.Tabs(TabSide.Right).ToArray(); var focus = renamed.FocusedSide;
+        renamed.RenameSource("old.tex", "new.tex");
+        Check.True(renamed.Owner("old.tex") is null && renamed.Owner("new.tex") == TabSide.Right && renamed.Active(TabSide.Right) == "new.tex" && renamed.FocusedSide == focus);
+        Check.True(renamed.Tabs(TabSide.Right).SequenceEqual(order.Select(path => path == "old.tex" ? "new.tex" : path)));
+        Console.WriteLine("PASS: source-left defaults, protected singleton preview, reorder/move/rename, edge splitting, empty-pane collapse and scoped bulk close");
     }
 }

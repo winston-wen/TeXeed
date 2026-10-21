@@ -13,6 +13,7 @@ public partial class MainWindow
     private AiHistoryView? _aiHistory;
     private readonly Dictionary<string,AiPanel> _aiPanels = [];
     private readonly HashSet<string> _closingAi = [];
+    private readonly HashSet<Task> _aiCloseTasks = [];
     private readonly HashSet<string> _deletingAi = [];
     private AiAnnotationLayer? _pdfAnnotations;
     private AiPanel CreateAiPanel()
@@ -54,6 +55,9 @@ public partial class MainWindow
     }
     private async Task StopAiWorkspaceAsync()
     {
+        // Tab closing saves asynchronously after removing its view from the map.
+        // Finish it before a project switch snapshots/disposes the remaining panels.
+        if (_aiCloseTasks.Count > 0) await Task.WhenAll(_aiCloseTasks.ToArray());
         if (_aiHistory is not null) { await _aiHistory.CommitRenameAsync(); if (_aiHistory.Parent is Panel historyParent) historyParent.Children.Remove(_aiHistory); }
         foreach (var panel in _aiPanels.Values.Append(_aiPanel).Where(p => p is not null).Distinct().ToArray())
         {

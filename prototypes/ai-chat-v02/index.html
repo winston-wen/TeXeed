@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TeXeed AI 对话 · 交互原型 v0.4.18</title>
+<title>TeXeed AI 对话 · 交互原型 v0.4.19</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <style>
 :root{color-scheme:dark;--ink:#fff1f3;--muted:#c3b7b8;--accent:#f9cc6c;--line:#403838;--bg:#2c2525;--sidebar:#211c1c;--panel:#403838;--hover:#4b4242;--question:#332c2c;--focus:#c9798c;--guide:#5b5353;--font:15px}
@@ -322,6 +322,8 @@ function showAiMenu(){const b=$('ai-menu-button'),menu=$('ai-menu');menu.hidden=
 function hideAiMenu(){$('ai-menu').hidden=$('ai-history-menu').hidden=true;$('ai-menu-button').setAttribute('aria-expanded','false');$('ai-recent').setAttribute('aria-expanded','false');}
 function showRecent(){const menu=$('ai-history-menu'),b=$('ai-recent');menu.innerHTML=recentConversations(state.conversations).map(c=>'<button role="menuitem" data-recent="'+esc(c.id)+'" title="'+esc(c.title)+' · 最后发送：'+esc(time(lastSend(c)))+'">'+esc(tabTitle(c.title))+'</button>').join('')||'<button disabled>暂无发送记录</button>';menu.innerHTML+='<hr><button role="menuitem" data-manage>管理 AI 会话历史</button>';const r=b.getBoundingClientRect();menu.hidden=false;menu.style.left=Math.min(r.right,innerWidth-menu.offsetWidth-6)+'px';menu.style.top=Math.min(r.top,innerHeight-menu.offsetHeight-6)+'px';b.setAttribute('aria-expanded','true');}
 $('workspace-tabs').onclick=e=>{const close=e.target.closest('[data-close-tab]');if(close){closeTab(close.dataset.closeTab);return;}const tab=e.target.closest('[data-tab]');if(tab){const id=tab.dataset.tab;if(['settings','history'].includes(id))showView(id);else openConversation(id);}};
+$('workspace-tabs').onmousedown=e=>{if(e.button===1&&e.target.closest('[data-tab]'))e.preventDefault();};
+$('workspace-tabs').onauxclick=e=>{if(e.button!==1)return;const tab=e.target.closest('[data-tab]');if(tab){e.preventDefault();closeTab(tab.dataset.tab);}};
 $('workspace-tabs').onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.dataset.tab){e.preventDefault();e.target.click();}};
 $('ai-menu-button').onclick=showAiMenu;$('ai-new').onclick=()=>{hideAiMenu();newConversation();};$('ai-settings').onclick=()=>{hideAiMenu();showSettings();};$('ai-recent').onclick=showRecent;
 $('ai-history-menu').onclick=e=>{const b=e.target.closest('button');if(!b)return;hideAiMenu();if(b.hasAttribute('data-manage'))showHistory();else if(b.dataset.recent)openConversation(b.dataset.recent);};

@@ -34,6 +34,16 @@ public sealed class TabWorkspace
         Select(side, path);
     }
     public void Focus(TabSide side) { if (Has(side)) FocusedSide = side; }
+    public void RenameSource(string previous, string next)
+    {
+        if (!IsSource(previous) || !IsSource(next)) throw new ArgumentException("Only source tabs can be renamed.");
+        foreach (var side in new[] { TabSide.Left, TabSide.Right })
+        {
+            var tabs = List(side);
+            for (var i = 0; i < tabs.Count; i++) if (tabs[i].Equals(previous, StringComparison.OrdinalIgnoreCase)) tabs[i] = next;
+            if (string.Equals(Active(side), previous, StringComparison.OrdinalIgnoreCase)) SetActive(side, next);
+        }
+    }
     public void Select(TabSide side, string key)
     { if (List(side).Contains(key, StringComparer.OrdinalIgnoreCase)) { SetActive(side, key); FocusedSide = side; } }
     public void Move(string key, TabSide side, int index = int.MaxValue)

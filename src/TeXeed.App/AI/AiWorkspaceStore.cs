@@ -4,7 +4,7 @@ namespace TeXeed.App.AI;
 internal sealed class AiWorkspaceStore(string project, AiNotebook book)
 {
     private readonly SemaphoreSlim _gate = new(1);
-    internal string Project { get; } = project;
+    internal string Project { get; set; } = project;
     internal AiNotebook Book { get; } = book;
     internal event Action? Changed;
     internal async Task SaveAsync()

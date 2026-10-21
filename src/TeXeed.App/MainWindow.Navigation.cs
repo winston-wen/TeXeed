@@ -214,6 +214,7 @@ public partial class MainWindow
             SidebarSplitter.Visibility = Visibility.Visible;
             SidebarPanel.Visibility = Visibility.Visible;
             _workspaceExpanded = true;
+            if (_sidebar == "files" && _catalogDirty) InvalidateDirectoryCatalog();
             if (focusWasOnRail) SidebarPanel.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
         }
         WorkspaceVisibilityMenuItem.IsChecked = _workspaceExpanded;
