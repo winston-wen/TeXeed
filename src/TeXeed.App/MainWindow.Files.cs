@@ -52,7 +52,7 @@ public partial class MainWindow
         ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element);
     private void Sidebar_BlankDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2 || !_workspaceExpanded) return;
+        if (e.ClickCount != 2) return;
         for (var target = e.OriginalSource as DependencyObject; target is not null && target != WorkspaceRail; target = SidebarParent(target))
             if (target is TreeViewItem or ListBoxItem or ButtonBase or TextBoxBase or ScrollBar or Thumb or Hyperlink or Controls.HoverMarquee
                 || target is TextBlock { Text.Length: > 0 }) return;

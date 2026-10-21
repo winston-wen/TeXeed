@@ -85,6 +85,10 @@ internal static partial class Program
         foreach (var mode in new[] { "outline", "files", "search", "bookmarks", "labels", "todos" })
         {
             Mode(mode);
+            var previousWidth = ((ColumnDefinition)window.FindName("SidebarColumn")).ActualWidth;
+            var previousSearch = ((TextBox)window.FindName("SearchBox")).Text;
+            var previousFileSearch = search.Text;
+            var previousTreeRow = tree.Items[0];
             var box = mode == "files" ? (UIElement)search : (TextBox)window.FindName("SearchBox");
             var onControl = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent };
             typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(onControl, 2); box.RaiseEvent(onControl);
@@ -95,6 +99,12 @@ internal static partial class Program
             var rail = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent };
             typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(rail, 2); ((UIElement)window.FindName("WorkspaceRail")).RaiseEvent(rail);
             Check(!(bool)Field(window, "_workspaceExpanded")! && rail.Handled, "Rail blank double-click did not collapse sidebar mode: " + mode);
+            var restore = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent };
+            typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(restore, 2); ((UIElement)window.FindName("WorkspaceRail")).RaiseEvent(restore); window.UpdateLayout();
+            Check((bool)Field(window, "_workspaceExpanded")! && restore.Handled && (string)Field(window, "_sidebar")! == mode, "Rail blank double-click did not reopen the previous sidebar mode: " + mode);
+            Check(Math.Abs(((ColumnDefinition)window.FindName("SidebarColumn")).ActualWidth - previousWidth) < 1
+                && ((TextBox)window.FindName("SearchBox")).Text == previousSearch && search.Text == previousFileSearch
+                && ReferenceEquals(tree.Items[0], previousTreeRow), "Reopening reset sidebar width, searches or directory rows: " + mode);
         }
         Mode("files"); ThemeManager.Apply("ristretto");
         Console.WriteLine($"PASS: file explorer {count} checks: all files, sorted lazy directories, type/open-folder icons, search, on-demand opening, live updates, heading marquee, both palettes and all sidebar blank-double-click modes.");
