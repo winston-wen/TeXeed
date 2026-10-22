@@ -1,9 +1,15 @@
-param([string]$Output = "artifacts/TeXeed", [switch]$NoRestore, [switch]$SkipShortcuts)
+param([string]$Output = "artifacts/TeXeed", [switch]$NoRestore, [switch]$SkipShortcuts, [switch]$SelfContained)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $taskRoot
 try {
-    $publishArguments = @('publish', 'src/TeXeed.App', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', $Output)
+    $runtimeConfigPath = Join-Path $Output 'TeXeed.runtimeconfig.json'
+    if (Test-Path -LiteralPath $runtimeConfigPath) {
+        $previousRuntime = Get-Content -LiteralPath $runtimeConfigPath -Raw | ConvertFrom-Json
+        $previousSelfContained = $null -ne $previousRuntime.runtimeOptions.includedFrameworks
+        if ($previousSelfContained -ne $SelfContained.IsPresent) { throw 'Use a new output directory when changing the runtime deployment mode; existing releases are preserved.' }
+    }
+    $publishArguments = @('publish', 'src/TeXeed.App', '-c', 'Release', '-r', 'win-x64', '--self-contained', $SelfContained.IsPresent.ToString().ToLowerInvariant(), '-o', $Output)
     if ($NoRestore) { $publishArguments += '--no-restore' }
     dotnet @publishArguments
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
@@ -20,6 +26,13 @@ try {
         }
     }
     if (Test-Path -LiteralPath licenses) { Copy-Item -LiteralPath licenses -Destination $Output -Recurse -Force }
+    if (-not $SelfContained) {
+        $publishedRuntime = Get-Content -LiteralPath $runtimeConfigPath -Raw | ConvertFrom-Json
+        if ('Microsoft.WindowsDesktop.App' -notin $publishedRuntime.runtimeOptions.frameworks.name) { throw 'Published app must reference the shared .NET Desktop Runtime.' }
+        foreach ($runtimeFile in @('coreclr.dll', 'clrjit.dll', 'System.Private.CoreLib.dll', 'PresentationFramework.dll')) {
+            if (Test-Path -LiteralPath (Join-Path $Output $runtimeFile)) { throw "Shared-runtime output contains a bundled runtime file: $runtimeFile" }
+        }
+    }
     if (-not $SkipShortcuts) {
         & (Join-Path $PSScriptRoot 'update-shortcuts.ps1') -Executable (Join-Path $Output 'TeXeed.exe')
     }
