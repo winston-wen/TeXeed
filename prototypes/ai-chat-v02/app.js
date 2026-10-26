@@ -63,18 +63,19 @@ function showSnapshot(link){
 function turnEnd(t){
  const terminal=(t.segments||[]).findLast(s=>s.kind==='activity'&&/^(已停止[。.]|本轮未完成[:：]|公式排版检查通过\s*·\s*回放完成)/.test(s.text));
  const incomplete=typeof t.incomplete==='boolean'?t.incomplete:terminal?!terminal.text.startsWith('公式排版检查通过'):!t.answeredAt&&!t.answer;
- return {incomplete,at:t.answeredAt||t.endedAt||(incomplete&&terminal?.time)||null};
+ const reason=t.endReason||(terminal?.text.startsWith('已停止')?'user':'program');
+ return {incomplete,at:(incomplete?t.endedAt||terminal?.time||t.answeredAt:t.answeredAt)||null,action:incomplete?(reason==='user'?'用户中止':'程序中止'):'答复'};
 }
-function turnHtml(t){
+function turnHtml(t,index=0){
  const thinking=running?.turn.id===t.id,canFold=!thinking,end=turnEnd(t);
  const activities=(t.segments||[]).filter(s=>s.kind==='activity');
  const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
- const sent='<div class="turn-time sent-time" data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起或展开本轮回答">发送时间：'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+(t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
- const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':'答复时间：'+(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+(end.incomplete?'<span class="incomplete-label">（未完成）</span>':'');
+ const sent='<div class="turn-time sent-time" data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起或展开本轮回答">'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送'+(t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
+ const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
  const folded=!thinking&&t.collapsed;
  const stamp=folded?sent.replace(/^<div[^>]*>/,'').replace(/<\/div>$/,'')+'\n'+answerTime:answerTime;
  const footer='<div class="turn-footer '+(folded?'folded':'')+'" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+stamp+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
- return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question">'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+footer+'</article>';
+ return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">'+(index+1)+'</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+footer+'</article>';
 }
 function renderTurns(){
  const pos=$('reader').scrollTop;
@@ -127,14 +128,14 @@ function send(){
  const mode=$('playback-mode').value;
  const finish=()=>{
   if(requests.get(c.id)!==job)return;const visible=state.active===c.id;const follow=visible&&$('reader').scrollHeight-$('reader').scrollTop-$('reader').clientHeight<40;
-  if(mode==='failure'){t.incomplete=true;t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：网络连接失败。',details:'原型预编失败事件。',time:t.endedAt});}
+  if(mode==='failure'){t.incomplete=true;t.endReason='program';t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：网络连接失败。',details:'原型预编失败事件。',time:t.endedAt});}
   else {t.answer=DATA.playback.answer;t.answerHtml=DATA.playback.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+t.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+t.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+t.id+'-'+id+'"');t.incomplete=false;t.answeredAt=new Date().toISOString();t.segments.push({kind:'activity',text:'公式排版检查通过 · 回放完成',time:t.answeredAt});}
   requests.delete(c.id);if(visible){running=null;setBusy(false);renderTurns();if(follow)scrollEnd();}renderTabs();if(activeView==='history')historyDialog.refresh();record('finish',{mode});
  };
  if(mode==='repair')job.timers.push(setTimeout(()=>{if(requests.get(c.id)===job){t.segments.push({kind:'activity',text:'正在校对公式 · 第 1 次自动修正',details:'现编回放：公式定界符未闭合，已请求修正。',time:new Date().toISOString()});if(state.active===c.id)renderTurns();}},900));
  job.timers.push(setTimeout(finish,mode==='repair'?3200:1700));
 }
-function stopConversation(id=state.active){const job=requests.get(id);if(!job)return;job.timers.forEach(clearTimeout);job.turn.incomplete=true;job.turn.endedAt=new Date().toISOString();job.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:job.turn.endedAt});requests.delete(id);if(id===state.active){running=null;setBusy(false);renderTurns();status('已停止；本轮已保留，可继续提问。');}record('stop',{id});}
+function stopConversation(id=state.active){const job=requests.get(id);if(!job)return;job.timers.forEach(clearTimeout);job.turn.incomplete=true;job.turn.endReason='user';job.turn.endedAt=new Date().toISOString();job.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:job.turn.endedAt});requests.delete(id);if(id===state.active){running=null;setBusy(false);renderTurns();status('已停止；本轮已保留，可继续提问。');}record('stop',{id});}
 function newConversation(){saveReading();const c={id:crypto.randomUUID(),title:'新对话',updatedAt:new Date().toISOString(),turns:[],entries:[],next:1,draft:'',permission:'完全访问'};state.conversations.push(c);openConversation(c.id);record('new-conversation');$('composer').focus();}
 function search(){const q=$('search-input').value.trim().toLowerCase();matches=q?current().turns.filter(t=>(t.question+' '+t.answer).toLowerCase().includes(q)):[];matchIndex=0;showMatch();}
 function showMatch(){if(!matches.length){$('search-count').textContent='0';return;}matchIndex=(matchIndex+matches.length)%matches.length;$('search-count').textContent=(matchIndex+1)+'/'+matches.length;$(matches[matchIndex].id)?.scrollIntoView({block:'start'});}

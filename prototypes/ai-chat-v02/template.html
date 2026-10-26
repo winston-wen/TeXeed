@@ -71,7 +71,8 @@ details[open]>summary:before { transform:rotate(90deg) }
 .turn { margin:0 0 24px }
 .turn:last-child { margin-bottom:0 }
 .question,.answer,.snapshot-scroll { font:var(--reading-font)/var(--reading-line) var(--serif); font-weight:400; font-synthesis:none }
-.question { background:transparent; border:0; padding:0; white-space:normal }
+.question { position:relative; background:transparent; border:0; padding:0; white-space:normal }
+.turn-number { position:absolute; right:calc(100% + 10px); top:0; color:var(--quiet); font:var(--meta-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
 .question-text:empty { display:none }
 .question pre { font-family:var(--code-font) }
 .segments { margin:0; padding:14px 0 0 }
@@ -186,8 +187,8 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .models select { max-width:160px }
 .models .effort { max-width:100px }
 .usage { font:11px/1 var(--sans); color:var(--quiet); font-variant-numeric:tabular-nums; white-space:nowrap; margin:0 6px }
-.send { background:var(--focus); color:#261c20!important }
-.send:hover { background:#dfa2b1 }
+.send,#options-button { background:var(--focus); color:#261c20!important }
+.send:hover,#options-button:hover { background:#dfa2b1 }
 .send svg { stroke-width:1.9 }
 .composer-resize { position:absolute; z-index:3; left:0; right:0; top:0; height:5px; cursor:ns-resize; touch-action:none }
 .composer-resize:focus-visible { outline:1px solid var(--focus); outline-offset:-1px }
