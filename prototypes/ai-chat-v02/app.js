@@ -26,7 +26,7 @@ function svgHtml(turn){
  const source=[DATA.playback,...BUNDLED_TURNS].find(t=>t.answer===turn.answer);
  return source?source.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+turn.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+turn.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+turn.id+'-'+id+'"'):(turn.answer?turn.answerHtml=renderSavedAnswer(turn.answer,turn.id+(turn.id.startsWith('sim-')?'-playback':'')):'');
 }
-function activity(s){return '<details class="activity"><summary><time>'+time(s.time,true)+'</time><span>'+esc(s.text)+'<span class="activity-state">（已收起）</span></span></summary><template class="activity-source">'+esc(s.details||s.text)+'</template></details>';}
+function activity(s){return '<details class="activity"><summary><time>'+time(s.time,true)+'</time><span>'+esc(s.text)+'</span></summary><template class="activity-source">'+esc(s.details||s.text)+'</template></details>';}
 function mountActivityCode(details){
  if(details.querySelector('.activity-code'))return;
  const text=details.querySelector('.activity-source').content.textContent,lines=text.split(/\r\n|\r|\n/).length;
@@ -239,7 +239,7 @@ function installComposerResize(){const grip=document.createElement('div');grip.c
  grip.onpointerup=grip.onpointercancel=()=>{start=null;};
  grip.onkeydown=e=>{if(['ArrowUp','ArrowDown','Home'].includes(e.key)){e.preventDefault();resizeComposer(e.key==='Home'?56:$('composer').clientHeight+(e.key==='ArrowUp'?20:-20));}};
 }
-$('thread').addEventListener('toggle',e=>{if(e.target.matches('.activity')){e.target.querySelector('.activity-state').textContent=e.target.open?'（已展开）':'（已收起）';if(e.target.open)mountActivityCode(e.target);}},true);
+$('thread').addEventListener('toggle',e=>{if(e.target.matches('.activity')&&e.target.open)mountActivityCode(e.target);},true);
 function refreshEditors(){document.querySelectorAll('.code-editor textarea').forEach(updateEditor);}
 function summarizeSnapshot(e){return e.summary||contextText(e).replace(/\s+/g,' ').slice(0,48)||e.question.trim().slice(0,48)||'圈选内容';}
 function migrateSnapshots(){

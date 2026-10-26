@@ -72,7 +72,7 @@ details[open]>summary:before { transform:rotate(90deg) }
 .turn:last-child { margin-bottom:0 }
 .question,.answer,.snapshot-scroll { font:var(--reading-font)/var(--reading-line) var(--serif); font-weight:400; font-synthesis:none }
 .question { position:relative; background:transparent; border:0; padding:0; white-space:normal }
-.turn-number { position:absolute; right:calc(100% + 10px); top:0; color:var(--quiet); font:var(--meta-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
+.turn-number { position:absolute; right:calc(100% + .625em); top:0; min-width:24px; border-radius:4px; background:var(--accent); color:#261c20; text-align:center; font:var(--reading-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
 .question-text:empty { display:none }
 .question pre { font-family:var(--code-font) }
 .segments { margin:0; padding:14px 0 0 }
@@ -159,7 +159,6 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .activity summary>span { min-width:0 }
 .activity.no-details summary { cursor:default }
 .activity time { margin:0; padding:0; font:inherit; font-variant-numeric:tabular-nums; flex:none; color:var(--quiet) }
-.activity-state { color:var(--quiet); white-space:nowrap }
 .activity pre { margin:8px 0 0; padding:0; max-height:320px; overflow:auto; white-space:pre-wrap; font:var(--reading-font)/var(--reading-line) var(--code-font); color:var(--ink); background:transparent }
 .activity-code { display:grid; grid-template-columns:auto minmax(0,1fr); background:var(--question); border-radius:5px; margin:8px 0 4px; overflow:hidden; color:var(--ink) }
 .activity-code textarea,.activity-code pre { font:16px/25px var(--code-font); color:inherit; background:transparent; border:0; border-radius:0; margin:0; padding:8px; white-space:pre }
@@ -187,8 +186,8 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .models select { max-width:160px }
 .models .effort { max-width:100px }
 .usage { font:11px/1 var(--sans); color:var(--quiet); font-variant-numeric:tabular-nums; white-space:nowrap; margin:0 6px }
-.send,#options-button { background:var(--focus); color:#261c20!important }
-.send:hover,#options-button:hover { background:#dfa2b1 }
+.send { background:var(--focus); color:#261c20!important }
+.send:hover { background:#dfa2b1 }
 .send svg { stroke-width:1.9 }
 .composer-resize { position:absolute; z-index:3; left:0; right:0; top:0; height:5px; cursor:ns-resize; touch-action:none }
 .composer-resize:focus-visible { outline:1px solid var(--focus); outline-offset:-1px }
@@ -307,7 +306,7 @@ dialog textarea { width:100%; height:220px }
  .tabs { padding:7px 10px; gap:4px }
  .app-tab { padding-left:10px; gap:6px }
  .app-tab .tab-label { max-width:14em }
- .chat { --text-inset:28px; width:calc(100% - 24px); margin-bottom:12px; padding-top:6px }
+ .chat { width:calc(100% - 24px); margin-bottom:12px; padding-top:6px }
  .thread { padding-top:16px; padding-right:32px }
  #reading-context { padding-right:32px }
  .margin-notes { right:-28px }
