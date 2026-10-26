@@ -3,10 +3,11 @@
 const DATA=/*__TRANSCRIPTS__*/;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const KEY='texeed-ai-baseline-v02'+(location.search.includes('test=1')?'-test':'');
+const VISUAL_PREVIEW=new URLSearchParams(location.search).get('preview')==='visual';
+const KEY='texeed-ai-baseline-v02'+(VISUAL_PREVIEW?'-visual':'')+(location.search.includes('test=1')?'-test':'');
 const clone=x=>JSON.parse(JSON.stringify(x));
-const BUNDLED_TURNS=[...DATA.turns,...DATA.sampleConversations.flatMap(c=>c.turns)];
-function fresh(){return {sampleHistoryVersion:1,active:'collected',conversations:[{id:'collected',title:DATA.title,updatedAt:DATA.updatedAt,turns:clone(DATA.turns),entries:clone(DATA.entries),next:DATA.next,draft:DATA.draft,permission:'完全访问'},...clone(DATA.sampleConversations)],events:[]};}
+const BUNDLED_TURNS=[...DATA.turns,...DATA.sampleConversations.flatMap(c=>c.turns),...DATA.visualPreview.conversations.flatMap(c=>c.turns)];
+function fresh(){const conversations=VISUAL_PREVIEW?clone(DATA.visualPreview.conversations):[{id:'collected',title:DATA.title,updatedAt:DATA.updatedAt,turns:clone(DATA.turns),entries:clone(DATA.entries),next:DATA.next,draft:DATA.draft,permission:'完全访问'},...clone(DATA.sampleConversations)];return {sampleHistoryVersion:1,active:conversations[0].id,conversations,events:[]};}
 let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');}catch{}if(!state?.conversations?.length)state=fresh();
 // Add sample history once to existing browser storage.
 if(!state.sampleHistoryVersion){for(const c of DATA.sampleConversations)if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.sampleHistoryVersion=1;}

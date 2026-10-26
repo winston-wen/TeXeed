@@ -16,10 +16,11 @@ for package in json.loads((vendor / 'vendor-lock.json').read_text(encoding='utf-
         if hashlib.sha256((vendor / filename).read_bytes()).hexdigest() != checksum:
             raise RuntimeError(f'Vendor integrity check failed: {filename}')
 data = json.loads((HERE / 'transcripts.json').read_text(encoding='utf-8'))
+data['visualPreview'] = json.loads((HERE / 'visual-preview.json').read_text(encoding='utf-8'))
 data['prompts'] = json.loads((HERE / 'prompts.json').read_text(encoding='utf-8'))
 pattern = re.compile(r'\\\[(.*?)\\\]|\\\((.*?)\\\)|\$\$(.*?)\$\$|\$([^$\n]+)\$', re.S)
 formulas = {}
-all_turns = data['turns'] + [turn for conversation in data['sampleConversations'] for turn in conversation['turns']]
+all_turns = data['turns'] + [turn for conversation in data['sampleConversations'] + data['visualPreview']['conversations'] for turn in conversation['turns']]
 for scenario in all_turns + [dict(question='', answer=data['playback']['answer'])]:
     for source in [scenario['question'], scenario['answer']]:
         for m in pattern.finditer(source):

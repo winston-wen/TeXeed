@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const data=JSON.parse(fs.readFileSync(__dirname+'/transcripts.json','utf8'));
+data.visualPreview=JSON.parse(fs.readFileSync(__dirname+'/visual-preview.json','utf8'));
+const source=fs.readFileSync(__dirname+'/app.js','utf8').split('const requests=')[0].replace('/*__TRANSCRIPTS__*/',JSON.stringify(data));
+const normalKey='texeed-ai-baseline-v02';
+const saved={sampleHistoryVersion:1,active:'personal',conversations:[{id:'personal',title:'已有会话',draft:'保留这份草稿',turns:[],entries:[]}],events:[]};
+const store=new Map([[normalKey,JSON.stringify(saved)]]);
+function open(search){const context=vm.createContext({URLSearchParams,location:{search},localStorage:{getItem:key=>store.get(key)||null}});vm.runInContext(source,context);return {key:vm.runInContext('KEY',context),state:JSON.parse(vm.runInContext('JSON.stringify(state)',context))};}
+assert.deepEqual(open('').state,saved);
+const preview=open('?preview=visual');
+assert.equal(preview.key,normalKey+'-visual');
+assert.equal(preview.state.active,'visual-flight');
+assert.equal(preview.state.conversations[0].reading.top,0);
+assert.deepEqual(JSON.parse(store.get(normalKey)),saved);
+preview.state.conversations[0].draft='预览中的新草稿';
+store.set(preview.key,JSON.stringify(preview.state));
+assert.equal(open('?preview=visual').state.conversations[0].draft,'预览中的新草稿');
+assert.equal(open('?preview=visual&test=1').key,normalKey+'-visual-test');
+assert.deepEqual(open('').state,saved);
+assert.equal(data.visualPreview.conversations[0].draft,'接下来，比较两种折法的稳定性。');
+console.log('PASS: visual preview uses separate storage and preserves existing conversations and drafts.');
