@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.vs/
+.nuget/
+.dotnet/
+artifacts/
+.texeed/
+*.log
+test-results/
+.tools/
+*.drawio.bkp

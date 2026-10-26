@@ -1,0 +1,341 @@
+{
+  "basis": "合成示例",
+  "title": "函数与数列（合成示例）",
+  "next": 8,
+  "draft": "",
+  "turns": [
+    {
+      "id": "demo-0",
+      "question": "说明这个函数示例。",
+      "answer": "## 一个平方函数\n\n示例文件 `main.tex` 定义了函数 $f(x)=x^2$。输入一个实数，输出它的平方。\n\n\\[f(2)=2^2=4.\\]\n\n公式（1）展示了代入计算。可以圈选公式或段落继续批注。",
+      "sentAt": "2000-01-01T09:00:00+08:00",
+      "answeredAt": "2000-01-01T09:00:20+08:00",
+      "segments": [
+        {
+          "kind": "activity",
+          "text": "读取示例文档",
+          "time": "2000-01-01T09:00:00+08:00",
+          "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+        },
+        {
+          "kind": "activity",
+          "text": "示例计算完成",
+          "time": "2000-01-01T09:00:20+08:00",
+          "details": "输入：2\n输出：4"
+        }
+      ]
+    },
+    {
+      "id": "demo-1",
+      "question": "依次解释这三处源码。\n#1 · main.tex:5 · 句子：请解释函数的输入与输出。\n#2 · main.tex:6 · 句子：导数如何计算？\n#3 · main.tex:7 · 句子：代入数值以后得到什么？",
+      "answer": "## 从输入到结果\n\n函数的定义域和值域描述允许的输入与可能的输出。对平方函数，输入 $x$ 后计算 $x^2$。\n\n### 导数\n\n\\[\\frac{d}{dx}x^2=2x.\\]\n\n在 $x=2$ 处，切线斜率等于 $4$。对应源码见 `main.tex:5–7`。\n\n### 代入示例\n\n| 输入 | 输出 |\n|---|---|\n| 0 | 0 |\n| 1 | 1 |\n| 2 | 4 |",
+      "sentAt": "2000-01-01T09:01:00+08:00",
+      "answeredAt": "2000-01-01T09:01:20+08:00",
+      "segments": [
+        {
+          "kind": "activity",
+          "text": "读取示例文档",
+          "time": "2000-01-01T09:01:00+08:00",
+          "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+        },
+        {
+          "kind": "activity",
+          "text": "示例计算完成",
+          "time": "2000-01-01T09:01:20+08:00",
+          "details": "输入：2\n输出：4"
+        }
+      ]
+    },
+    {
+      "id": "demo-2",
+      "question": "给一个等差数列的例子。",
+      "answer": "## 等差数列\n\n首项为 $a_1$，公差为 $d$ 的数列满足\n\n\\[a_n=a_1+(n-1)d.\\]\n\n例如取 $a_1=2$ 和 $d=3$，前四项依次为 $2,5,8,11$。\n\n- 首项确定起点。\n- 公差确定相邻两项之差。",
+      "sentAt": "2000-01-01T09:02:00+08:00",
+      "answeredAt": "2000-01-01T09:02:20+08:00",
+      "segments": [
+        {
+          "kind": "activity",
+          "text": "读取示例文档",
+          "time": "2000-01-01T09:02:00+08:00",
+          "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+        },
+        {
+          "kind": "activity",
+          "text": "示例计算完成",
+          "time": "2000-01-01T09:02:20+08:00",
+          "details": "输入：2\n输出：4"
+        }
+      ]
+    },
+    {
+      "id": "demo-3",
+      "question": "计算前 n 个正整数的和。",
+      "answer": "## 有限求和\n\n把等差数列首尾配对，每对的和相同。\n\n\\[\\sum_{k=1}^{n}k=\\frac{n(n+1)}{2}.\\]\n\n例如前四项相加得到 $1+2+3+4=10$。",
+      "sentAt": "2000-01-01T09:03:00+08:00",
+      "answeredAt": "2000-01-01T09:03:20+08:00",
+      "segments": [
+        {
+          "kind": "activity",
+          "text": "读取示例文档",
+          "time": "2000-01-01T09:03:00+08:00",
+          "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+        },
+        {
+          "kind": "activity",
+          "text": "示例计算完成",
+          "time": "2000-01-01T09:03:20+08:00",
+          "details": "输入：2\n输出：4"
+        }
+      ]
+    },
+    {
+      "id": "demo-4",
+      "question": "请解释这几张示意图。\n#4 · PDF 第 1 页 · 区域：如何读这张坐标图？\n#5 · PDF 第 2 页 · 区域：曲线的斜率如何变化？\n#6 · PDF 第 3 页 · 区域：横轴上的单位是什么？\n#7 · PDF 第 4 页 · 区域：比较这两条曲线。",
+      "answer": "## 阅读坐标图\n\n横轴与纵轴分别表示输入和输出。示例图片由坐标轴与曲线构成。\n\n### 比较变化\n\n对平方函数，离原点越远，曲线的斜率越大。比较曲线时应先检查两幅图的坐标尺度。\n\n\\[f(x+h)-f(x)=2xh+h^2.\\]\n\n> 可以打开上方批注摘要查看各自的图片快照。",
+      "sentAt": "2000-01-01T09:04:00+08:00",
+      "answeredAt": "2000-01-01T09:04:20+08:00",
+      "segments": [
+        {
+          "kind": "activity",
+          "text": "读取示例文档",
+          "time": "2000-01-01T09:04:00+08:00",
+          "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+        },
+        {
+          "kind": "activity",
+          "text": "示例计算完成",
+          "time": "2000-01-01T09:04:20+08:00",
+          "details": "输入：2\n输出：4"
+        }
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "demo-entry-1",
+      "number": 1,
+      "title": "main.tex:5 · 句子",
+      "question": "请解释函数的输入与输出。",
+      "selected": false,
+      "state": "已完成",
+      "sources": [
+        {
+          "file": "main.tex",
+          "text": "Let $f(x)=x^2$."
+        }
+      ],
+      "pdf": [],
+      "block": null,
+      "quote": ""
+    },
+    {
+      "id": "demo-entry-2",
+      "number": 2,
+      "title": "main.tex:6 · 句子",
+      "question": "导数如何计算？",
+      "selected": false,
+      "state": "已完成",
+      "sources": [
+        {
+          "file": "main.tex",
+          "text": "The derivative is $f'(x)=2x$."
+        }
+      ],
+      "pdf": [],
+      "block": null,
+      "quote": ""
+    },
+    {
+      "id": "demo-entry-3",
+      "number": 3,
+      "title": "main.tex:7 · 句子",
+      "question": "代入数值以后得到什么？",
+      "selected": false,
+      "state": "已完成",
+      "sources": [
+        {
+          "file": "main.tex",
+          "text": "\\[f(2)=4\\]"
+        }
+      ],
+      "pdf": [],
+      "block": null,
+      "quote": ""
+    },
+    {
+      "id": "demo-entry-4",
+      "number": 4,
+      "title": "PDF 第 1 页 · 区域",
+      "question": "如何读这张坐标图？",
+      "selected": false,
+      "state": "已完成",
+      "sources": [],
+      "pdf": [
+        {
+          "page": 1,
+          "image": "iVBORw0KGgoAAAANSUhEUgAAAPAAAABgCAIAAACsUWiGAAAB40lEQVR4nO3XwU3EMABEUcqhAzrgTBGUQ88L0iLLQgskjpPYk/c011i29C95ukGQp7MvAD0JmiiCJoqgiSJoogiaKIImiqCJImiidAv6+eW111HQTNBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBM5a3j/evNX8uaIZw77is+RxBc6YfHQua+fwWsaCZyZKOt6R8J2j2dUzHhaDZxcEdF4Kmm7MirgmarUbouBA0LRZGfFjHhaBZYdiOC0Hzj/EjrgmaB5ZHPEjHhaD5Nm/ENUFf2qqIR+64EPTl5EVcE/QlZEdcE3Ss60RcE3SOtQXHRFwT9MQaCo6MuCbombQVHB9xTdBDay74UhHXBD0WBW8k6JMpuC9BH2pLvgpeQtB72diugtsIuo8u+Sp4O0Gv0ytcBe9E0I91D1e+x7h00DtVq90TJQe9a6/yHdN8QR+ZqXCn0zPoc1MTLreLB93r7YwjOeheT2Mi8wXd68JEmu+nEP4gaKL0DNpsvx0dNIxA0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFE+AWr1LqQQ772GAAAAAElFTkSuQmCC"
+        }
+      ],
+      "block": null,
+      "quote": ""
+    },
+    {
+      "id": "demo-entry-5",
+      "number": 5,
+      "title": "PDF 第 2 页 · 区域",
+      "question": "曲线的斜率如何变化？",
+      "selected": false,
+      "state": "已完成",
+      "sources": [],
+      "pdf": [
+        {
+          "page": 2,
+          "image": "iVBORw0KGgoAAAANSUhEUgAAAPAAAABgCAIAAACsUWiGAAAB00lEQVR4nO3X7WnDMBiF0YzTDbpBf3eIjtOd24ZAEGnIh/Lalq7P4f61kOHB4MMPBDlsfQGoJGiiCJoogiaKoIkiaKIImiiCJoqgiVIW9Nv7R9VR0E3QRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEEzVg+v7/+1v24oNneKeJ23UcJms3871jQTOZGxIJmGg92/ErKJ4JmKatF3BI0lR6PuLbjM0FTYNuIW4Km0+Yf46sEzRPGjLglaO4YP+KWoLn0VMGDdHwmaI6mjrgl6P2Kibgl6B3pKHiKiFuCTraHgi8IOs0OI24Jem59+YZF3BL0ZBR8m6BHp+CnCHosr+S7z4IvCHozL7ar4KsEvZKSfBV8l6DrVbWr4A6C7lcbrnxLCPq+JcLV7kIEfbRQsvJdX37QK8Sq3XHMGvT6mQp3CpVBb16YcBG0ZKPkB131gkxh1qCrrk2YWX8K4SpBE6UyaLPltnbQMAJBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRPkF8UowYaaOHzMAAAAASUVORK5CYII="
+        }
+      ],
+      "block": null,
+      "quote": ""
+    },
+    {
+      "id": "demo-entry-6",
+      "number": 6,
+      "title": "PDF 第 3 页 · 区域",
+      "question": "横轴上的单位是什么？",
+      "selected": false,
+      "state": "已完成",
+      "sources": [],
+      "pdf": [
+        {
+          "page": 3,
+          "image": "iVBORw0KGgoAAAANSUhEUgAAAPAAAABgCAIAAACsUWiGAAABz0lEQVR4nO3XwU0DMRRFUcqhAzpgTRGUQ8+BVTATBSUez9h+Pkd/6y9buhu/XCDIS+8LQEuCJoqgiSJoogiaKIImiqCJImiiCJoozYJ+fXtvtQqqCZoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJrhfHx9Vp8VNKP46fg61UsETU9lxIJmSvciFjTTeCTi/TVfBM1xnop4Z8dXgqalLhGXBM1e3SMuCZoaQ0VcEjQPebbgMyMuCZq7Zom4JGh+VRQ8QsQlQS+truDRIi4Jei15BW8IOlx1wRNFXBJ0mtUK3hD03Pbkm1HwhqAno+D/CXpoO/NdoeANQY9if7trFrwh6A5atSvfW4I+VsN2FfwIQbfRPFz51hH0Ew6qVrsNCfqPQ5PV7gkWCvqcWLXb18RBdwlUuINrGXT3qlSLoCUbZaGgW72UkU0cdKubk2TiTyHcEjRRWgZtzHFzdtAwAkETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBE+QZvmi6kKpUBSwAAAABJRU5ErkJggg=="
+        }
+      ],
+      "block": null,
+      "quote": ""
+    },
+    {
+      "id": "demo-entry-7",
+      "number": 7,
+      "title": "PDF 第 4 页 · 区域",
+      "question": "比较这两条曲线。",
+      "selected": false,
+      "state": "已完成",
+      "sources": [],
+      "pdf": [
+        {
+          "page": 4,
+          "image": "iVBORw0KGgoAAAANSUhEUgAAAPAAAABgCAIAAACsUWiGAAABvUlEQVR4nO3Xy23cQBBAQYXjDJyBzgrC4Thn6ybQlCWsucPPPFahz40e4F3m5Q+EvJx9AIwkaFIETYqgSRE0KYImRdCkCJoUQZMyLOgfP19HrYLNBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGTImiu4u33r4/ZvETQnGkZsaCZ0lcRC5o5PFKwoLm0IyNeEjTDnBXxkqDZbkPBe0S8JGj+wwULXhE039lW8MERLwmav2wu+MSIlwR9d7MXvCLo24kVvCLouGfynaLgFUHX3K3gFUHP7cl8AwWvCHoaz7ebLHhF0Fc0qt18vp8J+mQD271nwSuCPs7wduX7maAH26Na7T5O0FvsV612nyTof9i7V+3u53ZBHxmrdo83fdAnBqraCxoZ9OkxqRZB6zXldkGPei/XNH3Qo+6nYfpPISwJmpSRQRuz3xwdNFyBoEkRNCmCJkXQpAiaFEGTImhSBE2KoEkRNCmCJkXQpAiaFEGT8g4SYy6kjx9trAAAAABJRU5ErkJggg=="
+        }
+      ],
+      "block": null,
+      "quote": ""
+    }
+  ],
+  "playback": {
+    "answer": "## 继续计算\n\n先写出输入与规则，再逐项代入。对于平方函数，输入 $3$ 后得到\n\n\\[f(3)=3^2=9.\\]\n\n可以继续圈选正文、公式或源码链接添加批注。"
+  },
+  "provenance": "本页问答、源码、时间及图形均为合成示例。发送操作播放预编回答。",
+  "updatedAt": "2000-01-01T09:04:20+08:00",
+  "sampleConversations": [
+    {
+      "id": "demo-sample-0",
+      "title": "分数运算（合成示例）",
+      "sample": true,
+      "turns": [
+        {
+          "id": "demo-sample-0-turn",
+          "question": "怎样相加两个分数？",
+          "answer": "## 通分\n\n先把分母化成相同的数，再把分子相加。\n\n\\[\\frac12+\\frac13=\\frac56.\\]",
+          "sentAt": "2000-01-01T09:10:00+08:00",
+          "answeredAt": "2000-01-01T09:10:20+08:00",
+          "segments": [
+            {
+              "kind": "activity",
+              "text": "读取示例文档",
+              "time": "2000-01-01T09:10:00+08:00",
+              "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+            },
+            {
+              "kind": "activity",
+              "text": "示例计算完成",
+              "time": "2000-01-01T09:10:20+08:00",
+              "details": "输入：2\n输出：4"
+            }
+          ]
+        }
+      ],
+      "entries": [],
+      "next": 1,
+      "draft": "",
+      "permission": "完全访问"
+    },
+    {
+      "id": "demo-sample-1",
+      "title": "面积公式（合成示例）",
+      "sample": true,
+      "turns": [
+        {
+          "id": "demo-sample-1-turn",
+          "question": "长方形的面积怎么算？",
+          "answer": "## 长方形\n\n长度与宽度相乘得到面积。\n\n\\[A=ab.\\]\n\n长度为 $3$、宽度为 $2$ 时，面积为 $6$。",
+          "sentAt": "2000-01-01T09:11:00+08:00",
+          "answeredAt": "2000-01-01T09:11:20+08:00",
+          "segments": [
+            {
+              "kind": "activity",
+              "text": "读取示例文档",
+              "time": "2000-01-01T09:11:00+08:00",
+              "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+            },
+            {
+              "kind": "activity",
+              "text": "示例计算完成",
+              "time": "2000-01-01T09:11:20+08:00",
+              "details": "输入：2\n输出：4"
+            }
+          ]
+        }
+      ],
+      "entries": [],
+      "next": 1,
+      "draft": "",
+      "permission": "完全访问"
+    },
+    {
+      "id": "demo-sample-2",
+      "title": "平均值（合成示例）",
+      "sample": true,
+      "turns": [
+        {
+          "id": "demo-sample-2-turn",
+          "question": "三个数的平均值怎么算？",
+          "answer": "## 算术平均值\n\n把各数相加，再除以个数。\n\n\\[\\bar{x}=\\frac{x_1+x_2+x_3}{3}.\\]",
+          "sentAt": "2000-01-01T09:12:00+08:00",
+          "answeredAt": "2000-01-01T09:12:20+08:00",
+          "segments": [
+            {
+              "kind": "activity",
+              "text": "读取示例文档",
+              "time": "2000-01-01T09:12:00+08:00",
+              "details": "main.tex\n\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n"
+            },
+            {
+              "kind": "activity",
+              "text": "示例计算完成",
+              "time": "2000-01-01T09:12:20+08:00",
+              "details": "输入：2\n输出：4"
+            }
+          ]
+        }
+      ],
+      "entries": [],
+      "next": 1,
+      "draft": "",
+      "permission": "完全访问"
+    }
+  ],
+  "sourceFiles": {
+    "main.tex": "\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\n\\section*{A worked example}\nLet $f(x)=x^2$.\nThe derivative is $f'(x)=2x$.\n\\[f(2)=4\\]\n\\end{document}\n",
+    "qa.md": "# 示例问题\n\n计算平方函数在 x=2 处的值。\n"
+  }
+}

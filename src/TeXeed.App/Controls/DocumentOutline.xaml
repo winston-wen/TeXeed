@@ -1,0 +1,79 @@
+<UserControl x:Class="TeXeed.App.Controls.DocumentOutline"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="clr-namespace:TeXeed.App.Controls">
+ <UserControl.Resources>
+  <Style x:Key="OutlineHeading" TargetType="Button">
+   <Setter Property="Focusable" Value="False"/><Setter Property="IsTabStop" Value="False"/>
+   <Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/></Border>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="OutlineExpander" TargetType="ToggleButton">
+   <Setter Property="Focusable" Value="False"/>
+   <Setter Property="Width" Value="26"/><Setter Property="MinHeight" Value="30"/>
+   <Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="ToolTip" Value="展开子标题"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton">
+    <Border Background="Transparent"><Path x:Name="Chevron" Data="M 0,0 L 5,4 L 0,8 Z" Fill="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"/></Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chevron" Property="RenderTransform"><Setter.Value><RotateTransform Angle="90"/></Setter.Value></Setter></Trigger>
+     <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+   <Style.Triggers><Trigger Property="IsChecked" Value="True"><Setter Property="ToolTip" Value="折叠子标题"/></Trigger></Style.Triggers>
+  </Style>
+  <Style TargetType="TreeViewItem">
+   <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+   <Setter Property="FontWeight" Value="Normal"/>
+   <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+   <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+   <Setter Property="AutomationProperties.Name" Value="{Binding Title}"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TreeViewItem">
+    <Grid SnapsToDevicePixels="True">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <Border x:Name="Row" Background="Transparent" CornerRadius="4" MinHeight="30">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <Button x:Name="HeadingButton" Grid.ColumnSpan="2" Padding="0,0,26,0" Style="{StaticResource OutlineHeading}" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" Foreground="{TemplateBinding Foreground}" FontWeight="{TemplateBinding FontWeight}" Click="Heading_Click" PreviewMouseLeftButtonDown="Heading_LeftDown" PreviewMouseLeftButtonUp="Heading_LeftUp" PreviewMouseRightButtonDown="Heading_RightDown" PreviewMouseRightButtonUp="Heading_RightUp" LostMouseCapture="Heading_LostCapture" AutomationProperties.Name="{Binding Title}"/>
+       <ToggleButton x:Name="Expander" Grid.Column="1" IsHitTestVisible="False" Style="{StaticResource OutlineExpander}" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" AutomationProperties.Name="展开或折叠子标题"/>
+      </Grid>
+     </Border>
+     <Grid x:Name="ChildrenHost" Grid.Row="1" Margin="10,0,0,0">
+      <Border x:Name="IndentGuide" Background="{DynamicResource Guide}" Width="1" HorizontalAlignment="Left" IsHitTestVisible="False"/>
+      <ItemsPresenter Margin="10,0,0,0"/>
+     </Grid>
+    </Grid>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsExpanded" Value="False"><Setter TargetName="ChildrenHost" Property="Visibility" Value="Collapsed"/></Trigger>
+     <Trigger Property="HasItems" Value="False"><Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/><Setter TargetName="ChildrenHost" Property="Visibility" Value="Collapsed"/><Setter TargetName="HeadingButton" Property="Padding" Value="0"/></Trigger>
+     <Trigger SourceName="Row" Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource PanelBackground}"/></Trigger>
+     <DataTrigger Binding="{Binding IsViewportHighlighted}" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource Selection}"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/></DataTrigger>
+     <DataTrigger Binding="{Binding IsRoot}" Value="True"><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,5,0,2"/></DataTrigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <HierarchicalDataTemplate DataType="{x:Type local:OutlineNode}" ItemsSource="{Binding VisibleChildren}">
+   <DockPanel LastChildFill="True" VerticalAlignment="Center" Background="Transparent">
+    <Grid DockPanel.Dock="Left" Margin="0,0,5,0" VerticalAlignment="Center">
+    <Border x:Name="LevelBadge" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}" BorderThickness="1" CornerRadius="3" Width="20" Height="16" ToolTip="标题层级">
+     <TextBlock Text="{Binding LevelLabel}" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Badge}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+     <Ellipse x:Name="TodoDot" Width="6" Height="6" Fill="{DynamicResource Todo}" Stroke="{DynamicResource SidebarBackground}" StrokeThickness="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0" Visibility="Collapsed" ToolTip="此章节有待办事项"/>
+    </Grid>
+    <Path x:Name="CaretPen" DockPanel.Dock="Left" Width="13" Height="13" Margin="0,0,4,0" VerticalAlignment="Center" Data="M 2,9 L 9,2 12,5 5,12 1,13 Z M 7,4 L 10,7" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" StrokeThickness="1.3" StrokeLineJoin="Round" Visibility="Collapsed" ToolTip="光标所在章节"/>
+    <local:OutlineTitleViewport x:Name="HeadingText" Latex="{Binding Latex}" ChildCount="{Binding VisibleChildren.Count}" LeaderBrush="{DynamicResource Subtle}" VerticalAlignment="Center" Margin="0,2,6,2" ToolTip="{Binding Tooltip}" ToolTipService.ShowDuration="20000"/>
+   </DockPanel>
+   <HierarchicalDataTemplate.Triggers>
+    <DataTrigger Binding="{Binding ShowLevelBadges, RelativeSource={RelativeSource AncestorType=local:DocumentOutline}}" Value="False"><Setter TargetName="LevelBadge" Property="Visibility" Value="Collapsed"/></DataTrigger>
+    <DataTrigger Binding="{Binding HasCaret}" Value="True"><Setter TargetName="CaretPen" Property="Visibility" Value="Visible"/></DataTrigger>
+    <DataTrigger Binding="{Binding HasTodo}" Value="True"><Setter TargetName="TodoDot" Property="Visibility" Value="Visible"/></DataTrigger>
+   </HierarchicalDataTemplate.Triggers>
+  </HierarchicalDataTemplate>
+ </UserControl.Resources>
+ <TreeView x:Name="Tree" Background="Transparent" BorderThickness="0" Padding="0" Margin="8,0,8,6"
+  FontSize="13" Foreground="{DynamicResource Ink}" HorizontalContentAlignment="Stretch"
+  ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+  PreviewKeyDown="Tree_KeyDown" AutomationProperties.Name="文档大纲"/>
+</UserControl>

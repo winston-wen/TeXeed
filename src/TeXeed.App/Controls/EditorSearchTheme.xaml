@@ -1,0 +1,55 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:search="clr-namespace:ICSharpCode.AvalonEdit.Search;assembly=ICSharpCode.AvalonEdit"
+ xmlns:controls="clr-namespace:TeXeed.App.Controls">
+ <Style x:Key="SearchIconButton" TargetType="Button">
+  <Setter Property="Padding" Value="3"/><Setter Property="Margin" Value="1,0"/>
+  <Setter Property="Width" Value="24"/><Setter Property="Height" Value="28"/>
+  <Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Background" Value="Transparent"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+   <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+   </Border>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource Selection}"/></Trigger>
+    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+ <Style x:Key="SearchActionButton" TargetType="Button">
+  <Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Subtle}" BorderThickness="1" CornerRadius="3" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="{DynamicResource Selection}"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+ </Style>
+ <Style x:Key="SearchCheckBox" TargetType="CheckBox">
+  <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><StackPanel Orientation="Horizontal"><Border Width="12" Height="12" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Disabled}" BorderThickness="1" CornerRadius="2" VerticalAlignment="Center" Margin="0,0,4,0"><Path x:Name="Mark" Visibility="Hidden" Data="M 1,5 L 4,8 L 9,1" Stroke="{DynamicResource Accent}" StrokeThickness="1.5"/></Border><ContentPresenter VerticalAlignment="Center"/></StackPanel><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Mark" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+ </Style>
+ <ControlTemplate x:Key="EditorSearchTemplate" TargetType="search:SearchPanel">
+  <Border Width="256" HorizontalAlignment="Right" VerticalAlignment="Top" Background="{DynamicResource EditorBackground}" BorderBrush="{DynamicResource Subtle}" BorderThickness="1" CornerRadius="5" Padding="5">
+   <StackPanel>
+    <Grid>
+     <Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/><ColumnDefinition Width="26"/><ColumnDefinition Width="26"/><ColumnDefinition Width="24"/></Grid.ColumnDefinitions>
+     <Button x:Name="PART_replaceToggle" Style="{StaticResource SearchIconButton}" Width="22" Command="{x:Static controls:LatexEditor.ToggleReplaceCommand}" ToolTip="显示 / 隐藏替换 (Ctrl+H)" AutomationProperties.Name="显示或隐藏替换">
+      <Path x:Name="ReplaceChevron" Width="8" Height="10" Stretch="Uniform" Data="M 1,1 L 6,5 L 1,9" Stroke="{DynamicResource Ink}" StrokeThickness="1.5"/>
+     </Button>
+     <TextBox x:Name="PART_searchTextBox" Grid.Column="1" Height="28" Padding="4,1" VerticalContentAlignment="Center" BorderBrush="{DynamicResource Subtle}" ToolTip="查找 (Ctrl+F)" AutomationProperties.Name="查找">
+      <TextBox.Text><Binding Path="SearchPattern" RelativeSource="{RelativeSource TemplatedParent}" UpdateSourceTrigger="PropertyChanged"><Binding.ValidationRules><ExceptionValidationRule/></Binding.ValidationRules></Binding></TextBox.Text>
+     </TextBox>
+     <Button Grid.Column="2" Style="{StaticResource SearchIconButton}" Command="{x:Static search:SearchCommands.FindPrevious}" ToolTip="上一个匹配 (Shift+F3)" AutomationProperties.Name="上一个匹配"><Path Width="12" Height="12" Data="M 2,8 L 6,4 L 10,8" Stroke="{DynamicResource Ink}" StrokeThickness="1.5"/></Button>
+     <Button Grid.Column="3" Style="{StaticResource SearchIconButton}" Command="{x:Static search:SearchCommands.FindNext}" ToolTip="下一个匹配 (F3 / Enter)" AutomationProperties.Name="下一个匹配"><Path Width="12" Height="12" Data="M 2,4 L 6,8 L 10,4" Stroke="{DynamicResource Ink}" StrokeThickness="1.5"/></Button>
+     <Button Grid.Column="4" Style="{StaticResource SearchIconButton}" Width="22" Command="{x:Static search:SearchCommands.CloseSearchPanel}" ToolTip="关闭查找 (Esc)" AutomationProperties.Name="关闭查找"><Path Width="10" Height="10" Data="M 1,1 L 9,9 M 9,1 L 1,9" Stroke="{DynamicResource Ink}" StrokeThickness="1.5"/></Button>
+    </Grid>
+    <WrapPanel Margin="24,5,0,0">
+     <CheckBox Content="Aa" IsChecked="{Binding MatchCase, RelativeSource={RelativeSource TemplatedParent}}" ToolTip="区分大小写" AutomationProperties.Name="区分大小写" Margin="0,0,10,0" FontSize="11"/>
+     <CheckBox Content="全词" IsChecked="{Binding WholeWords, RelativeSource={RelativeSource TemplatedParent}}" ToolTip="全词匹配" Margin="0,0,10,0" FontSize="11"/>
+     <CheckBox Content=".*" IsChecked="{Binding UseRegex, RelativeSource={RelativeSource TemplatedParent}}" ToolTip="正则表达式；替换文本支持 $1 和 ${name}" AutomationProperties.Name="正则表达式" FontSize="11"/>
+    </WrapPanel>
+    <ContentPresenter Content="{TemplateBinding Tag}"/>
+   </StackPanel>
+  </Border>
+  <ControlTemplate.Triggers>
+   <DataTrigger Binding="{Binding Tag.Visibility, RelativeSource={RelativeSource Self}}" Value="Visible"><Setter TargetName="ReplaceChevron" Property="Data" Value="M 1,2 L 5,7 L 9,2"/></DataTrigger>
+  </ControlTemplate.Triggers>
+ </ControlTemplate>
+</ResourceDictionary>

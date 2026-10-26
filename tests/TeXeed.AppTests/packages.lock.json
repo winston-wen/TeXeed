@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0-windows7.0": {
+      "AvalonEdit": {
+        "type": "Transitive",
+        "resolved": "6.3.1.120",
+        "contentHash": "6ASBKPzAg64BLDlFOJo4Ypr1sA/6hB5+TfHLJaZYUSTE0jgxvKlVqKeo/ISTG9qEMxu604qUu6BGugmJkfdrNw=="
+      },
+      "bblanchon.PDFium.Linux": {
+        "type": "Transitive",
+        "resolved": "155.0.8057",
+        "contentHash": "/4oH/DAN7vvY1Mnj060Owb0zG7CCSbXzsr1UULRhAzv9HFupsybNkR8T6PfhiGU363wWpAFFB008wTjW4VnoDA=="
+      },
+      "bblanchon.PDFium.macOS": {
+        "type": "Transitive",
+        "resolved": "155.0.8057",
+        "contentHash": "6Y8G3+eZN9kZp6E67PgKADysA9IYllZPnar0iKdqS0YEyTF+fm1zJNFSv8W6L/8euKBnsEXw/OCbAKGdNBSjlg=="
+      },
+      "bblanchon.PDFium.Win32": {
+        "type": "Transitive",
+        "resolved": "155.0.8057",
+        "contentHash": "ebTLAJuXIItKJkjU5kByDT+XOlmemUpKyhWkI/+LAJQhzgDJtNNs2jt/nF+rWNXB75WD3gA6hctLNuZ40iOm+g=="
+      },
+      "Markdig": {
+        "type": "Transitive",
+        "resolved": "0.41.3",
+        "contentHash": "i3vSTyGpBGWbJB04aJ3cPJs0T3BV2e1nduW3EUHK/i+xUupYbym75iZPss/XjqhS5JlBErwQYnx7ofK3Zcsozg=="
+      },
+      "PDFiumCore": {
+        "type": "Transitive",
+        "resolved": "155.0.8057",
+        "contentHash": "I3lzoBCpserKHB1V6FrntVEr4IHL1xXLl3rcap9KDRYgDHN3652Bg/5AJIuQT36zl9SlYE1wTowTIpWxOzZcsg==",
+        "dependencies": {
+          "bblanchon.PDFium.Linux": "155.0.8057",
+          "bblanchon.PDFium.Win32": "155.0.8057",
+          "bblanchon.PDFium.macOS": "155.0.8057"
+        }
+      },
+      "WpfMath": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "216GtCBYFMPw5SaArNcuTgemgAWw985LihSEf7mtOjJYTN04X4BVFGPrkJ2Fiv1ffL8gX2xiRw/o+q1SC5oSAA==",
+        "dependencies": {
+          "XamlMath.Shared": "2.1.0"
+        }
+      },
+      "XamlMath.Shared": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "p7W78KZc2EWuVqAd704m4yGWg0HtxahjNYRVxDWhw7npf8oMD8C7EUc1pjkjZIcmk5PxXJ+t5FE2Fs3gBYjv1A=="
+      },
+      "TeXeed": {
+        "type": "Project",
+        "dependencies": {
+          "AvalonEdit": "[6.3.1.120, )",
+          "Markdig": "[0.41.3, )",
+          "PDFiumCore": "[155.0.8057, )",
+          "TeXeed.Core": "[1.0.0, )",
+          "WpfMath": "[2.1.0, )"
+        }
+      },
+      "texeed.core": {
+        "type": "Project"
+      }
+    },
+    "net10.0-windows7.0/win-x64": {
+      "bblanchon.PDFium.Linux": {
+        "type": "Transitive",
+        "resolved": "155.0.8057",
+        "contentHash": "/4oH/DAN7vvY1Mnj060Owb0zG7CCSbXzsr1UULRhAzv9HFupsybNkR8T6PfhiGU363wWpAFFB008wTjW4VnoDA=="
+      },
+      "bblanchon.PDFium.macOS": {
+        "type": "Transitive",
+        "resolved": "155.0.8057",
+        "contentHash": "6Y8G3+eZN9kZp6E67PgKADysA9IYllZPnar0iKdqS0YEyTF+fm1zJNFSv8W6L/8euKBnsEXw/OCbAKGdNBSjlg=="
+      },
+      "bblanchon.PDFium.Win32": {
+        "type": "Transitive",
+        "resolved": "155.0.8057",
+        "contentHash": "ebTLAJuXIItKJkjU5kByDT+XOlmemUpKyhWkI/+LAJQhzgDJtNNs2jt/nF+rWNXB75WD3gA6hctLNuZ40iOm+g=="
+      }
+    }
+  }
+}

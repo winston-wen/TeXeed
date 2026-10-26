@@ -1,0 +1,21 @@
+<UserControl x:Class="TeXeed.App.Controls.AiSettingsPanel" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+  <StackPanel Margin="20" MaxWidth="680" HorizontalAlignment="Stretch">
+   <TextBlock Text="AI 设置" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,14"/>
+   <TextBlock Text="账号与模型" FontWeight="SemiBold"/>
+   <StackPanel x:Name="ConnectionOptions" Margin="0,8">
+    <WrapPanel><Button Content="Continue with ChatGPT" Click="Login_Click" ToolTip="使用系统浏览器登录 ChatGPT"/><Button Content="添加账号" Click="AddAccount_Click"/><Button Content="退出" Click="Logout_Click"/></WrapPanel>
+    <ComboBox x:Name="Accounts" Margin="0,6" SelectionChanged="Account_Changed" ToolTip="选择 ChatGPT 账号 / 工作区"/>
+    <CheckBox x:Name="UseKey" Content="使用 API Key（备用，单独计费）" Click="UseKey_Click"/>
+    <DockPanel Margin="0,6"><Button DockPanel.Dock="Right" Content="保存 Key" Click="SaveKey_Click"/><Button DockPanel.Dock="Right" Content="清除" Click="ClearKey_Click"/><PasswordBox Background="{DynamicResource SidebarBackground}" Foreground="{DynamicResource Ink}" CaretBrush="{DynamicResource Ink}" Padding="8,6" x:Name="ApiKeyBox" ToolTip="API Key 以 Windows 当前用户身份加密保存" MinWidth="60"/></DockPanel>
+    <DockPanel><Button DockPanel.Dock="Right" Content="刷新模型" Click="Models_Click"/><ComboBox x:Name="Models" SelectionChanged="Model_Changed" ToolTip="从当前账号读取可用模型"/></DockPanel>
+    <DockPanel Margin="0,8"><TextBlock DockPanel.Dock="Left" Text="推理强度" VerticalAlignment="Center" Margin="0,0,12,0"/><ComboBox x:Name="Reasoning" SelectionChanged="Reasoning_Changed" ToolTip="仅显示当前模型支持的推理强度；默认由服务决定"/></DockPanel>
+    <TextBlock x:Name="AccountStatus" TextWrapping="Wrap" Margin="0,6" Foreground="{DynamicResource Muted}"/>
+   </StackPanel>
+
+   <TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,12"/>
+   <Button x:Name="CancelButton" Content="取消登录 / 请求" Click="Stop_Click" IsEnabled="False" HorizontalAlignment="Left"/>
+   <TextBlock Text="ChatGPT 使用所选账号授权的额度。API Key 为独立计费的备用方式，不会自动切换。凭据使用 Windows 当前用户加密存储。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,18"/>
+  </StackPanel>
+ </ScrollViewer>
+</UserControl>

@@ -1,0 +1,24 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {HistoryPage,recentConversations,lastSend}=require('./history.js');
+let data=Array.from({length:75},(_,i)=>({id:'id'+i,title:'标题_'+i,updatedAt:new Date(2e12-i*60000).toISOString(),turns:[{question:'问题_'+i,answer:'回答_'+i}]}));
+const m=new HistoryPage(()=>data);
+m.refresh('',true);m.resize(12);
+assert.equal(m.pages,7);assert.equal(m.visible.length,12);assert.equal(m.maximum,72);
+m.scroll(24);const first=m.visible[0].id;m.resize(6);assert.equal(m.visible[0].id,first);
+m.scroll(74);m.resize(20);assert.equal(m.visible[0].id,'id74');assert.equal(m.maximum,74);
+m.goto(999);assert.equal(m.page,m.pages);m.goto(-5);assert.equal(m.page,1);
+m.selected.add('id0');m.refresh('回答_74',true);assert.equal(m.visible[0].id,'id74');assert(m.selected.has('id0'));
+m.selected.add('id74');data=data.filter(c=>!m.selected.has(c.id));m.refresh('');assert.equal(m.selected.size,0);assert.equal(m.matches.length,73);
+data[0].title='改名_<b>_&';m.refresh('改名_<b>_&',true);assert.equal(m.matches.length,1);assert.equal(m.matches[0].title,'改名_<b>_&');
+m.resize(50);assert.equal(m.maximum,0);
+m.refresh('无结果',true);assert.equal(m.pages,1);assert.equal(m.first,0);assert.equal(m.maximum,0);
+console.log('History paging: resize anchor, boundaries, filtered selection, deletion pruning, literal search and empty results passed.');
+
+const sent=Array.from({length:8},(_,i)=>({id:'sent'+i,title:'标题'+i,updatedAt:new Date(3e12+i*60000).toISOString(),turns:[{sentAt:new Date(2e12-i*60000).toISOString()}]}));
+assert.deepEqual(recentConversations(sent).map(c=>c.id),['sent0','sent1','sent2','sent3','sent4']);
+sent[7].title='改名后仍然按发送时间排序';sent[7].updatedAt=new Date(4e12).toISOString();
+assert.equal(recentConversations(sent)[0].id,'sent0');
+sent[7].lastSentAt=new Date(5e12).toISOString();assert.equal(recentConversations(sent)[0].id,'sent7');
+assert.equal(lastSend({turns:[]}),0);
+console.log('Recent history: last-send ordering, five-item limit, empty conversations and rename stability passed.');

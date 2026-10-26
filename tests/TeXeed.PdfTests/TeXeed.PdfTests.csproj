@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/TeXeed.Core/TeXeed.Core.csproj" />
+    <PackageReference Include="PDFiumCore" Version="155.0.8057" />
+    <Compile Include="../../src/TeXeed.App/Services/PdfDocument.cs" Link="PdfDocument.cs" />
+    <Compile Include="../../src/TeXeed.App/Services/PdfDocument.Crop.cs" Link="PdfDocument.Crop.cs" />
+    <Compile Include="../../src/TeXeed.App/Services/PdfPageCrop.cs" Link="PdfPageCrop.cs" />
+    <Compile Include="../../src/TeXeed.App/Services/PhysicalScreen.cs" Link="PhysicalScreen.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiModels.cs" Link="AiModels.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiSegment.cs" Link="AiSegment.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiTurnCheckpoint.cs" Link="AiTurnCheckpoint.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiPermissions.cs" Link="AiPermissions.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiContextUsage.cs" Link="AiContextUsage.cs" />
+    <Compile Include="../../src/TeXeed.App/AI/AiTimestamp.cs" Link="AiTimestamp.cs" />
+    <Compile Include="../../src/TeXeed.App/Services/AtomicFile.cs" Link="AtomicFile.cs" />
+    <Compile Include="../../src/TeXeed.App/Controls/PdfPreview.Ai.cs" Link="PdfPreview.Ai.cs" />
+    <Compile Include="../../src/TeXeed.App/Controls/AiMarkMenu.cs" Link="AiMarkMenu.cs" />
+    <Compile Include="../../src/TeXeed.App/Controls/PdfPreview.cs" Link="PdfPreview.cs" />
+    <Compile Include="../../src/TeXeed.App/Controls/PreviewScrollViewer.xaml.cs" Link="PreviewScrollViewer.xaml.cs" />
+    <Page Include="../../src/TeXeed.App/Controls/PreviewScrollViewer.xaml" Link="PreviewScrollViewer.xaml" />
+  </ItemGroup>
+</Project>
