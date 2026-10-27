@@ -171,11 +171,11 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 #reading-context-notes span { overflow:hidden; text-overflow:ellipsis; max-width:33% }
 
 /* Composer uses one shell and one control baseline. */
-.composer-shell { grid-row:4; position:relative; border:1px solid var(--guide); border-radius:8px; background:var(--question); padding:0; margin:10px 0 0; min-width:0; overflow:hidden }
+.composer-shell { --corner-radius:24px; --control-size:24px; --editor-top:13px; grid-row:4; position:relative; border:1px solid var(--guide); border-radius:var(--corner-radius); background:var(--question); padding:0; margin:10px 0 0; min-width:0; overflow:hidden }
 .composer-shell:focus-within { border-color:#cf8fa09c; box-shadow:0 0 0 1px #cf8fa00d }
 .composer-input { width:100%; display:block; border:0; background:transparent; min-height:56px; max-height:150px; padding:12px var(--text-inset); font:15px/22px var(--editor-font) }
 .composer-input::placeholder { color:var(--quiet); opacity:1 }
-.composer-toolbar { --control-size:24px; border-top:1px solid var(--line); margin:0; padding:4px 8px; display:flex; align-items:center; gap:7px; min-height:calc(var(--control-size) + 9px) }
+.composer-toolbar { --edge-inset:calc(var(--corner-radius) - var(--control-size)/2 - 1px); border-top:1px solid var(--line); margin:0; padding:4px var(--edge-inset) var(--edge-inset); display:flex; align-items:center; gap:7px }
 .composer-toolbar button,.composer-toolbar select { height:var(--control-size); min-height:var(--control-size); margin:0; padding-top:0; padding-bottom:0; border-radius:5px; box-sizing:border-box; font-size:13px; line-height:18px }
 .composer-toolbar button { display:inline-flex; align-items:center; justify-content:center }
 .composer-toolbar select { appearance:none; background:transparent; border-color:transparent; padding:0 8px; color:var(--muted); line-height:18px }
@@ -207,9 +207,9 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .editor-action svg { width:18px; height:18px }
 .editor-measure { position:absolute; visibility:hidden; pointer-events:none; white-space:pre-wrap; overflow-wrap:break-word; top:0; left:0 }
 .composer-shell>.code-editor { border:0; border-radius:0; background:transparent; margin:0; width:100%; grid-template-columns:minmax(calc(var(--text-inset) - 1px),max-content) minmax(0,1fr) }
-.composer-shell>.code-editor textarea { height:56px; min-height:36px; max-height:none; padding:8px 16px 8px 0; font:15px/20px var(--editor-font) }
-.composer-shell .line-numbers { justify-self:end; font:15px/20px var(--editor-font); padding:8px 9px 8px 0; background:transparent; border:0 }
-.composer-shell .line-numbers>div { top:8px; right:9px }
+.composer-shell>.code-editor textarea { height:56px; min-height:calc(var(--editor-top) + 28px); max-height:none; padding:var(--editor-top) 16px 8px 0; font:15px/20px var(--editor-font) }
+.composer-shell .line-numbers { justify-self:end; font:15px/20px var(--editor-font); padding:var(--editor-top) 9px 8px 0; background:transparent; border:0 }
+.composer-shell .line-numbers>div { top:var(--editor-top); right:9px }
 .composer-shell .line-numbers span { min-height:20px }
 
 /* Annotation and snapshot surfaces. */
@@ -315,7 +315,7 @@ dialog textarea { width:100%; height:220px }
  #reading-context { padding-right:32px }
  .margin-notes { right:-28px }
  .bubble { min-width:23px }
- .composer-toolbar { flex-wrap:wrap; gap:5px; row-gap:4px; padding:4px 6px }
+ .composer-toolbar { flex-wrap:wrap; gap:5px; row-gap:4px }
  .composer-toolbar .toolbar-space { flex:1 }
  .models { order:3; margin-left:0; flex:1; justify-content:flex-end; flex-basis:calc(100% - 32px) }
  .models .usage { margin-right:auto; margin-left:8px }
