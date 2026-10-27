@@ -48,6 +48,11 @@ internal static partial class Program
                 if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
                     throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
+                if (args.Contains("--ai-reading-media-only"))
+                {
+                    await CheckAiReadingMediaAsync(window, output, args.Contains("--ai-reading-media-input-review"));
+                    await CloseAndObserveAsync(window, "AI reading/media regression"); result = 0; return;
+                }
                 if (args.Contains("--welcome-only"))
                 {
                     await CheckWelcomeAsync(window, output);

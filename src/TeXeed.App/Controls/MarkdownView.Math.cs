@@ -28,6 +28,7 @@ public sealed partial class MarkdownView
         {
             _measuredWidth = availableSize.Width;
             foreach (var (grid, columns) in _formulaWidths) grid.Width = FormulaAvailableWidth(_measuredWidth, columns);
+            SizeMedia();
         }
         var measured = base.MeasureOverride(availableSize);
         return _renderPending ? new Size(measured.Width, Math.Max(measured.Height, _estimatedHeight)) : measured;
@@ -40,7 +41,13 @@ public sealed partial class MarkdownView
         if (offset < 0) result = LegacyAnnotationPointer(anchor.Offset);
         else for (var p = Document.ContentStart; p is not null && p.CompareTo(Document.ContentEnd) < 0;)
         {
-            if (IsCodePadding(p, out var paddingEnd)) { p = paddingEnd; continue; }
+            if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
+            if (EmbeddedTable(p) is { } table)
+            {
+                var length = table.Text.Length;
+                if (offset < length) { result = table.View.AnnotationPointer(id, anchor with { TextOffset = offset }); break; }
+                offset -= length; p = table.Block.ElementEnd; continue;
+            }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             {
                 if (offset <= source.Length) { result = p; break; }
@@ -109,7 +116,17 @@ public sealed partial class MarkdownView
         var link = new Hyperlink { ToolTip = "跳转到公式 " + label };
         if (text is not null) link.Inlines.Add(new Run(text));
         link.SetResourceReference(TextElement.ForegroundProperty, "Accent");
-        link.Click += (_, e) => { if (LocalLink is not null && label.StartsWith("snapshot-", StringComparison.Ordinal)) LocalLink(label); else if (_equations.TryGetValue(label, out var target)) { Reveal(target); target.BringIntoView(); } else link.ToolTip = "未找到公式：" + label; e.Handled = true; };
+        link.Click += (_, e) =>
+        {
+            if (LocalLink is not null && label.StartsWith("snapshot-", StringComparison.Ordinal)) LocalLink(label);
+            else
+            {
+                var owner = _tableOwner ?? this;
+                if (owner._equations.TryGetValue(label, out var target)) { owner.Reveal(target); target.BringIntoView(); }
+                else link.ToolTip = "未找到公式：" + label;
+            }
+            e.Handled = true;
+        };
         return link;
     }
     private void AddColumns(BlockCollection target, CustomContainer source, int depth)
@@ -133,7 +150,9 @@ public sealed partial class MarkdownView
         var output = new StringBuilder();
         for (var p = start; p is not null && p.CompareTo(end) < 0;)
         {
-            if (IsCodePadding(p, out var paddingEnd)) { p = paddingEnd; continue; }
+            if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
+            if (EmbeddedTable(p) is { } table)
+            { output.Append(table.Text); p = table.Block.ElementEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             { output.Append(source); p = ui.ElementEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)

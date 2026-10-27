@@ -77,22 +77,34 @@ public sealed partial class MarkdownView
     }
     private TextPointer? LegacyAnnotationPointer(int offset)
     {
-        // Older anchors stored FlowDocument symbol offsets. Project only the new
-        // decorative spans/spaces out of that stream, preserving their old positions.
-        for (var pointer = Document.ContentStart; pointer is not null && offset >= 0;)
+        if (offset < 0) return null;
+        foreach (var (pointer, length) in LegacySymbolRanges())
         {
-            if (IsCodePadding(pointer, out var paddingEnd)) { pointer = paddingEnd; continue; }
+            if (offset < length) return pointer.GetPositionAtOffset(offset);
+            offset -= length;
+        }
+        return offset == 0 ? Document.ContentEnd : null;
+    }
+    private IEnumerable<(TextPointer Pointer, int Length)> LegacySymbolRanges()
+    {
+        // Project decorative spans and nested table viewports out of the old symbol stream.
+        for (var pointer = Document.ContentStart; pointer is not null;)
+        {
+            if (IsDecoration(pointer, out var paddingEnd)) { pointer = paddingEnd; continue; }
+            if (EmbeddedTable(pointer) is { } table)
+            {
+                foreach (var range in table.View.LegacySymbolRanges()) yield return range;
+                pointer = table.Block.ElementEnd; continue;
+            }
             var context = pointer.GetPointerContext(LogicalDirection.Forward);
             if (context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
                 && pointer.GetAdjacentElement(LogicalDirection.Forward) is Span span && ReferenceEquals(span.Tag, CodeSpanMarker))
             { pointer = context == TextPointerContext.ElementStart ? span.ContentStart : span.ElementEnd; continue; }
             var next = pointer.GetNextContextPosition(LogicalDirection.Forward);
-            if (next is null) return offset == 0 ? pointer : null;
-            var length = pointer.GetOffsetToPosition(next);
-            if (offset < length) return pointer.GetPositionAtOffset(offset);
-            offset -= length; pointer = next;
+            if (next is null) yield break;
+            yield return (pointer, pointer.GetOffsetToPosition(next));
+            pointer = next;
         }
-        return null;
     }
     private bool InCurrentDocument(TextElement element)
     {

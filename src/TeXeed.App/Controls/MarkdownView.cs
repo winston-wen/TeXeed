@@ -14,7 +14,7 @@ using Block = System.Windows.Documents.Block;
 
 namespace TeXeed.App.Controls;
 
-/// <summary>Selectable native Markdown. No HTML execution or automatic remote resource loading.</summary>
+/// <summary>Selectable native Markdown with folding and image previews.</summary>
 public sealed partial class MarkdownView : RichTextBox
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
@@ -25,6 +25,23 @@ public sealed partial class MarkdownView : RichTextBox
     public static readonly DependencyProperty IsStreamingProperty = DependencyProperty.Register(
         nameof(IsStreaming), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
     public bool IsStreaming { get => (bool)GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
+    public static readonly DependencyProperty ChatModeProperty = DependencyProperty.Register(
+        nameof(ChatMode), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
+    public bool ChatMode { get => (bool)GetValue(ChatModeProperty); set => SetValue(ChatModeProperty, value); }
+    public static readonly DependencyProperty TurnNumberProperty = DependencyProperty.Register(
+        nameof(TurnNumber), typeof(int), typeof(MarkdownView), new PropertyMetadata(0, (d, _) => ((MarkdownView)d).UpdateHeadingNumbers()));
+    public int TurnNumber { get => (int)GetValue(TurnNumberProperty); set => SetValue(TurnNumberProperty, value); }
+    private string? _imageBaseDirectory;
+    public string? ImageBaseDirectory
+    {
+        get => _imageBaseDirectory;
+        set
+        {
+            if (_imageBaseDirectory == value) return;
+            _imageBaseDirectory = value;
+            if (_hasRelativeImages || _tableViews.Any(t => t.View._hasRelativeImages)) Render();
+        }
+    }
     private Run? _streamRun;
     private string _streamText = "";
 
@@ -46,6 +63,10 @@ public sealed partial class MarkdownView : RichTextBox
         // An opaque brush would cover the glyphs even with SelectionTextBrush set.
         SelectionOpacity = .35;
         InitializeCodeSurfaces();
+        GotKeyboardFocus += (_, _) =>
+        {
+            if (IsKeyboardFocusWithin) _selectionView = _tableViews.FirstOrDefault(t => t.View.IsKeyboardFocusWithin)?.View;
+        };
         Unloaded += (_, _) => { if (_renderPending) { _renderVersion++; _renderPaused = true; } };
         Loaded += (_, _) => { if (_renderPaused) Render(); };
         SizeChanged += (_, e) => { if (!IsStreaming && Markdown.Contains("columns") && (e.PreviousSize.Width < 560) != (e.NewSize.Width < 560)) Render(); };
@@ -53,9 +74,10 @@ public sealed partial class MarkdownView : RichTextBox
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, e) =>
         {
             e.Handled = true;
-            try { if (!Selection.IsEmpty) CopyToClipboard(Selection.Start, Selection.End); }
+            var selected = SelectionView();
+            try { if (!selected.Selection.IsEmpty) selected.CopyToClipboard(selected.Selection.Start, selected.Selection.End); }
             catch (System.Runtime.InteropServices.ExternalException) { ToolTip = "剪贴板暂时被占用，请重试复制。"; }
-        }, (_, e) => { e.CanExecute = !Selection.IsEmpty; e.Handled = true; }));
+        }, (_, e) => { e.CanExecute = !SelectionView().Selection.IsEmpty; e.Handled = true; }));
     }
 
     internal string Revision { get; private set; } = "";
@@ -79,7 +101,9 @@ public sealed partial class MarkdownView : RichTextBox
             {
                 _streamRun = new Run();
                 ClearRichState();
-                Document = new FlowDocument(new Paragraph(_streamRun)) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
+                var paragraph = new Paragraph(_streamRun);
+                if (ChatMode) paragraph.Margin = new Thickness(0);
+                Document = new FlowDocument(paragraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
                 Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
             }
             var next = Markdown ?? "";
@@ -103,7 +127,7 @@ public sealed partial class MarkdownView : RichTextBox
             var document = NewDocument(); ClearRichState(); _math = new ChatMath();
             try { AddBlocks(document.Blocks, Markdig.Markdown.Parse(_math.Prepare(source, Pipeline), Pipeline), 0); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { CodeFallback(document, source); }
-            ApplyFolding(document); Document = document; RenderTask = Task.CompletedTask;
+            TrimAnswerEnd(document); ApplyFolding(document); Document = document; RenderTask = Task.CompletedTask;
         }
     }
     private FlowDocument NewDocument()
@@ -113,10 +137,16 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); ClearCodeSurfaces(); }
+    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _headingMarkers.Clear(); ClearMedia(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
         ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));
+        TrimAnswerEnd(document);
+    }
+    private void TrimAnswerEnd(FlowDocument document)
+    {
+        if (ChatMode && document.Blocks.LastBlock is { } last)
+            last.Margin = new Thickness(last.Margin.Left, last.Margin.Top, last.Margin.Right, 0);
     }
     private async Task RenderDeferredAsync(string source, int version)
     {
@@ -140,7 +170,7 @@ public sealed partial class MarkdownView : RichTextBox
                 slice.Restart();
             }
             if (version != _renderVersion) return;
-            ApplyFolding(document);
+            TrimAnswerEnd(document); ApplyFolding(document);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         { if (version != _renderVersion) return; CodeFallback(document, source); }
@@ -163,10 +193,14 @@ public sealed partial class MarkdownView : RichTextBox
                 AddColumns(target, columns, depth); break;
             case HeadingBlock heading:
                 var h = Paragraph(heading.Inline, depth);
-                h.FontSize = heading.Level switch { 1 => 24, 2 => 21, 3 => 18, _ => 16 };
                 h.Tag = new HeadingInfo(heading.Level, heading.Span.Start);
-                h.FontFamily = UseSystemFont ? FontFamily : new FontFamily("Source Han Sans SC, Microsoft YaHei");
-                h.FontWeight = FontWeights.SemiBold; h.Margin = new Thickness(0, 16, 0, 10);
+                if (ChatMode) AddHeadingNumber(h, heading.Level);
+                else
+                {
+                    h.FontSize = heading.Level switch { 1 => 24, 2 => 21, 3 => 18, _ => 16 };
+                    h.FontFamily = UseSystemFont ? FontFamily : new FontFamily("Source Han Sans SC, Microsoft YaHei");
+                    h.FontWeight = FontWeights.SemiBold; h.Margin = new Thickness(0, 16, 0, 10);
+                }
                 target.Add(h); break;
             case ParagraphBlock paragraph:
                 if (paragraph.Inline?.FirstChild is LiteralInline literal && _math.Tokens.TryGetValue(literal.Content.ToString().Trim(), out var math) && math.Display)
@@ -190,6 +224,7 @@ public sealed partial class MarkdownView : RichTextBox
                     itemNumber++; items.ListItems.Add(item); }
                 target.Add(items); break;
             case MdTable table:
+                if (ChatMode) { AddScrollableTable(target, table, depth); break; }
                 var result = new Table { CellSpacing = 0, Margin = new Thickness(0, 6, 0, 16) };
                 var rows = new TableRowGroup(); result.RowGroups.Add(rows);
                 foreach (var row in table.OfType<MdRow>())
@@ -239,7 +274,11 @@ public sealed partial class MarkdownView : RichTextBox
                     else span.FontStyle = FontStyles.Italic;
                     AddInlines(span.Inlines, emphasis, depth + 1); target.Add(span); break;
                 case LinkInline link:
-                    if (!link.IsImage && link.Url?.StartsWith('#') == true)
+                    if (link.IsImage && TryImageUri(link.Url, out var imageUri))
+                    {
+                        target.Add(ImageInline(imageUri, ImageAltText(link)));
+                    }
+                    else if (!link.IsImage && link.Url?.StartsWith('#') == true)
                     {
                         var local = EquationLink(Uri.UnescapeDataString(link.Url[1..]), null); AddInlines(local.Inlines, link, depth + 1); target.Add(local);
                     }

@@ -44,6 +44,7 @@ public partial class AiPanel : UserControl, IDisposable
     {
         _connection = connection; InitializeComponent(); InitializeComposer();
         LiveSentTime.Focusable = true; LiveSentTime.Cursor = Cursors.Hand;
+        LiveTurnNumber.Margin = new Thickness(-40, 8 + (LiveQuestion.FontFamily.Baseline - LiveTurnNumber.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
         LiveSentTime.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { ToggleLiveTurn(); e.Handled = true; } };
         LiveSentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) ToggleLiveTurn(); e.Handled = true; } };
         History.ApplyTemplate();
@@ -163,7 +164,7 @@ public partial class AiPanel : UserControl, IDisposable
     private void Thumbnail_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not Image image || image.DataContext is not AiPdfBlock block) return;
-        try { var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = 500; bitmap.StreamSource = new MemoryStream(Convert.FromBase64String(block.ImageBase64)); bitmap.EndInit(); bitmap.Freeze(); image.Source = bitmap; }
+        try { var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = 500; bitmap.StreamSource = new MemoryStream(Convert.FromBase64String(block.ImageBase64)); bitmap.EndInit(); bitmap.Freeze(); image.Source = bitmap; ImagePreview.Enable(image, $"PDF 第 {block.Page} 页圈选区域", () => ImagePreview.LoadBase64(block.ImageBase64)); }
         catch (Exception) { image.ToolTip = "截图无法读取"; }
     }
     private void RefreshTranscript()
@@ -226,6 +227,7 @@ public partial class AiPanel : UserControl, IDisposable
             }
             Rebind();
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
+            LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
             _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
             LiveSentTime.Text = pendingTurn.SentTime;
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
@@ -248,7 +250,7 @@ public partial class AiPanel : UserControl, IDisposable
                 if (follow) MessagesScroll.ScrollToEnd();
             }
             renderTimer.Tick += (_, _) => Flush(); Flush(); renderTimer.Start();
-            var modelId = ""; var effort = "";
+            var modelId = ""; var effort = ""; string? endReason = null;
             try
             {
                 await SaveAsync();
@@ -273,6 +275,7 @@ public partial class AiPanel : UserControl, IDisposable
             }
             catch (Exception ex)
             {
+                endReason = ex is OperationCanceledException && token.IsCancellationRequested ? "user" : "program";
                 foreach (var entry in selected) entry.State = "未完成，可重试";
                 buffer.Add(new("failure", "activity", ex is OperationCanceledException ? "已停止。已完成的修改保留；可继续提问。" : "本轮未完成：" + ex.Message));
             }
@@ -287,10 +290,9 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    book.Turns.Add(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, Model = modelId, ReasoningEffort = effort, Segments = segments });
+                    book.Turns.Add(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, EndReason = endReason, Model = modelId, ReasoningEffort = effort, Segments = segments });
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
-                    // Persist before constructing a settled rich document. Even an
-                    // unexpected renderer failure cannot erase the completed exchange.
+                    // Save the completed exchange before constructing its rich document.
                     await SaveAsync(); checkpoint.Commit(); Rebind(); RefreshTranscript();
                 }
                 if (ReferenceEquals(_foldingLiveTurn, pendingTurn)) _foldingLiveTurn = null;

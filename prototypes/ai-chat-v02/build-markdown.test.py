@@ -30,6 +30,15 @@ class BuildMarkdownTests(unittest.TestCase):
         self.assertIn('class="table-wrap" tabindex="0"', result)
         self.assertIn('</table></div>', result)
 
+    def test_original_heading_levels(self):
+        for level in range(1, 7):
+            result = render('#' * level + ' Heading', 'heading')
+            self.assertIn(f'<h{level}>Heading</h{level}>', result)
+            self.assertIn('data-block="heading-p0"', result)
+        self.assertIn('<h3>Heading</h3>', render('### Heading ###', 'closing'))
+        for text in ('####### Plain text', '#Not a heading'):
+            self.assertNotRegex(render(text, 'plain'), r'<h[1-6]>')
+
 
 if __name__ == '__main__':
     unittest.main()

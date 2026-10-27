@@ -11,7 +11,7 @@ const turn={id:'saved-turn',answer:'## Saved heading\n\nA saved formula $x+1$.\n
 const html=context.svgHtml(turn);
 assert.equal(turn.answerHtml,html);
 assert.deepEqual([...html.matchAll(/data-block="([^"]+)"/g)].map(m=>m[1]),Array.from({length:5},(_,i)=>'saved-turn-p'+i));
-assert.match(html,/<h3>Saved heading<\/h3>/);
+assert.match(html,/<h2>Saved heading<\/h2>/);
 assert.match(html,/data-tex="x\+1"/);
 assert.match(html,/<span class="equation-number">\(1\)<\/span>/);
 assert.match(html,/<ol>/);

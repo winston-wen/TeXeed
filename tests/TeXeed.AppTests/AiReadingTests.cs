@@ -31,7 +31,7 @@ internal static partial class Program
         { Prompt = "这些问题", SentAt = sent, AnsweredAt = sent.AddSeconds(54), SentAnnotations = [snapshot, pdf] };
         book.Turns.Add(turn); Invoke(panel, "RefreshTranscript"); await Task.Delay(200); host.UpdateLayout();
         var view = Descendants<AiTurnView>(panel).Single();
-        Check(turn.SentTime == "发送时间：2026-10-16 (+8) 10:44:09" && turn.AnswerTime == "答复时间：2026-10-16 (+8) 10:45:03", "Absolute timestamps changed");
+        Check(turn.SentTime == "2026-10-16 (+8) 10:44:09 发送" && turn.AnswerTime == "2026-10-16 (+8) 10:45:03 答复", "Absolute timestamps changed");
         Check(AiTimestamp.Delay(sent, sent.AddSeconds(91)) == "1 分 31 秒后", "Minute duration missing");
         Check(!Descendants<TextBlock>(view).Any(t => t.Text == "答复"), "Legacy answer label remains");
         view.ShowPreview(snapshot, 1); host.UpdateLayout();
@@ -100,7 +100,7 @@ internal static partial class Program
         var restored = (AiNotebook)Field(panel, "_book")!;
         Check(restored.Turns.Single().SentAnnotations.Single().Number == 1 && restored.Turns.Single().Prompt == "旧统一说明", "Legacy snapshots were not recovered/renumbered");
         Check(restored.Turns.Single().Question.Contains("#8") && restored.Entries.Count == 0, "Legacy migration overwrote original question or retained completed entry");
-        Check(restored.Turns.Single().AnswerTime == "答复时间：未记录", "Legacy answer was reported as unanswered or given an invented answer time");
+        Check(restored.Turns.Single().AnswerTime == "未记录 答复", "Legacy answer was reported as unanswered or given an invented answer time");
         await panel.SaveAsync(); Check(AiStorage.Load(legacyProject).Turns.Single().SentAnnotations.Single().Sources[0].Text == "原始内容", "Migrated snapshot lost source");
         var staleProject = Path.Combine(output, "stale-sent-annotations.tex");
         var stale = new AiNotebook();

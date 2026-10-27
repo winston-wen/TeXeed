@@ -86,7 +86,7 @@ public partial class AiPanel
             var text = new System.Windows.Media.FormattedText(box.SelectedItem?.ToString() ?? "选择模型", System.Globalization.CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight, new System.Windows.Media.Typeface(box.FontFamily, box.FontStyle, box.FontWeight, box.FontStretch), box.FontSize,
                 System.Windows.Media.Brushes.Black, System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip);
-            return Math.Clamp(Math.Ceiling(text.WidthIncludingTrailingWhitespace) + 34, minimum, maximum);
+            return Math.Clamp(Math.Ceiling(text.WidthIncludingTrailingWhitespace) + 16, minimum, maximum);
         }
         ModelPicker.Width = Width(ModelPicker, 94, ActualWidth > 0 && ActualWidth < 420 ? 134 : 190);
         EffortPicker.Width = Width(EffortPicker, 48, 112);

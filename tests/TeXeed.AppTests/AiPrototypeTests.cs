@@ -20,12 +20,13 @@ internal static partial class Program
         var sent = DateTimeOffset.Parse("2026-10-19T10:00:00+08:00");
         var completed = new AiTurn("完成的回答", "## 正文\n\n这是已完成的答复。") { SentAt = sent, AnsweredAt = sent.AddSeconds(54), Incomplete = false };
         var partial = new AiTurn("中断的回答", "保留收到的部分文字") { SentAt = sent, EndedAt = sent.AddSeconds(30), Incomplete = true, Collapsed = true };
-        Check(completed.AnswerTime == "答复时间：2026-10-19 (+8) 10:00:54", "Completed turn must show an absolute timestamp");
-        Check(partial.AnswerTime == "答复时间：2026-10-19 (+8) 10:00:30（未完成）", "Interrupted partial answer lost its timestamp or marker");
-        Check(new AiTurn("旧记录", "[本轮未完成]\n部分文字").AnswerTime == "答复时间：未记录（未完成）", "Crash recovery invented an end time");
-        Check(new AiTurn("旧记录", "已完成的旧正文").AnswerTime == "答复时间：未记录", "Legacy success was marked incomplete or given a fabricated answer time");
+        Check(completed.AnswerTime == "2026-10-19 (+8) 10:00:54 答复", "Completed turn must show an absolute timestamp first");
+        Check(partial.AnswerTime == "2026-10-19 (+8) 10:00:30 程序中止", "Interrupted partial answer lost its timestamp or status");
+        Check(new AiTurn("旧记录", "[本轮未完成]\n部分文字").AnswerTime == "未记录 程序中止", "Crash recovery invented an end time");
+        Check(new AiTurn("旧记录", "已完成的旧正文").AnswerTime == "未记录 答复", "Legacy success was marked incomplete or given a fabricated answer time");
         var legacyFailure = new AiTurn("旧中断", "已有部分正文") { Segments = [new() { Id = "failure", Kind = "activity", Text = "已停止。", CreatedAt = sent.AddSeconds(4) }] };
-        Check(legacyFailure.AnswerTime == "答复时间：2026-10-19 (+8) 10:00:04（未完成）", "Legacy partial answer failure was missed");
+        Check(legacyFailure.AnswerTime == "2026-10-19 (+8) 10:00:04 用户中止", "Legacy user stop was missed");
+        Check((legacyFailure with { EndReason = "program" }).AnswerTime.EndsWith("程序中止"), "Explicit end reason did not override legacy text");
 
         new AiCredentials { ApiKey = "fixture-never-send", UseApiKey = true }.Save();
         using var stalled = new StalledAiHandler(); using var connection = new AiConnection(stalled); using var panel = new AiPanel(connection);
@@ -46,14 +47,14 @@ internal static partial class Program
             var first = views.Single(v => v.Turn.Id == completed.Id); var second = views.Single(v => v.Turn.Id == partial.Id);
             foreach (var view in views)
             {
-                var timestamp = Descendants<TextBlock>(view).Single(t => t.IsVisible && t.Text.StartsWith("发送时间："));
+                var timestamp = Descendants<TextBlock>(view).Single(t => t.IsVisible && t.Text.StartsWith(view.Turn.DisplayTime + " 发送"));
                 var reply = Descendants<AiReplyStatus>(view).Single();
                 Check(Math.Abs(timestamp.TranslatePoint(new Point(), view).X - reply.TranslatePoint(new Point(), view).X) < .1, "Sent and answer timestamps must align");
                 Check(Descendants<Button>(view).All(b => !Equals(b.Content, "（已折叠，点击展开）") && b.ToolTip is not ("将问题重新放入编辑栏" or "删除此轮问题和回答")), "Removed hint or footer icons remain");
-                var stamp = Descendants<TextBlock>(reply).Single(); var line = Descendants<AiWaveRule>(reply).Single();
-                Check(line.TranslatePoint(new Point(), reply).Y >= stamp.ActualHeight, "Timestamp still intersects the wave separator");
+                var stamp = Descendants<TextBlock>(reply).Single(); var line = Descendants<Border>(reply).Single();
+                Check(line.TranslatePoint(new Point(), reply).Y >= stamp.ActualHeight, "Timestamp intersects the separator");
             }
-            Check(Descendants<TextBlock>(second).Any(t => t.IsVisible && t.Text.Contains("（已折叠）\n答复时间：")), "Collapsed turn must share one text block for both timestamps");
+            Check(Descendants<TextBlock>(second).Any(t => t.IsVisible && t.Text == partial.SentTime + "\n" + partial.AnswerTime), "Collapsed turn must share one text block for both timestamps");
             var footer = Descendants<AiReplyStatus>(second).Single();
             void CheckCollapsedSpacing()
             {
@@ -83,12 +84,12 @@ internal static partial class Program
             }
             footer.RaiseEvent(CreateKey(host, Key.Enter, Keyboard.KeyDownEvent)); host.UpdateLayout();
             Check(!partial.Collapsed && !partial.SentTime.Contains("已折叠") && !partial.SentTime.Contains("未折叠"), "Expanding must remove the marker without an unfolded label");
-            Check(footer.Text.EndsWith("（未完成）"), "Expanding lost the incomplete marker");
+            Check(footer.Text.EndsWith("程序中止"), "Expanding lost the end status");
             var doubleClick = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.MouseDownEvent };
             typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(doubleClick, 2);
             footer.RaiseEvent(doubleClick); host.UpdateLayout();
             Check(partial.Collapsed && partial.SentTime.EndsWith("（已折叠）"), "Double-click did not fold the answer");
-            Check(footer.IsVisible && footer.Text.EndsWith("（未完成）"), "Folding hid the answer time or incomplete marker");
+            Check(footer.IsVisible && footer.Text.EndsWith("程序中止"), "Folding hid the answer time or end status");
             await panel.SaveAsync(); var saved = AiStorage.Load(project).Turns.Single(t => t.Id == partial.Id);
             Check(saved.Collapsed && saved.Incomplete == true && saved.EndedAt == partial.EndedAt, "New status fields or folds did not persist");
 
@@ -108,7 +109,8 @@ internal static partial class Program
             var send = panel.SubmitAsync(); await stalled.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10)); host.UpdateLayout();
             var live = (AiReplyStatus)panel.FindName("LiveReplyStatus");
             Check(live.IsVisible && live.IsThinking && !live.Focusable, "Live footer must display thinking without enabling folding");
-            Check(((TextBlock)panel.FindName("LiveSentTime")).Text.StartsWith("发送时间："), "Live send time still uses a combined footer");
+            Check(((TextBlock)panel.FindName("LiveSentTime")).Text.EndsWith("发送"), "Live send time does not place the timestamp first");
+            Check(((TextBlock)panel.FindName("LiveTurnNumber")).Text == "[1]", "Live turn number does not follow the conversation");
             var liveStamp = (TextBlock)panel.FindName("LiveSentTime");
             var liveClick = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.MouseDownEvent };
             typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(liveClick, 2); liveStamp.RaiseEvent(liveClick);
@@ -128,11 +130,11 @@ internal static partial class Program
             ((Button)panel.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await send.WaitAsync(TimeSpan.FromSeconds(10)); host.UpdateLayout();
             var stopped = book.Turns.Single();
             Check(stopped.IsIncomplete && stopped.Incomplete == true && stopped.AnsweredAt is null && stopped.EndedAt is not null, "Stopping did not store distinct incomplete/end state");
-            Check(stopped.AnswerTime.EndsWith("（未完成）") && !stopped.AnswerTime.Contains("未记录"), "Stopped reply lost its end timestamp");
+            Check(stopped.EndReason == "user" && stopped.AnswerTime.EndsWith("用户中止") && !stopped.AnswerTime.Contains("未记录"), "Stopped reply lost its end timestamp or reason");
             Check(!indicator.HasAnimatedProperties && !live.IsVisible, "Settled reply retained the thinking pulse");
             Capture(host, Path.Combine(output, "ai-prototype-stopped.png"));
             var persisted = AiStorage.Load(project).Turns.Single();
-            Check(persisted.Incomplete == true && persisted.EndedAt == stopped.EndedAt, "Stopped status was not durable");
+            Check(persisted.Incomplete == true && persisted.EndedAt == stopped.EndedAt && persisted.EndReason == "user", "Stopped status was not durable");
         }
         finally { ThemeManager.Apply(theme); host.Close(); }
         using (var failedConnection = new AiConnection(new AiFakeHandler { Broken = true }))
@@ -149,12 +151,12 @@ internal static partial class Program
                 await failedPanel.SubmitAsync(); failedHost.UpdateLayout();
                 var failedTurn = ((AiNotebook)Field(failedPanel, "_book")!).Turns.Single();
                 Check(failedTurn.Answer.Contains("partial") && failedTurn.IsIncomplete && failedTurn.EndedAt is not null, "Stream failure discarded partial text or status");
-                Check(Descendants<AiReplyStatus>(failedPanel).Any(s => s.IsVisible && s.Text.EndsWith("（未完成）")), "Partial failed reply has no incomplete footer");
+                Check(failedTurn.EndReason == "program" && Descendants<AiReplyStatus>(failedPanel).Any(s => s.IsVisible && s.Text.EndsWith("程序中止")), "Partial failed reply has no program-stop footer");
                 Check(AiStorage.Load(failedProject).Turns.Single().AnswerTime == failedTurn.AnswerTime, "Partial failure timestamp/marker changed after loading");
                 Capture(failedHost, Path.Combine(output, "ai-prototype-partial-failure.png"));
             }
             finally { failedHost.Close(); }
         }
-        Console.WriteLine($"AI prototype parity: {checks} checks passed (absolute timestamps, empty dotted rule, folded/incomplete states, legacy data, themes, live animation and stop persistence).");
+        Console.WriteLine($"AI prototype parity: {checks} checks passed (timestamp-first metadata, straight separator, folded/end states, legacy data, themes, live animation and stop persistence).");
     }
 }

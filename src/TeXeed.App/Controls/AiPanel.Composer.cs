@@ -10,7 +10,7 @@ public partial class AiPanel
     {
         ComposerLines.Attach(Composer);
         Composer.MinHeight = ComposerLineHeight + Composer.Padding.Top + Composer.Padding.Bottom;
-        Composer.Height = ComposerLineHeight * 2 + Composer.Padding.Top + Composer.Padding.Bottom;
+        Composer.Height = ComposerLineHeight * 3 + Composer.Padding.Top + Composer.Padding.Bottom;
     }
     private void LimitComposerHeight()
     {

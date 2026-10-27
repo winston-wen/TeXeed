@@ -105,9 +105,10 @@ def render(source, prefix):
             content = f'<div class="equation">{tokens[int(mt[1])][0]}<span class="equation-number">({equation})</span></div>'
         elif chunk.strip() == '---':
             content = '<hr>'
-        elif lines[0].startswith('#'):
-            level = min(4, len(lines[0]) - len(lines[0].lstrip('#')) + 1)
-            content = f'<h{level}>{inline(lines[0].lstrip("# "))}</h{level}>'
+        elif heading := re.match(r'^ {0,3}(#{1,6})(?:[ \t]+|$)(.*)', lines[0]):
+            level = len(heading[1])
+            title = re.sub(r'(?:^|[ \t]+)#+[ \t]*$', '', heading[2]).strip()
+            content = f'<h{level}>{inline(title)}</h{level}>'
         elif lines[0].startswith('|'):
             rows = [line.strip('|').split('|') for line in lines if not re.match(r'^\|[\s:|\-]+\|$', line)]
             content = '<div class="table-wrap" tabindex="0" role="region" aria-label="可横向滚动的表格"><table><thead><tr>' + ''.join('<th>'+inline(c.strip())+'</th>' for c in rows[0]) + '</tr></thead><tbody>'
@@ -126,7 +127,9 @@ def render(source, prefix):
 
 for turn in all_turns:
     turn['answerHtml'] = render(turn['answer'], turn['id'])
+    turn['answerHeadingVersion'] = 1
 data['playback']['answerHtml'] = render(data['playback']['answer'], 'playback')
+data['playback']['answerHeadingVersion'] = 1
 
 encoded = json.dumps(data, ensure_ascii=False).replace('</', '<\\/')
 template = (HERE / 'template.html').read_text(encoding='utf-8')

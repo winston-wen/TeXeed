@@ -16,7 +16,7 @@
     "TextSelectionForeground": "#FFFFFF",
     "InactiveTextSelectionBackground": "#546B88",
     "ChatQuestionBackground": "#F0F2F5",
-    "ChatHeaderLine": "#9A6700",
+    "ChatHeading": "#8B6428",
     "ChatDivider": "#8C959F",
     "ChatThinking": "#1A7F37",
     "ChatFocus": "#0969DA",

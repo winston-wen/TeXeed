@@ -48,6 +48,7 @@ public sealed record AiTurn(string Question, string Answer)
     public DateTimeOffset? AnsweredAt { get; init; }
     public DateTimeOffset? EndedAt { get; init; }
     public bool? Incomplete { get; init; }
+    public string? EndReason { get; init; }
     public string? Prompt { get; init; }
     public List<AiEntry> SentAnnotations { get; init; } = [];
     public bool Collapsed { get; set; }
@@ -71,7 +72,7 @@ public sealed record AiTurn(string Question, string Answer)
     [JsonIgnore] public string DisplayQuestion => AiConversation.CleanQuestion(Question);
     [JsonIgnore] public string DisplayAnswer => string.IsNullOrWhiteSpace(Answer) ? "此旧记录未保存回答，可删除或重新提问。" : Answer;
     [JsonIgnore] public string DisplayTime => AiTimestamp.Full(SentAt ?? CreatedAt.ToLocalTime());
-    [JsonIgnore] public string SentTime => "发送时间：" + DisplayTime + (Collapsed ? "（已折叠）" : "");
+    [JsonIgnore] public string SentTime => DisplayTime + " 发送" + (Collapsed ? "（已折叠）" : "");
     [JsonIgnore] public bool IsIncomplete => Incomplete ?? (AnsweredAt is null && (string.IsNullOrWhiteSpace(Answer) || Answer.StartsWith("[本轮未完成]") || FailureSegment is not null));
     private AiSegment? FailureSegment => Segments.LastOrDefault(s => s.Kind == "activity" && (s.Id == "failure" || s.Text.StartsWith("已停止。") || s.Text.StartsWith("本轮未完成：")));
     [JsonIgnore] public string AnswerTime
@@ -79,7 +80,9 @@ public sealed record AiTurn(string Question, string Answer)
         get
         {
             var end = IsIncomplete ? EndedAt ?? FailureSegment?.CreatedAt : AnsweredAt;
-            return "答复时间：" + (end is { } time ? AiTimestamp.Full(time) : "未记录") + (IsIncomplete ? "（未完成）" : "");
+            var stoppedByUser = EndReason == "user" || EndReason is null && FailureSegment?.Text.StartsWith("已停止。") == true;
+            var status = IsIncomplete ? stoppedByUser ? "用户中止" : "程序中止" : "答复";
+            return (end is { } time ? AiTimestamp.Full(time) : "未记录") + " " + status;
         }
     }
 }

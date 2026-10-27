@@ -13,7 +13,12 @@ public sealed partial class MarkdownView
     private void Reveal(FrameworkContentElement target)
     {
         for (FrameworkContentElement? node = target; node is not null; node = node.Parent as FrameworkContentElement)
+        {
             if (node is Section section && _revealSections.TryGetValue(section, out var reveal)) reveal();
+            if (node is FlowDocument document)
+                foreach (var table in _tableViews)
+                    if (ReferenceEquals(table.View.Document, document)) Reveal(table.Block);
+        }
     }
     internal void ConfigureFolding(Dictionary<string, bool> folds, string prefix, Action changed)
     { _folds = folds; _foldPrefix = prefix; _foldChanged = changed; if (Markdown.Length > 0) Render(); }

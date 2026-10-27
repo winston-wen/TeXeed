@@ -41,13 +41,14 @@ public partial class AiPanel
     private void Answer_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not MarkdownView view || _answerLayers.ContainsKey(view)) return;
+        view.ChatMode = true;
+        view.TurnNumber = AnswerTurn(view) is { } answerTurn ? _book.Turns.IndexOf(answerTurn) + 1 : _book.Turns.Count + 1;
+        view.ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project);
         var layer = new AiAnnotationLayer(view, () => AnnotationEntries, entry =>
         {
             if (view.DataContext is not AiSegment segment || AnswerTurn(view) is not { } turn || entry.AnswerAnchor is not { } anchor
                 || anchor.TurnId != turn.Id || anchor.SegmentId != segment.Id || anchor.Revision != view.Revision) return null;
-            var pointer = view.AnnotationPointer(entry.Id, anchor);
-            if (pointer is null || !pointer.HasValidLayout) return null;
-            return pointer.GetCharacterRect(LogicalDirection.Forward).TopRight;
+            return view.AnnotationPoint(entry.Id, anchor);
         }, RemoveAnnotation, margin: true, confirm: ConfirmAnnotation, commit: SaveAnnotationChanges);
         _answerLayers.Add(view, layer);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
@@ -73,19 +74,18 @@ public partial class AiPanel
     }
     private void Answer_MouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (!IsMarking || sender is not MarkdownView view || Keyboard.Modifiers != ModifierKeys.None) return;
+        if (!IsMarking || sender is not MarkdownView view || Keyboard.Modifiers != ModifierKeys.None || ImagePreview.IsPreviewImage(e.OriginalSource)) return;
         view.Dispatcher.BeginInvoke(new Action(() => AnnotateAnswer(view)));
     }
     internal void AnnotateAnswer(MarkdownView view)
     {
         if (AnswerTurn(view) is not { } turn || view.DataContext is not AiSegment segment || !_answerLayers.TryGetValue(view, out var layer)) return;
-        var start = view.Selection.Start; var end = view.Selection.End;
-        if (view.Selection.IsEmpty && start.Paragraph is { } paragraph) { start = paragraph.ContentStart; end = paragraph.ContentEnd; }
-        var quote = view.CopySource(start, end).Trim();
+        var selection = view.GetAnnotationSelection();
+        var quote = selection.Quote.Trim();
         if (quote.Length == 0 || quote.Length > 40000) { StatusText.Text = "请选择不超过 4 万字符的回答内容。"; return; }
         var entry = new AiEntry { Title = "AI 回答批注", AnswerAnchor = new(turn.Id, segment.Id,
-            view.Document.ContentStart.GetOffsetToPosition(start), start.GetOffsetToPosition(end), quote, view.Revision)
-            { TextOffset = view.CopySource(view.Document.ContentStart, start).Length } };
+            selection.Offset, selection.Length, quote, view.Revision)
+            { TextOffset = selection.TextOffset } };
         if (AddEntry(entry, false)) layer.Edit(entry);
     }
 }

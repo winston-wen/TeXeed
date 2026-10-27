@@ -88,7 +88,7 @@ internal static partial class Program
         AiStorage.Save(Path.Combine(folder, "notebook.tex"), notebook);
         var loaded = AiStorage.Load(Path.Combine(folder, "notebook.tex"));
         Check(loaded.Active.Permission == AiPermission.ReadOnly && loaded.Active.ContextUsage?.Display == "10.5%", "Conversation permission/usage did not persist");
-        Check(loaded.Turns[0].DisplaySegments.Count == 1 && loaded.Turns[0].DisplayTime == AiTimestamp.Full(sent) && loaded.Turns[0].AnswerTime.Contains("答复时间："), "Transcript timestamps/request migration incorrect");
+        Check(loaded.Turns[0].DisplaySegments.Count == 1 && loaded.Turns[0].DisplayTime == AiTimestamp.Full(sent) && loaded.Turns[0].AnswerTime.EndsWith("答复"), "Transcript timestamps/request migration incorrect");
         Check(new AiNotebook().Active.Permission == AiPermission.FullAccess, "New conversations did not default to full access");
 
         new AiCredentials { ApiKey = "test-key-never-send", UseApiKey = true }.Save();

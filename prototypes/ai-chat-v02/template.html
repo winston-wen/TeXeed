@@ -100,11 +100,12 @@ details[open]>summary:before { transform:rotate(90deg) }
 h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .passage { position:relative; margin:0 0 12px; scroll-margin:16px }
 .passage p { margin:0 }
-.passage h2,.passage h3,.passage h4,.rich-text h1,.rich-text h2,.rich-text h3,.rich-text h4 { font-family:var(--sans); font-weight:600; line-height:1.45; margin:20px 0 10px }
-.passage h2,.rich-text h1 { font-size:21px }
-.passage h3,.rich-text h2 { font-size:19px }
-.passage h4,.rich-text h3,.rich-text h4 { font-size:17px }
-.passage:first-child h2,.passage:first-child h3,.passage:first-child h4 { margin-top:0 }
+.rich-text h1,.rich-text h2,.rich-text h3,.rich-text h4 { font-family:var(--sans); font-weight:600; line-height:1.45; margin:20px 0 10px }
+.rich-text h1 { font-size:21px }
+.rich-text h2 { font-size:19px }
+.rich-text h3,.rich-text h4 { font-size:17px }
+.answer :is(h1,h2,h3,h4,h5,h6) { font:inherit; margin:0 }
+.heading-marker { color:#d8c09b; font-family:var(--sans); font-variant-numeric:tabular-nums; white-space:nowrap; margin-right:.5em; user-select:none }
 .passage ul,.passage ol,.rich-text ul,.rich-text ol { padding-left:1.5em; margin:8px 0 12px }
 .passage li,.rich-text li { margin-bottom:6px }
 .passage strong { font-weight:700 }
@@ -141,7 +142,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .heading-toggle:hover { background:none; color:var(--accent) }
 .heading-toggle:before { display:none }
 .heading-collapsed { color:var(--muted); font-size:.8em; font-weight:400; white-space:nowrap }
-.heading-label { line-height:1.45; min-width:0; text-align:left }
+.heading-label { line-height:inherit; min-width:0; text-align:left }
 .file-link,.rich-text a { color:var(--accent) }
 .file-link { font:inherit; padding:0; text-decoration:underline; text-underline-offset:3px }
 .sent-summaries { display:block; list-style:none; padding:0; margin:8px 0 0; white-space:normal }

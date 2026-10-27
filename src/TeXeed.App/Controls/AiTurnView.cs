@@ -15,13 +15,18 @@ public sealed class AiTurnView : StackPanel
 {
     public static readonly DependencyProperty TurnProperty = DependencyProperty.Register(nameof(Turn), typeof(AiTurn), typeof(AiTurnView), new PropertyMetadata(null, (d, _) => ((AiTurnView)d).Build()));
     public AiTurn Turn { get => (AiTurn)GetValue(TurnProperty); set => SetValue(TurnProperty, value); }
+    private int _turnNumber;
+    public int TurnNumber { get => _turnNumber; set { _turnNumber = value; _number.Text = value > 0 ? $"[{value}]" : ""; foreach (var answer in Answers) answer.TurnNumber = value; } }
+    private string? _imageBaseDirectory;
+    public string? ImageBaseDirectory { get => _imageBaseDirectory; set { _imageBaseDirectory = value; foreach (var answer in Answers) answer.ImageBaseDirectory = value; } }
     internal Action? Changed;
     internal Action<MarkdownView>? AnswerReady, AnswerGone;
     internal Action<AiEntry>? PreviewChanged;
     internal Action<string>? SourceRequested;
     internal List<MarkdownView> Answers { get; } = [];
     private readonly StackPanel _body = new(), _preview = new();
-    private readonly TextBlock _sentTime = new() { FontFamily = new FontFamily("Consolas, Microsoft YaHei"), FontSize = AiChatTypography.FontSize, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12, 4, 4, 8), Focusable = true, Cursor = Cursors.Hand };
+    private readonly TextBlock _number = new() { FontFamily = new FontFamily("Segoe UI, Microsoft YaHei"), FontSize = AiChatTypography.FontSize, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
+    private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(AiChatTypography.TextLeft, 8, 4, 0), Focusable = true, Cursor = Cursors.Hand };
     private AiReplyStatus? _footer;
     private string? _previewId;
     private bool _bodyBuilt;
@@ -30,6 +35,7 @@ public sealed class AiTurnView : StackPanel
     {
         KeyDown += (_, e) => { if (e.Key == Key.Escape && _previewId is not null) { ClosePreview(); e.Handled = true; } };
         _sentTime.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        _number.SetResourceReference(TextBlock.ForegroundProperty, "ChatHeading");
         _sentTime.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };
         _sentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) Toggle(); e.Handled = true; } };
         System.Windows.Automation.AutomationProperties.SetHelpText(_sentTime, "双击收起本轮回答");
@@ -46,30 +52,32 @@ public sealed class AiTurnView : StackPanel
         _sentTime.Visibility = Turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
         if (_footer is not null)
         {
-            // One TextBlock gives both collapsed timestamps the font's natural
-            // line spacing and a shared double-click/keyboard target.
             _footer.Text = Turn.Collapsed ? Turn.SentTime + "\n" + Turn.AnswerTime : Turn.AnswerTime;
-            _footer.Margin = new Thickness(12, Turn.Collapsed ? 4 : 14, 4, 0);
+            _footer.Margin = new Thickness(AiChatTypography.TextLeft, Turn.Collapsed ? 8 : 16, 4, 0);
             System.Windows.Automation.AutomationProperties.SetHelpText(_footer, Turn.Collapsed ? "已折叠，双击任一时间行展开" : "双击收起");
         }
     }
     private void Build()
     {
         foreach (var old in Answers) AnswerGone?.Invoke(old);
+        if (_number.Parent is Panel question) question.Children.Remove(_number);
         Answers.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
         if (Turn is null) return;
         var entries = Turn.SentAnnotations;
         var prompt = entries.Count == 0 ? Turn.DisplayQuestion : Turn.Prompt ?? Turn.DisplayQuestion;
-        Children.Add(Rich(prompt, new Thickness(12, 8, 12, 0)));
+        var questionRow = new Grid(); questionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(AiChatTypography.TextLeft) }); questionRow.ColumnDefinitions.Add(new ColumnDefinition());
+        var content = Rich(prompt, new Thickness(0, 8, 12, 0)); Grid.SetColumn(content, 1);
+        _number.Margin = new Thickness(-40, 8 + (content.FontFamily.Baseline - _number.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
+        questionRow.Children.Add(_number); questionRow.Children.Add(content); Children.Add(questionRow);
         if (entries.Count > 0)
         {
-            var links = Rich(string.Join("\n", entries.Select((e, i) => $"{i + 1}. [{LinkLabel(e)}](#snapshot-{i + 1})")), new Thickness(12, 0, 12, 0), true);
+            var links = Rich(string.Join("\n", entries.Select((e, i) => $"{i + 1}. [{LinkLabel(e)}](#snapshot-{i + 1})")), new Thickness(AiChatTypography.TextLeft, 0, 12, 0), true);
             links.LocalLink = key => { if (int.TryParse(key.AsSpan("snapshot-".Length), out var n) && n > 0 && n <= entries.Count) ShowPreview(entries[n - 1], n); };
             Children.Add(links);
         }
-        _preview.Visibility = Visibility.Collapsed; _preview.Margin = new Thickness(12, 8, 12, 10); Children.Add(_preview);
+        _preview.Visibility = Visibility.Collapsed; _preview.Margin = new Thickness(AiChatTypography.TextLeft, 8, 12, 10); Children.Add(_preview);
         Children.Add(_sentTime);
-        _body.Margin = new Thickness(12, 10, 4, 0); Children.Add(_body);
+        _body.Margin = new Thickness(AiChatTypography.TextLeft, 14, 4, 0); Children.Add(_body);
         _bodyBuilt = false;
         _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
     }
@@ -84,7 +92,8 @@ public sealed class AiTurnView : StackPanel
             }
             else
             {
-                var answer = Rich("", new Thickness(0, 0, 0, 10)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
+                var answer = Rich("", new Thickness(0)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
+                answer.ChatMode = true; answer.TurnNumber = TurnNumber; answer.ImageBaseDirectory = ImageBaseDirectory;
                 answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => Changed?.Invoke());
                 answer.Markdown = segment.Text;
                 answer.Loaded += (_, _) => AnswerReady?.Invoke(answer); answer.Unloaded += (_, _) => AnswerGone?.Invoke(answer);
@@ -117,7 +126,8 @@ public sealed class AiTurnView : StackPanel
             try
             {
                 var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.StreamSource = new MemoryStream(Convert.FromBase64String(pdf.ImageBase64)); bitmap.EndInit(); bitmap.Freeze();
-                contents.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Uniform, Margin = new Thickness(0, 6, 0, 10) });
+                var image = new Image { Source = bitmap, Stretch = Stretch.Uniform, Margin = new Thickness(0, 6, 0, 10) };
+                ImagePreview.Enable(image, $"PDF 第 {pdf.Page} 页"); contents.Children.Add(image);
             }
             catch (Exception ex) when (ex is FormatException or IOException or NotSupportedException) { contents.Children.Add(new TextBlock { Text = "截图无法读取" }); }
         }
@@ -127,7 +137,7 @@ public sealed class AiTurnView : StackPanel
     internal void ClosePreview() { _preview.Visibility = Visibility.Collapsed; _preview.Children.Clear(); _previewId = null; }
     private AiReplyStatus Footer()
     {
-        var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(12, 14, 4, 0), Focusable = true, Cursor = Cursors.Hand };
+        var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(AiChatTypography.TextLeft, 16, 4, 0), Focusable = true, Cursor = Cursors.Hand };
         toggle.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };
         toggle.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) Toggle(); e.Handled = true; } };
         return toggle;

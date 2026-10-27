@@ -61,6 +61,8 @@ internal static partial class Program
         result["scroll_allocated_bytes"] = Median(allocations.Select(v => (double)v));
         result["realized_turns"] = Descendants<AiTurnView>(panel).Count();
         result["realized_activities"] = Descendants<AiActivityView>(panel).Count();
+        result["realized_controls"] = Descendants<Control>(panel).Count();
+        result["visible_controls"] = Descendants<Control>(panel).Count(c => c.IsVisible && VisibleBounds(c, panel) is { Width: > 0, Height: > 0 });
         File.WriteAllText(Path.Combine(output, "ui-performance.json"), JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
         File.WriteAllText(Path.Combine(output, "ui-performance-samples.json"), JsonSerializer.Serialize(samples));
         if (result["realized_turns"] > 12) throw new Exception("AI history no longer bounds realized turns.");

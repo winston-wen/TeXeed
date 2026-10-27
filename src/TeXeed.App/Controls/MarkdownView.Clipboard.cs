@@ -33,7 +33,9 @@ public sealed partial class MarkdownView
         }
         for (var p = start; p is not null && p.CompareTo(end) < 0;)
         {
-            if (IsCodePadding(p, out var paddingEnd)) { p = paddingEnd; continue; }
+            if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
+            if (EmbeddedTable(p) is { } table)
+            { Text(table.View.CopyForClipboard(table.View.Document.ContentStart, table.View.Document.ContentEnd)); p = table.Block.ElementEnd; continue; }
             var context = p.GetPointerContext(LogicalDirection.Forward);
             var inline = context == TextPointerContext.ElementStart
                 ? p.GetAdjacentElement(LogicalDirection.Forward) as InlineUIContainer : p.Parent as InlineUIContainer;
@@ -54,6 +56,7 @@ public sealed partial class MarkdownView
                 }
                 p = inline.ElementEnd; continue;
             }
+            if (inline is { Tag: string source }) { Text(source); p = inline.ElementEnd; continue; }
             if (context == TextPointerContext.Text)
             {
                 var text = p.GetTextInRun(LogicalDirection.Forward);

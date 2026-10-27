@@ -59,28 +59,43 @@
   try{if(!md)throw new Error('Markdown renderer unavailable');return inline?md.renderInline(source,{noLinks}):md.render(source,{noLinks});}
   catch{return code(source,!inline);}
  };
- // Keep saved passage IDs stable when a bundled sample has been replaced.
- root.renderSavedAnswer=function(source,prefix){
+ function answerParts(source,protectCode=true){
   const tokens=[];let marker='@@M';while(source.includes(marker))marker+='@';
   const placeholder=index=>marker+index+'@@',singleToken=new RegExp('^'+marker+'(\\d+)@@$'),allTokens=new RegExp(marker+'(\\d+)@@','g');
-  const stashCode=(raw,block)=>{tokens.push({block,html:root.renderRichText(raw,!block)});return (block?'\n\n':'')+placeholder(tokens.length-1)+(block?'\n\n':'');};
-  const starts=[0,...[...source.matchAll(/\n/g)].map(match=>match.index+1)];
-  for(const token of (md?md.parse(source,{}):[]).filter(token=>token.type==='fence'||token.type==='code_block').reverse()){
-   const start=starts[token.map[0]],end=starts[token.map[1]]??source.length;
-   source=source.slice(0,start)+stashCode(source.slice(start,end),true)+source.slice(end);
+  if(protectCode){
+   const stashCode=(raw,block)=>{tokens.push({raw,block});return (block?'\n\n':'')+placeholder(tokens.length-1)+(block?'\n\n':'');};
+   const starts=[0,...[...source.matchAll(/\n/g)].map(match=>match.index+1)];
+   for(const token of (md?md.parse(source,{}):[]).filter(token=>token.type==='fence'||token.type==='code_block').reverse()){
+    const start=starts[token.map[0]],end=starts[token.map[1]]??source.length;
+    source=source.slice(0,start)+stashCode(source.slice(start,end),true)+source.slice(end);
+   }
+   source=source.replace(/(`+)([\s\S]*?)\1(?!`)/g,raw=>stashCode(raw,false));
   }
-  source=source.replace(/(`+)([\s\S]*?)\1(?!`)/g,raw=>stashCode(raw,false));
   source=source.replace(/\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)|\$\$([\s\S]*?)\$\$|\$([^$\n]+)\$/g,(raw,...groups)=>{
    const tex=groups.slice(0,4).find(value=>value!==undefined).trim(),display=groups[0]!==undefined||groups[2]!==undefined;
-   tokens.push({display,html:'<span class="math" data-tex="'+escape(tex)+'" data-display="'+display+'" role="math" aria-label="'+escape(tex)+'">'+root.renderRichText(raw,true)+'</span>'});
+   tokens.push({raw,tex,display});
    return (display?'\n\n':'')+placeholder(tokens.length-1)+(display?'\n\n':'');
   });
+  return {blocks:source.trim().split(/\n\s*\n/),tokens,singleToken,allTokens};
+ }
+ // Keep the cached renderer's passage boundaries while correcting heading levels.
+ root.restoreAnswerHeadings=function(markup,source){
+  const runtimeMarkup=/<\/(?:h[1-6]|p|pre|ul|ol|blockquote|div)>\r?\n<\/div>/.test(markup),{blocks}=answerParts(source,runtimeMarkup);
+  return markup.replace(/(<section\b[^>]*\bdata-block="[^"]+-p(\d+)"[^>]*><div class="passage-body">\s*)<h([1-6])(\b[^>]*)>([\s\S]*?)<\/h\3>/g,(original,prefix,index,oldLevel,attributes,body)=>{
+   const heading=/^ {0,3}(#{1,6})(?:[ \t]+|$)/.exec(blocks[index]||'');if(!heading)return original;
+   const level=heading[1].length;return prefix+'<h'+level+attributes+'>'+body+'</h'+level+'>';
+  });
+ };
+ // Keep saved passage IDs stable when a bundled sample has been replaced.
+ root.renderSavedAnswer=function(source,prefix){
+  const {blocks,tokens,singleToken,allTokens}=answerParts(source);
+  for(const token of tokens)token.html=token.tex!==undefined?'<span class="math" data-tex="'+escape(token.tex)+'" data-display="'+token.display+'" role="math" aria-label="'+escape(token.tex)+'">'+root.renderRichText(token.raw,true)+'</span>':root.renderRichText(token.raw,!token.block);
   let equation=0;
-  return source.trim().split(/\n\s*\n/).map((chunk,index)=>{
+  return blocks.map((chunk,index)=>{
    const token=singleToken.exec(chunk.trim());let content;
    if(token&&tokens[token[1]].display)content='<div class="equation">'+tokens[token[1]].html+'<span class="equation-number">('+(++equation)+')</span></div>';
    else if(token&&tokens[token[1]].block)content=tokens[token[1]].html;
-   else content=root.renderRichText(chunk.replace(/^#+/,marks=>'#'.repeat(Math.min(4,marks.length+1)))).replace(allTokens,(_,index)=>tokens[index].html);
+   else content=root.renderRichText(chunk).replace(allTokens,(_,index)=>tokens[index].html);
    const id=escape(prefix)+'-p'+index;
    return '<section class="passage" id="'+id+'" data-block="'+id+'"><div class="passage-body">'+content+'</div><div class="margin-notes"></div></section>';
   }).join('\n');

@@ -22,10 +22,11 @@ function status(text){$('status').textContent=text;$('status').hidden=!text;}
 function time(value,short=false){if(!value)return '';const d=new Date(value);const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d);return short?parts.slice(-8):parts.replace(' ',' (+8) ');}
 function scrollEnd(){$('reader').scrollTop=$('reader').scrollHeight;}
 function svgHtml(turn){
- if(turn.answerHtml)return turn.answerHtml;
+ if(turn.answerHtml){if(turn.answerHeadingVersion!==1){turn.answerHtml=restoreAnswerHeadings(turn.answerHtml,turn.answer);turn.answerHeadingVersion=1;}return turn.answerHtml;}
  const bundled=BUNDLED_TURNS.find(t=>t.id===turn.id&&t.answer===turn.answer);if(bundled)return bundled.answerHtml;
  const source=[DATA.playback,...BUNDLED_TURNS].find(t=>t.answer===turn.answer);
- return source?source.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+turn.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+turn.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+turn.id+'-'+id+'"'):(turn.answer?turn.answerHtml=renderSavedAnswer(turn.answer,turn.id+(turn.id.startsWith('sim-')?'-playback':'')):'');
+ if(source)return source.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+turn.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+turn.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+turn.id+'-'+id+'"');
+ if(!turn.answer)return '';turn.answerHeadingVersion=1;return turn.answerHtml=renderSavedAnswer(turn.answer,turn.id+(turn.id.startsWith('sim-')?'-playback':''));
 }
 function activity(s){const details=s.details||s.text,summary='<time>'+time(s.time,true)+'</time><span>'+esc(s.text)+'</span>';return !/[\r\n]/.test(details)&&details===s.text?'<div class="activity no-details"><div class="activity-summary">'+summary+'</div></div>':'<details class="activity"><summary>'+summary+'</summary><template class="activity-source">'+esc(details)+'</template></details>';}
 function mountActivityCode(details){
@@ -115,7 +116,18 @@ function renderTurns(){
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
  document.querySelectorAll('.answer code').forEach(code=>{const turn=current().turns.find(t=>t.id===code.closest('.answer').dataset.turn);if(!BUNDLED_TURNS.some(t=>t.id===turn.id&&t.answer===turn.answer))return;const text=code.textContent.trim();if(/^(?:main\.tex|qa\.md)(?::\d+(?:[–—-]\d+)?)?$/.test(text)){const b=document.createElement('button');b.className='file-link';b.dataset.file=text;b.textContent=text;b.title='打开源码快照'+(text.includes(':')?'并跳转到行号':'');code.replaceChildren(b);}});
- document.querySelectorAll('.answer').forEach(answer=>{prepareReadingLayout(answer);const t=current().turns.find(t=>t.id===answer.dataset.turn);let hiding=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h2,h3,h4');if(h){const level=Number(h.tagName.slice(1));hiding=hiding.filter(x=>x<level);p.hidden=!!hiding.length||p.dataset.readingHidden==='true';const collapsed=!!t.sections?.[p.id],b=document.createElement('button');b.className='heading-toggle';b.dataset.section=p.id;b.setAttribute('aria-expanded',String(!collapsed));b.innerHTML='<span class="heading-label">'+h.innerHTML+'</span>'+(collapsed?'<span class="heading-collapsed">（已折叠）</span>':'');h.replaceChildren(b);if(collapsed)hiding.push(level);}else p.hidden=!!hiding.length||p.dataset.readingHidden==='true';}});
+ document.querySelectorAll('.answer').forEach(answer=>{
+  prepareReadingLayout(answer);const index=current().turns.findIndex(t=>t.id===answer.dataset.turn),t=current().turns[index];let hiding=[];
+  for(const p of answer.querySelectorAll(':scope>.passage')){
+   const headings=[...p.querySelectorAll('h1,h2,h3,h4,h5,h6')],h=headings[0];
+   if(!h){p.hidden=!!hiding.length||p.dataset.readingHidden==='true';continue;}
+   const level=Number(h.tagName.slice(1));hiding=hiding.filter(x=>x<level);p.hidden=!!hiding.length||p.dataset.readingHidden==='true';
+   let firstLabel;
+   for(const heading of headings){const label='<span class="heading-marker" aria-hidden="true">['+(index+1)+':'+heading.tagName.toLowerCase()+']</span><span class="heading-label">'+heading.innerHTML+'</span>';if(heading===h)firstLabel=label;else heading.innerHTML=label;}
+   const collapsed=!!t.sections?.[p.id],b=document.createElement('button');b.className='heading-toggle';b.dataset.section=p.id;b.setAttribute('aria-expanded',String(!collapsed));
+   b.innerHTML=firstLabel+(collapsed?'<span class="heading-collapsed">（已折叠）</span>':'');h.replaceChildren(b);if(collapsed)hiding.push(level);
+  }
+ });
 }
 function toggleTurn(t){const node=$(t.id+'-divider'),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
 
@@ -134,7 +146,7 @@ function renderBubbles(){document.querySelectorAll('.margin-notes').forEach(e=>e
 function renderConversation(){running=requests.get(state.active)||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';restoring=true;renderTurns();setBusy(!!running);restoreComposerHeight();refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading));}
 
 function removeEntry(id){const e=current().entries.find(e=>e.id===id);if(!e||e.state==='提交中')return;current().entries=current().entries.filter(e=>e.id!==id);if(editing===id){editing=null;$('annotation-editor').hidden=true;}renderEntries();record('remove-entry',{number:e.number});}
-function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h3,h4,blockquote,.equation,.passage'))text+='\n';return text;}
+function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number,.heading-marker'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h1,h2,h3,h4,h5,h6,blockquote,.equation,.passage'))text+='\n';return text;}
 function targetContext(target){const p=target.closest('.passage'),answer=target.closest('.answer');if(!p||!answer)return null;const sel=window.getSelection();let quote='',selected=false;if(sel?.rangeCount&&!sel.isCollapsed){const r=sel.getRangeAt(0),start=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;if(start.closest('.answer')===answer){quote=serialize(r.cloneContents());selected=true;}}if(!quote.trim())quote=serialize(p.querySelector('.passage-body')).trim();return {block:p.id,quote,selected,turn:answer.dataset.turn};}
 function addAnnotation(ctx){if(!ctx||!ctx.quote.trim())return;const c=current();const e={id:'a'+Date.now(),number:c.next++,title:'AI 回答批注',question:'',selected:true,state:'待提交',sources:[],pdf:[],block:ctx.block,quote:ctx.quote};c.entries.push(e);renderEntries();record('add-answer-annotation',{number:e.number,quote:e.quote});openEditor(e.id);}
 function openEditor(id){const e=current().entries.find(e=>e.id===id);if(!e)return;commitAnnotation();editing=id;$('annotation-title').innerHTML=esc('#'+e.number+' · '+e.title)+'<span class="anchor-state"></span>';$('annotation-input').value=e.question;$('annotation-editor').hidden=false;refreshEditors();positionEditor();$('annotation-input').focus({preventScroll:true});}
@@ -335,7 +347,7 @@ function prepareReadingLayout(answer){
 }
 $('thread').addEventListener('click',event=>{const b=event.target.closest('[data-equation-ref]');if(!b)return;const id=b.dataset.equationRef,turn=current().turns.find(t=>t.id===b.closest('.turn').id);turn.collapsed=false;
  // Expand any collapsed heading that contains the target, without altering other headings.
- const answer=b.closest('.answer');let stack=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h2,h3,h4');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}if(p.contains($(id))){for(const h of stack)if(turn.sections)turn.sections[h.id]=false;break;}}
+ const answer=b.closest('.answer');let stack=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h1,h2,h3,h4,h5,h6');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}if(p.contains($(id))){for(const h of stack)if(turn.sections)turn.sections[h.id]=false;break;}}
  renderTurns();requestAnimationFrame(()=>{const target=$(id);if(target){target.scrollIntoView({block:'center'});target.classList.add('equation-target');saveReading();}});
 });
 
