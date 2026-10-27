@@ -72,7 +72,7 @@ details[open]>summary:before { transform:rotate(90deg) }
 .turn:last-child { margin-bottom:0 }
 .question,.answer,.snapshot-scroll { font:var(--reading-font)/var(--reading-line) var(--serif); font-weight:400; font-synthesis:none }
 .question { position:relative; background:transparent; border:0; padding:0; white-space:normal }
-.turn-number { position:absolute; right:calc(100% + .625em); top:0; min-width:24px; border-radius:4px; background:var(--accent); color:#261c20; text-align:center; font:var(--reading-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
+.turn-number { position:absolute; right:calc(100% + .625em); top:0; min-width:24px; border-radius:4px; background:#433a32; color:#d8c09b; text-align:center; font:var(--reading-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
 .question-text:empty { display:none }
 .question pre { font-family:var(--code-font) }
 .segments { margin:0; padding:14px 0 0 }
@@ -175,17 +175,21 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .composer-shell:focus-within { border-color:#cf8fa09c; box-shadow:0 0 0 1px #cf8fa00d }
 .composer-input { width:100%; display:block; border:0; background:transparent; min-height:56px; max-height:150px; padding:12px var(--text-inset); font:15px/22px var(--editor-font) }
 .composer-input::placeholder { color:var(--quiet); opacity:1 }
-.composer-toolbar { border-top:1px solid var(--line); margin:0; padding:7px 8px; display:flex; align-items:center; gap:7px; min-height:47px }
-.composer-toolbar button,.composer-toolbar select { height:32px; min-height:32px; margin:0; padding-top:0; padding-bottom:0; border-radius:5px; box-sizing:border-box; font-size:13px; line-height:normal }
+.composer-toolbar { --control-size:24px; border-top:1px solid var(--line); margin:0; padding:4px 8px; display:flex; align-items:center; gap:7px; min-height:calc(var(--control-size) + 9px) }
+.composer-toolbar button,.composer-toolbar select { height:var(--control-size); min-height:var(--control-size); margin:0; padding-top:0; padding-bottom:0; border-radius:5px; box-sizing:border-box; font-size:13px; line-height:18px }
+.composer-toolbar button { display:inline-flex; align-items:center; justify-content:center }
 .composer-toolbar select { background:transparent; border-color:transparent; padding-left:8px; padding-right:5px; color:var(--muted) }
 .composer-toolbar select:hover { background:var(--hover); color:var(--ink) }
-.composer-toolbar .icon-button { width:32px; min-width:32px; padding:6px }
+.composer-toolbar .icon-button { width:var(--control-size); min-width:var(--control-size); padding:4px }
+.composer-toolbar .icon-button svg { width:16px; height:16px }
+.composer-toolbar .send { border-radius:50% }
+.composer-toolbar .send svg { width:14px; height:14px }
 .permission { max-width:126px }
 #entries-button { white-space:nowrap; color:var(--muted); border-color:transparent; padding-left:8px; padding-right:8px }
 .models { display:flex; align-items:center; gap:5px; margin-left:auto; min-width:0 }
 .models select { max-width:160px }
 .models .effort { max-width:100px }
-.usage { font:11px/1 var(--sans); color:var(--quiet); font-variant-numeric:tabular-nums; white-space:nowrap; margin:0 6px }
+.usage { font:11px/18px var(--sans); color:var(--quiet); font-variant-numeric:tabular-nums; white-space:nowrap; margin:0 6px }
 .send { background:var(--focus); color:#261c20!important }
 .send:hover { background:#dfa2b1 }
 .send svg { stroke-width:1.9 }
@@ -311,9 +315,9 @@ dialog textarea { width:100%; height:220px }
  #reading-context { padding-right:32px }
  .margin-notes { right:-28px }
  .bubble { min-width:23px }
- .composer-toolbar { flex-wrap:wrap; gap:5px; row-gap:6px; padding:6px }
+ .composer-toolbar { flex-wrap:wrap; gap:5px; row-gap:4px; padding:4px 6px }
  .composer-toolbar .toolbar-space { flex:1 }
- .models { order:3; margin-left:0; flex:1; justify-content:flex-end; flex-basis:calc(100% - 40px) }
+ .models { order:3; margin-left:0; flex:1; justify-content:flex-end; flex-basis:calc(100% - 32px) }
  .models .usage { margin-right:auto; margin-left:8px }
  .send,.stop { order:4 }
  .models select { max-width:160px }
