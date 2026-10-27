@@ -1,4 +1,4 @@
-/* Offline Markdown/TeX rendering for questions and saved previews. */
+/* Markdown/TeX rendering for questions and saved previews. */
 (function(root){
  'use strict';
  const escape=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -18,8 +18,13 @@
  let md;
  try{
   md=root.markdownit({html:false,linkify:false,breaks:false});
-  // Show Markdown image references as source text.
-  md.renderer.rules.image=(tokens,i)=>code('!['+tokens[i].content+']('+tokens[i].attrGet('src')+')',false);
+  const renderImage=md.renderer.rules.image;
+  md.renderer.rules.image=(tokens,i,options,env,self)=>{
+   const token=tokens[i];token.attrJoin('class','zoomable-image');token.attrSet('tabindex','0');token.attrSet('role','button');token.attrSet('aria-haspopup','dialog');token.attrSet('loading','lazy');token.attrSet('decoding','async');token.attrSet('referrerpolicy','no-referrer');
+   return renderImage(tokens,i,options,env,self);
+  };
+  md.renderer.rules.table_open=()=>'<div class="table-wrap" tabindex="0" role="region" aria-label="可横向滚动的表格"><table>\n';
+  md.renderer.rules.table_close=()=>'</table></div>\n';
   const openLink=md.renderer.rules.link_open,closeLink=md.renderer.rules.link_close;
   md.renderer.rules.link_open=(tokens,i,options,env,self)=>env.noLinks?'<span>':openLink?openLink(tokens,i,options,env,self):self.renderToken(tokens,i,options);
   md.renderer.rules.link_close=(tokens,i,options,env,self)=>env.noLinks?'</span>':closeLink?closeLink(tokens,i,options,env,self):self.renderToken(tokens,i,options);

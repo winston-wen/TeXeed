@@ -64,15 +64,15 @@ details[open]>summary:before { transform:rotate(90deg) }
 .search { grid-row:1; display:flex; gap:6px; align-items:center; margin-bottom:10px }
 .search input { min-width:0; flex:1 }
 .search span { font-size:12px; color:var(--muted) }
-.reading-shell { grid-row:2; min-height:0; display:flex; flex-direction:column; overflow:hidden }
+.reading-shell { grid-row:2; min-height:0; display:flex; flex-direction:column; overflow:hidden; margin-left:-12px }
 .reader { min-height:0; flex:1; overflow:auto; overflow-x:hidden; position:relative; outline:0; scrollbar-gutter:stable }
 .reader:focus-visible { outline:1px solid var(--guide); outline-offset:-1px }
-.thread { margin:0; padding:20px 46px 22px var(--text-inset) }
+.thread { margin:0; padding:20px 46px 22px calc(var(--text-inset) + 12px) }
 .turn { margin:0 0 24px }
 .turn:last-child { margin-bottom:0 }
 .question,.answer,.snapshot-scroll { font:var(--reading-font)/var(--reading-line) var(--serif); font-weight:400; font-synthesis:none }
 .question { position:relative; background:transparent; border:0; padding:0; white-space:normal }
-.turn-number { position:absolute; right:calc(100% + .625em); top:0; min-width:24px; border-radius:4px; background:#433a32; color:#d8c09b; text-align:center; font:var(--reading-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
+.turn-number { position:absolute; right:calc(100% + .625em); top:0; color:#d8c09b; white-space:nowrap; font:var(--reading-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
 .question-text:empty { display:none }
 .question pre { font-family:var(--code-font) }
 .segments { margin:0; padding:14px 0 0 }
@@ -117,11 +117,14 @@ h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .passage pre,.rich-text pre { font:var(--reading-font)/var(--reading-line) var(--code-font); white-space:pre-wrap; overflow-wrap:anywhere; overflow:auto; background:var(--question); padding:12px 14px; margin:10px 0 16px; border-radius:5px }
 .passage pre code,.rich-text pre code { font:inherit; white-space:inherit; background:none; padding:0; border-radius:0; box-decoration-break:slice; -webkit-box-decoration-break:slice }
 .passage code .file-link { font:inherit; background:none; padding:0 }
-.table-wrap { overflow:auto }
-table { border-collapse:collapse; width:100%; margin:12px 0 18px; font:var(--reading-font)/1.6 var(--sans) }
+.table-wrap { max-width:100%; overflow-x:auto; margin:12px 0 18px }
+.table-wrap:focus-visible { outline:1px solid var(--focus); outline-offset:2px }
+table { border-collapse:collapse; width:max-content; min-width:100%; margin:0; font:var(--reading-font)/1.6 var(--sans); overflow-wrap:normal }
 th,td { padding:9px 12px; border-bottom:1px solid var(--line); text-align:left }
 th { color:var(--muted); font-weight:500; background:var(--question) }
-.rich-text table { display:block; max-width:100%; overflow:auto }
+.passage img,.rich-text img { display:block; max-width:100%; height:auto }
+.zoomable-image { cursor:zoom-in }
+.zoomable-image:focus-visible { outline:2px solid var(--focus); outline-offset:3px }
 .math { display:inline-block; white-space:nowrap; vertical-align:baseline; cursor:text; font-size:18.25px }
 .math svg { fill:currentColor }
 .equation { font-size:18.25px; display:flex; align-items:center; gap:16px; margin:12px 0 16px; padding:10px 0; overflow-x:auto; min-height:25px }
@@ -150,22 +153,20 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .bubble:hover { background:#cf8fa035 }
 .reading-note { font:12px/1.5 var(--sans); color:var(--muted); margin:4px 0 10px }
 
-/* Process summaries share the metadata scale; opened details retain body scale. */
+/* Process summaries and details share the metadata scale. */
 .process-log { margin:0 0 14px; color:var(--muted); font:var(--meta-font)/20px var(--sans) }
 .activity { background:transparent; border:0; padding:0; margin:0 0 6px; font:inherit; color:inherit }
 .activity:last-child { margin-bottom:0 }
-.activity summary { display:flex; align-items:baseline; gap:8px; min-height:20px }
+.activity summary,.activity-summary { display:flex; align-items:baseline; gap:8px; min-height:20px }
 .activity summary:before { display:none }
-.activity summary>span { min-width:0 }
-.activity.no-details summary { cursor:default }
+.activity summary>span,.activity-summary>span { min-width:0 }
 .activity time { margin:0; padding:0; font:inherit; font-variant-numeric:tabular-nums; flex:none; color:var(--quiet) }
-.activity pre { margin:8px 0 0; padding:0; max-height:320px; overflow:auto; white-space:pre-wrap; font:var(--reading-font)/var(--reading-line) var(--code-font); color:var(--ink); background:transparent }
-.activity-code { display:grid; grid-template-columns:auto minmax(0,1fr); background:var(--question); border-radius:5px; margin:8px 0 4px; overflow:hidden; color:var(--ink) }
-.activity-code textarea,.activity-code pre { font:16px/25px var(--code-font); color:inherit; background:transparent; border:0; border-radius:0; margin:0; padding:8px; white-space:pre }
+.activity-code { display:grid; grid-template-columns:auto minmax(0,1fr); background:var(--question); border-radius:5px; margin:8px 0 4px; overflow:hidden; color:#aaa4a0 }
+.activity-code textarea,.activity-code pre { font:300 var(--meta-font)/20px var(--code-font); color:inherit; background:transparent; border:0; border-radius:0; margin:0; padding:8px; white-space:pre }
 .activity-code textarea { resize:none; width:100%; height:100%; min-height:0; overflow:auto; box-sizing:border-box; outline:none }
-.activity-numbers { overflow:hidden; min-width:2ch; color:var(--quiet) }
+.activity-numbers { overflow:hidden; min-width:2ch; color:inherit }
 .activity-numbers pre { text-align:right; padding-right:8px }
-#reading-context { flex:none; padding:8px 46px 9px var(--text-inset); border-bottom:1px solid var(--line); background:var(--bg); height:61px; font:12px/21px var(--sans) }
+#reading-context { flex:none; padding:8px 46px 9px calc(var(--text-inset) + 12px); border-bottom:1px solid var(--line); background:var(--bg); height:61px; font:12px/21px var(--sans) }
 #reading-context-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 #reading-context-notes { display:flex; gap:14px; color:var(--muted); min-height:21px; overflow:hidden; white-space:nowrap }
 #reading-context-notes span { overflow:hidden; text-overflow:ellipsis; max-width:33% }
@@ -175,7 +176,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .composer-shell:focus-within { border-color:#cf8fa09c; box-shadow:0 0 0 1px #cf8fa00d }
 .composer-input { width:100%; display:block; border:0; background:transparent; min-height:56px; max-height:150px; padding:12px var(--text-inset); font:15px/22px var(--editor-font) }
 .composer-input::placeholder { color:var(--quiet); opacity:1 }
-.composer-toolbar { --edge-inset:calc(var(--corner-radius) - var(--control-size)/2 - 1px); border-top:1px solid var(--line); margin:0; padding:4px var(--edge-inset) var(--edge-inset); display:flex; align-items:center; gap:7px }
+.composer-toolbar { --edge-inset:calc(var(--corner-radius) - var(--control-size)/2 - 1px); margin:0; padding:4px var(--edge-inset) var(--edge-inset); display:flex; align-items:center; gap:7px }
 .composer-toolbar button,.composer-toolbar select { height:var(--control-size); min-height:var(--control-size); margin:0; padding-top:0; padding-bottom:0; border-radius:5px; box-sizing:border-box; font-size:13px; line-height:18px }
 .composer-toolbar button { display:inline-flex; align-items:center; justify-content:center }
 .composer-toolbar select { appearance:none; background:transparent; border-color:transparent; padding:0 8px; color:var(--muted); line-height:18px }
@@ -207,7 +208,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .editor-action svg { width:18px; height:18px }
 .editor-measure { position:absolute; visibility:hidden; pointer-events:none; white-space:pre-wrap; overflow-wrap:break-word; top:0; left:0 }
 .composer-shell>.code-editor { border:0; border-radius:0; background:transparent; margin:0; width:100%; grid-template-columns:minmax(calc(var(--text-inset) - 1px),max-content) minmax(0,1fr) }
-.composer-shell>.code-editor textarea { height:56px; min-height:calc(var(--editor-top) + 28px); max-height:none; padding:var(--editor-top) 16px 8px 0; font:15px/20px var(--editor-font) }
+.composer-shell>.code-editor textarea { height:81px; min-height:calc(var(--editor-top) + 28px); max-height:none; padding:var(--editor-top) 16px 8px 0; font:15px/20px var(--editor-font) }
 .composer-shell .line-numbers { justify-self:end; font:15px/20px var(--editor-font); padding:var(--editor-top) 9px 8px 0; background:transparent; border:0 }
 .composer-shell .line-numbers>div { top:var(--editor-top); right:9px }
 .composer-shell .line-numbers span { min-height:20px }
@@ -301,6 +302,15 @@ dialog h2 { font-size:18px; font-weight:500; margin:0 }
 dialog p,dialog label { font-size:13px; line-height:1.6 }
 dialog pre { white-space:pre-wrap; background:var(--sidebar); font:13px/1.6 var(--code-font); padding:12px; max-height:36vh; overflow:auto }
 dialog textarea { width:100%; height:220px }
+#image-viewer { width:min(1120px,calc(100vw - 32px)); max-width:calc(100vw - 32px); max-height:calc(100vh - 32px); padding:0; border-radius:12px; overflow:hidden }
+#image-viewer::backdrop { background:#100e0dd9 }
+.image-viewer-header { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line) }
+#image-title { flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font:14px/20px var(--sans) }
+.image-viewer-tools { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; padding:8px 12px; border-top:1px solid var(--line); font:13px/20px var(--sans) }
+.image-viewer-tools button { min-height:28px; padding:3px 8px }
+#image-scale { min-width:4ch; text-align:center; color:var(--muted); font-variant-numeric:tabular-nums }
+#image-viewport { display:flex; height:min(65vh,720px); overflow:auto; background:#211c1b; overscroll-behavior:contain }
+#image-preview { display:block; flex:none; max-width:none; max-height:none; margin:auto }
 .lab-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:12px 0 }
 #rename-dialog { width:360px; max-width:calc(100vw - 40px) }
 #rename-title { width:100%; box-sizing:border-box }
@@ -372,6 +382,7 @@ dialog textarea { width:100%; height:220px }
 
 <dialog id="entries-dialog" aria-label="本次圈点编辑"><div class="row"><h2>本次圈点</h2><span class="spacer"></span><button id="close-entries">完成</button></div><p class="muted">发送快照保存后即移出编辑区；停止或失败也可从历史查看原文。</p><div class="entries-scroll" id="entries"></div></dialog>
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>
+<dialog id="image-viewer" aria-labelledby="image-title"><div class="image-viewer-header"><h2 id="image-title">图片预览</h2><button id="image-close" class="icon-button" aria-label="关闭图片预览"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg></button></div><div id="image-viewport" tabindex="0" aria-label="图片浏览区域"><img id="image-preview" alt=""></div><div class="image-viewer-tools"><button id="image-zoom-out" aria-label="缩小图片">−</button><output id="image-scale" aria-live="polite">100%</output><button id="image-zoom-in" aria-label="放大图片">+</button><button id="image-fit">适应窗口</button><button id="image-actual">原尺寸</button></div></dialog>
 <div id="context-tooltip" role="tooltip" hidden></div>
 <dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>按 Ctrl+Alt+T 打开试验台，选择预编回放结果或导出本次交互记录。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">请求失败</option></select></label><button id="restore">恢复示例状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>合成示例 / 预编续答</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
 <dialog id="copy-dialog"><div class="row"><h2>复制文本</h2><span class="spacer"></span><button id="close-copy">关闭</button></div><textarea id="copy-text" aria-label="复制文本"></textarea></dialog>

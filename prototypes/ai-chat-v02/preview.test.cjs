@@ -18,4 +18,14 @@ assert.equal(open('?preview=visual').state.conversations[0].draft,'预览中的�
 assert.equal(open('?preview=visual&test=1').key,normalKey+'-visual-test');
 assert.deepEqual(open('').state,saved);
 assert.equal(data.visualPreview.conversations[0].draft,'接下来，比较两种折法的稳定性。');
-console.log('PASS: visual preview uses separate storage and preserves existing conversations and drafts.');
+const oldPreview={...saved,conversations:[{...saved.conversations[0],turns:[{id:'kept',sections:{'kept-p0':true}}],reading:{anchor:'kept-p0'}}]};
+store.set(preview.key,JSON.stringify(oldPreview));
+const upgraded=open('?preview=visual').state;
+assert.equal(upgraded.visualMediaVersion,1);assert.equal(upgraded.active,oldPreview.active);assert.deepEqual(upgraded.conversations[0],oldPreview.conversations[0]);
+assert.equal(upgraded.conversations.filter(c=>c.id==='visual-media').length,1);
+upgraded.conversations=upgraded.conversations.filter(c=>c.id!=='visual-media');store.set(preview.key,JSON.stringify(upgraded));
+assert.equal(open('?preview=visual').state.conversations.some(c=>c.id==='visual-media'),false);
+const customMedia={id:'visual-media',title:'已有图表会话',draft:'保留修改',turns:[],entries:[]};
+store.set(preview.key,JSON.stringify({...oldPreview,conversations:[...oldPreview.conversations,customMedia]}));
+assert.deepEqual(open('?preview=visual').state.conversations.find(c=>c.id==='visual-media'),customMedia);
+console.log('PASS: isolated preview storage, retained drafts/folds and one-time media samples preserve existing and removed conversations.');

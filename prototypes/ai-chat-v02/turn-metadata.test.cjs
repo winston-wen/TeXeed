@@ -43,7 +43,7 @@ for(const fixture of cases){
  for(const collapsed of [false,true]){
   turn.collapsed=collapsed;
   const html=context.turnHtml(turn,9),footer=block(html,'turn-time answer-time');
-  assert.match(html,/class="turn-number"[^>]*>10<\//,fixture.name);
+  assert.match(html,/class="turn-number"[^>]*>\[10\]<\//,fixture.name);
   assert.ok(html.includes(escape(turn.question)),fixture.name+': question lost');
   actionFollowsTime(footer,fixture.at,fixture.action,fixture.name);
   assert.doesNotMatch(plain(footer),/答复时间[：:]/,fixture.name+': old prefix remains');
@@ -67,7 +67,7 @@ for(const fixture of cases){
 }
 for(const [index,expected] of [[undefined,1],[0,1],[9,10],[99,100]]){
  const html=index===undefined?context.turnHtml({...base,answeredAt:endedAt}):context.turnHtml({...base,answeredAt:endedAt},index);
- assert.match(html,new RegExp('class="turn-number"[^>]*>'+expected+'<\\/'));
+ assert.match(html,new RegExp('class="turn-number"[^>]*>\\['+expected+'\\]<\\/'));
  assert.equal((html.match(/class="turn-number"/g)||[]).length,1,'Exactly one turn number is rendered');
 }
 context.running={turn:{id:base.id}};

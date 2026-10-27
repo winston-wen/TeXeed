@@ -76,9 +76,24 @@ def render(source, prefix):
         return ('\n\n' if display else '') + f'@@M{len(tokens)-1}@@' + ('\n\n' if display else '')
     source = pattern.sub(take, source)
     def inline(text):
+        fragments = []
+        marker = '@@INLINE'
+        while marker in text:
+            marker += '@'
+        def keep(markup):
+            fragments.append(markup)
+            return f'{marker}{len(fragments)-1}@@'
+        text = re.sub(r'`([^`]+)`', lambda m: keep('<code>' + html.escape(m[1]) + '</code>'), text)
+        def take_image(match):
+            alt, source, title = match.group(1), match.group(2).strip('<>').strip(), match.group(3)
+            scheme = re.match(r'^([a-z][a-z0-9+.-]*):', re.sub(r'[\x00-\x20\x7f]', '', source), re.I)
+            if scheme and scheme.group(1).lower() not in ('http', 'https'):
+                return match.group(0)
+            return keep('<img class="zoomable-image" tabindex="0" role="button" aria-haspopup="dialog" loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' + html.escape(source, quote=True) + '" alt="' + html.escape(alt, quote=True) + '"' + (' title="' + html.escape(title, quote=True) + '"' if title else '') + '>')
+        text = re.sub(r'!\[([^\]\n]*)\]\((<[^>\n]+>|[^\s)]+)(?:\s+"([^"\n]*)")?\)', take_image, text)
         text = html.escape(text)
-        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
         text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+        text = re.sub(re.escape(marker) + r'(\d+)@@', lambda m: fragments[int(m[1])], text)
         return re.sub(r'@@M(\d+)@@', lambda m: tokens[int(m[1])][0], text)
     blocks = []
     equation = 0
@@ -95,7 +110,7 @@ def render(source, prefix):
             content = f'<h{level}>{inline(lines[0].lstrip("# "))}</h{level}>'
         elif lines[0].startswith('|'):
             rows = [line.strip('|').split('|') for line in lines if not re.match(r'^\|[\s:|\-]+\|$', line)]
-            content = '<div class="table-wrap"><table><thead><tr>' + ''.join('<th>'+inline(c.strip())+'</th>' for c in rows[0]) + '</tr></thead><tbody>'
+            content = '<div class="table-wrap" tabindex="0" role="region" aria-label="可横向滚动的表格"><table><thead><tr>' + ''.join('<th>'+inline(c.strip())+'</th>' for c in rows[0]) + '</tr></thead><tbody>'
             content += ''.join('<tr>'+''.join('<td>'+inline(c.strip())+'</td>' for c in row)+'</tr>' for row in rows[1:]) + '</tbody></table></div>'
         elif all(re.match(r'^\d+\. ', line) for line in lines):
             content = '<ol>' + ''.join('<li>'+inline(re.sub(r'^\d+\. ', '', line))+'</li>' for line in lines)+'</ol>'

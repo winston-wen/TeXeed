@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#f3eee5"/>
+  <g font-family="Segoe UI,Microsoft YaHei,sans-serif" fill="#332f2b">
+    <text x="96" y="108" font-size="42">三种折法 · 试飞轨迹</text>
+    <text x="96" y="156" font-size="22" fill="#746b60">合成示意图 / 相同起点、纸张与投掷条件</text>
+    <g stroke="#d8d0c3" stroke-width="2">
+      <path d="M160 260H1450M160 380H1450M160 500H1450M160 620H1450M160 740H1450"/>
+      <path d="M160 260V740M375 260V740M590 260V740M805 260V740M1020 260V740M1235 260V740M1450 260V740"/>
+    </g>
+    <path d="M160 230V740H1470" stroke="#7d7265" stroke-width="3" fill="none"/>
+    <g font-size="22" fill="#746b60" text-anchor="middle">
+      <text x="160" y="780">0</text><text x="375" y="780">1</text><text x="590" y="780">2</text><text x="805" y="780">3</text><text x="1020" y="780">4</text><text x="1235" y="780">5</text><text x="1450" y="780">6 m</text>
+    </g>
+    <text x="96" y="228" font-size="20" fill="#746b60">高度</text>
+    <text x="160" y="827" font-size="20" fill="#746b60">水平距离</text>
+    <g fill="none" stroke-width="7" stroke-linecap="round">
+      <path d="M160 740C390 300 720 240 1128 740" stroke="#477e74"/>
+      <path d="M160 740C470 170 850 260 1321 740" stroke="#bd9146"/>
+      <path d="M160 740C370 430 710 410 1063 740" stroke="#8a739e"/>
+    </g>
+    <g font-size="24">
+      <circle cx="890" cy="115" r="7" fill="#477e74"/><text x="910" y="123">A · 4.50 m</text>
+      <circle cx="1095" cy="115" r="7" fill="#bd9146"/><text x="1115" y="123">B · 5.40 m</text>
+      <circle cx="1300" cy="115" r="7" fill="#8a739e"/><text x="1320" y="123">C · 4.20 m</text>
+    </g>
+    <g fill="#f3eee5" stroke-width="5"><circle cx="1128" cy="740" r="9" stroke="#477e74"/><circle cx="1321" cy="740" r="9" stroke="#bd9146"/><circle cx="1063" cy="740" r="9" stroke="#8a739e"/></g>
+    <text x="1504" y="850" font-size="18" fill="#8b8176" text-anchor="end">TE XEED / FLIGHT NOTES 01</text>
+  </g>
+</svg>
