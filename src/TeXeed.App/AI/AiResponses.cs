@@ -179,14 +179,14 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                 text?.Reset(); text = null; output = null; totalCharacters = acceptedCharacters;
                 try
                 {
-                    activity?.Invoke(new(requestStateId, "activity", attempt == 0 ? "正在连接 AI" : $"正在重新连接 AI · 第 {attempt} 次"));
+                    activity?.Invoke(new(requestStateId, "status", attempt == 0 ? "等待 AI 响应" : $"正在重试 · 第 {attempt} 次"));
                     using var request = new HttpRequestMessage(HttpMethod.Post, ChatGptLogin.Resource + "/responses") { Content = new StringContent(requestBody, Encoding.UTF8, "application/json") };
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await connection.BearerAsync(token, identity));
                     using var response = await connection.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
                     if ((int)response.StatusCode is 408 or 425 or 500 or 502 or 503 or 504)
                         throw new HttpRequestException($"服务器暂时无法响应 · HTTP {(int)response.StatusCode}", null, response.StatusCode);
                     if (!response.IsSuccessStatusCode) throw await AiFailure.FromResponseAsync(response, token);
-                    activity?.Invoke(new(requestStateId, "activity", "已连接 AI"));
+                    activity?.Invoke(new(requestStateId, "status", "等待 AI 响应"));
                     using var reader = new System.IO.StreamReader(await response.Content.ReadAsStreamAsync(token));
                     using var readDeadline = CancellationTokenSource.CreateLinkedTokenSource(token);
                     var eventData = new StringBuilder();
@@ -241,8 +241,13 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                     var wait = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(attempt, 5))));
                     var reason = ex is AiTransientFailureException or HttpRequestException { StatusCode: not null } ? "服务暂时不可用" : "网络连接中断";
                     var message = $"{reason}，{wait.TotalSeconds:0} 秒后重试 · 第 {attempt + 1} 次";
-                    status(message); activity?.Invoke(new(requestStateId, "activity", message));
-                    await (retryDelay?.Invoke(wait, token) ?? Task.Delay(wait, token));
+                    status(message); activity?.Invoke(new(requestStateId, "status", message));
+                    if (retryDelay is not null) await retryDelay(wait, token);
+                    else for (var remaining = (int)wait.TotalSeconds; remaining > 0; remaining--)
+                    {
+                        activity?.Invoke(new(requestStateId, "status", $"{reason}，{remaining} 秒后重试 · 第 {attempt + 1} 次"));
+                        await Task.Delay(TimeSpan.FromSeconds(1), token);
+                    }
                 }
             }
             var calls = output!.Where(n => n?["type"]?.GetValue<string>() == "function_call").ToArray();
@@ -263,6 +268,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                 }
                 if (reminder is null && proofread is not null)
                 {
+                    activity?.Invoke(new("pending", "status", "正在检查公式排版"));
                     var check = await proofread(text.FinalText, token);
                     if (mathRepairs > 0 && check.Error is null && check.Count < minimumMath)
                         check = new(check.Count, $"修正版遗漏了原回答中的公式。请保留至少 {minimumMath} 个不同公式，并修复其语法，不要删除公式或改成代码。");
@@ -296,6 +302,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                 var arguments = call["arguments"]!.GetValue<string>();
                 var eventId = $"tool-{round}-" + call["call_id"]!.GetValue<string>();
                 var label = ToolLabel(name, arguments); status(label);
+                activity?.Invoke(new("pending", "status", "正在处理项目"));
                 activity?.Invoke(new(eventId, "activity", label, Details: ToolDetails(name, arguments, "等待执行结果…")));
                 var shortName = name.Split('.').Last();
                 if (shortName == "compile_project") editsAwaitingCompile = false;
@@ -372,6 +379,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
             if (message is null)
             {
                 message = new($"text-{round}-{messages.Count}"); messages.Add(message);
+                activity?.Invoke(new("pending", "status", "正在生成回复"));
                 // Reserve the output position even before its first text delta arrives.
                 activity?.Invoke(new(message.SegmentId, "text", ""));
             }

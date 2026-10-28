@@ -40,28 +40,9 @@ internal static partial class Program
         var number = Descendants<TextBlock>(view).Single(t => t.Text == "[1]");
         Check(number.FontFamily.Source == rich[0].FontFamily.Source, "Hanging ordinal does not use the body font");
         Check(number.FontSize == 16 && Math.Abs(xs[0] - number.TranslatePoint(new Point(number.ActualWidth, 0), view).X - 10) < 1, "Turn number is not hanging 10px left of the question");
-        double FirstBaseline(FrameworkElement element)
-        {
-            var baselines = new List<double>();
-            foreach (var visual in Descendants<Visual>(element).Prepend(element))
-            {
-                void Visit(Drawing drawing, Matrix transform)
-                {
-                    if (drawing is DrawingGroup group)
-                    {
-                        var next = group.Transform?.Value ?? Matrix.Identity; next.Append(transform);
-                        foreach (var child in group.Children) Visit(child, next);
-                    }
-                    else if (drawing is GlyphRunDrawing glyph)
-                        baselines.Add(visual.TransformToAncestor(view).Transform(transform.Transform(glyph.GlyphRun.BaselineOrigin)).Y);
-                }
-                if (VisualTreeHelper.GetDrawing(visual) is { } drawing) Visit(drawing, Matrix.Identity);
-            }
-            return baselines.Min();
-        }
-        var numberBaseline = FirstBaseline(number); var questionBaseline = FirstBaseline(rich[0]);
-        Console.WriteLine($"Question/number glyph baselines: {questionBaseline:F2}, {numberBaseline:F2}");
-        Check(Math.Abs(numberBaseline - questionBaseline) < 1, "Turn number baseline differs from the question");
+        var questionInk = GlyphInk(rich[0], view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
+        var numberInk = GlyphInk(number, view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
+        Check(Math.Abs(questionInk.Top + questionInk.Height / 2 - numberInk.Top - numberInk.Height / 2) < .5, "Turn number ink axis differs from the question");
         DoubleClick(sent); Check(turn.Collapsed && !row.IsVisible, "Double-clicking send time does not fold the turn");
         DoubleClick(reply); Check(!turn.Collapsed, "Answer-time expansion stopped working");
         foreach (var theme in new[] { "ristretto", "github-light-default" })

@@ -15,6 +15,8 @@ public sealed class AiSegment : INotifyPropertyChanged
     public DateTimeOffset CreatedAt { get => _createdAt; set { if (_createdAt == value) return; _createdAt = value; Changed(nameof(DisplayTime)); } }
     [JsonIgnore] public DateTimeOffset ReferenceTime { get; set; }
     [JsonIgnore] public string DisplayTime => AiTimestamp.Activity(CreatedAt, ReferenceTime == default ? CreatedAt : ReferenceTime);
+    [JsonIgnore] internal bool IsTransientStatus => Kind == "status" || Id.StartsWith("request-state-", StringComparison.Ordinal) ||
+        Kind == "activity" && (Text is "已连接 AI" or "正在连接 AI" or "正在准备请求");
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Changed(string name) => PropertyChanged?.Invoke(this, new(name));
     public AiSegment Snapshot() => new() { Id = Id, Kind = Kind, Text = Text, Details = Details, CreatedAt = CreatedAt, ReferenceTime = ReferenceTime };
@@ -36,11 +38,19 @@ internal sealed class AiStreamBuffer
     private readonly List<Node> _nodes = [];
     private readonly Dictionary<string, Node> _byId = [];
     private long _version;
+    private long _statusVersion;
+    private string _status = "等待 AI 响应";
     internal long Version { get { lock (_gate) return _version; } }
+    internal (long Version, string Text) PendingStatus { get { lock (_gate) return (_statusVersion, _status); } }
     internal void Add(AiStreamEvent value)
     {
         lock (_gate)
         {
+            if (value.Kind == "status")
+            {
+                if (_status != value.Text) { _status = value.Text; _statusVersion++; }
+                return;
+            }
             _version++;
             if (value.Reset)
             {

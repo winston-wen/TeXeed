@@ -99,13 +99,13 @@ function turnEnd(t){
 }
 function turnHtml(t,index=0,turns=[t]){
  const thinking=running?.turn.id===t.id,canFold=!thinking,end=turnEnd(t);
- const activities=(t.segments||[]).filter(s=>s.kind==='activity');
+ const activities=(t.segments||[]).filter(s=>s.kind==='activity'&&!isConnectionStatus(s));
  const proofIndex=activities.findIndex(s=>/^公式排版检查通过/.test(s.text));
  const after=proofIndex<0?[]:activities.splice(proofIndex);
  const processAfter=after.length?'<div class="process-log after-answer" aria-label="过程记录">'+after.map(activity).join('')+'</div>':'';
  const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
  const sent='<div class="turn-time sent-time" data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起或展开本轮回答">'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送'+(t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
- const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
+ const answerTime=thinking?'<span class="thinking-label" role="status"><span class="pending-label-text">'+esc(running.pendingStatus||'等待 AI 响应')+'</span><span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
  const folded=!thinking&&t.collapsed;
  const retry=!running&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
  const stamp=folded?sent.replace(/^<div[^>]*>/,'').replace(/<\/div>$/,'')+'\n'+answerTime:answerTime;
@@ -115,7 +115,7 @@ function turnHtml(t,index=0,turns=[t]){
 function renderTurns(){
  const pos=$('reader').scrollTop;
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
- enhanceAnswers();$('reader').scrollTop=pos;renderBubbles();requestAnimationFrame(updateReadingContext);
+ enhanceAnswers();alignReadingInk();$('reader').scrollTop=pos;renderBubbles();requestAnimationFrame(updateReadingContext);
 }
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
@@ -132,6 +132,43 @@ function enhanceAnswers(){
    b.innerHTML=firstLabel+(collapsed?'<span class="heading-collapsed">（已折叠）</span>':'');h.replaceChildren(b);if(collapsed)hiding.push(level);
   }
  });
+}
+function isConnectionStatus(segment){return /^(request-state-|network-retry$)/.test(segment.id||'')||/^(已连接 AI|正在连接 AI|正在准备请求)(?:$| ·)/.test(segment.text||'');}
+function setPendingStatus(job,text){job.pendingStatus=text;if(running===job){const label=$(job.turn.id+'-divider')?.querySelector('.pending-label-text');if(label)label.textContent=text;}}
+function alignReadingInk(headings=true){
+ const labels=headings?[...document.querySelectorAll('.heading-label')]:[],questions=[...document.querySelectorAll('.question')];
+ if(!labels.length&&!questions.length)return;
+ const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),sans=getComputedStyle(document.documentElement).getPropertyValue('--sans');
+ const metrics=alignReadingInk.metrics||(alignReadingInk.metrics=new Map());
+ const measure=(text,style,font)=>{font=font||style.font;const key=font+'\n'+text;if(metrics.has(key))return metrics.get(key);ctx.font=font;const value=ctx.measureText(text);if(metrics.size>=512)metrics.clear();metrics.set(key,value);return value;};
+ const edits=[];
+ const axis=m=>(m.actualBoundingBoxDescent-m.actualBoundingBoxAscent)/2;
+ for(const label of labels){
+  const walker=document.createTreeWalker(label,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode())if(walker.currentNode.textContent.trim()&&!walker.currentNode.parentElement.closest('.math,code'))nodes.push(walker.currentNode);
+  let firstOffset=0;
+  for(const [index,node] of nodes.entries()){
+   const style=getComputedStyle(node.parentElement),old=measure(node.textContent,style),next=measure(node.textContent,style,'300 '+style.fontSize+' '+sans),offset=axis(old)-axis(next);
+   edits.push(()=>{const span=document.createElement('span');span.className='heading-text';span.style.top=offset+'px';span.textContent=node.textContent;node.replaceWith(span);});if(index===0)firstOffset=offset;
+  }
+  const marker=label.previousElementSibling;if(marker)edits.push(()=>{marker.style.top=firstOffset+'px';});
+ }
+ edits.forEach(apply=>apply());const ordinalEdits=[];
+ for(const question of questions){
+  const number=question.querySelector('.turn-number');if(!number||!question.getClientRects().length)continue;
+  const walker=document.createTreeWalker(question,NodeFilter.SHOW_TEXT),range=document.createRange();let node,top=null,inkTop=Infinity,inkBottom=-Infinity;
+  while((node=walker.nextNode())){
+   if(!node.textContent.trim()||node.parentElement.closest('.turn-number,.math'))continue;
+   range.selectNodeContents(node);const rect=range.getClientRects()[0];if(!rect)continue;if(top===null)top=rect.top;if(rect.top>top+2)break;
+   let lo=1,hi=node.length;while(lo<hi){const mid=Math.ceil((lo+hi)/2);range.setStart(node,mid-1);range.setEnd(node,mid);if(range.getBoundingClientRect().top<=top+2)lo=mid;else hi=mid-1;}
+   const style=getComputedStyle(node.parentElement),m=measure(node.textContent.slice(0,lo),style),baseline=rect.top+m.fontBoundingBoxAscent;
+   inkTop=Math.min(inkTop,baseline-m.actualBoundingBoxAscent);inkBottom=Math.max(inkBottom,baseline+m.actualBoundingBoxDescent);
+  }
+  if(Number.isFinite(inkTop)){
+   const style=getComputedStyle(number),m=measure(number.textContent,style),rect=number.getBoundingClientRect(),previous=style.transform==='none'?0:new DOMMatrixReadOnly(style.transform).m42,baseline=rect.top-previous+(parseFloat(style.lineHeight)-m.fontBoundingBoxAscent-m.fontBoundingBoxDescent)/2+m.fontBoundingBoxAscent;
+   ordinalEdits.push(()=>{number.style.transform='translateY('+((inkTop+inkBottom)/2-baseline-axis(m))+'px)';});
+  }
+ }
+ ordinalEdits.forEach(apply=>apply());
 }
 function toggleTurn(t){const node=$(t.id+'-divider'),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
 
@@ -169,12 +206,12 @@ function send(retryTurn=null){
  const outgoing=clone(selected).map((e,i)=>({...e,number:i+1}));
  closePopups(true);c.updatedAt=new Date().toISOString();const question=[prompt,...outgoing.map(e=>'#'+e.number+' · '+e.title+'：'+e.question)].filter(Boolean).join('\n');
  const annotations=outgoing.map(e=>({...e,summary:summarizeSnapshot(e),block:null}));
- const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[{kind:'activity',text:'正在连接 AI · 原型回放',details:'',time:new Date().toISOString()}]};
+ const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[]};
  c.lastSentAt=t.sentAt;c.turns.push(t);if(!retryTurn)c.entries=c.entries.filter(e=>!selected.includes(e));if(c.title==='新对话')c.title=shortTitle(question);if(!retryTurn){c.draft='';$('composer').value='';refreshEditors();}if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');const job={turn:t,selected,timers:[]};requests.set(c.id,job);running=job;renderTabs();status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
  const mode=$('playback-mode').value;
  const finish=()=>{
   if(requests.get(c.id)!==job)return;const visible=state.active===c.id;const follow=visible&&$('reader').scrollHeight-$('reader').scrollTop-$('reader').clientHeight<40;
-  if(mode==='failure'){job.retryCount=(job.retryCount||0)+1;const wait=Math.min(30,2**Math.min(job.retryCount-1,5));let retry=t.segments.find(s=>s.id==='network-retry');if(!retry){retry={id:'network-retry',kind:'activity'};t.segments.push(retry);}retry.text='网络连接中断，'+wait+' 秒后重试 · 第 '+job.retryCount+' 次';retry.time=new Date().toISOString();if(visible)renderTurns();record('network-retry',{attempt:job.retryCount});job.timers.push(setTimeout(finish,wait*1000));return;}
+  if(mode==='failure'){job.retryCount=(job.retryCount||0)+1;const wait=Math.min(30,2**Math.min(job.retryCount-1,5));const countdown=remaining=>{if(requests.get(c.id)!==job)return;if(!remaining){finish();return;}setPendingStatus(job,'网络连接中断，'+remaining+' 秒后重试 · 第 '+job.retryCount+' 次');job.timers.push(setTimeout(()=>countdown(remaining-1),1000));};countdown(wait);record('network-retry',{attempt:job.retryCount});return;}
   if(mode==='program-failure'){t.incomplete=true;t.endReason='program';t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：程序无法继续处理。',details:'原型预编失败事件。',time:t.endedAt});}
   else {t.answer=DATA.playback.answer;t.answerHtml=DATA.playback.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+t.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+t.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+t.id+'-'+id+'"');t.incomplete=false;t.answeredAt=new Date().toISOString();t.segments.push({kind:'activity',text:'公式排版检查通过 · 回放完成',time:t.answeredAt});}
   requests.delete(c.id);if(visible){running=null;setBusy(false);renderTurns();if(follow)scrollEnd();}renderTabs();if(activeView==='history')historyDialog.refresh();record('finish',{mode});
@@ -321,7 +358,7 @@ $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const pr
 $('thread').addEventListener('click',event=>{if(event.target.closest('.math'))event.preventDefault();});
 $('annotation-input').addEventListener('input',()=>{const field=$('entries').querySelector('[data-question="'+editing+'"]');if(field)updateEditor(field);});
 $('entries').addEventListener('input',event=>{if(event.target.dataset.question===editing)updateEditor($('annotation-input'));});
-window.addEventListener('resize',()=>{restoreComposerHeight();refreshEditors();updateReadingContext();});
+window.addEventListener('resize',()=>{restoreComposerHeight();refreshEditors();alignReadingInk(false);updateReadingContext();});
 
 
 // Restore saved titles and reading anchors.
@@ -360,5 +397,5 @@ window.addEventListener('resize',commitAnnotation);
 new ResizeObserver(commitAnnotation).observe($('reader'));
 for(const c of state.conversations)for(const e of c.entries)if(e.state==='提交中')e.state='上次提交未完成，可重试';
 
-mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();restoreReading(current().reading);});
+mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();alignReadingInk(false);restoreReading(current().reading);});
 if(location.search.includes('tools=1'))openLab();

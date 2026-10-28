@@ -48,6 +48,12 @@ internal static partial class Program
                 if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
                     throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
+                if (args.Contains("--ai-title-formula-only"))
+                {
+                    var baselineIndex = Array.IndexOf(args, "--baseline");
+                    await CheckAiTitleFormulaAsync(window, output, baselineIndex >= 0 ? args[baselineIndex + 1] : null, args.Contains("--assert-title-formula"));
+                    await CloseAndObserveAsync(window, "AI heading font, equation layout and ordinal axis"); result = 0; return;
+                }
                 if (args.Contains("--ai-retry-only"))
                 {
                     await CheckAiRetryAsync(window, output);
@@ -150,7 +156,7 @@ internal static partial class Program
                 if (args.Contains("--ai-ui-perf-only"))
                 {
                     var compare = Array.IndexOf(args, "--baseline");
-                    await CheckAiUiPerformanceAsync(window, output, compare >= 0 ? args[compare + 1] : null, args.Contains("--normalize-typography"));
+                    await CheckAiUiPerformanceAsync(window, output, compare >= 0 ? args[compare + 1] : null, args.Contains("--normalize-typography"), args.Contains("--with-headings"));
                     await CloseAndObserveAsync(window, "AI UI performance"); result = 0; return;
                 }
                 if (args.Contains("--ai-compact-only"))

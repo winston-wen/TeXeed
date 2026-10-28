@@ -109,6 +109,7 @@ h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .answer :is(h1,h2,h3,h4,h5,h6) { font:inherit; margin:0 }
 .answer>.passage:has(>.passage-body>:is(h1,h2,h3,h4,h5,h6)) { margin-bottom:0 }
 .heading-marker { color:#d8c09b; font-family:var(--sans); font-variant-numeric:tabular-nums; white-space:nowrap; margin-right:.5em; user-select:none }
+.heading-marker,.heading-text { font-family:var(--sans); font-weight:300; line-height:0; position:relative }
 .passage ul,.passage ol,.rich-text ul,.rich-text ol { padding-left:1.5em; margin:8px 0 12px }
 .passage li,.rich-text li { margin-bottom:6px }
 .passage strong { font-weight:700 }
@@ -133,6 +134,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .math svg { fill:currentColor }
 .equation { font-size:18.25px; display:flex; align-items:center; gap:16px; margin:12px 0 16px; padding:10px 0; overflow-x:auto; min-height:25px }
 .equation .math { flex-shrink:0 }
+.answer .equation { padding-left:calc(4 * var(--reading-font)); scroll-padding-left:calc(4 * var(--reading-font)) }
 .equation-number { flex-shrink:0; font:13px/1.5 var(--sans); color:var(--muted); margin-left:auto; padding:1px 0 1px 16px; white-space:nowrap }
 .passage:has(>.passage-body>.equation) { margin-bottom:6px }
 .equation-ref { color:var(--accent); font-family:"Times New Roman",serif; padding:0 2px; text-decoration:none; white-space:nowrap; font-size:.9em }

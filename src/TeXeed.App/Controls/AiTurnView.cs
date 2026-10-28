@@ -16,7 +16,8 @@ public sealed class AiTurnView : StackPanel
     public static readonly DependencyProperty TurnProperty = DependencyProperty.Register(nameof(Turn), typeof(AiTurn), typeof(AiTurnView), new PropertyMetadata(null, (d, _) => ((AiTurnView)d).Build()));
     public AiTurn Turn { get => (AiTurn)GetValue(TurnProperty); set => SetValue(TurnProperty, value); }
     private int _turnNumber;
-    public int TurnNumber { get => _turnNumber; set { _turnNumber = value; _number.Text = value > 0 ? $"[{value}]" : ""; foreach (var answer in Answers) answer.TurnNumber = value; } }
+    public int TurnNumber { get => _turnNumber; set { _turnNumber = value; _number.Text = value > 0 ? $"[{value}]" : ""; _ordinalAlignment?.Schedule(); foreach (var answer in Answers) answer.TurnNumber = value; } }
+    private ChatOrdinalAlignment? _ordinalAlignment;
     private string? _imageBaseDirectory;
     public string? ImageBaseDirectory { get => _imageBaseDirectory; set { _imageBaseDirectory = value; foreach (var answer in Answers) answer.ImageBaseDirectory = value; } }
     internal Action? Changed;
@@ -63,6 +64,7 @@ public sealed class AiTurnView : StackPanel
     }
     private void Build()
     {
+        _ordinalAlignment?.Dispose(); _ordinalAlignment = null;
         foreach (var old in Answers) AnswerGone?.Invoke(old);
         if (_number.Parent is Panel question) question.Children.Remove(_number);
         Answers.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
@@ -82,6 +84,7 @@ public sealed class AiTurnView : StackPanel
         _number.FontFamily = content.FontFamily;
         _number.Margin = new Thickness(-40, 8 + (content.FontFamily.Baseline - _number.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
         questionRow.Children.Add(_number); questionRow.Children.Add(content); Children.Add(questionRow);
+        _ordinalAlignment = new ChatOrdinalAlignment(content, _number);
         if (entries.Count > 0 && !annotationsOnly)
         {
             var links = Rich(annotationText, new Thickness(AiChatTypography.TextLeft, 0, 12, -AiChatTypography.RichTextInset), true);

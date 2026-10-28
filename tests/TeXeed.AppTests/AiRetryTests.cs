@@ -35,7 +35,15 @@ internal static partial class Program
             Check(handler.Requests == 11 && waits.Count == 9 && waits.Take(6).SequenceEqual(new[] { 1d, 2, 4, 8, 16, 30 }), "Network/overload retries stopped at a fixed attempt count or lost backoff");
             Check(executed == 1 && inventories == 1, "Retry repeated an already completed project operation");
             Check(buffer.Snapshot().Single(s => s.Kind == "final").Text == "最终答案" && !string.Concat(buffer.Snapshot().Select(s => s.Text)).Contains("断流片段"), "Retry duplicated partial stream content");
+            Check(buffer.Snapshot().All(s => !s.IsTransientStatus), "Connection/retry status leaked into the persisted transcript");
+            Check(buffer.PendingStatus.Text == "正在生成回复", "Pending status did not advance when reply text arrived");
         }
+        var transient = new AiStreamBuffer(); var dataVersion = transient.Version;
+        transient.Add(new("pending", "status", "网络连接中断，2 秒后重试"));
+        transient.Add(new("pending", "status", "网络连接中断，1 秒后重试"));
+        Check(transient.Version == dataVersion && transient.Snapshot().Count == 0 && transient.PendingStatus.Version == 2, "Retry countdown caused a transcript snapshot or checkpoint rewrite");
+        var oldConnection = new AiTurn("旧问题", "旧答复") { Segments = [new() { Id = "request-state-2", Kind = "activity", Text = "已连接 AI" }, new() { Kind = "activity", Text = "已读取源码 · sample.tex" }, new() { Kind = "final", Text = "旧答复" }] };
+        Check(oldConnection.DisplaySegments.Count == 2 && oldConnection.Segments.Count == 3, "Legacy status filtering changed saved content or hid real work");
         using (var cancellation = new CancellationTokenSource())
         using (var handler = new RetryFixtureHandler(_ => throw new HttpRequestException("offline")))
         using (var connection = new AiConnection(handler))
@@ -110,7 +118,8 @@ internal static partial class Program
                 await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
                 var live = (FrameworkElement)panel.FindName("LiveContainer");
                 Check(live.IsVisible && VisibleBounds((FrameworkElement)panel.FindName("LiveQuestion"), panel).Height > 0
-                    && Descendants<AiActivityView>(live).Any(), "Virtualized history hid the active question or processing state");
+                    && ((AiReplyStatus)panel.FindName("LiveReplyStatus")).IsThinking
+                    && ((AiReplyStatus)panel.FindName("LiveReplyStatus")).PendingText == "等待 AI 响应", "Virtualized history hid the active question or processing state");
                 Capture(host, Path.Combine(output, "immediate-send-stalled.png"));
                 ((Button)panel.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await request.WaitAsync(TimeSpan.FromSeconds(5));
                 host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);

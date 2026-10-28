@@ -60,7 +60,7 @@ public sealed record AiTurn(string Question, string Answer)
     {
         get
         {
-            var segments = Segments.Count > 0 ? Segments.Where(s => s.Id != "request").Select(s =>
+            var segments = Segments.Count > 0 ? Segments.Where(s => s.Id != "request" && !s.IsTransientStatus).Select(s =>
             {
                 if (SentAt is not null) return s;
                 var legacy = s.Snapshot(); legacy.CreatedAt = legacy.CreatedAt.ToLocalTime(); return legacy;

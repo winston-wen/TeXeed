@@ -9,6 +9,7 @@ const context=vm.createContext({
  activity:segment=>'<details class="activity"><summary>'+escape(segment.text)+'</summary></details>'
 });
 vm.runInContext(app.slice(app.indexOf('function time('),app.indexOf('function scrollEnd(')),context);
+vm.runInContext(app.slice(app.indexOf('function isConnectionStatus('),app.indexOf('function alignReadingInk(')),context);
 vm.runInContext(app.slice(app.indexOf('function turnEnd('),app.indexOf('function renderTurns(')),context);
 
 const sentAt='2000-01-01T09:00:00+08:00',endedAt='2000-01-01T09:00:12+08:00';
@@ -89,6 +90,7 @@ function requestFixture(mode){
   record:action=>records.push({action,conversation:JSON.parse(JSON.stringify(conversation))}),
   setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>cancelled.push(id)
  });
+ vm.runInContext(app.slice(app.indexOf('function setPendingStatus('),app.indexOf('function alignReadingInk(')),runtime);
  vm.runInContext(app.slice(app.indexOf('function send('),app.indexOf('function newConversation(){')),runtime);
  runtime.send();
  assert.equal(conversation.turns.length,1,'Sending must create exactly one turn');
@@ -126,7 +128,8 @@ console.log('Turn metadata: ordinal numbering, chronological labels, complete/pr
 
 const offline=requestFixture('failure');
 offline.timers[0]();assert.equal(offline.runtime.requests.size,1);assert.equal(offline.timers.length,2);
-assert.ok(offline.turn.segments.some(s=>s.text.includes('网络连接中断')));
+assert.equal(offline.turn.segments.length,0);assert.match(offline.runtime.running.pendingStatus,/网络连接中断/);
+const statusVersion=JSON.stringify(offline.turn);offline.timers[1]();assert.equal(JSON.stringify(offline.turn),statusVersion,'A retry status must not rewrite the transcript');
 offline.runtime.stopConversation();assert.equal(offline.runtime.requests.size,0);assert.equal(offline.turn.endReason,'user');
 const retry=requestFixture('program-failure');retry.timers[0]();
 retry.conversation.draft='下一条草稿';retry.runtime.$('composer').value='下一条草稿';
@@ -139,3 +142,6 @@ const older={...base,id:'older-failed',incomplete:true,endReason:'program',ended
 assert.doesNotMatch(context.turnHtml(older,0,[older,base]),/data-retry-turn/);
 assert.match(context.turnHtml(older,0,[older]),/data-retry-turn="older-failed"/);
 console.log('Retry: latest interrupted turn only, continuous network playback, cancel, original question and next draft preservation passed.');
+
+const legacy={...base,segments:[{id:'request-state-0',kind:'activity',text:'已连接 AI'},{kind:'activity',text:'已读取源码 · sample.tex'}]};
+assert.doesNotMatch(context.turnHtml(legacy),/已连接 AI/);assert.match(context.turnHtml(legacy),/已读取源码/);assert.equal(legacy.segments.length,2);

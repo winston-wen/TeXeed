@@ -38,6 +38,7 @@ public partial class AiPanel : UserControl, IDisposable
     private CancellationTokenSource? _operation;
     private TaskCompletionSource? _operationDone;
     private AiTurn? _foldingLiveTurn;
+    private readonly ChatOrdinalAlignment _liveOrdinalAlignment;
     public Func<IReadOnlyList<ProjectFile>>? ProjectFiles { get; set; }
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
@@ -45,6 +46,7 @@ public partial class AiPanel : UserControl, IDisposable
         _connection = connection; InitializeComponent(); InitializeComposer();
         LiveSentTime.Focusable = true; LiveSentTime.Cursor = Cursors.Hand;
         LiveTurnNumber.Margin = new Thickness(-40, 8 + (LiveQuestion.FontFamily.Baseline - LiveTurnNumber.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
+        _liveOrdinalAlignment = new ChatOrdinalAlignment(LiveQuestion, LiveTurnNumber);
         LiveSentTime.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { ToggleLiveTurn(); e.Handled = true; } };
         LiveSentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) ToggleLiveTurn(); e.Handled = true; } };
         History.ApplyTemplate();
@@ -221,10 +223,10 @@ public partial class AiPanel : UserControl, IDisposable
             _readingRestoreVersion++; _restoringReading = false;
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
+            _liveOrdinalAlignment.Schedule();
             _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
             LiveSentTime.Text = pendingTurn.SentTime; LiveReplyStatus.IsCollapsed = false;
-            buffer.Add(new("request-state-0", "activity", "正在准备请求"));
-            _liveSegments.Add(buffer.Snapshot().Single());
+            LiveReplyStatus.PendingText = "等待 AI 响应";
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
             _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (_foldingLiveTurn == pendingTurn && !_disposed) RevealLiveTurn(); }));
             AiTurnCheckpoint checkpoint;
@@ -242,9 +244,16 @@ public partial class AiPanel : UserControl, IDisposable
             Rebind();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
             long renderedVersion = -1;
+            long renderedStatusVersion = -1;
             void Flush()
             {
                 if (_generation != generation || _disposed) return;
+                var pendingStatus = buffer.PendingStatus;
+                if (pendingStatus.Version != renderedStatusVersion)
+                {
+                    renderedStatusVersion = pendingStatus.Version;
+                    LiveReplyStatus.PendingText = pendingStatus.Text;
+                }
                 var version = buffer.Version;
                 if (version == renderedVersion) return;
                 renderedVersion = version;
@@ -320,5 +329,5 @@ public partial class AiPanel : UserControl, IDisposable
         ScheduleReadingContext();
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { _disposed = true; _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+    public void Dispose() { _disposed = true; _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }

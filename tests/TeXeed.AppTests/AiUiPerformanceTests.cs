@@ -11,16 +11,17 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
-    private static async Task CheckAiUiPerformanceAsync(MainWindow owner, string output, string? baseline, bool normalizeTypography)
+    private static async Task CheckAiUiPerformanceAsync(MainWindow owner, string output, string? baseline, bool normalizeTypography, bool withHeadings = false)
     {
         using var panel = new AiPanel(new AiConnection(new AiFakeHandler()));
         var host = new Window { Owner = owner, Width = 900, Height = 760, Content = panel, Title = "AI UI performance · synthetic fixtures" };
         host.Show(); await panel.SetProjectAsync(Path.Combine(output, "performance.tex"));
         var book = (AiNotebook)Field(panel, "_book")!;
         var details = string.Join('\n', Enumerable.Range(1, 2000).Select(i => $"line {i}: synthetic tool result"));
+        var answer = withHeadings ? string.Join("\n\n", Enumerable.Range(1, 6).Select(level => new string('#', level) + " 合成标题 Heading\n\nSynthetic answer.")) : "Synthetic answer.";
         for (var turn = 0; turn < 120; turn++)
-            book.Turns.Add(new("Synthetic question " + turn, "Synthetic answer.") { SentAt = DateTimeOffset.UnixEpoch, Segments = Enumerable.Range(0, 15)
-                .Select(i => new AiSegment { Kind = "activity", Text = "Synthetic activity " + i, Details = details }).Append(new() { Kind = "final", Text = "Synthetic answer." }).ToList() });
+            book.Turns.Add(new("Synthetic question " + turn, answer) { SentAt = DateTimeOffset.UnixEpoch, Segments = Enumerable.Range(0, 15)
+                .Select(i => new AiSegment { Kind = "activity", Text = "Synthetic activity " + i, Details = details }).Append(new() { Kind = "final", Text = answer }).ToList() });
         Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
         await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
         var scroll = (ScrollViewer)panel.FindName("MessagesScroll");

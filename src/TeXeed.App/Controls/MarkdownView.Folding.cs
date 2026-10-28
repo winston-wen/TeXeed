@@ -44,7 +44,7 @@ public sealed partial class MarkdownView
                 var link = new Hyperlink { TextDecorations = null };
                 link.SetResourceReference(TextElement.ForegroundProperty, "Ink");
                 while (paragraph.Inlines.FirstInline is { } inline) { paragraph.Inlines.Remove(inline); link.Inlines.Add(inline); }
-                var hint = new Run("（已折叠）") { FontWeight = FontWeights.Normal, FontSize = paragraph.FontSize * .8 };
+                var hint = new Run("（已折叠）") { FontWeight = ChatMode ? FontWeights.Light : FontWeights.Normal, FontSize = paragraph.FontSize * .8 };
                 hint.SetResourceReference(TextElement.ForegroundProperty, "Muted");
                 paragraph.Inlines.Add(link);
                 // Attach/detach only this section's body; preserve nested controls and their state.

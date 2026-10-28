@@ -65,8 +65,10 @@ internal static partial class Program
             Console.WriteLine($"Annotation-only question to sent: {linkedGap:F3}");
             if (enforce && Math.Abs(linkedGap - gaps["body_to_check"]) > .5) throw new Exception("Annotation-only question has different metadata spacing.");
             var hanging = Descendants<TextBlock>(view).Single(t => t.Text == "[6]");
-            var firstQuestion = Descendants<MarkdownView>(view).Where(v => !v.ChatMode).SelectMany(Baselines).Min();
-            if (enforce && Math.Abs(Baselines(hanging).Min() - firstQuestion) > .5) throw new Exception("Annotation-only question moved its hanging ordinal off the first baseline.");
+            var questionInk = Descendants<MarkdownView>(view).Where(v => !v.ChatMode).SelectMany(v => GlyphInk(v, view)).ToArray();
+            var firstLine = questionInk.Where(i => Math.Abs(i.Baseline - questionInk.Min(g => g.Baseline)) < 1).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
+            var ordinalInk = GlyphInk(hanging, view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
+            if (enforce && Math.Abs(firstLine.Top + firstLine.Height / 2 - ordinalInk.Top - ordinalInk.Height / 2) > .5) throw new Exception("Annotation-only question ordinal ink axis differs from its first line.");
             Capture(host, Path.Combine(output, "gray-annotation-spacing.png"));
         }
         finally { host.Close(); }

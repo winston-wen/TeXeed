@@ -12,6 +12,8 @@ public sealed class AiReplyStatus : StackPanel
 {
     public static readonly DependencyProperty TextProperty = DependencyProperty.Register(nameof(Text), typeof(string), typeof(AiReplyStatus), new PropertyMetadata("", (d, _) => ((AiReplyStatus)d).Refresh()));
     public static readonly DependencyProperty IsThinkingProperty = DependencyProperty.Register(nameof(IsThinking), typeof(bool), typeof(AiReplyStatus), new PropertyMetadata(false, (d, _) => ((AiReplyStatus)d).Refresh()));
+    public static readonly DependencyProperty PendingTextProperty = DependencyProperty.Register(nameof(PendingText), typeof(string), typeof(AiReplyStatus), new PropertyMetadata("等待 AI 响应", (d, _) => ((AiReplyStatus)d).Refresh()));
+    public string PendingText { get => (string)GetValue(PendingTextProperty); set => SetValue(PendingTextProperty, value); }
     public string Text { get => (string)GetValue(TextProperty); set => SetValue(TextProperty, value); }
     public bool IsThinking { get => (bool)GetValue(IsThinkingProperty); set => SetValue(IsThinkingProperty, value); }
     private readonly TextBlock _stamp = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap };
@@ -61,11 +63,11 @@ public sealed class AiReplyStatus : StackPanel
         _stamp.Inlines.Clear();
         if (IsThinking)
         {
-            _stamp.Inlines.Add(new Run("思考中"));
+            _stamp.Inlines.Add(new Run(PendingText));
             _stamp.Inlines.Add(_indicatorInline);
         }
         else _stamp.Text = Text;
-        System.Windows.Automation.AutomationProperties.SetName(this, IsThinking ? "思考中" : Text);
+        System.Windows.Automation.AutomationProperties.SetName(this, IsThinking ? PendingText : Text);
         UpdatePulse();
     }
     private void UpdatePulse()

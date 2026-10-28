@@ -37,7 +37,7 @@ internal static partial class Program
             for (var i = 0; i < headings.Length; i++)
             {
                 Check(new TextRange(headings[i].ContentStart, headings[i].ContentEnd).Text.StartsWith($"[3:h{i + 1}]"), "Heading marker has the wrong level or turn.");
-                Check(headings[i].FontSize == view.FontSize && headings[i].FontWeight == FontWeights.Normal && headings[i].LineHeight == 25,
+                Check(headings[i].FontSize == view.FontSize && headings[i].FontWeight == FontWeights.Light && headings[i].LineHeight == 25,
                     "Answer heading changed body typography.");
             }
             Check(plain.Document.Blocks.OfType<Paragraph>().First().FontSize > plain.FontSize, "Question/tutorial heading style changed.");
