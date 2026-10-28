@@ -105,7 +105,7 @@ internal static partial class Program
         string Label() => string.Concat(link.Inlines.OfType<Run>().Select(r => r.Text));
         Check(header.Inlines.OfType<Run>().First().Text == segment.DisplayTime && Label() == segment.Text, "Process summary must show time first without a redundant fold label");
         Check(!Descendants<ToggleButton>(row).Any() && !Descendants<System.Windows.Shapes.Path>(row).Any(), "A separate disclosure button/arrow remains");
-        Check(Math.Abs(rows[1].TranslatePoint(new Point(), panel).Y - rows[0].TranslatePoint(new Point(0, rows[0].ActualHeight), panel).Y - 8.5) < .5, "Collapsed row gap was not halved");
+        Check(Math.Abs(rows[1].TranslatePoint(new Point(), panel).Y - rows[0].TranslatePoint(new Point(), panel).Y - 26.5) < .5, "Process summary lines do not share the expanded metadata rhythm");
         Check(row.Content is null, "A collapsed activity eagerly constructs its code editor");
         link.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); host.UpdateLayout();
         var code = Descendants<TextEditor>(row).Single();

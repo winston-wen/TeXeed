@@ -252,6 +252,7 @@ public sealed partial class MarkdownView : RichTextBox
     private Paragraph Paragraph(ContainerInline? inline, int depth)
     {
         var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, 10) };
+        if (ChatMode) paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         if (inline is not null) AddInlines(paragraph.Inlines, inline, depth + 1);
         return paragraph;
     }

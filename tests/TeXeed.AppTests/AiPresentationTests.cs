@@ -31,13 +31,14 @@ internal static partial class Program
         var reply = Descendants<AiReplyStatus>(view).Single(); var stamp = Descendants<TextBlock>(reply).Single();
         Check(sent.FontSize == 13 && header.FontSize == 13 && stamp.FontSize == 13 && rich.All(r => r.FontSize == 16), "Chat reading/metadata sizes diverge");
         var answer = rich.Single(r => r.ChatMode);
-        Check(answer.Margin.Bottom == 0 && answer.Document.Blocks.LastBlock!.Margin.Bottom == 0 && reply.Margin.Top == 16, "Answer footer spacing is owned by more than one layer");
+        Check(answer.Margin.Bottom == 0 && answer.Document.Blocks.LastBlock!.Margin.Bottom == 0 && reply.Margin.Top == 0, "Answer footer spacing is owned by more than one layer");
         var xs = rich.Select(r => r.TranslatePoint(r.Document.Blocks.OfType<Paragraph>().First().ContentStart.GetCharacterRect(LogicalDirection.Forward).TopLeft, view).X)
             .Append(sent.TranslatePoint(new Point(), view).X).Append(header.TranslatePoint(new Point(), view).X).Append(stamp.TranslatePoint(new Point(), view).X).ToArray();
         Console.WriteLine("Chat text left edges: " + string.Join(", ", xs.Select(x => x.ToString("F2"))));
         Check(xs.Max() - xs.Min() < 1, "Chat text left edges are not aligned");
         Check(Math.Abs(xs[0] - 36) < 1, "Reading text does not use the 36px inset");
         var number = Descendants<TextBlock>(view).Single(t => t.Text == "[1]");
+        Check(number.FontFamily.Source == rich[0].FontFamily.Source, "Hanging ordinal does not use the body font");
         Check(number.FontSize == 16 && Math.Abs(xs[0] - number.TranslatePoint(new Point(number.ActualWidth, 0), view).X - 10) < 1, "Turn number is not hanging 10px left of the question");
         double FirstBaseline(FrameworkElement element)
         {

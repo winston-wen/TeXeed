@@ -48,6 +48,17 @@ internal static partial class Program
                 if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
                     throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
+                if (args.Contains("--ai-retry-only"))
+                {
+                    await CheckAiRetryAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI retries and immediate echo"); result = 0; return;
+                }
+                if (args.Contains("--ai-heading-spacing-only"))
+                {
+                    await CheckAiHeadingSpacingAsync(window, output, args.Contains("--assert-uniform-spacing"));
+                    await CheckAiGraySpacingAsync(window, output, args.Contains("--assert-uniform-gray-spacing"));
+                    await CloseAndObserveAsync(window, "AI heading line spacing"); result = 0; return;
+                }
                 if (args.Contains("--ai-reading-media-only"))
                 {
                     await CheckAiReadingMediaAsync(window, output, args.Contains("--ai-reading-media-input-review"));

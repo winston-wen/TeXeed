@@ -29,10 +29,14 @@ internal static class AiFailure
             "subscription_sharing_unsupported_capability" => "请求包含当前登录通道不支持的能力。",
             _ => httpStatus == 401 ? "请重新登录。" : "本次问题已保留，可在排除原因后重试。"
         };
-        var message = $"AI 请求未完成{(httpStatus is null ? "" : $" · HTTP {httpStatus}")}\n{code} {parameter}\n{detail}\n{recovery}";
+        var message = string.Join("\n", new[] { $"AI 请求未完成{(httpStatus is null ? "" : $" · HTTP {httpStatus}")}", $"{code} {parameter}".Trim(), detail, recovery }.Where(s => !string.IsNullOrWhiteSpace(s)));
         if (!string.IsNullOrEmpty(requestId)) message += "\n请求编号：" + requestId;
         // Diagnostics never display bearer strings or token-shaped values.
         message = Regex.Replace(message, @"(?i)Bearer\s+\S+|sk-[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[已隐藏凭据]");
-        return new InvalidOperationException(message[..Math.Min(message.Length, 1800)]);
+        message = message[..Math.Min(message.Length, 1800)];
+        return code is "server_is_overloaded" or "server_error" or "temporarily_unavailable"
+            ? new AiTransientFailureException(message) : new InvalidOperationException(message);
     }
 }
+
+internal sealed class AiTransientFailureException(string message) : InvalidOperationException(message);

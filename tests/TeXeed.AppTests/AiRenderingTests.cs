@@ -143,10 +143,12 @@ internal static partial class Program
 
             await panel.NewConversationAsync();
             handler.FailNextRequest = true;
+            var attemptsBeforeFailure = handler.HistoryCounts.Count;
             input.Text = "首次连接失败的问题";
             await panel.SubmitAsync();
             var failedBook = AiStorage.Load(panelProject);
-            Check(failedBook.Active.Title == "首次连接失败的问题" && failedBook.Turns.Single().Answer.Contains("模拟连接失败"), "Failure on the first turn lost its title or was not exercised");
+            Check(failedBook.Active.Title == "首次连接失败的问题" && !failedBook.Turns.Single().IsIncomplete && handler.HistoryCounts.Count == attemptsBeforeFailure + 2,
+                "A transient failure did not recover with the original first-turn title");
 
             await panel.NewConversationAsync();
             ((AiNotebook)Field(panel, "_book")!).Active.Title = "保留自定义标题";

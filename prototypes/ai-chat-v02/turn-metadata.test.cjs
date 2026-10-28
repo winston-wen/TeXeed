@@ -89,21 +89,21 @@ function requestFixture(mode){
   record:action=>records.push({action,conversation:JSON.parse(JSON.stringify(conversation))}),
   setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>cancelled.push(id)
  });
- vm.runInContext(app.slice(app.indexOf('function send(){'),app.indexOf('function newConversation(){')),runtime);
+ vm.runInContext(app.slice(app.indexOf('function send('),app.indexOf('function newConversation(){')),runtime);
  runtime.send();
  assert.equal(conversation.turns.length,1,'Sending must create exactly one turn');
  assert.equal(timers.length,1,'A normal or failed playback has one completion callback');
  return {runtime,conversation,turn:conversation.turns[0],timers,cancelled,records};
 }
 
-for(const mode of ['normal','failure']){
+for(const mode of ['normal','program-failure']){
  const request=requestFixture(mode);
  request.timers[0]();
- const expected=mode==='failure'?'程序中止':'答复';
+ const expected=mode==='program-failure'?'程序中止':'答复';
  assert.equal(context.turnEnd(request.turn).action,expected,'Completion action for '+mode);
- assert.equal(request.turn.incomplete,mode==='failure');
- assert.equal(request.turn.endReason,mode==='failure'?'program':undefined,'New failure must persist its explicit cause');
- assert.ok(request.turn[mode==='failure'?'endedAt':'answeredAt'],'Completion must record its timestamp');
+ assert.equal(request.turn.incomplete,mode==='program-failure');
+ assert.equal(request.turn.endReason,mode==='program-failure'?'program':undefined,'New failure must persist its explicit cause');
+ assert.ok(request.turn[mode==='program-failure'?'endedAt':'answeredAt'],'Completion must record its timestamp');
  assert.equal(request.runtime.requests.size,0,'Completion must clear the pending request');
  assert.equal(request.records.at(-1).action,'finish');
  assert.equal(request.records.at(-1).conversation.turns[0].endReason,request.turn.endReason,'Persisted failure cause must match the rendered turn');
@@ -123,3 +123,19 @@ stopped.timers[0]();
 assert.equal(JSON.stringify(stopped.turn),stoppedSnapshot,'A late completion must not replace a user stop');
 
 console.log('Turn metadata: ordinal numbering, chronological labels, complete/program/user endings, legacy records, collapsed two-line timestamps, running state and persisted termination causes passed.');
+
+const offline=requestFixture('failure');
+offline.timers[0]();assert.equal(offline.runtime.requests.size,1);assert.equal(offline.timers.length,2);
+assert.ok(offline.turn.segments.some(s=>s.text.includes('网络连接中断')));
+offline.runtime.stopConversation();assert.equal(offline.runtime.requests.size,0);assert.equal(offline.turn.endReason,'user');
+const retry=requestFixture('program-failure');retry.timers[0]();
+retry.conversation.draft='下一条草稿';retry.runtime.$('composer').value='下一条草稿';
+retry.conversation.entries.push({id:'unsent',selected:true,question:'未发批注'});
+retry.runtime.send(retry.turn);
+assert.equal(retry.conversation.turns.length,2);assert.equal(retry.conversation.turns[1].prompt,'比较两次试飞。');
+assert.equal(retry.conversation.draft,'下一条草稿');assert.equal(retry.runtime.$('composer').value,'下一条草稿');assert.equal(retry.conversation.entries.length,1);
+context.running=null;
+const older={...base,id:'older-failed',incomplete:true,endReason:'program',endedAt};
+assert.doesNotMatch(context.turnHtml(older,0,[older,base]),/data-retry-turn/);
+assert.match(context.turnHtml(older,0,[older]),/data-retry-turn="older-failed"/);
+console.log('Retry: latest interrupted turn only, continuous network playback, cancel, original question and next draft preservation passed.');

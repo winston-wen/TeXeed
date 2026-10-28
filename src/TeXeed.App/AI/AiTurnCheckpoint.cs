@@ -30,7 +30,7 @@ internal sealed class AiTurnCheckpoint
     internal static async Task<AiTurnCheckpoint> StartAsync(string project, string conversationId, string title, AiTurn turn, AiStreamBuffer buffer, bool scoped = false)
     {
         var checkpoint = new AiTurnCheckpoint(project, conversationId, title, turn, buffer, scoped);
-        // Acceptance is durable before clearing the composer or starting network/render work.
+        // Persist the accepted question before network work and draft removal.
         await Task.Run(checkpoint.Write);
         checkpoint._worker = Task.Run(checkpoint.RunAsync);
         return checkpoint;

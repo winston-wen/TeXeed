@@ -18,15 +18,40 @@ public sealed class AiReplyStatus : StackPanel
     private readonly Ellipse _indicator = new() { Width = 7, Height = 7, Margin = new Thickness(7, 0, 0, 0), IsHitTestVisible = false };
     private readonly InlineUIContainer _indicatorInline;
     private bool _pulsing;
+    private Button? _retry;
+    private readonly WrapPanel _row = new();
+    internal Action? RetryRequested;
+    internal bool CanRetry
+    {
+        get => _retry?.Visibility == Visibility.Visible;
+        set
+        {
+            if (value && _retry is null)
+            {
+                _retry = new Button { Content = "↻  重试", FontSize = AiChatTypography.MetadataFontSize, Padding = new Thickness(4, 0, 4, 0), Margin = new Thickness(12, 0, 0, 0), BorderThickness = new Thickness(0), Background = Brushes.Transparent, VerticalAlignment = VerticalAlignment.Center };
+                _retry.SetResourceReference(Control.ForegroundProperty, "ChatHeading");
+                System.Windows.Automation.AutomationProperties.SetName(_retry, "重试本轮");
+                _retry.Click += (_, e) => { e.Handled = true; RetryRequested?.Invoke(); };
+                _row.Children.Add(_retry);
+            }
+            if (_retry is not null) _retry.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+    internal bool IsCollapsed
+    {
+        set { _stamp.LineHeight = value ? double.NaN : AiChatTypography.ExpandedLineHeight; _stamp.LineStackingStrategy = value ? LineStackingStrategy.MaxHeight : LineStackingStrategy.BlockLineHeight; }
+    }
     public AiReplyStatus()
     {
         Background = Brushes.Transparent;
+        IsCollapsed = false;
         _indicatorInline = new InlineUIContainer(_indicator) { BaselineAlignment = BaselineAlignment.Center };
         _stamp.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         _indicator.SetResourceReference(Shape.FillProperty, "ChatThinking");
         var line = new Border { Height = 1, Margin = new Thickness(0, 16, 0, 0), IsHitTestVisible = false };
         line.SetResourceReference(Border.BackgroundProperty, "ChatDivider");
-        Children.Add(_stamp); Children.Add(line);
+        _row.Children.Add(_stamp);
+        Children.Add(_row); Children.Add(line);
         Loaded += (_, _) => UpdatePulse();
         Unloaded += (_, _) => StopPulse();
         IsVisibleChanged += (_, _) => UpdatePulse();

@@ -28,10 +28,10 @@ public sealed class AiActivityView : Expander
             """);
     public AiActivityView()
     {
-        FontSize = AiChatTypography.MetadataFontSize; Margin = new Thickness(0, 0, 0, 8.5); HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        FontSize = AiChatTypography.MetadataFontSize; HorizontalContentAlignment = HorizontalAlignment.Stretch;
         SetResourceReference(ForegroundProperty, "Muted");
         Template = ActivityTemplate;
-        _header = new TextBlock { TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.MetadataLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
+        _header = new TextBlock { TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
         _header.Inlines.Add(_time); _header.Inlines.Add(new Run("  "));
         _link.SetResourceReference(TextElement.ForegroundProperty, "Muted");
         _link.Inlines.Add(_text); _link.Click += (_, _) => IsExpanded = !IsExpanded; _header.Inlines.Add(_link);
@@ -98,6 +98,7 @@ public sealed class AiActivityView : Expander
 internal static class AiChatTypography
 {
     internal const double FontSize = 16, MetadataFontSize = 13, MetadataLineHeight = 20, TextLeft = 36;
+    internal const double ExpandedLineHeight = MetadataLineHeight + MetadataFontSize / 2;
     // Align the RichTextBox viewport with the surrounding text.
     internal const double RichTextInset = 5;
 }

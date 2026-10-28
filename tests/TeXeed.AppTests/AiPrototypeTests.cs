@@ -51,14 +51,14 @@ internal static partial class Program
                 var reply = Descendants<AiReplyStatus>(view).Single();
                 Check(Math.Abs(timestamp.TranslatePoint(new Point(), view).X - reply.TranslatePoint(new Point(), view).X) < .1, "Sent and answer timestamps must align");
                 Check(Descendants<Button>(view).All(b => !Equals(b.Content, "（已折叠，点击展开）") && b.ToolTip is not ("将问题重新放入编辑栏" or "删除此轮问题和回答")), "Removed hint or footer icons remain");
-                var stamp = Descendants<TextBlock>(reply).Single(); var line = Descendants<Border>(reply).Single();
+                var stamp = Descendants<TextBlock>(reply).Single(t => t.FontSize == 13 && t.Text.Contains(view.Turn.AnswerTime)); var line = Descendants<Border>(reply).Single(b => !b.IsHitTestVisible);
                 Check(line.TranslatePoint(new Point(), reply).Y >= stamp.ActualHeight, "Timestamp intersects the separator");
             }
             Check(Descendants<TextBlock>(second).Any(t => t.IsVisible && t.Text == partial.SentTime + "\n" + partial.AnswerTime), "Collapsed turn must share one text block for both timestamps");
             var footer = Descendants<AiReplyStatus>(second).Single();
             void CheckCollapsedSpacing()
             {
-                var block = Descendants<TextBlock>(footer).Single();
+                var block = Descendants<TextBlock>(footer).Single(t => t.Text.Contains('\n'));
                 Check(block.Text == partial.SentTime + "\n" + partial.AnswerTime, "Collapsed timestamps are not in the same text block");
                 Check(double.IsNaN(block.LineHeight) && block.Margin == new Thickness(0) && block.Padding == new Thickness(0), "Collapsed timestamps override natural text line spacing");
                 var reference = new TextBlock { Text = block.Text, FontFamily = block.FontFamily, FontSize = block.FontSize, TextWrapping = block.TextWrapping };
@@ -68,7 +68,7 @@ internal static partial class Program
             CheckCollapsedSpacing();
             foreach (var offset in new[] { 0, partial.SentTime.Length + 1 })
             {
-                var block = Descendants<TextBlock>(footer).Single();
+                var block = Descendants<TextBlock>(footer).Single(t => t.Text.Contains('\n'));
                 var position = block.Inlines.OfType<Run>().Single().ContentStart.GetPositionAtOffset(offset)!;
                 var rect = position.GetCharacterRect(LogicalDirection.Forward);
                 var point = block.TranslatePoint(new Point(rect.Left + 2, rect.Top + rect.Height / 2), host);
@@ -137,7 +137,7 @@ internal static partial class Program
             Check(persisted.Incomplete == true && persisted.EndedAt == stopped.EndedAt && persisted.EndReason == "user", "Stopped status was not durable");
         }
         finally { ThemeManager.Apply(theme); host.Close(); }
-        using (var failedConnection = new AiConnection(new AiFakeHandler { Broken = true }))
+        using (var failedConnection = new AiConnection(new AiFakeHandler { ProgramFailure = true }))
         using (var failedPanel = new AiPanel(failedConnection))
         {
             var failedModels = (ComboBox)failedPanel.Settings.FindName("Models"); failedModels.ItemsSource = new[] { new AiModel("fixture", "测试模型") }; failedModels.SelectedIndex = 0;

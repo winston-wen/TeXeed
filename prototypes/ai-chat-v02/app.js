@@ -97,16 +97,20 @@ function turnEnd(t){
  const reason=t.endReason||(terminal?.text.startsWith('已停止')?'user':'program');
  return {incomplete,at:(incomplete?t.endedAt||terminal?.time||t.answeredAt:t.answeredAt)||null,action:incomplete?(reason==='user'?'用户中止':'程序中止'):'答复'};
 }
-function turnHtml(t,index=0){
+function turnHtml(t,index=0,turns=[t]){
  const thinking=running?.turn.id===t.id,canFold=!thinking,end=turnEnd(t);
  const activities=(t.segments||[]).filter(s=>s.kind==='activity');
+ const proofIndex=activities.findIndex(s=>/^公式排版检查通过/.test(s.text));
+ const after=proofIndex<0?[]:activities.splice(proofIndex);
+ const processAfter=after.length?'<div class="process-log after-answer" aria-label="过程记录">'+after.map(activity).join('')+'</div>':'';
  const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
  const sent='<div class="turn-time sent-time" data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起或展开本轮回答">'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送'+(t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
  const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
  const folded=!thinking&&t.collapsed;
+ const retry=!running&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
  const stamp=folded?sent.replace(/^<div[^>]*>/,'').replace(/<\/div>$/,'')+'\n'+answerTime:answerTime;
- const footer='<div class="turn-footer '+(folded?'folded':'')+'" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+stamp+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
- return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+footer+'</article>';
+ const footer='<div class="turn-footer '+(folded?'folded':'')+'" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+stamp+retry+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
+ return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+processAfter+'</div>'+footer+'</article>';
 }
 function renderTurns(){
  const pos=$('reader').scrollTop;
@@ -157,20 +161,21 @@ function positionEditor(){if(!editing)return;const e=current().entries.find(e=>e
 function closePopups(closeEditor=false){for(const id of ['options','answer-menu'])$(id).hidden=true;if(closeEditor)commitAnnotation();}
 function placePopup(id,anchor,above=false){const el=$(id);el.hidden=false;const r=anchor.getBoundingClientRect();el.style.left=Math.max(6,Math.min(r.left,innerWidth-el.offsetWidth-8))+'px';el.style.top=Math.max(6,Math.min(above?r.top-el.offsetHeight:r.bottom+4,innerHeight-el.offsetHeight-8))+'px';}
 function setBusy(value){$('send').hidden=value;$('stop').hidden=!value;for(const id of ['permission','model','effort'])$(id).disabled=value;renderEntries();}
-function send(){
- if(running)return;const c=current(),prompt=$('composer').value.trim(),selected=c.entries.filter(e=>e.selected);
+function send(retryTurn=null){
+ if(running)return;const c=current(),prompt=retryTurn?(retryTurn.prompt??retryTurn.question):$('composer').value.trim(),selected=retryTurn?clone(retryTurn.request?.annotations||retryTurn.annotations||[]):c.entries.filter(e=>e.selected);
  if(!selected.length&&!prompt){status('请输入问题，或填写并勾选条目。');return;}
  if(!prompt&&selected.some(e=>!e.question.trim())){status('请在编辑栏描述要问的问题。');$('composer').focus();return;}
  if(selected.length>20){status('每批最多 20 个问题，请分批提交。');return;}
  const outgoing=clone(selected).map((e,i)=>({...e,number:i+1}));
  closePopups(true);c.updatedAt=new Date().toISOString();const question=[prompt,...outgoing.map(e=>'#'+e.number+' · '+e.title+'：'+e.question)].filter(Boolean).join('\n');
  const annotations=outgoing.map(e=>({...e,summary:summarizeSnapshot(e),block:null}));
- const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[{kind:'activity',text:'原型回放 · 合成示例',details:'',time:new Date().toISOString()}]};
- c.lastSentAt=t.sentAt;c.turns.push(t);c.entries=c.entries.filter(e=>!selected.includes(e));if(c.title==='新对话')c.title=shortTitle(question);c.draft='';$('composer').value='';refreshEditors();if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');const job={turn:t,selected,timers:[]};requests.set(c.id,job);running=job;renderTabs();status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
+ const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[{kind:'activity',text:'正在连接 AI · 原型回放',details:'',time:new Date().toISOString()}]};
+ c.lastSentAt=t.sentAt;c.turns.push(t);if(!retryTurn)c.entries=c.entries.filter(e=>!selected.includes(e));if(c.title==='新对话')c.title=shortTitle(question);if(!retryTurn){c.draft='';$('composer').value='';refreshEditors();}if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');const job={turn:t,selected,timers:[]};requests.set(c.id,job);running=job;renderTabs();status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
  const mode=$('playback-mode').value;
  const finish=()=>{
   if(requests.get(c.id)!==job)return;const visible=state.active===c.id;const follow=visible&&$('reader').scrollHeight-$('reader').scrollTop-$('reader').clientHeight<40;
-  if(mode==='failure'){t.incomplete=true;t.endReason='program';t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：网络连接失败。',details:'原型预编失败事件。',time:t.endedAt});}
+  if(mode==='failure'){job.retryCount=(job.retryCount||0)+1;const wait=Math.min(30,2**Math.min(job.retryCount-1,5));let retry=t.segments.find(s=>s.id==='network-retry');if(!retry){retry={id:'network-retry',kind:'activity'};t.segments.push(retry);}retry.text='网络连接中断，'+wait+' 秒后重试 · 第 '+job.retryCount+' 次';retry.time=new Date().toISOString();if(visible)renderTurns();record('network-retry',{attempt:job.retryCount});job.timers.push(setTimeout(finish,wait*1000));return;}
+  if(mode==='program-failure'){t.incomplete=true;t.endReason='program';t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：程序无法继续处理。',details:'原型预编失败事件。',time:t.endedAt});}
   else {t.answer=DATA.playback.answer;t.answerHtml=DATA.playback.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+t.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+t.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+t.id+'-'+id+'"');t.incomplete=false;t.answeredAt=new Date().toISOString();t.segments.push({kind:'activity',text:'公式排版检查通过 · 回放完成',time:t.answeredAt});}
   requests.delete(c.id);if(visible){running=null;setBusy(false);renderTurns();if(follow)scrollEnd();}renderTabs();if(activeView==='history')historyDialog.refresh();record('finish',{mode});
  };
@@ -306,7 +311,7 @@ $('entries').addEventListener('pointerover',event=>{const b=event.target.closest
  if($('entries-dialog').open)$('entries-dialog').append(tooltip);},350);});
 $('entries').addEventListener('pointerout',()=>{clearTimeout(tooltipTimer);$('context-tooltip').hidden=true;});
 $('entries-dialog').addEventListener('close',()=>{clearTimeout(tooltipTimer);$('context-tooltip').hidden=true;document.body.append($('context-tooltip'));});
-$('thread').addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.dataset.file){openSource(b.dataset.file);return;}if(b.dataset.section){const answer=b.closest('.answer'),turn=current().turns.find(t=>t.id===answer.dataset.turn),p=$(b.dataset.section),offset=p.getBoundingClientRect().top;turn.sections||={};turn.sections[p.id]=!turn.sections[p.id];renderTurns();$('reader').scrollTop+=$(p.id).getBoundingClientRect().top-offset;saveReading();}});
+$('thread').addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.dataset.retryTurn){const t=current().turns.at(-1);if(!running&&t?.id===b.dataset.retryTurn&&turnEnd(t).incomplete)send(t);return;}if(b.dataset.file){openSource(b.dataset.file);return;}if(b.dataset.section){const answer=b.closest('.answer'),turn=current().turns.find(t=>t.id===answer.dataset.turn),p=$(b.dataset.section),offset=p.getBoundingClientRect().top;turn.sections||={};turn.sections[p.id]=!turn.sections[p.id];renderTurns();$('reader').scrollTop+=$(p.id).getBoundingClientRect().top-offset;saveReading();}});
 // Persist answer and heading folds independently of activity disclosures.
 $('thread').addEventListener('dblclick',event=>{const divider=event.target.closest('[data-turn-divider]');if(!divider||event.target.closest('button,a'))return;event.preventDefault();const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t);});
 $('thread').addEventListener('keydown',event=>{const id=event.target.dataset.toggleTurn;if(id&&(event.key==='Enter'||event.key===' ')){event.preventDefault();if(event.repeat)return;const t=current().turns.find(t=>t.id===id);if(t){toggleTurn(t);$(id+'-divider').focus({preventScroll:true});}}});

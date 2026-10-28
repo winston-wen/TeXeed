@@ -9,7 +9,7 @@
  color-scheme:dark; --bg:#292322; --sidebar:#211c1b; --question:#302927; --panel:#38302d;
  --hover:#423733; --ink:#eee6de; --muted:#b3a79f; --quiet:#958780; --line:#443a36;
  --guide:#5b4b45; --accent:#d8b876; --focus:#cf8fa0; --focus-soft:#cf8fa017;
- --font:15px; --reading-font:16px; --meta-font:13px; --reading-line:25px;
+ --font:15px; --reading-font:16px; --meta-font:13px; --reading-line:25px; --expanded-line:26.5px;
  --sans:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
  --serif:"Source Han Serif SC","思源宋体","Noto Serif CJK SC","Songti SC","SimSun",serif;
  --editor-font:"Cascadia Code",Consolas,"Microsoft YaHei",monospace;
@@ -72,21 +72,23 @@ details[open]>summary:before { transform:rotate(90deg) }
 .turn:last-child { margin-bottom:0 }
 .question,.answer,.snapshot-scroll { font:var(--reading-font)/var(--reading-line) var(--serif); font-weight:400; font-synthesis:none }
 .question { position:relative; background:transparent; border:0; padding:0; white-space:normal }
-.turn-number { position:absolute; right:calc(100% + .625em); top:0; color:#d8c09b; white-space:nowrap; font:var(--reading-font)/var(--reading-line) var(--sans); font-variant-numeric:tabular-nums; user-select:none }
+.turn-number { position:absolute; right:calc(100% + .625em); top:0; color:#d8c09b; white-space:nowrap; font:var(--reading-font)/var(--reading-line) var(--serif); font-variant-numeric:tabular-nums; user-select:none }
 .question-text:empty { display:none }
 .question pre { font-family:var(--code-font) }
-.segments { margin:0; padding:14px 0 0 }
-.answer { padding:0; overflow-wrap:anywhere }
-.turn-time { color:var(--muted); font:var(--meta-font)/1.45 var(--sans); font-variant-numeric:tabular-nums; text-align:left }
+.segments { margin:0; padding:0 }
+.answer { margin-top:-4px; padding:0; overflow-wrap:anywhere }
+.turn-time { color:var(--muted); font:var(--meta-font)/var(--expanded-line) var(--sans); font-variant-numeric:tabular-nums; text-align:left }
 .turn-time time { font-variant-numeric:tabular-nums }
-.sent-time { margin:8px 0 0 }
+.sent-time { margin:5.5px 0 0 }
 .sent-time[role=button] { cursor:pointer }
-.turn-footer { margin:16px 0 0; padding:0; border-radius:2px }
+.turn-footer { margin:0; padding:0; border-radius:2px }
 .turn-footer[role=button] { cursor:pointer; user-select:none }
 .turn-footer.folded { margin-top:8px }
 .turn-footer.folded .turn-time { margin:0; padding:0; line-height:1.45; white-space:pre-line }
 .turn-collapsed-label,.incomplete-label { color:var(--quiet); font-size:inherit }
 .incomplete-label { color:#ccaa92 }
+.retry-turn { font:inherit; line-height:inherit; color:var(--accent); background:transparent; border:0; padding:0 4px; margin-left:12px; vertical-align:baseline }
+.answer>.passage:last-child { margin-bottom:0 }
 .answer-divider { height:0; border:0; border-top:1px solid var(--line); margin-top:16px; background:none }
 .thinking-label { display:inline-flex; align-items:center; gap:7px }
 .thinking-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#a8bc9c; animation:thinking-breathe 1.6s ease-in-out infinite }
@@ -105,6 +107,7 @@ h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .rich-text h2 { font-size:19px }
 .rich-text h3,.rich-text h4 { font-size:17px }
 .answer :is(h1,h2,h3,h4,h5,h6) { font:inherit; margin:0 }
+.answer>.passage:has(>.passage-body>:is(h1,h2,h3,h4,h5,h6)) { margin-bottom:0 }
 .heading-marker { color:#d8c09b; font-family:var(--sans); font-variant-numeric:tabular-nums; white-space:nowrap; margin-right:.5em; user-select:none }
 .passage ul,.passage ol,.rich-text ul,.rich-text ol { padding-left:1.5em; margin:8px 0 12px }
 .passage li,.rich-text li { margin-bottom:6px }
@@ -147,6 +150,9 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .file-link { font:inherit; padding:0; text-decoration:underline; text-underline-offset:3px }
 .sent-summaries { display:block; list-style:none; padding:0; margin:8px 0 0; white-space:normal }
 .sent-summaries li { margin:4px 0; padding:0 }
+.question:has(>.question-text:empty)>.sent-summaries { margin-top:0 }
+.sent-summaries li:first-child { margin-top:0 }
+.sent-summaries li:last-child { margin-bottom:0 }
 .sent-summary { display:block; width:fit-content; max-width:100%; padding-left:1.5em; text-indent:-1.5em; background:none; border-radius:0; font:var(--reading-font)/var(--reading-line) var(--serif); color:var(--accent); text-decoration:underline; text-decoration-color:#d8b87666; text-decoration-thickness:1px; text-underline-offset:4px }
 .sent-summary:hover,.sent-summary[aria-expanded=true] { color:var(--ink) }
 .margin-notes { position:absolute; right:-36px; top:0; display:flex; gap:2px }
@@ -155,10 +161,12 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .reading-note { font:12px/1.5 var(--sans); color:var(--muted); margin:4px 0 10px }
 
 /* Process summaries and details share the metadata scale. */
-.process-log { margin:0 0 14px; color:var(--muted); font:var(--meta-font)/20px var(--sans) }
-.activity { background:transparent; border:0; padding:0; margin:0 0 6px; font:inherit; color:inherit }
+.process-log.after-answer { margin-top:5.5px }
+.turn:has(>.segments>.answer:last-child)>.turn-footer:not(.folded) { margin-top:5.5px }
+.process-log { margin:0; color:var(--muted); font:var(--meta-font)/var(--expanded-line) var(--sans) }
+.activity { background:transparent; border:0; padding:0; margin:0; font:inherit; color:inherit }
 .activity:last-child { margin-bottom:0 }
-.activity summary,.activity-summary { display:flex; align-items:baseline; gap:8px; min-height:20px }
+.activity summary,.activity-summary { display:flex; align-items:baseline; gap:8px; min-height:var(--expanded-line) }
 .activity summary:before { display:none }
 .activity summary>span,.activity-summary>span { min-width:0 }
 .activity time { margin:0; padding:0; font:inherit; font-variant-numeric:tabular-nums; flex:none; color:var(--quiet) }
@@ -385,7 +393,7 @@ dialog textarea { width:100%; height:220px }
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>
 <dialog id="image-viewer" aria-labelledby="image-title"><div class="image-viewer-header"><h2 id="image-title">图片预览</h2><button id="image-close" class="icon-button" aria-label="关闭图片预览"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg></button></div><div id="image-viewport" tabindex="0" aria-label="图片浏览区域"><img id="image-preview" alt=""></div><div class="image-viewer-tools"><button id="image-zoom-out" aria-label="缩小图片">−</button><output id="image-scale" aria-live="polite">100%</output><button id="image-zoom-in" aria-label="放大图片">+</button><button id="image-fit">适应窗口</button><button id="image-actual">原尺寸</button></div></dialog>
 <div id="context-tooltip" role="tooltip" hidden></div>
-<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>按 Ctrl+Alt+T 打开试验台，选择预编回放结果或导出本次交互记录。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">请求失败</option></select></label><button id="restore">恢复示例状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>合成示例 / 预编续答</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
+<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>按 Ctrl+Alt+T 打开试验台，选择预编回放结果或导出本次交互记录。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">持续网络故障</option><option value="program-failure">程序中止</option></select></label><button id="restore">恢复示例状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>合成示例 / 预编续答</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
 <dialog id="copy-dialog"><div class="row"><h2>复制文本</h2><span class="spacer"></span><button id="close-copy">关闭</button></div><textarea id="copy-text" aria-label="复制文本"></textarea></dialog>
 <dialog id="rename-dialog" aria-label="重命名 AI 对话"><form id="rename-form"><label for="rename-title">AI 对话标题</label><input id="rename-title" maxlength="200" autocomplete="off"><div class="row"><button type="button" id="rename-cancel">取消</button><button type="submit" id="rename-save">确定</button></div></form></dialog>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
@@ -491,16 +499,20 @@ function turnEnd(t){
  const reason=t.endReason||(terminal?.text.startsWith('已停止')?'user':'program');
  return {incomplete,at:(incomplete?t.endedAt||terminal?.time||t.answeredAt:t.answeredAt)||null,action:incomplete?(reason==='user'?'用户中止':'程序中止'):'答复'};
 }
-function turnHtml(t,index=0){
+function turnHtml(t,index=0,turns=[t]){
  const thinking=running?.turn.id===t.id,canFold=!thinking,end=turnEnd(t);
  const activities=(t.segments||[]).filter(s=>s.kind==='activity');
+ const proofIndex=activities.findIndex(s=>/^公式排版检查通过/.test(s.text));
+ const after=proofIndex<0?[]:activities.splice(proofIndex);
+ const processAfter=after.length?'<div class="process-log after-answer" aria-label="过程记录">'+after.map(activity).join('')+'</div>':'';
  const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
  const sent='<div class="turn-time sent-time" data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起或展开本轮回答">'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送'+(t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
  const answerTime=thinking?'<span class="thinking-label" role="status">思考中<span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
  const folded=!thinking&&t.collapsed;
+ const retry=!running&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
  const stamp=folded?sent.replace(/^<div[^>]*>/,'').replace(/<\/div>$/,'')+'\n'+answerTime:answerTime;
- const footer='<div class="turn-footer '+(folded?'folded':'')+'" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+stamp+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
- return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+'</div>'+footer+'</article>';
+ const footer='<div class="turn-footer '+(folded?'folded':'')+'" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+stamp+retry+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
+ return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+processAfter+'</div>'+footer+'</article>';
 }
 function renderTurns(){
  const pos=$('reader').scrollTop;
@@ -551,20 +563,21 @@ function positionEditor(){if(!editing)return;const e=current().entries.find(e=>e
 function closePopups(closeEditor=false){for(const id of ['options','answer-menu'])$(id).hidden=true;if(closeEditor)commitAnnotation();}
 function placePopup(id,anchor,above=false){const el=$(id);el.hidden=false;const r=anchor.getBoundingClientRect();el.style.left=Math.max(6,Math.min(r.left,innerWidth-el.offsetWidth-8))+'px';el.style.top=Math.max(6,Math.min(above?r.top-el.offsetHeight:r.bottom+4,innerHeight-el.offsetHeight-8))+'px';}
 function setBusy(value){$('send').hidden=value;$('stop').hidden=!value;for(const id of ['permission','model','effort'])$(id).disabled=value;renderEntries();}
-function send(){
- if(running)return;const c=current(),prompt=$('composer').value.trim(),selected=c.entries.filter(e=>e.selected);
+function send(retryTurn=null){
+ if(running)return;const c=current(),prompt=retryTurn?(retryTurn.prompt??retryTurn.question):$('composer').value.trim(),selected=retryTurn?clone(retryTurn.request?.annotations||retryTurn.annotations||[]):c.entries.filter(e=>e.selected);
  if(!selected.length&&!prompt){status('请输入问题，或填写并勾选条目。');return;}
  if(!prompt&&selected.some(e=>!e.question.trim())){status('请在编辑栏描述要问的问题。');$('composer').focus();return;}
  if(selected.length>20){status('每批最多 20 个问题，请分批提交。');return;}
  const outgoing=clone(selected).map((e,i)=>({...e,number:i+1}));
  closePopups(true);c.updatedAt=new Date().toISOString();const question=[prompt,...outgoing.map(e=>'#'+e.number+' · '+e.title+'：'+e.question)].filter(Boolean).join('\n');
  const annotations=outgoing.map(e=>({...e,summary:summarizeSnapshot(e),block:null}));
- const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[{kind:'activity',text:'原型回放 · 合成示例',details:'',time:new Date().toISOString()}]};
- c.lastSentAt=t.sentAt;c.turns.push(t);c.entries=c.entries.filter(e=>!selected.includes(e));if(c.title==='新对话')c.title=shortTitle(question);c.draft='';$('composer').value='';refreshEditors();if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');const job={turn:t,selected,timers:[]};requests.set(c.id,job);running=job;renderTabs();status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
+ const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[{kind:'activity',text:'正在连接 AI · 原型回放',details:'',time:new Date().toISOString()}]};
+ c.lastSentAt=t.sentAt;c.turns.push(t);if(!retryTurn)c.entries=c.entries.filter(e=>!selected.includes(e));if(c.title==='新对话')c.title=shortTitle(question);if(!retryTurn){c.draft='';$('composer').value='';refreshEditors();}if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');const job={turn:t,selected,timers:[]};requests.set(c.id,job);running=job;renderTabs();status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
  const mode=$('playback-mode').value;
  const finish=()=>{
   if(requests.get(c.id)!==job)return;const visible=state.active===c.id;const follow=visible&&$('reader').scrollHeight-$('reader').scrollTop-$('reader').clientHeight<40;
-  if(mode==='failure'){t.incomplete=true;t.endReason='program';t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：网络连接失败。',details:'原型预编失败事件。',time:t.endedAt});}
+  if(mode==='failure'){job.retryCount=(job.retryCount||0)+1;const wait=Math.min(30,2**Math.min(job.retryCount-1,5));let retry=t.segments.find(s=>s.id==='network-retry');if(!retry){retry={id:'network-retry',kind:'activity'};t.segments.push(retry);}retry.text='网络连接中断，'+wait+' 秒后重试 · 第 '+job.retryCount+' 次';retry.time=new Date().toISOString();if(visible)renderTurns();record('network-retry',{attempt:job.retryCount});job.timers.push(setTimeout(finish,wait*1000));return;}
+  if(mode==='program-failure'){t.incomplete=true;t.endReason='program';t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：程序无法继续处理。',details:'原型预编失败事件。',time:t.endedAt});}
   else {t.answer=DATA.playback.answer;t.answerHtml=DATA.playback.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+t.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+t.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+t.id+'-'+id+'"');t.incomplete=false;t.answeredAt=new Date().toISOString();t.segments.push({kind:'activity',text:'公式排版检查通过 · 回放完成',time:t.answeredAt});}
   requests.delete(c.id);if(visible){running=null;setBusy(false);renderTurns();if(follow)scrollEnd();}renderTabs();if(activeView==='history')historyDialog.refresh();record('finish',{mode});
  };
@@ -700,7 +713,7 @@ $('entries').addEventListener('pointerover',event=>{const b=event.target.closest
  if($('entries-dialog').open)$('entries-dialog').append(tooltip);},350);});
 $('entries').addEventListener('pointerout',()=>{clearTimeout(tooltipTimer);$('context-tooltip').hidden=true;});
 $('entries-dialog').addEventListener('close',()=>{clearTimeout(tooltipTimer);$('context-tooltip').hidden=true;document.body.append($('context-tooltip'));});
-$('thread').addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.dataset.file){openSource(b.dataset.file);return;}if(b.dataset.section){const answer=b.closest('.answer'),turn=current().turns.find(t=>t.id===answer.dataset.turn),p=$(b.dataset.section),offset=p.getBoundingClientRect().top;turn.sections||={};turn.sections[p.id]=!turn.sections[p.id];renderTurns();$('reader').scrollTop+=$(p.id).getBoundingClientRect().top-offset;saveReading();}});
+$('thread').addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.dataset.retryTurn){const t=current().turns.at(-1);if(!running&&t?.id===b.dataset.retryTurn&&turnEnd(t).incomplete)send(t);return;}if(b.dataset.file){openSource(b.dataset.file);return;}if(b.dataset.section){const answer=b.closest('.answer'),turn=current().turns.find(t=>t.id===answer.dataset.turn),p=$(b.dataset.section),offset=p.getBoundingClientRect().top;turn.sections||={};turn.sections[p.id]=!turn.sections[p.id];renderTurns();$('reader').scrollTop+=$(p.id).getBoundingClientRect().top-offset;saveReading();}});
 // Persist answer and heading folds independently of activity disclosures.
 $('thread').addEventListener('dblclick',event=>{const divider=event.target.closest('[data-turn-divider]');if(!divider||event.target.closest('button,a'))return;event.preventDefault();const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t);});
 $('thread').addEventListener('keydown',event=>{const id=event.target.dataset.toggleTurn;if(id&&(event.key==='Enter'||event.key===' ')){event.preventDefault();if(event.repeat)return;const t=current().turns.find(t=>t.id===id);if(t){toggleTurn(t);$(id+'-divider').focus({preventScroll:true});}}});

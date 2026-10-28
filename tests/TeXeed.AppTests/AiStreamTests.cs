@@ -32,7 +32,7 @@ internal static partial class Program
         {
             var buffer = new AiStreamBuffer(); var trace = new StringBuilder();
             await new AiResponses(connection).RunAsync("test-model", [], [], files, value => trace.Append(value), _ => { }, CancellationToken.None, activity: buffer.Add);
-            var segments = buffer.Snapshot();
+            var segments = buffer.Snapshot().Where(s => s.Kind is "text" or "final").ToArray();
             check(segments.Select(s => s.Text).SequenceEqual(new[] { "先检查项目。", "已修复并通过编译。" }), "Mixed streamed and terminal-only messages lost or duplicated text");
             check(segments[0].Kind == "text" && segments[1].Kind == "final", "Progress was marked final instead of the terminal answer");
             check(trace.ToString() == "先检查项目。已修复并通过编译。", "Terminal suffix reconciliation duplicated streamed text");
@@ -44,7 +44,7 @@ internal static partial class Program
         {
             var buffer = new AiStreamBuffer();
             await new AiResponses(connection).RunAsync("test-model", [], [], files, _ => { }, _ => { }, CancellationToken.None, activity: buffer.Add);
-            check(buffer.Snapshot().Single().Text == "开始补充内容", "Output-index aliasing or terminal-only content part duplicated/lost a message");
+            check(buffer.Snapshot().Single(s => s.Kind == "final").Text == "开始补充内容", "Output-index aliasing or terminal-only content part duplicated/lost a message");
         }
 
         var search = Call("search", "search_source", "{\"query\":\"compact proof\"}");

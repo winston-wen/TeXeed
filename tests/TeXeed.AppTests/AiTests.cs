@@ -94,7 +94,8 @@ internal static partial class Program
             Check(rejected, "Empty completed response must not mark a question answered");
         }
         using var brokenConnection = new AiConnection(new AiFakeHandler { Broken = true }); var failed = false;
-        try { await new AiResponses(brokenConnection).RunAsync("test-model", restored.Entries, [], files, _ => { }, _ => { }, CancellationToken.None); } catch (InvalidOperationException) { failed = true; }
+        using (var cancelBroken = new CancellationTokenSource(200))
+            try { await new AiResponses(brokenConnection).RunAsync("test-model", restored.Entries, [], files, _ => { }, _ => { }, cancelBroken.Token); } catch (OperationCanceledException) { failed = true; }
         Check(failed, "Interrupted stream treated as success");
         await CheckAiStreamRecoveryAsync(Check);
         var batchHandler = new AiFakeHandler();
@@ -156,7 +157,7 @@ internal static partial class Program
         AiStorage.Save(legacyProject, migrated.Snapshot());
         using (var migratedJson = JsonDocument.Parse(File.ReadAllText(legacyPath)))
             Check(migratedJson.RootElement.TryGetProperty("Conversations", out _) && !migratedJson.RootElement.TryGetProperty("Entries", out _), "History schema duplicates media at notebook root");
-        using (var failedPanel = new AiPanel(new AiConnection(new AiFakeHandler { Broken = true })))
+        using (var failedPanel = new AiPanel(new AiConnection(new AiFakeHandler { ProgramFailure = true })))
         {
             await failedPanel.SetProjectAsync(Path.Combine(output, "failure-fixture.tex")); failedPanel.ProjectFiles = () => files;
             var models = (ComboBox)failedPanel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
@@ -246,7 +247,7 @@ internal static partial class Program
     }
     private sealed class AiFakeHandler : HttpMessageHandler
     {
-        public int Requests, ResponseRequests; public bool Broken, SawToolOutput, SawContract, SwitchAccount, ToolsInEvents, Empty;
+        public int Requests, ResponseRequests; public bool Broken, ProgramFailure, SawToolOutput, SawContract, SwitchAccount, ToolsInEvents, Empty;
         public string? LastModel, LastEffort;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -263,6 +264,7 @@ internal static partial class Program
             if (ToolsInEvents && Requests == 1)
                 data = "data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"name\":\"search_source\",\"call_id\":\"c1\",\"arguments\":\"{\\\"query\\\":\\\"compact proof\\\"}\"}}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n";
             if (Empty) data = "data: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n";
+            if (ProgramFailure) data = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\ndata: {\"type\":\"response.failed\",\"response\":{\"error\":{\"message\":\"fixture program failure\"}}}\n\n";
             if (SwitchAccount && Requests == 1) { var changed = AiCredentials.Load(); changed.ApiKey = "different-test-key"; changed.Save(); }
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(data, Encoding.UTF8, "text/event-stream") };
         }

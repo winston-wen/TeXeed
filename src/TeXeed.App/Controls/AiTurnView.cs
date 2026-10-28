@@ -23,10 +23,13 @@ public sealed class AiTurnView : StackPanel
     internal Action<MarkdownView>? AnswerReady, AnswerGone;
     internal Action<AiEntry>? PreviewChanged;
     internal Action<string>? SourceRequested;
+    internal Action? RetryRequested;
+    private bool _canRetry;
+    internal bool CanRetry { get => _canRetry; set { _canRetry = value; if (_footer is not null) _footer.CanRetry = value; } }
     internal List<MarkdownView> Answers { get; } = [];
     private readonly StackPanel _body = new(), _preview = new();
     private readonly TextBlock _number = new() { FontFamily = new FontFamily("Segoe UI, Microsoft YaHei"), FontSize = AiChatTypography.FontSize, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
-    private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(AiChatTypography.TextLeft, 8, 4, 0), Focusable = true, Cursor = Cursors.Hand };
+    private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
     private AiReplyStatus? _footer;
     private string? _previewId;
     private bool _bodyBuilt;
@@ -53,7 +56,8 @@ public sealed class AiTurnView : StackPanel
         if (_footer is not null)
         {
             _footer.Text = Turn.Collapsed ? Turn.SentTime + "\n" + Turn.AnswerTime : Turn.AnswerTime;
-            _footer.Margin = new Thickness(AiChatTypography.TextLeft, Turn.Collapsed ? 8 : 16, 4, 0);
+            _footer.Margin = new Thickness(AiChatTypography.TextLeft, Turn.Collapsed ? 8 : 0, 4, 0);
+            _footer.IsCollapsed = Turn.Collapsed;
             System.Windows.Automation.AutomationProperties.SetHelpText(_footer, Turn.Collapsed ? "已折叠，双击任一时间行展开" : "双击收起");
         }
     }
@@ -65,19 +69,28 @@ public sealed class AiTurnView : StackPanel
         if (Turn is null) return;
         var entries = Turn.SentAnnotations;
         var prompt = entries.Count == 0 ? Turn.DisplayQuestion : Turn.Prompt ?? Turn.DisplayQuestion;
+        var annotationsOnly = entries.Count > 0 && string.IsNullOrWhiteSpace(prompt);
+        var annotationText = string.Join("\n", entries.Select((e, i) => $"{i + 1}. [{LinkLabel(e)}](#snapshot-{i + 1})"));
+        void OpenSnapshot(string key) { if (int.TryParse(key.AsSpan("snapshot-".Length), out var n) && n > 0 && n <= entries.Count) ShowPreview(entries[n - 1], n); }
         var questionRow = new Grid(); questionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(AiChatTypography.TextLeft) }); questionRow.ColumnDefinitions.Add(new ColumnDefinition());
-        var content = Rich(prompt, new Thickness(0, 8, 12, 0)); Grid.SetColumn(content, 1);
+        var content = Rich(annotationsOnly ? annotationText : prompt, new Thickness(0, 8, 12, entries.Count == 0 || annotationsOnly ? -AiChatTypography.RichTextInset : 0), annotationsOnly); Grid.SetColumn(content, 1);
+        if (annotationsOnly)
+        {
+            content.LocalLink = OpenSnapshot;
+            if (content.Document.Blocks.FirstBlock is System.Windows.Documents.List list) { list.Padding = new Thickness(0); list.Margin = new Thickness(0); }
+        }
+        _number.FontFamily = content.FontFamily;
         _number.Margin = new Thickness(-40, 8 + (content.FontFamily.Baseline - _number.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
         questionRow.Children.Add(_number); questionRow.Children.Add(content); Children.Add(questionRow);
-        if (entries.Count > 0)
+        if (entries.Count > 0 && !annotationsOnly)
         {
-            var links = Rich(string.Join("\n", entries.Select((e, i) => $"{i + 1}. [{LinkLabel(e)}](#snapshot-{i + 1})")), new Thickness(AiChatTypography.TextLeft, 0, 12, 0), true);
-            links.LocalLink = key => { if (int.TryParse(key.AsSpan("snapshot-".Length), out var n) && n > 0 && n <= entries.Count) ShowPreview(entries[n - 1], n); };
+            var links = Rich(annotationText, new Thickness(AiChatTypography.TextLeft, 0, 12, -AiChatTypography.RichTextInset), true);
+            links.LocalLink = OpenSnapshot;
             Children.Add(links);
         }
         _preview.Visibility = Visibility.Collapsed; _preview.Margin = new Thickness(AiChatTypography.TextLeft, 8, 12, 10); Children.Add(_preview);
         Children.Add(_sentTime);
-        _body.Margin = new Thickness(AiChatTypography.TextLeft, 14, 4, 0); Children.Add(_body);
+        _body.Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0); Children.Add(_body);
         _bodyBuilt = false;
         _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
     }
@@ -92,7 +105,7 @@ public sealed class AiTurnView : StackPanel
             }
             else
             {
-                var answer = Rich("", new Thickness(0)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
+                var answer = Rich("", new Thickness(0, 2, 0, 0)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
                 answer.ChatMode = true; answer.TurnNumber = TurnNumber; answer.ImageBaseDirectory = ImageBaseDirectory;
                 answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => Changed?.Invoke());
                 answer.Markdown = segment.Text;
@@ -137,7 +150,8 @@ public sealed class AiTurnView : StackPanel
     internal void ClosePreview() { _preview.Visibility = Visibility.Collapsed; _preview.Children.Clear(); _previewId = null; }
     private AiReplyStatus Footer()
     {
-        var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(AiChatTypography.TextLeft, 16, 4, 0), Focusable = true, Cursor = Cursors.Hand };
+        var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
+        toggle.CanRetry = _canRetry; toggle.RetryRequested = () => RetryRequested?.Invoke();
         toggle.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };
         toggle.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) Toggle(); e.Handled = true; } };
         return toggle;

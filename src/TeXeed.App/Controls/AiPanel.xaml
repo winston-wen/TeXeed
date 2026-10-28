@@ -39,10 +39,10 @@
     <ItemsControl.Resources><DataTemplate DataType="{x:Type ai:AiTurn}"><local:AiTurnView Turn="{Binding}" Loaded="Turn_Loaded" Margin="12,0,0,30"/></DataTemplate></ItemsControl.Resources>
     <StackPanel x:Name="EmptyConversation" Margin="24,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
     <StackPanel x:Name="LiveContainer" Visibility="Collapsed" Margin="12,8,0,30">
-     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock x:Name="LiveTurnNumber" FontFamily="Segoe UI, Microsoft YaHei" FontSize="16" Foreground="{DynamicResource ChatHeading}" Margin="-40,8,10,0" HorizontalAlignment="Right" VerticalAlignment="Top"/><local:MarkdownView x:Name="LiveQuestion" Grid.Column="1" Margin="-5,8,12,0" Padding="0"/></Grid>
-     <TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontSize="13" TextWrapping="Wrap" Margin="36,8,4,0"/>
-     <ItemsControl x:Name="LiveSegments" ItemTemplate="{StaticResource SegmentTemplate}" Margin="36,14,4,0"/>
-     <local:AiReplyStatus x:Name="LiveReplyStatus" IsThinking="True" Margin="36,16,4,0"/>
+     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock x:Name="LiveTurnNumber" FontFamily="{Binding FontFamily, ElementName=LiveQuestion}" FontSize="16" Foreground="{DynamicResource ChatHeading}" Margin="-40,8,10,0" HorizontalAlignment="Right" VerticalAlignment="Top"/><local:MarkdownView x:Name="LiveQuestion" Grid.Column="1" Margin="-5,8,12,0" Padding="0"/></Grid>
+     <TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontSize="13" TextWrapping="Wrap" LineHeight="26.5" LineStackingStrategy="BlockLineHeight" Margin="36,0,4,0"/>
+     <ItemsControl x:Name="LiveSegments" ItemTemplate="{StaticResource SegmentTemplate}" Margin="36,0,4,0"/>
+     <local:AiReplyStatus x:Name="LiveReplyStatus" IsThinking="True" Margin="36,0,4,0"/>
     </StackPanel>
    </ItemsControl>
    <Border x:Name="ReadingContext" VerticalAlignment="Top" Panel.ZIndex="1" Visibility="Collapsed" Margin="12,0,0,0" BorderBrush="{DynamicResource ChatDivider}" BorderThickness="0,0,0,2" Background="{DynamicResource ChatQuestionBackground}" Padding="12,6" ClipToBounds="True"><StackPanel>

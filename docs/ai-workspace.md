@@ -8,6 +8,12 @@
 
 主编辑框中 Enter 与 Shift+Enter 换行，Ctrl+Enter 或发送按钮提交当前问题及勾选批注。发送后可继续写下一条草稿。停止会取消当前请求和本轮编译；已完成的文件修改保留。进展、工具操作和最终回答按时间排列，点击操作文字展开详情。双击问答时间折叠本轮，Ctrl+F 查找消息。
 
+点击发送后，问题、时间和准备状态立即显示；长会话将实时消息带入视口，问题可靠落盘后再清空已发送草稿。模型尚未返回时仍显示当前连接及处理状态。
+
+网络连接中断、TLS 连接失败、请求超时和服务过载会持续重试。等待按 1、2、4、8、16、30 秒递增，之后保持 30 秒，停止按钮随时取消等待。流读取连续两分钟没有收到新行时重新连接。已执行的工具结果保留在当前工作循环中，重连只重新请求尚未完成的响应。
+
+只有最后一轮中止时，时间右侧显示“↻ 重试”；用户中止、程序中止和旧的过载失败记录均适用。重试建立新一轮，使用原问题和批注快照，并携带已完成操作记录；下一条草稿及未发批注保留。登录、权限、参数等永久失败保留中止状态，排除原因后可手动重试。
+
 历史管理使用分页工作区，支持标题、问题和回答搜索、多选删除、改名及页码跳转。已打开会话需先关闭再删除。会话标签双击打开改名窗口。圈点和批注的操作见 [AI 批注与排版](ai-annotations.md)。
 
 ## 项目工具与权限
@@ -54,6 +60,7 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-only --
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-history-only --output artifacts/ai-history
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-permissions-only --output artifacts/ai-permissions
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-reliability-only --output artifacts/ai-reliability
+dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-retry-only --output artifacts/ai-retry
 ```
 
 这些回归使用隔离配置和模拟服务，覆盖流式接收、工具、取消、权限、存储和恢复。批注回归见 [AI 批注](ai-annotations.md)，性能复测见 [UI 性能](ui-layout-and-performance.md)。

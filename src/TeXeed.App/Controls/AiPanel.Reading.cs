@@ -116,6 +116,8 @@ public partial class AiPanel
         ScheduleReadingContext();
         view.Changed = () => { Dirty(); ScheduleReadingContext(); };
         view.SourceRequested = OpenChatSource;
+        view.RetryRequested = async () => await SubmitAsync(view.Turn);
+        view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
         view.AnswerGone = answer => Answer_Unloaded(answer, new RoutedEventArgs());
@@ -124,5 +126,15 @@ public partial class AiPanel
     private void Turn_Unloaded(object sender, RoutedEventArgs e)
     {
         if (sender is AiTurnView view && _turnViews.GetValueOrDefault(view.Turn.Id) == view) _turnViews.Remove(view.Turn.Id);
+    }
+    private void UpdateRetryActions()
+    {
+        var last = _book.Turns.LastOrDefault();
+        foreach (var view in _turnViews.Values) view.CanRetry = _operation is null && last?.Id == view.Turn.Id && view.Turn.IsIncomplete;
+    }
+    private void RevealLiveTurn()
+    {
+        VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(_transcriptItems.Count - 1);
+        MessagesScroll.ScrollToEnd();
     }
 }

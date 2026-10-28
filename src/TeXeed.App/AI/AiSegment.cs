@@ -20,7 +20,7 @@ public sealed class AiSegment : INotifyPropertyChanged
     public AiSegment Snapshot() => new() { Id = Id, Kind = Kind, Text = Text, Details = Details, CreatedAt = CreatedAt, ReferenceTime = ReferenceTime };
 }
 
-internal sealed record AiStreamEvent(string Id, string Kind, string Text, bool Append = false, string Details = "");
+internal sealed record AiStreamEvent(string Id, string Kind, string Text, bool Append = false, string Details = "", bool Reset = false);
 internal delegate Task<string> AiToolRunner(string name, string arguments, CancellationToken token);
 
 internal sealed class AiStreamBuffer
@@ -42,6 +42,11 @@ internal sealed class AiStreamBuffer
         lock (_gate)
         {
             _version++;
+            if (value.Reset)
+            {
+                if (_byId.Remove(value.Id, out var removed)) _nodes.Remove(removed);
+                return;
+            }
             if (!_byId.TryGetValue(value.Id, out var node)) { node = new(value); _nodes.Add(node); _byId.Add(value.Id, node); }
             if (!value.Append) node.Time = DateTimeOffset.Now;
             node.Kind = value.Kind;

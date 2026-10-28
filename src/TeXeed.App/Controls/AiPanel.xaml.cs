@@ -148,10 +148,11 @@ public partial class AiPanel : UserControl, IDisposable
     {
         if (_operation is not null) return;
         var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; if (_ownsSettings) Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false;
+        UpdateRetryActions();
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；本轮已保留，可继续提问。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; } _operationDone = null; done.TrySetResult(); }
+        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; UpdateRetryActions(); } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。问题已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
@@ -189,13 +190,14 @@ public partial class AiPanel : UserControl, IDisposable
     }
     internal static bool IsSendGesture(Key key, ModifierKeys modifiers) => key == Key.Enter && modifiers == ModifierKeys.Control;
     private async void Submit_Click(object sender, RoutedEventArgs e) => await SubmitAsync();
-    internal async Task SubmitAsync()
+    internal async Task SubmitAsync(AiTurn? retry = null)
     {
         if (_project is null || _operation is not null) return;
+        if (retry is not null && (_book.Turns.LastOrDefault()?.Id != retry.Id || !retry.IsIncomplete)) return;
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
         var submittedDraft = Composer.Text;
-        var prompt = submittedDraft.Trim();
-        var selected = _book.Entries.Where(e => e.Selected).ToArray();
+        var prompt = retry is null ? submittedDraft.Trim() : retry.Prompt ?? (retry.SentAnnotations.Count == 0 ? retry.DisplayQuestion : "");
+        var selected = retry is null ? _book.Entries.Where(e => e.Selected).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
         if (selected.Length == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
         if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
         if (selected.Length > 20 || selected.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || selected.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
@@ -216,21 +218,28 @@ public partial class AiPanel : UserControl, IDisposable
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             var buffer = new AiStreamBuffer();
             var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations };
-            var checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null);
-            book.Active.LastSentAt = sentAt;
-            if (Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
-            foreach (var entry in selected)
-            {
-                entry.State = "提交中";
-                entry.PropertyChanged -= AnnotationChanged;
-                book.Entries.Remove(entry);
-            }
-            Rebind();
+            _readingRestoreVersion++; _restoringReading = false;
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
             _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
-            LiveSentTime.Text = pendingTurn.SentTime;
-            LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed; MessagesScroll.ScrollToEnd();
+            LiveSentTime.Text = pendingTurn.SentTime; LiveReplyStatus.IsCollapsed = false;
+            buffer.Add(new("request-state-0", "activity", "正在准备请求"));
+            _liveSegments.Add(buffer.Snapshot().Single());
+            LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (_foldingLiveTurn == pendingTurn && !_disposed) RevealLiveTurn(); }));
+            AiTurnCheckpoint checkpoint;
+            try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); }
+            catch { LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            book.Active.LastSentAt = sentAt;
+            if (retry is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
+            if (retry is null)
+                foreach (var entry in selected)
+                {
+                    entry.State = "提交中";
+                    entry.PropertyChanged -= AnnotationChanged;
+                    book.Entries.Remove(entry);
+                }
+            Rebind();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
             long renderedVersion = -1;
             void Flush()
@@ -240,7 +249,9 @@ public partial class AiPanel : UserControl, IDisposable
                 if (version == renderedVersion) return;
                 renderedVersion = version;
                 var follow = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset < 40;
-                foreach (var segment in buffer.Snapshot())
+                var snapshot = buffer.Snapshot();
+                foreach (var stale in _liveSegments.Where(s => snapshot.All(current => current.Id != s.Id)).ToArray()) _liveSegments.Remove(stale);
+                foreach (var segment in snapshot)
                 {
                     segment.ReferenceTime = sentAt;
                     var existing = _liveSegments.FirstOrDefault(s => s.Id == segment.Id);
@@ -268,16 +279,16 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }
             }
             catch (Exception ex)
             {
-                endReason = ex is OperationCanceledException && token.IsCancellationRequested ? "user" : "program";
+                endReason = token.IsCancellationRequested ? "user" : "program";
                 foreach (var entry in selected) entry.State = "未完成，可重试";
-                buffer.Add(new("failure", "activity", ex is OperationCanceledException ? "已停止。已完成的修改保留；可继续提问。" : "本轮未完成：" + ex.Message));
+                buffer.Add(new("failure", "activity", token.IsCancellationRequested ? "已停止。已完成的修改保留；可继续提问。" : "本轮未完成：" + ex.Message));
             }
             finally
             {
@@ -305,6 +316,7 @@ public partial class AiPanel : UserControl, IDisposable
         turn.Collapsed = !turn.Collapsed;
         LiveSentTime.Text = turn.SentTime;
         LiveSegments.Visibility = turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
+        LiveReplyStatus.IsCollapsed = turn.Collapsed;
         ScheduleReadingContext();
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
