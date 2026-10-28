@@ -85,19 +85,24 @@ internal static partial class Program
             Capture(host, Path.Combine(output, "titles-equations-narrow.png"));
             host.Width = 800;
 
-            foreach (var question in new[] { "我想知道 Rm 元素的表示。", "An English question about Rm.", "**粗体中文首行**\n\n下一段。", "中文与 `code` 混排首行。", "" })
+            foreach (var question in new[] { "我想知道 Rm 元素的表示。", "An English question about Rm.", "**粗体中文首行**\n\n下一段。", "中文与 `code` 混排首行。", "", "- 列表首行含有中文。\n- 下一条。", "1. 有序列表的中文首行。\n2. 下一条。", "# 用户首行标题\n\n后续正文。", string.Concat(Enumerable.Repeat("窄窗口自动换行，包含 Rm 和 code。", 8)) + "\n\n后续段落。" })
             {
                 var turn = new AiTurn(question, "合成回答。") { Prompt = question, SentAnnotations = question.Length == 0 ? [new() { Question = "圈点首行的中文说明。" }] : [] };
                 var turnView = new AiTurnView { TurnNumber = 3, Turn = turn }; host.Content = turnView;
-                host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-                var number = Descendants<TextBlock>(turnView).Single(t => t.Text == "[3]");
-                var numberInk = GlyphInk(number, turnView).Select(i => i.Bounds).Aggregate(Rect.Empty, (all, rect) => { all.Union(rect); return all; });
-                var questionInk = Descendants<MarkdownView>(turnView).Where(v => !v.ChatMode).SelectMany(v => GlyphInk(v, turnView)).ToArray();
-                var firstBaseline = questionInk.Min(i => i.Baseline);
-                var firstLine = questionInk.Where(i => Math.Abs(i.Baseline - firstBaseline) < 1).Select(i => i.Bounds).Aggregate(Rect.Empty, (all, rect) => { all.Union(rect); return all; });
-                var delta = numberInk.Top + numberInk.Height / 2 - firstLine.Top - firstLine.Height / 2;
-                numberResults.Add(new { question, delta });
-                if (enforce && Math.Abs(delta) > .5) throw new Exception("Hanging number ink center differs from the actual first line: " + question + " " + delta);
+                foreach (var width in new[] { 800d, 420d })
+                {
+                    host.Width = width;
+                    host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
+                    var number = Descendants<TextBlock>(turnView).Single(t => t.Text == "[3]");
+                    var numberInk = GlyphInk(number, turnView).Select(i => i.Bounds).Aggregate(Rect.Empty, (all, rect) => { all.Union(rect); return all; });
+                    var questionView = Descendants<MarkdownView>(turnView).First(v => !v.ChatMode);
+                    var line = questionView.Document.ContentStart.GetInsertionPosition(LogicalDirection.Forward)!.GetCharacterRect(LogicalDirection.Forward);
+                    line = questionView.TransformToAncestor(turnView).TransformBounds(line);
+                    var firstLine = GlyphInk(questionView, turnView).Where(i => i.Bounds.Bottom >= line.Top && i.Bounds.Top <= line.Bottom).Select(i => i.Bounds).Aggregate(Rect.Empty, (all, rect) => { all.Union(rect); return all; });
+                    var delta = numberInk.Top + numberInk.Height / 2 - firstLine.Top - firstLine.Height / 2;
+                    numberResults.Add(new { question, width, delta });
+                    if (enforce && Math.Abs(delta) > .5) throw new Exception("Hanging number ink center differs from the actual first line: " + question + " " + delta);
+                }
                 Capture(host, Path.Combine(output, "number-axis-" + numberResults.Count + ".png"));
             }
             var result = new { titles = titleResults, numbers = numberResults, displayIndent = indent };

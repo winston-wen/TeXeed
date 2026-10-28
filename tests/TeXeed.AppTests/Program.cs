@@ -156,7 +156,7 @@ internal static partial class Program
                 if (args.Contains("--ai-ui-perf-only"))
                 {
                     var compare = Array.IndexOf(args, "--baseline");
-                    await CheckAiUiPerformanceAsync(window, output, compare >= 0 ? args[compare + 1] : null, args.Contains("--normalize-typography"), args.Contains("--with-headings"));
+                    await CheckAiUiPerformanceAsync(window, output, compare >= 0 ? args[compare + 1] : null, args.Contains("--normalize-typography"), args.Contains("--with-headings"), args.Contains("--with-complex-questions"));
                     await CloseAndObserveAsync(window, "AI UI performance"); result = 0; return;
                 }
                 if (args.Contains("--ai-compact-only"))
