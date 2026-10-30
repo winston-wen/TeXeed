@@ -67,16 +67,28 @@ internal static partial class Program
         if (Math.Abs(((FrameworkElement)window.FindName("EditorPane")).ActualWidth - (area.ActualWidth - area.ColumnDefinitions[0].ActualWidth - area.ColumnDefinitions[1].ActualWidth)) > 2)
             throw new Exception("Single pane did not occupy all available document width");
         var overlay = (FrameworkElement)window.FindName("DockDropOverlay");
+        Invoke(window, "SelectWorkspaceTab", TabSide.Left, TabWorkspace.PreviewKey); await Settle();
         var edge = overlay.PointToScreen(new Point(overlay.ActualWidth - 4, 100));
         if (!(bool)Invoke(window, "UpdateDockDrag", TabWorkspace.PreviewKey, edge)! || !((FrameworkElement)window.FindName("DockDropCue")).IsVisible)
             throw new Exception("Single-pane edge drop has no split cue");
+        if ((bool)Field(window, "_followAwaitingSourceInteraction")!) throw new Exception("A drag preview paused following before a drop");
         Invoke(window, "DropWorkspaceTab", TabWorkspace.PreviewKey, edge); await Settle();
         if (!model.Has(TabSide.Left) || !model.Has(TabSide.Right) || model.Owner(TabWorkspace.PreviewKey) != TabSide.Right)
             throw new Exception("Right-edge drop did not create a right pane");
+        if (!(bool)Field(window, "_followAwaitingSourceInteraction")!) throw new Exception("Preview split did not defer automatic following");
+        var navigation = (int)Field(window, "_navigationRequest")!;
+        Invoke(window, "SetActiveSource", left);
+        Invoke(window, "QueueFollowSync"); await Settle();
+        if (!(bool)Field(window, "_followAwaitingSourceInteraction")! || (int)Field(window, "_navigationRequest")! != navigation)
+            throw new Exception("Programmatic focus or layout restarted following before source interaction");
+        left.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent });
+        await Settle();
+        if ((bool)Field(window, "_followAwaitingSourceInteraction")!) throw new Exception("Source click did not resume following");
         Invoke(window, "MoveWorkspaceTab", TabWorkspace.PreviewKey, TabSide.Left, int.MaxValue, false); await Settle();
         edge = overlay.PointToScreen(new Point(4, 100)); Invoke(window, "DropWorkspaceTab", TabWorkspace.PreviewKey, edge); await Settle();
         if (model.Owner(TabWorkspace.PreviewKey) != TabSide.Left || model.Owner(main) != TabSide.Right || model.Owner(one) != TabSide.Right)
             throw new Exception("Left-edge split lost or misplaced existing source tabs");
+        if (!(bool)Field(window, "_followAwaitingSourceInteraction")!) throw new Exception("Left-edge preview split did not defer following");
         Invoke(window, "SelectWorkspaceTab", TabSide.Right, one); await Settle();
         if (!ReferenceEquals(document, right.Document) || right.Text != text) throw new Exception("Repeated group splits discarded the unsaved document");
         var settings = (PreviewSettingsWindow)Invoke(window, "CreatePreviewSettings")!; settings.Show(); await Settle();

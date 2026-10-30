@@ -63,7 +63,7 @@ internal static partial class Program
                 "Automatic follow did not return to the chapter page start");
         }
         Invoke(window, "ChangeFollowMode", PreviewFollowMode.Cursor);
-        var caretPoint = await sync.ForwardAsync(project, pdf, editor.CurrentLocation!, settings) ?? throw new Exception("Cursor has no SyncTeX mapping");
+        var caretPoint = await sync.ForwardViewportAsync(project, pdf, editor.CurrentLocation!, settings) ?? throw new Exception("Cursor has no SyncTeX mapping");
         await CallAsync(window, "ForwardAsync", false);
         await WaitUntilAsync(() => Math.Abs(scroll.VerticalOffset - PdfOffset(preview, caretPoint with { Y = caretPoint.Y + caretPoint.Height / 2 }, .5)) < 2,
             "Source-top rule incorrectly overrode cursor mode centering");
@@ -74,6 +74,7 @@ internal static partial class Program
         editor.ScrollToVerticalOffset(0); window.UpdateLayout();
         await AssertPdfOffsetStableAsync(scroll, heldOffset, "Source-top rule ignored disabled following");
         Invoke(window, "ChangeFollowMode", PreviewFollowMode.Viewport);
+        caretPoint = await sync.ForwardAsync(project, pdf, editor.CurrentLocation!, settings) ?? throw new Exception("Cursor has no explicit SyncTeX mapping");
         await CallAsync(window, "ForwardAsync", true);
         await WaitUntilAsync(() => Math.Abs(scroll.VerticalOffset - PdfOffset(preview, caretPoint, .35)) < 2,
             "Source-top rule overrode explicit Ctrl+J positioning");

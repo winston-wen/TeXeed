@@ -2,6 +2,8 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
 
 namespace TeXeed.Core;
 
@@ -14,6 +16,48 @@ public sealed class SyncTexService
     private long cachedSize;
     private SyncIndex cachedIndex = SyncIndex.Empty;
     private readonly SemaphoreSlim cacheGate = new(1, 1);
+    private static readonly ConditionalWeakTable<string, EnvironmentMap> EnvironmentMaps = new();
+    private static readonly ConditionalWeakTable<FileIndex, ConcurrentDictionary<(int, int), GraphicProjection>> GraphicMaps = new();
+    private static readonly ConditionalWeakTable<FileIndex, ConcurrentDictionary<(int, int), BlockProjection>> BlockMaps = new();
+    private static readonly HashSet<string> BlockEnvironments = new(StringComparer.Ordinal)
+    { "algorithm", "algorithmic", "algorithmicx", "lstlisting", "listing", "minted", "verbatim", "Verbatim", "tabular", "tabularx", "longtable", "supertabular", "tikzpicture", "pspicture", "picture" };
+    private sealed record EnvironmentRange(string Name, int Start, int End)
+    {
+        public bool IsGraphic => Name is "tikzpicture" or "pspicture" or "picture";
+    }
+    private sealed record EnvironmentMap(EnvironmentRange[] Ranges);
+    private sealed record GraphicProjection(PdfLocation? Box);
+    private sealed record BlockProjection(PdfLocation[] Rows);
+
+    private static EnvironmentMap ReadEnvironments(string contents)
+    {
+        var ranges = new List<EnvironmentRange>();
+        var stack = new Stack<(string Name, int Line)>();
+        var lines = contents.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var comment = Regex.Match(line, @"(?<!\\)(?:\\\\)*%");
+            if (comment.Success) line = line[..comment.Index];
+            foreach (Match match in Regex.Matches(line, @"\\(begin|end)\s*\{([^{}]+)\}"))
+            {
+                var name = match.Groups[2].Value;
+                if (match.Groups[1].Value == "begin") stack.Push((name, i + 1));
+                else if (stack.TryPeek(out var opening) && opening.Name == name)
+                {
+                    stack.Pop();
+                    if (BlockEnvironments.Contains(name)) ranges.Add(new(name, opening.Line, i + 1));
+                }
+            }
+        }
+        return new(ranges.OrderBy(r => r.End - r.Start).ToArray());
+    }
+
+    private static EnvironmentMap? Environments(TexProject project, SourceLocation source)
+    {
+        var contents = project.Files.FirstOrDefault(f => PathsEqual(f.Path, source.Path))?.Content;
+        return contents is null ? null : EnvironmentMaps.GetValue(contents, ReadEnvironments);
+    }
 
     public async Task<PdfLocation?> ForwardAsync(TexProject project, string pdfPath, SourceLocation source, AppSettings settings, CancellationToken ct = default)
     {
@@ -52,6 +96,13 @@ public sealed class SyncTexService
             catch (Exception ex) when (ex is ArgumentException or IOException) { continue; }
             var boundary = Array.BinarySearch(file.Lines, valid.Line);
             if (boundary < 0) boundary = ~boundary;
+            if (contentOnly && ApproximateGraphic(project, valid, file, boundary) is { } graphic)
+                return graphic;
+            if (contentOnly && ApproximateBlock(project, valid, file, boundary) is { } block)
+                return block;
+            if (contentOnly && boundary < file.Lines.Length && file.Lines[boundary] != valid.Line &&
+                InterpolateEnvironment(project, valid, file, boundary) is { } interpolated)
+                return interpolated;
             var left = boundary - 1; var right = boundary;
             while (left >= 0 || right < file.Lines.Length)
             {
@@ -72,6 +123,93 @@ public sealed class SyncTexService
         return best?.Box;
     }
 
+    // Some verbatim packages assign every output row to the closing source line.
+    // The rows themselves remain in SyncTeX, even across page boundaries.
+    private static PdfLocation? ApproximateBlock(TexProject project, SourceLocation source, FileIndex file, int boundary)
+    {
+        var range = Environments(project, source)?.Ranges.FirstOrDefault(r => !r.IsGraphic && r.Start < source.Line && source.Line <= r.End && r.End - r.Start >= 4);
+        if (range is null) return null;
+        if (source.Line != range.End && boundary < file.Lines.Length && file.Lines[boundary] == source.Line && file.Rows[boundary].Any(n => n.IsContent)) return null;
+        var projection = BlockMaps.GetValue(file, _ => new()).GetOrAdd((range.Start, range.End), _ => InspectBlock(file, range));
+        if (projection.Rows.Length == 0) return null;
+        var fraction = (double)(source.Line - range.Start - 1) / (range.End - range.Start - 2);
+        return projection.Rows[(int)Math.Round(Math.Clamp(fraction, 0, 1) * (projection.Rows.Length - 1))];
+    }
+
+    private static BlockProjection InspectBlock(FileIndex file, EnvironmentRange range)
+    {
+        var first = Array.BinarySearch(file.Lines, range.Start + 1);
+        if (first < 0) first = ~first;
+        for (var i = first; i < file.Lines.Length && file.Lines[i] < range.End; i++)
+            if (file.Rows[i].Any(n => n.IsContent)) return new([]);
+        var last = Array.BinarySearch(file.Lines, range.End);
+        if (last < 0) return new([]);
+        var nodes = file.Rows[last].Where(n => n.IsContent).Select(n => n.Box).OrderBy(n => n.Page).ThenBy(n => n.Y).ToArray();
+        var rows = new List<PdfLocation>();
+        foreach (var node in nodes)
+            if (rows.Count == 0 || node.Page != rows[^1].Page || Math.Abs(node.Y - rows[^1].Y) > 2)
+                rows.Add(node);
+            else
+            {
+                var row = rows[^1]; var x = Math.Min(row.X, node.X);
+                rows[^1] = new(row.Page, x, Math.Min(row.Y, node.Y), Math.Max(row.X + row.Width, node.X + node.Width) - x, Math.Max(row.Height, node.Height));
+            }
+        return rows.Count >= 3 && rows.Count <= (range.End - range.Start) * 4 ? new(rows.ToArray()) : new([]);
+    }
+
+    // Missing SyncTeX lines inside a typeset environment can be approximated only
+    // when content anchors surround them in source and on the same PDF page.
+    private static PdfLocation? InterpolateEnvironment(TexProject project, SourceLocation source, FileIndex file, int boundary)
+    {
+        var left = boundary - 1;
+        while (left >= 0 && !file.Rows[left].Any(n => n.IsContent)) left--;
+        var right = boundary;
+        while (right < file.Lines.Length && !file.Rows[right].Any(n => n.IsContent)) right++;
+        if (left < 0 || right >= file.Lines.Length || file.Lines[right] - file.Lines[left] < 3) return null;
+        var a = file.Rows[left].First(n => n.IsContent).Box;
+        var b = file.Rows[right].First(n => n.IsContent).Box;
+        if (a.Page != b.Page || b.Y - a.Y < 20 || b.Y - a.Y > 600) return null;
+        if (Environments(project, source)?.Ranges.Any(r => !r.IsGraphic && r.Start <= file.Lines[left] && r.End >= file.Lines[right]) != true) return null;
+        var fraction = (double)(source.Line - file.Lines[left]) / (file.Lines[right] - file.Lines[left]);
+        return new(a.Page, a.X + (b.X - a.X) * fraction, a.Y + (b.Y - a.Y) * fraction, 3, 6);
+    }
+
+    private static PdfLocation? ApproximateGraphic(TexProject project, SourceLocation source, FileIndex file, int boundary)
+    {
+        // Only consider a graphic when its own SyncTeX nodes collapse onto one
+        // location. Normal line mappings are more accurate than this estimate.
+        if (boundary >= file.Lines.Length || file.Lines[boundary] != source.Line) return null;
+        var range = Environments(project, source)?.Ranges.FirstOrDefault(r => r.IsGraphic && r.Start < source.Line && source.Line < r.End && r.End - r.Start >= 4);
+        if (range is null) return null;
+        var box = GraphicMaps.GetValue(file, _ => new()).GetOrAdd((range.Start, range.End), _ => InspectGraphic(file, range)).Box;
+        if (box is null) return null;
+        var fraction = (double)(source.Line - range.Start - 1) / (range.End - range.Start - 2);
+        return new(box.Page, box.X, box.Y + box.Height * Math.Clamp(fraction, 0, 1), box.Width, 6);
+    }
+
+    private static GraphicProjection InspectGraphic(FileIndex file, EnvironmentRange range)
+    {
+        var first = Array.BinarySearch(file.Lines, range.Start + 1);
+        if (first < 0) first = ~first;
+        var count = 0;
+        PdfLocation? point = null;
+        for (var i = first; i < file.Lines.Length && file.Lines[i] < range.End; i++)
+        {
+            var node = file.Rows[i].FirstOrDefault(n => n.IsContent);
+            if (node is null) continue;
+            point ??= node.Box;
+            if (node.Box.Page != point.Page || Math.Abs(node.Box.Y - point.Y) > 2) return new(null);
+            count++;
+        }
+        if (count < 3 || point is null) return new(null);
+        var last = Array.BinarySearch(file.Lines, range.End);
+        if (last < 0) return new(null);
+        var box = file.Rows[last].Where(n => n.IsBox && n.Box.Page == point.Page && n.Box.Height is >= 20 and <= 700 &&
+                n.Box.Width is >= 6 and <= 600 && n.Box.Y >= 0 && point.X >= n.Box.X - 6 && point.X <= n.Box.X + n.Box.Width + 6)
+            .OrderByDescending(n => n.Box.Height).FirstOrDefault()?.Box;
+        return new(box);
+    }
+
     /// <summary>Prepare the immutable native index while the PDF is loading.</summary>
     public async Task PrepareAsync(string pdfPath, CancellationToken ct = default)
     {
@@ -82,6 +220,9 @@ public sealed class SyncTexService
     public async Task<SourceLocation?> InverseAsync(TexProject project, string pdfPath, PdfLocation point, AppSettings settings, CancellationToken ct = default)
     {
         if (point.Page < 1 || !double.IsFinite(point.X) || !double.IsFinite(point.Y) || point.X < 0 || point.Y < 0 || !ValidOutput(project, pdfPath)) return null;
+        var index = await GetIndexAsync(pdfPath, ct).ConfigureAwait(false);
+        if (InverseGraphic(project, index, point) is { } graphic) return graphic;
+        if (InverseBlock(project, index, point) is { } block) return block;
         var command = GetExecutable(settings);
         if (command is not null)
         {
@@ -90,7 +231,6 @@ public sealed class SyncTexService
             var result = ParseInverseOutput(output, project);
             if (result is not null) return result;
         }
-        var index = await GetIndexAsync(pdfPath, ct).ConfigureAwait(false);
         var files = new Dictionary<string, ValidatedFile?>();
         SourceLocation? best = null;
         var bestDistance = double.PositiveInfinity;
@@ -106,6 +246,48 @@ public sealed class SyncTexService
             if (distance < bestDistance) { best = source; bestDistance = distance; }
         }
         return best;
+    }
+
+    private static SourceLocation? InverseGraphic(TexProject project, SyncIndex index, PdfLocation point)
+    {
+        foreach (var (input, file) in index.Files)
+        {
+            var validFile = ValidateFile(project, input);
+            if (validFile is null) continue;
+            var ranges = EnvironmentMaps.GetValue(validFile.File.Content, ReadEnvironments).Ranges;
+            foreach (var range in ranges.Where(r => r.IsGraphic && r.End - r.Start >= 4))
+            {
+                var box = GraphicMaps.GetValue(file, _ => new()).GetOrAdd((range.Start, range.End), _ => InspectGraphic(file, range)).Box;
+                if (box is null || box.Page != point.Page || point.X < box.X || point.X > box.X + box.Width || point.Y < box.Y || point.Y > box.Y + box.Height) continue;
+                var fraction = Math.Clamp((point.Y - box.Y) / box.Height, 0, 1);
+                var line = range.Start + 1 + (int)Math.Round(fraction * (range.End - range.Start - 2));
+                return ClampSource(validFile, line, 1);
+            }
+        }
+        return null;
+    }
+
+    private static SourceLocation? InverseBlock(TexProject project, SyncIndex index, PdfLocation point)
+    {
+        foreach (var (input, file) in index.Files)
+        {
+            var validFile = ValidateFile(project, input);
+            if (validFile is null) continue;
+            var ranges = EnvironmentMaps.GetValue(validFile.File.Content, ReadEnvironments).Ranges;
+            foreach (var range in ranges.Where(r => !r.IsGraphic && r.End - r.Start >= 4))
+            {
+                var rows = BlockMaps.GetValue(file, _ => new()).GetOrAdd((range.Start, range.End), _ => InspectBlock(file, range)).Rows;
+                for (var i = 0; i < rows.Length; i++)
+                {
+                    var row = rows[i];
+                    if (row.Page != point.Page || point.X < row.X || point.X > row.X + row.Width || point.Y < row.Y - 2 || point.Y > row.Y + row.Height + 2) continue;
+                    var fraction = (double)i / (rows.Length - 1);
+                    var line = range.Start + 1 + (int)Math.Round(fraction * (range.End - range.Start - 2));
+                    return ClampSource(validFile, line, 1);
+                }
+            }
+        }
+        return null;
     }
 
     public static PdfLocation? ParseForwardOutput(string output)
@@ -376,7 +558,9 @@ public sealed class SyncTexService
             }
             if (!isBox)
             {
-                var parent = stack.FirstOrDefault(item => item.Kind == '(').Box;
+                // Packages often wrap each fragment in a zero-height horizontal box.
+                // Its enclosing line still supplies the glyph's usable vertical extent.
+                var parent = stack.FirstOrDefault(item => item.Kind == '(' && item.Box.Height + item.Box.Depth > 0).Box;
                 if (parent is not null) { height = parent.Height; depth = parent.Depth; }
             }
             var isContent = record[0] is 'x' or 'g' or '$' && height + depth > 0;

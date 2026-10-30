@@ -1,0 +1,18 @@
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+Before.
+\begin{tikzpicture}
+\node at (0,0) {Start};
+\node at (0,-1) {One};
+\node at (0,-2) {Two};
+\node at (0,-3) {Three};
+\node at (0,-4) {Four};
+\node at (0,-5) {Five};
+\node at (0,-6) {Six};
+\draw[->] (0,-.3) -- (0,-.7);
+\draw[->] (0,-1.3) -- (0,-1.7);
+\draw[->] (0,-2.3) -- (0,-2.7);
+\end{tikzpicture}
+After.
+\end{document}

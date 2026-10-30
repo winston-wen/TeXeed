@@ -422,6 +422,11 @@ internal static partial class Program
                     await CloseAndObserveAsync(window, "find-panel regression");
                     result = 0; return;
                 }
+                if (args.Contains("--preview-perf-only", StringComparer.Ordinal))
+                {
+                    await CheckPreviewPerformanceAsync(window, root, output);
+                    await CloseAndObserveAsync(window, "preview performance"); result = 0; return;
+                }
                 if (args.Contains("--viewport-only", StringComparer.Ordinal))
                 {
                     await CheckViewportFollowingAsync(window, root, output);
@@ -902,6 +907,7 @@ internal static partial class Program
             var pdf = (string?)Field(window, "_pdfPath");
             if (pdf == null || preview.PageCount != 8)
                 throw new Exception("Viewport fixture must produce eight real PDF pages: " + ((TextBox)window.FindName("LogText")).Text);
+            await CheckPreviewSplitFollowAsync(window, project, pdf, settings);
             await CheckPdfColorsAsync(window, output);
             await CheckZoomControlsAsync(window, output);
             var sync = new SyncTexService();
@@ -914,10 +920,9 @@ internal static partial class Program
                 var persisted = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path.Combine(profile, "settings.json")));
                 if (persisted?.FollowMode != mode) throw new Exception("Toolbar follow mode was not persisted immediately: " + mode);
             }
-            async Task<PdfLocation> MapAsync(SourceLocation source) =>
-                await (((AppSettings)Field(window, "_settings")!).FollowMode == PreviewFollowMode.Viewport
-                    ? sync.ForwardViewportAsync(project, pdf, source, settings)
-                    : sync.ForwardAsync(project, pdf, source, settings)) ?? throw new Exception($"No SyncTeX mapping for {source.Line}");
+            async Task<PdfLocation> MapAsync(SourceLocation source, bool explicitRequest = false) =>
+                await (explicitRequest ? sync.ForwardAsync(project, pdf, source, settings)
+                    : sync.ForwardViewportAsync(project, pdf, source, settings)) ?? throw new Exception($"No SyncTeX mapping for {source.Line}");
             async Task<SourceLocation> ScrollSourceAsync(int topLine)
             {
                 editor.ScrollToVerticalOffset((topLine - 1) * editor.TextArea.TextView.DefaultLineHeight);
@@ -1062,7 +1067,7 @@ internal static partial class Program
                 var caretLocation = new SourceLocation(main, 8);
                 editor.CaretOffset = editor.Document.GetLineByNumber(caretLocation.Line).Offset;
                 await ScrollSourceAsync(215);
-                var caretPoint = await MapAsync(caretLocation);
+                var caretPoint = await MapAsync(caretLocation, explicitRequest: true);
                 SelectMode(mode);
                 var shortcut = CreateKey(window, Key.J, Keyboard.PreviewKeyDownEvent);
                 await CallAsync(window, "HandleShortcutAsync", shortcut, ModifierKeys.Control);

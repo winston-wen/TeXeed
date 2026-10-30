@@ -11,6 +11,7 @@ public partial class MainWindow
     private readonly TabWorkspace _workspaceTabs = new();
     private LatexEditor? _activeEditor;
     private bool _updatingWorkspace;
+    private bool _followAwaitingSourceInteraction;
     private bool _wasSplit = true;
     private GridLength _splitLeftWidth = new(1, GridUnitType.Star), _splitRightWidth = new(.95, GridUnitType.Star);
     private LatexEditor Editor => _activeEditor ?? LeftEditor;
@@ -36,8 +37,20 @@ public partial class MainWindow
             strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
             GroupPane(side).PreviewMouseDown += (_, _) => { if (!_updatingWorkspace) _workspaceTabs.Focus(side); };
             editor.GotKeyboardFocus += (_, _) => SetActiveSource(editor);
+            editor.TextArea.PreviewMouseLeftButtonDown += (_, _) => ResumeFollowFromSource(editor);
+            editor.TextArea.PreviewKeyDown += (_, _) => ResumeFollowFromSource(editor);
         }
         LogToggle.Click += (_, _) => MoveLogTo(TabSide.Left);
+    }
+    private void ResumeFollowFromSource(LatexEditor editor)
+    {
+        if (!_followAwaitingSourceInteraction || _updatingWorkspace) return;
+        _followAwaitingSourceInteraction = false;
+        _activeEditor = editor;
+        // Mouse handling can move the caret after this preview event.
+        var request = _navigationRequest;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new Action(() =>
+        { if (request == _navigationRequest && !_followAwaitingSourceInteraction) QueueFollowSync(); }));
     }
     private void SetActiveSource(LatexEditor editor)
     {
@@ -95,6 +108,9 @@ public partial class MainWindow
     {
         if (_transitioning || _closing || _workspaceTabs.Owner(key) is null) return;
         CancelPendingNavigation();
+        if (split && key == TabWorkspace.PreviewKey && (!_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right))
+            && _workspaceTabs.FocusedTab == TabWorkspace.PreviewKey)
+            _followAwaitingSourceInteraction = true;
         var before = _workspaceTabs.Sources.ToDictionary(path => path, path => _workspaceTabs.Owner(path)!.Value, StringComparer.OrdinalIgnoreCase);
         _updatingWorkspace = true;
         try

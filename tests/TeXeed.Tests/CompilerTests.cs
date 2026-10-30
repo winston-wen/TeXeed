@@ -57,6 +57,7 @@ public static class CompilerTests
             CliCoordinateParsing(project);
             await NativeSyncTexAsync(project);
             await IndexedSyncChecks.RunAsync(project);
+            await LongBlockTests.RunAsync(project);
             var service = new CompileService();
             var absent = await service.CompileAsync(project, new() { Engine = TexEngine.PdfLaTeX, EnginePath = Path.Combine(root, "absent.exe") });
             Check.True(!absent.Success && absent.Diagnostics.Count > 0, "Missing compiler must produce an actionable diagnostic");

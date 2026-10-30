@@ -133,6 +133,7 @@ public partial class MainWindow : Window
             var preparedIndex = new ProjectIndexCache();
             await Task.Run(() => preparedIndex.Update(project.Files));
             _session++; _revision = 0; _pdfRevision = -1; _pdfGeneration++; _navigationRequest++;
+            _followAwaitingSourceInteraction = false;
             _externalChangePending = false; _assetChangePending = false;
             await InitializeAiProjectAsync(project.MainPath);
             SetAiMarking(false);
@@ -417,7 +418,7 @@ public partial class MainWindow : Window
 
     private void QueueFollowSync()
     {
-        if (_inverseNavigationOwner != 0) return;
+        if (_inverseNavigationOwner != 0 || _followAwaitingSourceInteraction) return;
         _navigationRequest++;
         CancelForwardSync();
         if (_settings.FollowMode == PreviewFollowMode.None || _transitioning || _closing) { _syncTimer.Stop(); return; }
@@ -428,7 +429,7 @@ public partial class MainWindow : Window
     private async Task ForwardAsync(bool explicitRequest)
     {
         if (_transitioning || _closing || _building || _externalChangePending) return;
-        if (!explicitRequest && (_settings.FollowMode == PreviewFollowMode.None || _inverseNavigationOwner != 0)) return;
+        if (!explicitRequest && (_settings.FollowMode == PreviewFollowMode.None || _inverseNavigationOwner != 0 || _followAwaitingSourceInteraction)) return;
         _syncTimer.Stop();
         var mode = _settings.FollowMode;
         var location = explicitRequest ? Editor.CurrentLocation : AutomaticSyncLocation;
@@ -441,17 +442,21 @@ public partial class MainWindow : Window
         _forwardSyncCancellation = cancellation;
         try
         {
-            var point = !explicitRequest && mode == PreviewFollowMode.Viewport
+            var point = !explicitRequest
                 ? await _sync.ForwardViewportAsync(_previewProject ?? _project, _pdfPath, location, _settings, cancellation.Token)
                 : await _sync.ForwardAsync(_previewProject ?? _project, _pdfPath, location, _settings, cancellation.Token);
             if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration ||
                 _pdfRevision != revision || _building || _transitioning || _closing || _externalChangePending ||
                 (explicitRequest ? Editor.CurrentLocation : AutomaticSyncLocation) != location ||
                 !explicitRequest && (_settings.FollowMode != mode || _inverseNavigationOwner != 0)) return;
-            if (point != null) Preview.ShowLocation(point, highlight: explicitRequest,
-                viewportFraction: explicitRequest && mode != PreviewFollowMode.Cursor ? .35 : .5,
-                centerBounds: mode == PreviewFollowMode.Cursor,
-                pageStart: !explicitRequest && mode == PreviewFollowMode.Viewport && Editor.VerticalOffset <= .01);
+            if (point != null)
+            {
+                if (explicitRequest) _followAwaitingSourceInteraction = false;
+                Preview.ShowLocation(point, highlight: explicitRequest,
+                    viewportFraction: explicitRequest && mode != PreviewFollowMode.Cursor ? .35 : .5,
+                    centerBounds: mode == PreviewFollowMode.Cursor,
+                    pageStart: !explicitRequest && mode == PreviewFollowMode.Viewport && Editor.VerticalOffset <= .01);
+            }
             else if (explicitRequest) Status("此处没有对应的 PDF 位置；请检查 SyncTeX 设置。");
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
@@ -476,6 +481,7 @@ public partial class MainWindow : Window
             if (!CurrentFiles().Any(f => f.IsEditable && f.Path.Equals(source.Path, StringComparison.OrdinalIgnoreCase)) && !await ImportPreviewSourceAsync(source))
             { Status("定位来源不属于当前预览依赖，或文件已改变；请重新编译后再定位。"); return; }
             if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration || _transitioning || _closing) return;
+            _followAwaitingSourceInteraction = false;
             _inverseNavigationOwner = request;
             ActivateFile(source.Path); Editor.NavigateTo(source); _syncTimer.Stop();
             // AvalonEdit restores scroll positions during layout; suppress those deferred
