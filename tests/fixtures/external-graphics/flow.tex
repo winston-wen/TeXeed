@@ -1,0 +1,16 @@
+\documentclass{article}
+\usepackage{tikz}
+\pagestyle{empty}
+\begin{document}
+\begin{tikzpicture}
+\node (a) at (0,0) {Start};
+\node (b) at (0,-2) {Step one};
+\node (c) at (0,-4) {Step two};
+\node (d) at (0,-6) {Step three};
+\node (e) at (0,-8) {Finish};
+\draw[->] (a) -- (b);
+\draw[->] (b) -- (c);
+\draw[->] (c) -- (d);
+\draw[->] (d) -- (e);
+\end{tikzpicture}
+\end{document}

@@ -40,6 +40,12 @@ public sealed class ProjectService
             if (entry.Kind == ProjectFileKind.Asset)
             {
                 files.Add(new(entry.Path, relativePath, entry.Kind, ""));
+                if (Path.GetExtension(entry.Path).Equals(".eps", StringComparison.OrdinalIgnoreCase) ||
+                    Path.GetExtension(entry.Path).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    var source = EpsSyncMap.FindSource(root, entry.Path);
+                    if (source is not null) queue.Enqueue((source, ProjectFileKind.Tex));
+                }
                 continue;
             }
             try

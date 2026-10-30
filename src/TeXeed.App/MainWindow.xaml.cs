@@ -15,7 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly ProjectService _projects = new();
     private readonly CompileService _compiler = new();
-    private readonly SyncTexService _sync = new();
+    private readonly SyncTexService _sync = new() { PdfPageSize = PdfDocument.GraphicPageSize };
     private ProjectIndexCache _sidebarIndex = new();
     private ProjectIndex? _outlineIndex;
     private AppSettings _settings = SettingsStore.Load();
@@ -90,7 +90,8 @@ public partial class MainWindow : Window
         };
         owner.VisibleRangeChanged += (_, _) => { if (!_updatingWorkspace && ReferenceEquals(owner, Editor)) { OutlineTree.HighlightViewport(Editor.VisibleSourceRange); BookmarkTree.HighlightViewport(Editor.VisibleSourceRange); } };
         }
-        Preview.ViewInteracted += (_, _) => CancelPendingNavigation();
+        Preview.ViewInteracted += (_, _) => { _pendingPreviewPosition = null; CancelPendingNavigation(); };
+        Preview.IsVisibleChanged += (_, _) => { if (Preview.IsVisible) QueueRestorePendingPreviewPosition(); };
         Preview.InverseRequested += async (_, location) => await InverseAsync(location);
         Preview.StatusChanged += (_, status) => PdfStatus.Text = status;
         UpdateRecent();
@@ -128,6 +129,7 @@ public partial class MainWindow : Window
         {
             await PauseWorkAsync();
             if (!await ConfirmLeaveAsync()) return;
+            SaveReadingHistory();
             if (createNew) await File.WriteAllTextAsync(path, NewDocument);
             var project = await Task.Run(() => _projects.LoadAsync(path));
             var preparedIndex = new ProjectIndexCache();
@@ -147,7 +149,9 @@ public partial class MainWindow : Window
             PdfStatus.Text = "等待首次编译";
             var main = project.Files.First(f => string.Equals(f.Path, project.MainPath, StringComparison.OrdinalIgnoreCase));
             _workspaceTabs.Reset(main.Path); _activeEditor = LeftEditor;
-            ActivateFile(main.Path); RefreshIndex();
+            _pendingPreviewPosition = null;
+            if (!await RestoreReadingHistoryAsync(ProjectReadingStore.Load(project.MainPath)))
+            { ActivateFile(main.Path); RefreshIndex(); }
             var initialInputs = new CompileInputSnapshot(project); _previewInputs = initialInputs;
             SetupWatcher();
             _settings = _settings with { RecentProjects = new[] { project.MainPath }.Concat(_settings.RecentProjects.Where(p => !p.Equals(project.MainPath, StringComparison.OrdinalIgnoreCase))).Take(10).ToArray() };
@@ -162,6 +166,7 @@ public partial class MainWindow : Window
                     var dependencyVersion = initialInputs.ChangeVersion;
                     if (cacheCurrent) PrepareSync(cached.PdfPath);
                     await Preview.LoadAsync(cached.PdfPath);
+                    RestorePendingPreviewPosition();
                     _pdfPath = cached.PdfPath;
                     _previewProject = project;
                     cacheCurrent &= dependencyVersion == initialInputs.ChangeVersion;
@@ -333,7 +338,7 @@ public partial class MainWindow : Window
                 if (cached is { IsCurrent: true } && await inputs.IsCurrentAsync(_projects, cancellationToken))
                 {
                     var dependencyVersion = inputs.ChangeVersion;
-                    if (_pdfPath != cached.PdfPath) { _pdfGeneration++; await Preview.LoadAsync(cached.PdfPath); }
+                    if (_pdfPath != cached.PdfPath) { _pdfGeneration++; await Preview.LoadAsync(cached.PdfPath); RestorePendingPreviewPosition(); }
                     if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
                     var cacheCurrent = dependencyVersion == inputs.ChangeVersion && revision == _revision && _changes.Count == 0;
                     _pdfPath = cached.PdfPath; _pdfRevision = cacheCurrent ? revision : -1; _previewProject = project; _previewInputs = inputs;
@@ -361,6 +366,7 @@ public partial class MainWindow : Window
                 _pdfGeneration++; _pdfRevision = -1;
                 PrepareSync(result.PdfPath);
                 await Preview.LoadAsync(result.PdfPath);
+                RestorePendingPreviewPosition();
                 if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
                 _lastCompileDependenciesCurrent &= dependencyVersion == inputs.ChangeVersion;
                 _pdfPath = result.PdfPath; _pdfRevision = _lastCompileDependenciesCurrent ? revision : -1; _previewProject = project; _previewInputs = inputs;
@@ -428,7 +434,9 @@ public partial class MainWindow : Window
 
     private async Task ForwardAsync(bool explicitRequest)
     {
-        if (_transitioning || _closing || _building || _externalChangePending) return;
+        if (_transitioning || _closing) return;
+        if (explicitRequest) { _pendingPreviewPosition = null; _followAwaitingSourceInteraction = false; }
+        if (_building || _externalChangePending) return;
         if (!explicitRequest && (_settings.FollowMode == PreviewFollowMode.None || _inverseNavigationOwner != 0 || _followAwaitingSourceInteraction)) return;
         _syncTimer.Stop();
         var mode = _settings.FollowMode;
@@ -481,6 +489,7 @@ public partial class MainWindow : Window
             if (!CurrentFiles().Any(f => f.IsEditable && f.Path.Equals(source.Path, StringComparison.OrdinalIgnoreCase)) && !await ImportPreviewSourceAsync(source))
             { Status("定位来源不属于当前预览依赖，或文件已改变；请重新编译后再定位。"); return; }
             if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration || _transitioning || _closing) return;
+            _pendingPreviewPosition = null;
             _followAwaitingSourceInteraction = false;
             _inverseNavigationOwner = request;
             ActivateFile(source.Path); Editor.NavigateTo(source); _syncTimer.Stop();
@@ -679,6 +688,7 @@ public partial class MainWindow : Window
     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (!_buildingFileTree && e.NewValue is TreeViewItem { Tag: string path }) OpenExplorerFile(path); }
     private async void Outline_NavigateRequested(object? sender, SourceLocation location)
     {
+        _pendingPreviewPosition = null; _followAwaitingSourceInteraction = false;
         if (await TryNavigateOutlinePreviewAsync(location)) return;
         ActivateFile(location.Path); Editor.NavigateTo(location, center: true);
         // A repeated click can leave the caret/viewport unchanged. It must still
@@ -688,11 +698,13 @@ public partial class MainWindow : Window
     private void Index_Selected(object sender, SelectionChangedEventArgs e)
     {
         if (IndexList.SelectedItem is not IndexEntry item) return;
+        _pendingPreviewPosition = null; _followAwaitingSourceInteraction = false;
         ActivateFile(item.Path); Editor.NavigateTo(new SourceLocation(item.Path, item.Line)); IndexList.SelectedItem = null;
     }
     private void Diagnostic_Selected(object sender, SelectionChangedEventArgs e)
     {
         if (DiagnosticsList.SelectedItem is not Diagnostic item) return;
+        _pendingPreviewPosition = null; _followAwaitingSourceInteraction = false;
         ActivateFile(item.Path); Editor.NavigateTo(new SourceLocation(item.Path, Math.Max(1, item.Line))); DiagnosticsList.SelectedItem = null;
     }
     private void EditorCommand_Click(object sender, RoutedEventArgs e) { if (!_transitioning && !_closing) Editor.ExecuteCommand((string)((MenuItem)sender).Tag); }
@@ -777,6 +789,7 @@ public partial class MainWindow : Window
             await Dispatcher.Yield(DispatcherPriority.Background);
             await PauseWorkAsync();
             if (!await ConfirmLeaveAsync()) return;
+            SaveReadingHistory();
             await StopAiWorkspaceAsync(); await _aiSettings.StopAsync(); _aiSettings.Dispose(); _aiConnection.Dispose();
             _allowClose = true; _session++; _compiler.Cancel(); _watcher?.Dispose();
             ResetDirectoryCatalog();

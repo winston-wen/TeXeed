@@ -29,6 +29,7 @@ internal static partial class Program
                 Check("automatic crop preserves content, footer, short gaps, rotation and bounded rasters", CropGeometry);
                 await CheckAsync("cropped continuous preview fills width and preserves source anchors, zoom and lifecycle", CropPreview);
                 Check("inverse mapping respects page rotation and crop boxes", Coordinates);
+                Check("embedded PDF geometry rejects rotation and cropping", GraphicPageGeometry);
                 Check("raster limits and render/dispose concurrency remain bounded", RasterLifecycle);
                 await CheckAsync("resize during load retains the newest PDF", LoadingRace);
                 await CheckAsync("only visible PDF pages own visual trees and raster buffers", Virtualization);
@@ -83,6 +84,28 @@ internal static partial class Program
         Near(croppedPoint.X, 10, "Cropped forward X"); Near(croppedPoint.Y, 10, "Cropped forward Y");
         inverse = cropped.ViewToPage(0, croppedPoint, new Size(180, 260));
         Near(inverse.X, 20, "Cropped inverse X"); Near(inverse.Y, 30, "Cropped inverse Y");
+    }
+
+    private static void GraphicPageGeometry()
+    {
+        var normal = SaveFixture(2); var rotated = SaveFixture(1, rotation: 90); var cropped = SaveFixture(1, crop: true);
+        var inherited = Path.Combine(Path.GetTempPath(), $"texeed-pdf-test-{Guid.NewGuid():N}.pdf");
+        var inheritedCrop = Path.Combine(Path.GetTempPath(), $"texeed-pdf-test-{Guid.NewGuid():N}.pdf");
+        File.WriteAllBytes(inherited, Fixture(1, inherited: true)); File.WriteAllBytes(inheritedCrop, Fixture(1, crop: true, inherited: true));
+        try
+        {
+            var size = PdfDocument.GraphicPageSize(normal, 1);
+            Require(size is not null, "Ordinary graphic PDF page was rejected.");
+            Near(size!.Value.Width, 200, "Graphic width"); Near(size.Value.Height, 300, "Graphic height");
+            Require(PdfDocument.GraphicPageSize(normal, 0) is null && PdfDocument.GraphicPageSize(normal, 3) is null, "Invalid graphic page accepted.");
+            Require(PdfDocument.GraphicPageSize(rotated, 1) is null, "Rotated PDF graphic accepted.");
+            Require(PdfDocument.GraphicPageSize(cropped, 1) is null, "Cropped PDF graphic accepted.");
+            Require(PdfDocument.GraphicPageSize(inherited, 1) is not null, "Inherited MediaBox was not recognized.");
+            Require(PdfDocument.GraphicPageSize(inheritedCrop, 1) is null, "Inherited CropBox accepted.");
+            File.WriteAllBytes(normal, Fixture(1, rotation: 90));
+            Require(PdfDocument.GraphicPageSize(normal, 1) is null, "Modified graphic reused stale dimensions.");
+        }
+        finally { File.Delete(normal); File.Delete(rotated); File.Delete(cropped); File.Delete(inherited); File.Delete(inheritedCrop); }
     }
 
     private static void RasterLifecycle()
@@ -194,18 +217,18 @@ internal static partial class Program
         System.IO.File.WriteAllBytes(path, Fixture(pages, rotation, crop, varied)); return path;
     }
 
-    private static byte[] Fixture(int pages, int rotation = 0, bool crop = false, bool varied = false, string? pageContent = null)
+    private static byte[] Fixture(int pages, int rotation = 0, bool crop = false, bool varied = false, string? pageContent = null, bool inherited = false)
     {
         var objects = new List<string>
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
-            $"<< /Type /Pages /Count {pages} /Kids [{string.Join(' ', Enumerable.Range(0, pages).Select(i => $"{3 + i * 2} 0 R"))}] >>"
+            $"<< /Type /Pages /Count {pages} /Kids [{string.Join(' ', Enumerable.Range(0, pages).Select(i => $"{3 + i * 2} 0 R"))}] {(inherited ? "/MediaBox [0 0 200 300]" + (crop ? " /CropBox [10 20 190 280]" : "") : "")} >>"
         };
         for (var i = 0; i < pages; i++)
         {
             var width = varied && i % 2 != 0 ? 360 : 200;
-            var cropBox = crop ? $"/CropBox [10 20 {width - 10} 280]" : "";
-            objects.Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} 300] /Rotate {rotation} {cropBox} /Resources << >> /Contents {4 + i * 2} 0 R >>");
+            var cropBox = crop && !inherited ? $"/CropBox [10 20 {width - 10} 280]" : "";
+            objects.Add($"<< /Type /Page /Parent 2 0 R {(inherited ? "" : $"/MediaBox [0 0 {width} 300]")} /Rotate {rotation} {cropBox} /Resources << >> /Contents {4 + i * 2} 0 R >>");
             var content = pageContent ?? "1 0 0 rg\n20 240 40 30 re f\n";
             objects.Add($"<< /Length {Encoding.ASCII.GetByteCount(content)} >>\nstream\n{content}endstream");
         }

@@ -27,6 +27,16 @@ public sealed class TabWorkspace
     private void SetActive(TabSide side, string? key) { if (side == TabSide.Left) _leftActive = key; else _rightActive = key; }
     public void Reset(string main)
     { _left = [main]; _right = [PreviewKey]; _leftActive = main; _rightActive = PreviewKey; FocusedSide = TabSide.Left; }
+    public void Restore(IEnumerable<string> left, IEnumerable<string> right, string? leftActive, string? rightActive, TabSide focused)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        _left = left.Where(seen.Add).ToList();
+        _right = right.Where(seen.Add).ToList();
+        if (!seen.Contains(PreviewKey)) _right.Add(PreviewKey);
+        _leftActive = _left.FirstOrDefault(item => string.Equals(item, leftActive, StringComparison.OrdinalIgnoreCase)) ?? _left.FirstOrDefault();
+        _rightActive = _right.FirstOrDefault(item => string.Equals(item, rightActive, StringComparison.OrdinalIgnoreCase)) ?? _right.FirstOrDefault();
+        FocusedSide = Has(focused) ? focused : Has(TabSide.Left) ? TabSide.Left : TabSide.Right;
+    }
     public void Open(string path)
     {
         var side = Owner(path) ?? (IsSource(path) ? TabSide.Left : TabSide.Right);

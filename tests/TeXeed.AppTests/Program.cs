@@ -242,6 +242,11 @@ internal static partial class Program
                     await CloseAndObserveAsync(window, "live preview settings regression");
                     result = 0; return;
                 }
+                if (args.Contains("--workspace-restore-only"))
+                {
+                    await CheckWorkspaceRestoreAsync(window, root, output);
+                    result = 0; return;
+                }
                 if (args.Contains("--dock-only"))
                 {
                     await CheckDockingAsync(window, output);
@@ -421,6 +426,21 @@ internal static partial class Program
                     await CheckReplacePanelAsync(output);
                     await CloseAndObserveAsync(window, "find-panel regression");
                     result = 0; return;
+                }
+                if (args.Contains("--external-graphic-perf-only", StringComparer.Ordinal))
+                {
+                    await CheckExternalGraphicPerformanceAsync(window, output);
+                    await CloseAndObserveAsync(window, "external graphic performance"); result = 0; return;
+                }
+                if (args.Contains("--external-graphic-ui-only", StringComparer.Ordinal))
+                {
+                    await CheckExternalGraphicUiAsync(window, output);
+                    await CloseAndObserveAsync(window, "external graphic synchronization"); result = 0; return;
+                }
+                if (args.Contains("--workspace-perf-only", StringComparer.Ordinal))
+                {
+                    await CheckWorkspaceRestorePerformanceAsync(window, output, args.Contains("--normalize-restore"));
+                    await CloseAndObserveAsync(window, "workspace restore performance"); result = 0; return;
                 }
                 if (args.Contains("--preview-perf-only", StringComparer.Ordinal))
                 {

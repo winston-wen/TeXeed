@@ -39,6 +39,7 @@ public partial class MainWindow
             editor.GotKeyboardFocus += (_, _) => SetActiveSource(editor);
             editor.TextArea.PreviewMouseLeftButtonDown += (_, _) => ResumeFollowFromSource(editor);
             editor.TextArea.PreviewKeyDown += (_, _) => ResumeFollowFromSource(editor);
+            editor.TextArea.PreviewMouseWheel += (_, _) => ResumeFollowFromSource(editor);
         }
         LogToggle.Click += (_, _) => MoveLogTo(TabSide.Left);
     }
@@ -46,6 +47,7 @@ public partial class MainWindow
     {
         if (!_followAwaitingSourceInteraction || _updatingWorkspace) return;
         _followAwaitingSourceInteraction = false;
+        _pendingPreviewPosition = null;
         _activeEditor = editor;
         // Mouse handling can move the caret after this preview event.
         var request = _navigationRequest;
@@ -74,7 +76,7 @@ public partial class MainWindow
         _workspaceTabs.Select(side, key);
         if (AiConversationForKey(key) is { } selectedAi && _aiPanels.TryGetValue(selectedAi.Id,out var selectedPanel)) SetAiTarget(selectedPanel);
         RefreshWorkspaceViews();
-        if (TabWorkspace.IsSource(key)) SourceEditor(side).TextArea.Focus();
+        if (TabWorkspace.IsSource(key)) { ResumeFollowFromSource(SourceEditor(side)); SourceEditor(side).TextArea.Focus(); }
     }
     private async void CloseTabs(string path, TabCloseScope scope)
     {

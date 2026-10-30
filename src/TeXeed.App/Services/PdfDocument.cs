@@ -217,6 +217,7 @@ internal sealed partial class PdfDocument : IDisposable
     private static class Native
     {
         private const string Dll = "pdfium";
+        [StructLayout(LayoutKind.Sequential)] internal struct PageRect { internal float Left, Top, Right, Bottom; }
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_InitLibrary();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr FPDF_LoadMemDocument64(IntPtr data, nuint length, IntPtr password);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern uint FPDF_GetLastError();
@@ -227,6 +228,9 @@ internal sealed partial class PdfDocument : IDisposable
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern double FPDF_GetPageWidth(IntPtr page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern double FPDF_GetPageHeight(IntPtr page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_GetMediaBox(IntPtr page, out float left, out float bottom, out float right, out float top);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDFPage_GetRotation(IntPtr page);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_GetPageBoundingBox(IntPtr page, out PageRect rect);
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDFPage_SetCropBox(IntPtr page, float left, float bottom, float right, float top);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern int FPDF_DeviceToPage(IntPtr page, int startX, int startY, int sizeX, int sizeY, int rotate, int deviceX, int deviceY, out double pageX, out double pageY);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_ClosePage(IntPtr page);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] internal static extern void FPDF_CloseDocument(IntPtr document);

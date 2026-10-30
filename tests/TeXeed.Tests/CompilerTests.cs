@@ -58,6 +58,10 @@ public static class CompilerTests
             await NativeSyncTexAsync(project);
             await IndexedSyncChecks.RunAsync(project);
             await LongBlockTests.RunAsync(project);
+            if (Environment.GetEnvironmentVariable("TEXEED_TEST_EXTERNAL_GRAPHIC") is { Length: > 0 } graphic)
+                await ExternalGraphicTests.RunAsync(graphic);
+            if (Environment.GetEnvironmentVariable("TEXEED_TEST_REAL_BLOCKS") is { Length: > 0 } externalEngine)
+                await ExternalGraphicTests.GenerateAndRunAsync(Path.Combine(root, "external-graphics"), externalEngine);
             var service = new CompileService();
             var absent = await service.CompileAsync(project, new() { Engine = TexEngine.PdfLaTeX, EnginePath = Path.Combine(root, "absent.exe") });
             Check.True(!absent.Success && absent.Diagnostics.Count > 0, "Missing compiler must produce an actionable diagnostic");

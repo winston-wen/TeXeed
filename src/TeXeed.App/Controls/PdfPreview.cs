@@ -63,6 +63,28 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     }
     public double Zoom => _zoom;
     public bool IsAutoWidth => _fit;
+    internal PdfReadingPosition? CaptureReadingPosition()
+    {
+        var anchor = (IsVisible ? CaptureAnchor(ViewportCenter) : null) ?? _readingAnchor;
+        return anchor is null ? null : new(anchor.Page + 1, anchor.DocumentPoint.X, anchor.DocumentPoint.Y, _fit, _zoom);
+    }
+
+    internal bool RestoreReadingPosition(PdfReadingPosition position)
+    {
+        if (_document is null || position.Page < 1 || !double.IsFinite(position.X) || !double.IsFinite(position.Y)
+            || !double.IsFinite(position.Zoom)) return false;
+        if (position.FitWidth) { if (!_fit) FitWidth(); }
+        else if (_fit || Math.Abs(_zoom - position.Zoom) > .0001) SetZoom(position.Zoom);
+        if (_layouts.Count == 0) UpdatePageSizes();
+        if (_scroll.ViewportWidth <= 0 || _scroll.ViewportHeight <= 0) return false;
+        var page = Math.Min(position.Page, PageCount) - 1;
+        var size = _document.Pages[page];
+        var documentPoint = new Point(Math.Clamp(position.X, 0, size.Width), Math.Clamp(position.Y, 0, size.Height));
+        var current = CaptureAnchor(ViewportCenter);
+        if (current is null || current.Page != page || (current.DocumentPoint - documentPoint).LengthSquared > .01)
+            RestoreAnchor(new ZoomAnchor(page, documentPoint, ViewportCenter), horizontal: !position.FitWidth);
+        return true;
+    }
     public bool PhysicalWidthIsEstimated => _screen.IsEstimated;
     public double AutoWidthMaximumCm
     {
@@ -652,3 +674,5 @@ public sealed partial class PdfPreview : UserControl, IDisposable
         public PdfPageCrop? RasterCrop { get; set; }
     }
 }
+
+internal sealed record PdfReadingPosition(int Page, double X, double Y, bool FitWidth, double Zoom);

@@ -9,13 +9,15 @@ namespace TeXeed.Core;
 
 /// <summary>SyncTeX positions are 1-based pages, with coordinates in PDF points
 /// (72 per inch) measured from the page's top left. Returned boxes use their top edge.</summary>
-public sealed class SyncTexService
+public sealed partial class SyncTexService
 {
     private string? cachedPath;
     private DateTime cachedTime;
     private long cachedSize;
     private SyncIndex cachedIndex = SyncIndex.Empty;
     private readonly SemaphoreSlim cacheGate = new(1, 1);
+    private bool _disableExternal;
+    public Func<string, int, (double Width, double Height)?>? PdfPageSize { get; set; }
     private static readonly ConditionalWeakTable<string, EnvironmentMap> EnvironmentMaps = new();
     private static readonly ConditionalWeakTable<FileIndex, ConcurrentDictionary<(int, int), GraphicProjection>> GraphicMaps = new();
     private static readonly ConditionalWeakTable<FileIndex, ConcurrentDictionary<(int, int), BlockProjection>> BlockMaps = new();
@@ -63,6 +65,12 @@ public sealed class SyncTexService
     {
         var valid = ResolveSource(project, source.Path, source.Line, source.Column);
         if (valid is null || !ValidOutput(project, pdfPath)) return null;
+        if (await ForwardExternalAsync(project, pdfPath, valid, settings, ct) is { } external) return external;
+        return await ForwardCoreAsync(project, pdfPath, valid, settings, ct);
+    }
+
+    private async Task<PdfLocation?> ForwardCoreAsync(TexProject project, string pdfPath, SourceLocation valid, AppSettings settings, CancellationToken ct)
+    {
         var command = GetExecutable(settings);
         if (command is not null)
         {
@@ -80,11 +88,12 @@ public sealed class SyncTexService
     {
         var valid = ResolveSource(project, source.Path, source.Line, source.Column);
         if (valid is null || !ValidOutput(project, pdfPath)) return null;
+        if (await ForwardExternalAsync(project, pdfPath, valid, settings, ct) is { } external) return external;
         return await NativeForwardAsync(project, pdfPath, valid, ct, contentOnly: true)
-            ?? await ForwardAsync(project, pdfPath, source, settings, ct);
+            ?? await ForwardCoreAsync(project, pdfPath, valid, settings, ct);
     }
 
-    private async Task<PdfLocation?> NativeForwardAsync(TexProject project, string pdfPath, SourceLocation valid, CancellationToken ct, bool contentOnly)
+    private async Task<PdfLocation?> NativeForwardAsync(TexProject project, string pdfPath, SourceLocation valid, CancellationToken ct, bool contentOnly, bool approximate = true)
     {
         var index = await GetIndexAsync(pdfPath, ct).ConfigureAwait(false);
         SyncNode? best = null;
@@ -96,11 +105,11 @@ public sealed class SyncTexService
             catch (Exception ex) when (ex is ArgumentException or IOException) { continue; }
             var boundary = Array.BinarySearch(file.Lines, valid.Line);
             if (boundary < 0) boundary = ~boundary;
-            if (contentOnly && ApproximateGraphic(project, valid, file, boundary) is { } graphic)
+            if (contentOnly && approximate && ApproximateGraphic(project, valid, file, boundary) is { } graphic)
                 return graphic;
-            if (contentOnly && ApproximateBlock(project, valid, file, boundary) is { } block)
+            if (contentOnly && approximate && ApproximateBlock(project, valid, file, boundary) is { } block)
                 return block;
-            if (contentOnly && boundary < file.Lines.Length && file.Lines[boundary] != valid.Line &&
+            if (contentOnly && approximate && boundary < file.Lines.Length && file.Lines[boundary] != valid.Line &&
                 InterpolateEnvironment(project, valid, file, boundary) is { } interpolated)
                 return interpolated;
             var left = boundary - 1; var right = boundary;
@@ -221,6 +230,7 @@ public sealed class SyncTexService
     {
         if (point.Page < 1 || !double.IsFinite(point.X) || !double.IsFinite(point.Y) || point.X < 0 || point.Y < 0 || !ValidOutput(project, pdfPath)) return null;
         var index = await GetIndexAsync(pdfPath, ct).ConfigureAwait(false);
+        if (!_disableExternal && await InverseExternalAsync(project, index, point, settings, ct) is { } external) return external;
         if (InverseGraphic(project, index, point) is { } graphic) return graphic;
         if (InverseBlock(project, index, point) is { } block) return block;
         var command = GetExecutable(settings);

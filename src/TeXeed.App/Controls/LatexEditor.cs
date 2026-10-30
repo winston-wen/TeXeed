@@ -279,6 +279,23 @@ public sealed partial class LatexEditor : TextEditor
         session.HorizontalOffset = HorizontalOffset;
     }
 
+    internal IReadOnlyDictionary<string, EditorReadingPosition> CaptureReadingPositions()
+    {
+        CaptureSession();
+        return _sessions.ToDictionary(pair => pair.Key, pair => new EditorReadingPosition(pair.Value.CaretOffset,
+            pair.Value.SelectionStart, pair.Value.SelectionLength, pair.Value.VerticalOffset, pair.Value.HorizontalOffset), StringComparer.OrdinalIgnoreCase);
+    }
+
+    internal void RestoreReadingPosition(ProjectFile file, EditorReadingPosition position)
+    {
+        if (!_sessions.TryGetValue(file.Path, out var session)) _sessions[file.Path] = session = new FileSession(new TextDocument(file.Content));
+        session.CaretOffset = Math.Clamp(position.CaretOffset, 0, session.Document.TextLength);
+        session.SelectionStart = Math.Clamp(position.SelectionStart, 0, session.Document.TextLength);
+        session.SelectionLength = Math.Clamp(position.SelectionLength, 0, session.Document.TextLength - session.SelectionStart);
+        session.VerticalOffset = double.IsFinite(position.VerticalOffset) ? Math.Max(0, position.VerticalOffset) : 0;
+        session.HorizontalOffset = double.IsFinite(position.HorizontalOffset) ? Math.Max(0, position.HorizontalOffset) : 0;
+    }
+
     private void OnEditorKeyDown(object sender, KeyEventArgs e)
     {
         if (_search.IsKeyboardFocusWithin)
@@ -703,3 +720,5 @@ public sealed partial class LatexEditor : TextEditor
         </SyntaxDefinition>
         """;
 }
+
+internal sealed record EditorReadingPosition(int CaretOffset, int SelectionStart, int SelectionLength, double VerticalOffset, double HorizontalOffset);

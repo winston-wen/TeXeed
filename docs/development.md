@@ -40,6 +40,8 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build
 | `--outline-only`、`--outline-preview-only` | 大纲导航、折叠和预览定位 |
 | `--titlebar-only`、`--workspace-only`、`--themes-only` | 窗口、菜单、布局和主题 |
 | `--viewport-only`、`--build-scheduling-only` | 预览跟随、编译调度和取消 |
+| `--workspace-restore-only`、`--external-graphic-ui-only` | 浏览位置恢复、外部图形双向定位 |
+| `--workspace-perf-only`、`--external-graphic-perf-only` | 浏览位置及外部图形跟随的性能复测 |
 | `--completion-only`、`--code-style-only` | 补全和 Markdown 代码样式 |
 | `--ai-only`、`--ai-permissions-only` | 模拟 AI 服务、工具和权限 |
 | `--ai-history-only`、`--ai-reliability-only` | 会话保存、恢复和长对话 |

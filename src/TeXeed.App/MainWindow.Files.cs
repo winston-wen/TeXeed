@@ -95,13 +95,13 @@ public partial class MainWindow
         var session = _session; var request = ++_fileOpenRequest;
         try
         {
-            if (CurrentFiles().Any(file => file.IsEditable && file.Path.Equals(path, StringComparison.OrdinalIgnoreCase))) { ActivateFile(path); return; }
+            if (CurrentFiles().Any(file => file.IsEditable && file.Path.Equals(path, StringComparison.OrdinalIgnoreCase))) { ActivateFile(path); ResumeFollowFromSource(Editor); return; }
             if (!AiWorkspaceFiles.IsText(path)) { Status("项目资源：" + Path.GetRelativePath(_project.Root, path)); return; }
             var file = await AiWorkspaceFiles.ReadAsync(_project.Root, Path.GetRelativePath(_project.Root, path), CancellationToken.None);
             if (session != _session || _project is null || _closing || _transitioning || request != _fileOpenRequest) return;
             if (!CurrentFiles().Any(current => current.IsEditable && current.Path.Equals(path, StringComparison.OrdinalIgnoreCase)))
                 _project = _project with { Files = _project.Files.Where(current => !current.Path.Equals(path, StringComparison.OrdinalIgnoreCase)).Append(file).ToArray() };
-            ActivateFile(path); RefreshIndex();
+            ActivateFile(path); ResumeFollowFromSource(Editor); RefreshIndex();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         { if (session == _session) Status("无法打开项目文件：" + ex.Message); }
