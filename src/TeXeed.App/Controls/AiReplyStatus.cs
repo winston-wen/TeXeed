@@ -4,6 +4,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Globalization;
 
 namespace TeXeed.App.Controls;
 
@@ -17,7 +18,7 @@ public sealed class AiReplyStatus : StackPanel
     public string Text { get => (string)GetValue(TextProperty); set => SetValue(TextProperty, value); }
     public bool IsThinking { get => (bool)GetValue(IsThinkingProperty); set => SetValue(IsThinkingProperty, value); }
     private readonly TextBlock _stamp = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap };
-    private readonly Ellipse _indicator = new() { Width = 7, Height = 7, Margin = new Thickness(7, 0, 0, 0), IsHitTestVisible = false };
+    private readonly Ellipse _indicator = new() { Width = AiChatTypography.MetadataFontSize, Height = AiChatTypography.MetadataFontSize, Margin = new Thickness(7, 0, 0, 0), IsHitTestVisible = false };
     private readonly InlineUIContainer _indicatorInline;
     private bool _pulsing;
     private Button? _retry;
@@ -47,14 +48,14 @@ public sealed class AiReplyStatus : StackPanel
     {
         Background = Brushes.Transparent;
         IsCollapsed = false;
-        _indicatorInline = new InlineUIContainer(_indicator) { BaselineAlignment = BaselineAlignment.Center };
+        _indicatorInline = new InlineUIContainer(_indicator) { BaselineAlignment = BaselineAlignment.Baseline };
         _stamp.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         _indicator.SetResourceReference(Shape.FillProperty, "ChatThinking");
         var line = new Border { Height = 1, Margin = new Thickness(0, 16, 0, 0), IsHitTestVisible = false };
         line.SetResourceReference(Border.BackgroundProperty, "ChatDivider");
         _row.Children.Add(_stamp);
         Children.Add(_row); Children.Add(line);
-        Loaded += (_, _) => UpdatePulse();
+        Loaded += (_, _) => { AlignIndicator(); UpdatePulse(); };
         Unloaded += (_, _) => StopPulse();
         IsVisibleChanged += (_, _) => UpdatePulse();
     }
@@ -65,10 +66,19 @@ public sealed class AiReplyStatus : StackPanel
         {
             _stamp.Inlines.Add(new Run(PendingText));
             _stamp.Inlines.Add(_indicatorInline);
+            AlignIndicator();
         }
         else _stamp.Text = Text;
         System.Windows.Automation.AutomationProperties.SetName(this, IsThinking ? PendingText : Text);
         UpdatePulse();
+    }
+    private void AlignIndicator()
+    {
+        if (!IsThinking) return;
+        var text = new FormattedText(PendingText, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(_stamp.FontFamily, _stamp.FontStyle, _stamp.FontWeight, _stamp.FontStretch), _stamp.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var axis = text.Height + text.OverhangAfter - text.Extent / 2 - text.Baseline;
+        TextBlock.SetBaselineOffset(_indicator, _indicator.Height / 2 - axis);
     }
     private void UpdatePulse()
     {

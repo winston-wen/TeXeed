@@ -103,7 +103,7 @@ function turnHtml(t,index=0,turns=[t]){
  const proofIndex=activities.findIndex(s=>/^公式排版检查通过/.test(s.text));
  const after=proofIndex<0?[]:activities.splice(proofIndex);
  const processAfter=after.length?'<div class="process-log after-answer" aria-label="过程记录">'+after.map(activity).join('')+'</div>':'';
- const process=activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'';
+ const process=(t.segments||[]).some(s=>s.kind==='text'&&s.text)?(t.segments||[]).filter(s=>s.kind==='text'||s.kind==='activity'&&!isConnectionStatus(s)&&!/^公式排版检查通过/.test(s.text)).map(s=>s.kind==='text'?'<div class="streaming-answer">'+esc(s.text)+'</div>':'<div class="process-log" aria-label="过程记录">'+activity(s)+'</div>').join(''):(activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'');
  const sent='<div class="turn-time sent-time" data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起或展开本轮回答">'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送'+(t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
  const answerTime=thinking?'<span class="thinking-label" role="status"><span class="pending-label-text">'+esc(running.pendingStatus||'等待 AI 响应')+'</span><span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
  const folded=!thinking&&t.collapsed;
@@ -115,7 +115,7 @@ function turnHtml(t,index=0,turns=[t]){
 function renderTurns(){
  const pos=$('reader').scrollTop;
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
- enhanceAnswers();alignReadingInk();$('reader').scrollTop=pos;renderBubbles();requestAnimationFrame(updateReadingContext);
+ enhanceAnswers();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();requestAnimationFrame(updateReadingContext);
 }
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
@@ -134,13 +134,22 @@ function enhanceAnswers(){
  });
 }
 function isConnectionStatus(segment){return /^(request-state-|network-retry$)/.test(segment.id||'')||/^(已连接 AI|正在连接 AI|正在准备请求)(?:$| ·)/.test(segment.text||'');}
-function setPendingStatus(job,text){job.pendingStatus=text;if(running===job){const label=$(job.turn.id+'-divider')?.querySelector('.pending-label-text');if(label)label.textContent=text;}}
+function setPendingStatus(job,text){job.pendingStatus=text;if(running===job){const label=$(job.turn.id+'-divider')?.querySelector('.pending-label-text');if(label){label.textContent=text;alignPendingIndicator();}}}
+function alignPendingIndicator(){
+ for(const status of document.querySelectorAll('.thinking-label')){
+  const label=status.querySelector('.pending-label-text'),dot=status.querySelector('.thinking-dot');if(!label?.firstChild||!dot)continue;
+  const style=getComputedStyle(label),ctx=document.createElement('canvas').getContext('2d');ctx.font=style.font||[style.fontStyle,style.fontWeight,style.fontSize,style.fontFamily].join(' ');const metrics=ctx.measureText(label.textContent);
+  const range=document.createRange();range.selectNodeContents(label);const text=range.getBoundingClientRect(),box=dot.getBoundingClientRect(),transform=getComputedStyle(dot).transform;
+  const previous=transform==='none'?0:new DOMMatrixReadOnly(transform).m42;
+  dot.style.transform='translateY('+(previous+text.top+metrics.fontBoundingBoxAscent+(metrics.actualBoundingBoxDescent-metrics.actualBoundingBoxAscent)/2-box.top-box.height/2)+'px)';
+ }
+}
 function alignReadingInk(headings=true){
  const labels=headings?[...document.querySelectorAll('.heading-label')]:[],questions=[...document.querySelectorAll('.question')];
  if(!labels.length&&!questions.length)return;
  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),sans=getComputedStyle(document.documentElement).getPropertyValue('--sans');
  const metrics=alignReadingInk.metrics||(alignReadingInk.metrics=new Map());
- const measure=(text,style,font)=>{font=font||style.font;const key=font+'\n'+text;if(metrics.has(key))return metrics.get(key);ctx.font=font;const value=ctx.measureText(text);if(metrics.size>=512)metrics.clear();metrics.set(key,value);return value;};
+ const measure=(text,style,font)=>{font=font||style.font||[style.fontStyle,style.fontWeight,style.fontSize,style.fontFamily].join(' ');const key=font+'\n'+text;if(metrics.has(key))return metrics.get(key);ctx.font=font;const value=ctx.measureText(text);if(metrics.size>=512)metrics.clear();metrics.set(key,value);return value;};
  const edits=[];
  const axis=m=>(m.actualBoundingBoxDescent-m.actualBoundingBoxAscent)/2;
  for(const label of labels){
@@ -358,7 +367,7 @@ $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const pr
 $('thread').addEventListener('click',event=>{if(event.target.closest('.math'))event.preventDefault();});
 $('annotation-input').addEventListener('input',()=>{const field=$('entries').querySelector('[data-question="'+editing+'"]');if(field)updateEditor(field);});
 $('entries').addEventListener('input',event=>{if(event.target.dataset.question===editing)updateEditor($('annotation-input'));});
-window.addEventListener('resize',()=>{restoreComposerHeight();refreshEditors();alignReadingInk(false);updateReadingContext();});
+window.addEventListener('resize',()=>{restoreComposerHeight();refreshEditors();alignReadingInk(false);alignPendingIndicator();updateReadingContext();});
 
 
 // Restore saved titles and reading anchors.
@@ -397,5 +406,5 @@ window.addEventListener('resize',commitAnnotation);
 new ResizeObserver(commitAnnotation).observe($('reader'));
 for(const c of state.conversations)for(const e of c.entries)if(e.state==='提交中')e.state='上次提交未完成，可重试';
 
-mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();alignReadingInk(false);restoreReading(current().reading);});
+mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();alignReadingInk(false);alignPendingIndicator();restoreReading(current().reading);});
 if(location.search.includes('tools=1'))openLab();

@@ -102,9 +102,14 @@ public sealed partial class MarkdownView : RichTextBox
                 _streamRun = new Run();
                 ClearRichState();
                 var paragraph = new Paragraph(_streamRun);
-                if (ChatMode) paragraph.Margin = new Thickness(0);
                 Document = new FlowDocument(paragraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
                 Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
+            }
+            if (ChatMode && _streamRun.Parent is Paragraph streamParagraph)
+            {
+                streamParagraph.Margin = new Thickness(0);
+                streamParagraph.LineHeight = 25;
+                streamParagraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
             }
             var next = Markdown ?? "";
             if (next.StartsWith(_streamText, StringComparison.Ordinal)) _streamRun.ContentEnd.InsertTextInRun(next[_streamText.Length..]);

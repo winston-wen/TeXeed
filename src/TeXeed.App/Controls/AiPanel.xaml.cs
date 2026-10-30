@@ -44,6 +44,8 @@ public partial class AiPanel : UserControl, IDisposable
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
     {
         _connection = connection; InitializeComponent(); InitializeComposer();
+        LiveTurnNumber.FontFamily = LiveQuestion.FontFamily;
+        LiveTurnNumber.FontWeight = FontWeights.Normal;
         LiveSentTime.Focusable = true; LiveSentTime.Cursor = Cursors.Hand;
         LiveTurnNumber.Margin = new Thickness(-40, 8 + (LiveQuestion.FontFamily.Baseline - LiveTurnNumber.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
         _liveOrdinalAlignment = new ChatOrdinalAlignment(LiveQuestion, LiveTurnNumber);

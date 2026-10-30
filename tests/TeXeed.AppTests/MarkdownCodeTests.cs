@@ -59,6 +59,12 @@ internal static partial class Program
             ai.SourceLink = _ => { }; ai.Markdown = "查看 `main.tex:12`。"; await Settle();
             var link = ((Paragraph)ai.Document.Blocks.FirstBlock!).Inlines.OfType<Span>().Single().Inlines.OfType<Hyperlink>().Single();
             Check(link.FontFamily.Source.Contains("Consolas") && ((SolidColorBrush)link.Foreground).Color == ThemeManager.Brush("Accent").Color, "Code source link lost its monospaced font or existing link color");
+            var oldFile = new Run("main.tex:12"); var oldFileDocument = new FlowDocument(new Paragraph(new Hyperlink(oldFile)));
+            ai.Markdown = "`main.tex:12`"; await Settle();
+            var legacyFileAnchor = new AiAnswerAnchor("turn", "answer", oldFileDocument.ContentStart.GetOffsetToPosition(oldFile.ContentStart.GetPositionAtOffset(2)!), 2, "in", "revision");
+            var filePointer = ai.AnnotationPointer("legacy-file-link", legacyFileAnchor);
+            Check(filePointer is not null && new TextRange(filePointer, filePointer.GetPositionAtOffset(2)!).Text == "in", "Moving decorative padding changed a legacy file-link anchor");
+            Check(ai.CopyForClipboard(ai.Document.ContentStart, ai.Document.ContentEnd).TrimEnd('\r', '\n') == "main.tex:12", "File-link padding leaked into copied text");
             tutorial.Markdown = "正文 `" + string.Join(" ", Enumerable.Repeat("long_code_identifier", 18)) + "` 后文。"; host.Width = 360; await Settle();
             Check(((List<Rect>)Field(tutorial, "_inlineCodeBounds")!).Count > 1, "Long inline code did not follow native wrapping");
             Capture(host, Path.Combine(output, "markdown-code-narrow.png"));

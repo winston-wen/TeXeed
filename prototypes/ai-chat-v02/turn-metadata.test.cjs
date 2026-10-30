@@ -145,3 +145,6 @@ console.log('Retry: latest interrupted turn only, continuous network playback, c
 
 const legacy={...base,segments:[{id:'request-state-0',kind:'activity',text:'已连接 AI'},{kind:'activity',text:'已读取源码 · sample.tex'}]};
 assert.doesNotMatch(context.turnHtml(legacy),/已连接 AI/);assert.match(context.turnHtml(legacy),/已读取源码/);assert.equal(legacy.segments.length,2);
+
+const interleaved={...base,answer:'',segments:[{kind:'activity',text:'开始检查'},{kind:'text',text:'中途正文 <sample>'},{kind:'activity',text:'已读取源码'},{kind:'text',text:'继续处理'}]};
+const ordered=context.turnHtml(interleaved);assert.match(ordered,/class="streaming-answer"/);assert.ok(ordered.indexOf('开始检查')<ordered.indexOf('中途正文'));assert.ok(ordered.indexOf('中途正文')<ordered.indexOf('已读取源码'));assert.ok(ordered.indexOf('已读取源码')<ordered.indexOf('继续处理'));assert.ok(ordered.includes('&lt;sample&gt;'));
