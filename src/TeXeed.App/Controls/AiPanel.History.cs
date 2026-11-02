@@ -53,6 +53,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        _autoScroll.Stop();
         _restoringReading = true;
         _updating = true;
         Composer.Text = _book.Draft;

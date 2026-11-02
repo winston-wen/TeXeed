@@ -23,6 +23,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
         var brush = new SolidColorBrush(PdfDocument.DarkPaperColor); brush.Freeze(); return brush;
     }
     private readonly ScrollViewer _scroll = new PreviewScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, CanContentScroll = false };
+    private readonly AutoScrollController _autoScroll;
     private readonly Canvas _pages = new() { HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(20) };
     private readonly TextBlock _empty = new() { Text = "预览将在编译成功后出现\n\n从左侧开始写作，让想法慢慢成形。", TextAlignment = TextAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(195, 183, 184)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(25), TextWrapping = TextWrapping.Wrap, LineHeight = 26 };
     private readonly List<PageLayout> _layouts = [];
@@ -179,6 +180,11 @@ public sealed partial class PdfPreview : UserControl, IDisposable
         var grid = new Grid();
         grid.Children.Add(_scroll); grid.Children.Add(_empty); Content = grid;
         _scroll.Content = _pages;
+        _autoScroll = new AutoScrollController(_scroll, () =>
+        {
+            UserScrollRequested?.Invoke(this, EventArgs.Empty);
+            UserScrolled?.Invoke(this, EventArgs.Empty);
+        });
         _scroll.ScrollChanged += (_, e) =>
         {
             // Retire an old viewport's queued pages as soon as the reader
@@ -207,6 +213,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
         PreviewMouseWheel += (_, e) =>
         {
             ViewInteracted?.Invoke(this, EventArgs.Empty);
+            _autoScroll.Stop();
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             { SetZoom(_zoom * (e.Delta > 0 ? 1.1 : 1 / 1.1), e.GetPosition(_scroll)); e.Handled = true; }
             else ArmUserScroll();
@@ -272,6 +279,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     public async Task LoadAsync(string path)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _autoScroll.Stop();
         CancelAiSelection();
         var version = ++_loadVersion;
         _cropCancellation?.Cancel();
@@ -347,6 +355,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
 
     public void Clear()
     {
+        _autoScroll.Stop();
         CancelAiSelection();
         _loadVersion++; _renderVersion++;
         _loadCancellation?.Cancel(); _cropCancellation?.Cancel();
@@ -669,7 +678,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        DetachDisplayEvents(); _disposed = true; Clear();
+        _autoScroll.Dispose(); DetachDisplayEvents(); _disposed = true; Clear();
         _loadCancellation?.Dispose(); _cropCancellation?.Dispose();
     }
 

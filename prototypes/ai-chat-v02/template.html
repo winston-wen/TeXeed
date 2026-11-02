@@ -67,6 +67,9 @@ details[open]>summary:before { transform:rotate(90deg) }
 .reading-shell { grid-row:2; min-height:0; display:flex; flex-direction:column; overflow:hidden; margin-left:-12px }
 .reader { min-height:0; flex:1; overflow:auto; overflow-x:hidden; position:relative; outline:0; scrollbar-gutter:stable }
 .reader:focus-visible { outline:1px solid var(--guide); outline-offset:-1px }
+.autoscroll-indicator { position:fixed; z-index:1000; left:0; top:0; width:48px; height:48px; transform:translate(-50%,-50%); border:1px solid #3338; border-radius:50%; background:#dbdbdbeb; pointer-events:none; }
+.autoscroll-indicator svg { display:block; width:100%; height:100%; fill:#333; stroke:#333; stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round }
+.autoscroll-indicator path { fill:none }
 .thread { margin:0; padding:20px 46px 22px calc(var(--text-inset) + 12px) }
 .turn { margin:0 0 24px }
 .turn:last-child { margin-bottom:0 }

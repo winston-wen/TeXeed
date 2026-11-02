@@ -101,6 +101,11 @@ internal static partial class Program
                     await CheckScrollBounceAsync(window, output);
                     await CloseAndObserveAsync(window, "single wheel stability"); result = 0; return;
                 }
+                if (args.Contains("--auto-scroll-only"))
+                {
+                    await CheckAutoScrollAsync(window, output);
+                    await CloseAndObserveAsync(window, "middle-button autoscroll"); result = 0; return;
+                }
                 if (args.Contains("--print-review"))
                 {
                     var printPath = Path.Combine(output, "print-source.pdf"); WritePrintPdf(printPath);
@@ -251,6 +256,12 @@ internal static partial class Program
                 {
                     await CheckEditorScrollPerformanceAsync(window, output);
                     await CloseAndObserveAsync(window, "editor and preview scroll performance");
+                    result = 0; return;
+                }
+                if (args.Contains("--auto-scroll-perf-only"))
+                {
+                    await CheckAutoScrollPerformanceAsync(window, output);
+                    await CloseAndObserveAsync(window, "middle-button autoscroll performance");
                     result = 0; return;
                 }
                 if (args.Contains("--workspace-restore-only"))

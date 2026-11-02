@@ -760,6 +760,8 @@ public partial class MainWindow : Window
     private void About_Click(object sender, RoutedEventArgs e) => MessageBox.Show(this, $"TeXeed {typeof(MainWindow).Assembly.GetName().Version?.ToString(3)}\n原生 Windows LaTeX 工作区\n\nC# · .NET 10 · WPF\nAvalonEdit / WpfMath (MIT) · PDFiumCore (Apache-2.0) · PDFium\n\n第三方许可随发行包提供。", "关于 TeXeed", MessageBoxButton.OK, MessageBoxImage.Information);
     private async void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && AutoScrollController.StopForWindow(this))
+        { e.Handled = true; return; }
         if (_aiMarking && e.Key == Key.Escape)
         { SetAiMarking(false); e.Handled = true; return; }
         if (e.Key == Key.Escape && (FileTabs.IsDraggingTab || RightFileTabs.IsDraggingTab))

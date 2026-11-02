@@ -133,5 +133,6 @@ data['playback']['answerHeadingVersion'] = 1
 
 encoded = json.dumps(data, ensure_ascii=False).replace('</', '<\\/')
 template = (HERE / 'template.html').read_text(encoding='utf-8')
-(HERE / 'index.html').write_text(template.replace('/*__APP__*/', (HERE / 'app.js').read_text(encoding='utf-8').replace('/*__TRANSCRIPTS__*/', encoded)), encoding='utf-8')
+script = (HERE / 'reader-autoscroll.js').read_text(encoding='utf-8') + '\n' + (HERE / 'app.js').read_text(encoding='utf-8').replace('/*__TRANSCRIPTS__*/', encoded)
+(HERE / 'index.html').write_text(template.replace('/*__APP__*/', script), encoding='utf-8')
 print(f'Built index.html: {len(formulas)} unique TeX formulas, {serial} instances, {(HERE / "index.html").stat().st_size:,} bytes.')

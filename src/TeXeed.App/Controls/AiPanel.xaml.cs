@@ -21,6 +21,7 @@ public partial class AiPanel : UserControl, IDisposable
     internal string ConversationId => _book.ActiveConversationId;
     internal AiConversation Conversation => _book.Active;
     private readonly ScrollViewer MessagesScroll;
+    private readonly AutoScrollController _autoScroll;
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private readonly SemaphoreSlim _saveGate = new(1);
     private AiNotebook _book = new();
@@ -53,6 +54,7 @@ public partial class AiPanel : UserControl, IDisposable
         LiveSentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) ToggleLiveTurn(); e.Handled = true; } };
         History.ApplyTemplate();
         MessagesScroll = (ScrollViewer)History.Template.FindName("MessagesScroll", History);
+        _autoScroll = new AutoScrollController(MessagesScroll);
         RegisterName(nameof(MessagesScroll), MessagesScroll);
         // The ItemsPresenter must be the direct ScrollViewer content so WPF can
         // use IScrollInfo. A wrapping StackPanel silently disables virtualization.
@@ -331,5 +333,5 @@ public partial class AiPanel : UserControl, IDisposable
         ScheduleReadingContext();
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { _disposed = true; _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+    public void Dispose() { _disposed = true; _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }

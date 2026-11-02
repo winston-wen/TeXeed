@@ -41,7 +41,7 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build
 | `--titlebar-only`、`--workspace-only`、`--themes-only` | 窗口、菜单、布局和主题 |
 | `--viewport-only`、`--build-scheduling-only` | 预览跟随、编译调度和取消 |
 | `--workspace-restore-only`、`--external-graphic-ui-only` | 浏览位置恢复、外部图形双向定位 |
-| `--workspace-perf-only`、`--external-graphic-perf-only`、`--editor-scroll-perf-only` | 浏览位置、外部图形跟随及滚轮交互的性能复测 |
+| `--workspace-perf-only`、`--external-graphic-perf-only`、`--editor-scroll-perf-only`、`--auto-scroll-perf-only` | 浏览位置、外部图形跟随、滚轮及中键自动滚动的性能复测 |
 | `--completion-only`、`--code-style-only` | 补全和 Markdown 代码样式 |
 | `--ai-only`、`--ai-permissions-only` | 模拟 AI 服务、工具和权限 |
 | `--ai-history-only`、`--ai-reliability-only` | 会话保存、恢复和长对话 |
