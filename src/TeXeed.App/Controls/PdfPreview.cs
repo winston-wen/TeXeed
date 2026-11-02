@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -30,6 +31,9 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     private readonly DispatcherTimer _renderTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly DispatcherTimer _highlightTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _rendering, _renderAgain, _fit = true, _disposed, _updatingLayout;
+    private bool _userScrollPending;
+    private DispatcherOperation? _userScrollReset;
+    private Action? _finishUserScroll;
     private double _zoom = 1, _layoutZoom = double.NaN;
     private Thickness _anchorPadding;
     private ZoomAnchor? _readingAnchor;
@@ -45,6 +49,8 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     private PdfLocation? _highlight;
     public event EventHandler<PdfLocation>? InverseRequested;
     public event EventHandler? ViewInteracted;
+    public event EventHandler? UserScrollRequested;
+    public event EventHandler? UserScrolled;
     public event EventHandler<string>? StatusChanged;
     public int PageCount => _document?.Pages.Count ?? 0;
     public int VisiblePage => (CaptureAnchor(ViewportCenter)?.Page ?? 0) + 1;
@@ -179,6 +185,8 @@ public sealed partial class PdfPreview : UserControl, IDisposable
             // moves. A slow cover scan must not render its neighbors before
             // the newly requested chapter gets a turn.
             if (e.VerticalChange != 0 || e.HorizontalChange != 0) _renderVersion++;
+            if (_userScrollPending && (e.VerticalChange != 0 || e.HorizontalChange != 0))
+            { _userScrollPending = false; UserScrolled?.Invoke(this, EventArgs.Empty); }
             if (!_updatingLayout)
             {
                 if (e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0) ResizePages();
@@ -191,14 +199,31 @@ public sealed partial class PdfPreview : UserControl, IDisposable
         _renderTimer.Tick += async (_, _) => { _renderTimer.Stop(); await RenderVisibleAsync(); };
         _highlightTimer.Tick += (_, _) => { _highlightTimer.Stop(); ClearHighlights(); };
         PreviewMouseDown += (_, _) => ViewInteracted?.Invoke(this, EventArgs.Empty);
-        PreviewKeyDown += (_, _) => ViewInteracted?.Invoke(this, EventArgs.Empty);
+        PreviewKeyDown += (_, e) =>
+        {
+            ViewInteracted?.Invoke(this, EventArgs.Empty);
+            if (e.Key is Key.Up or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End) ArmUserScroll();
+        };
         PreviewMouseWheel += (_, e) =>
         {
             ViewInteracted?.Invoke(this, EventArgs.Empty);
             if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             { SetZoom(_zoom * (e.Delta > 0 ? 1.1 : 1 / 1.1), e.GetPosition(_scroll)); e.Handled = true; }
+            else ArmUserScroll();
         };
+        _scroll.AddHandler(ScrollBar.ScrollEvent, new ScrollEventHandler((_, e) =>
+        { if (e.ScrollEventType != ScrollEventType.EndScroll) ArmUserScroll(); }), true);
     }
+
+    private void ArmUserScroll()
+    {
+        UserScrollRequested?.Invoke(this, EventArgs.Empty);
+        _userScrollPending = true;
+        if (_userScrollReset is { Status: DispatcherOperationStatus.Pending }) return;
+        _userScrollReset = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, _finishUserScroll ??= FinishUserScroll);
+    }
+
+    private void FinishUserScroll() { _userScrollPending = false; _userScrollReset = null; }
 
     private void AttachDisplayEvents()
     {

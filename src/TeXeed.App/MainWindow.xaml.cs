@@ -33,13 +33,14 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _syncPreparationCancellation;
     private string _sidebar = "outline";
     private string? _pdfPath;
-    private int _session, _revision, _pdfRevision = -1, _buildEpoch, _navigationRequest, _pdfGeneration, _inverseNavigationOwner;
+    private int _session, _revision, _pdfRevision = -1, _buildEpoch, _navigationRequest, _pdfGeneration, _inverseNavigationOwner, _inverseQueryOwner;
+    private long _userNavigationSequence, _previewScrollSequence;
     private int _activeBuildRevision = -1, _activeBuildEpoch;
     private long _liveBuildDueAt;
     private AppSettings? _activeBuildSettings;
     private bool _building, _buildAgain, _closing, _allowClose;
     private bool _buildAgainExplicit, _scheduledBuildExplicit;
-    private bool _refreshing, _transitioning, _externalChangePending, _assetChangePending;
+    private bool _refreshing, _transitioning, _externalChangePending, _assetChangePending, _previewUserOwnsView;
 
     public MainWindow(string? initialPath = null)
     {
@@ -90,7 +91,18 @@ public partial class MainWindow : Window
         };
         owner.VisibleRangeChanged += (_, _) => { if (!_updatingWorkspace && ReferenceEquals(owner, Editor)) { OutlineTree.HighlightViewport(Editor.VisibleSourceRange); BookmarkTree.HighlightViewport(Editor.VisibleSourceRange); } };
         }
-        Preview.ViewInteracted += (_, _) => { _pendingPreviewPosition = null; CancelPendingNavigation(); };
+        Preview.ViewInteracted += (_, _) =>
+        {
+            _pendingPreviewPosition = null;
+            LeftEditor.SuppressPendingViewportFollow(); RightEditor.SuppressPendingViewportFollow();
+            CancelPendingNavigation();
+        };
+        Preview.UserScrollRequested += (_, _) => _previewScrollSequence = ++_userNavigationSequence;
+        Preview.UserScrolled += (_, _) =>
+        {
+            if (_previewScrollSequence != _userNavigationSequence) return;
+            _previewUserOwnsView = true; CancelPendingNavigation();
+        };
         Preview.IsVisibleChanged += (_, _) => { if (Preview.IsVisible) QueueRestorePendingPreviewPosition(); };
         Preview.InverseRequested += async (_, location) => await InverseAsync(location);
         Preview.StatusChanged += (_, status) => PdfStatus.Text = status;
@@ -135,7 +147,7 @@ public partial class MainWindow : Window
             var preparedIndex = new ProjectIndexCache();
             await Task.Run(() => preparedIndex.Update(project.Files));
             _session++; _revision = 0; _pdfRevision = -1; _pdfGeneration++; _navigationRequest++;
-            _followAwaitingSourceInteraction = false;
+            _followAwaitingSourceInteraction = false; _previewUserOwnsView = false;
             _externalChangePending = false; _assetChangePending = false;
             await InitializeAiProjectAsync(project.MainPath);
             SetAiMarking(false);
@@ -199,11 +211,14 @@ public partial class MainWindow : Window
         // Finish any in-flight save before asking whether the remaining buffers should be discarded.
         await _saveGate.WaitAsync(); _saveGate.Release();
     }
-    private void ActivateFile(string path)
+    private void ActivateFile(string path) => ActivateFileCore(path, userInitiated: true);
+
+    private void ActivateFileCore(string path, bool userInitiated)
     {
         var file = CurrentFiles().FirstOrDefault(f => f.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
         if (file == null) return;
         if (!file.IsEditable) { Status("此文件是项目资源或不可编辑的编码：" + file.RelativePath); return; }
+        if (userInitiated) { _previewUserOwnsView = false; _userNavigationSequence++; }
         _workspaceTabs.Open(path); _activeEditor = SourceEditor(_workspaceTabs.Owner(path)!.Value);
         RefreshTabs();
         QueueFollowSync();
@@ -424,7 +439,7 @@ public partial class MainWindow : Window
 
     private void QueueFollowSync()
     {
-        if (_inverseNavigationOwner != 0 || _followAwaitingSourceInteraction) return;
+        if (_inverseNavigationOwner != 0 || _followAwaitingSourceInteraction || _previewUserOwnsView) return;
         _navigationRequest++;
         CancelForwardSync();
         if (_settings.FollowMode == PreviewFollowMode.None || _transitioning || _closing) { _syncTimer.Stop(); return; }
@@ -435,9 +450,9 @@ public partial class MainWindow : Window
     private async Task ForwardAsync(bool explicitRequest)
     {
         if (_transitioning || _closing) return;
-        if (explicitRequest) { _pendingPreviewPosition = null; _followAwaitingSourceInteraction = false; }
+        if (explicitRequest) { _pendingPreviewPosition = null; _followAwaitingSourceInteraction = false; _previewUserOwnsView = false; _userNavigationSequence++; }
         if (_building || _externalChangePending) return;
-        if (!explicitRequest && (_settings.FollowMode == PreviewFollowMode.None || _inverseNavigationOwner != 0 || _followAwaitingSourceInteraction)) return;
+        if (!explicitRequest && (_settings.FollowMode == PreviewFollowMode.None || _inverseNavigationOwner != 0 || _followAwaitingSourceInteraction || _previewUserOwnsView)) return;
         _syncTimer.Stop();
         var mode = _settings.FollowMode;
         var location = explicitRequest ? Editor.CurrentLocation : AutomaticSyncLocation;
@@ -456,7 +471,7 @@ public partial class MainWindow : Window
             if (session != _session || request != _navigationRequest || revision != _revision || generation != _pdfGeneration ||
                 _pdfRevision != revision || _building || _transitioning || _closing || _externalChangePending ||
                 (explicitRequest ? Editor.CurrentLocation : AutomaticSyncLocation) != location ||
-                !explicitRequest && (_settings.FollowMode != mode || _inverseNavigationOwner != 0)) return;
+                !explicitRequest && (_settings.FollowMode != mode || _inverseNavigationOwner != 0 || _previewUserOwnsView)) return;
             if (point != null)
             {
                 if (explicitRequest) _followAwaitingSourceInteraction = false;
@@ -477,6 +492,7 @@ public partial class MainWindow : Window
         if (_pdfRevision != _revision) { Status("源码已修改，请编译后再进行反向定位。"); return; }
         _syncTimer.Stop(); CancelForwardSync();
         var session = _session; var revision = _revision; var generation = _pdfGeneration; var request = ++_navigationRequest;
+        _inverseQueryOwner = request;
         var originalLocation = Editor.CurrentLocation;
         var originalViewport = Editor.ViewportLocation;
         try
@@ -499,7 +515,11 @@ public partial class MainWindow : Window
             Status($"已定位到 {Path.GetFileName(source.Path)}:{source.Line}");
         }
         catch (Exception ex) { if (session == _session && request == _navigationRequest && !_closing && !_transitioning) Status("定位失败：" + ex.Message); }
-        finally { if (_inverseNavigationOwner == request) _inverseNavigationOwner = 0; }
+        finally
+        {
+            if (_inverseNavigationOwner == request) _inverseNavigationOwner = 0;
+            if (_inverseQueryOwner == request) _inverseQueryOwner = 0;
+        }
     }
     private void RefreshIndex()
     {
@@ -633,7 +653,7 @@ public partial class MainWindow : Window
             _revision++;
             foreach (var path in _workspaceTabs.Sources.Where(p => !updated.Files.Any(f => f.Path.Equals(p, StringComparison.OrdinalIgnoreCase))).ToArray())
                 CloseTabs(path, TabCloseScope.This);
-            if (_tabs.Count > 0) ActivateFile(updated.Files.Any(f => f.Path == Editor.CurrentFilePath) ? Editor.CurrentFilePath! : _tabs[0]);
+            if (_tabs.Count > 0) ActivateFileCore(updated.Files.Any(f => f.Path == Editor.CurrentFilePath) ? Editor.CurrentFilePath! : _tabs[0], userInitiated: false);
             RefreshIndex(); Status("已同步外部文件修改");
             if (_settings.LivePreview) ScheduleLiveBuild();
         }

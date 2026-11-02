@@ -49,7 +49,7 @@ internal static partial class Program
             else
             {
                 source.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
-                    { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent });
+                    { RoutedEvent = Mouse.PreviewMouseDownEvent });
                 await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
                 if ((bool)Field(window, "_followAwaitingSourceInteraction")!) throw new Exception($"{mode}: source click did not resume following");
                 if (mode == PreviewFollowMode.None)

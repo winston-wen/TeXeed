@@ -86,7 +86,7 @@ internal static partial class Program
         if (reopenedModel.Owner(extra) is not null || reopenedModel.Owner(main) != TabSide.Right || reopenedPreview.VisiblePage != page || reopenedEditor.CaretOffset != mainCaret)
             throw new Exception($"Restart mismatch: extra={reopenedModel.Owner(extra)}, main={reopenedModel.Owner(main)}, page={reopenedPreview.VisiblePage}/{page}, caret={reopenedEditor.CaretOffset}/{mainCaret}");
         Capture(reopened, Path.Combine(output, "reading-history-restored.png"));
-        reopenedEditor.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent });
+        reopenedEditor.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent });
         await reopened.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
         if ((bool)Field(reopened, "_followAwaitingSourceInteraction")!) throw new Exception("User source interaction did not resume following after restore");
         Invoke(reopened, "CancelPendingNavigation");
@@ -122,7 +122,7 @@ internal static partial class Program
         await CallAsync(reopened, "OpenAsync", main);
         if (Field(reopened, "_pendingPreviewPosition") is null) throw new Exception("User interaction fixture has no deferred PDF position");
         reopenedEditor = (LatexEditor)reopened.FindName("RightEditor");
-        reopenedEditor.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent });
+        reopenedEditor.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent });
         reopenedEditor.CaretOffset = reopenedEditor.Document.GetLineByNumber(5).Offset;
         reopenedEditor.ScrollToVerticalOffset(0);
         await reopened.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);

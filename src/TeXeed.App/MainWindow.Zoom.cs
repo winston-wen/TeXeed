@@ -16,6 +16,7 @@ public partial class MainWindow
     private void ApplyPreviewOptions(PreviewOptions options)
     {
         CancelPendingNavigation();
+        if (_settings.FollowMode != options.Follow) { _previewUserOwnsView = false; _userNavigationSequence++; }
         _settings = _settings with { FollowMode = options.Follow, InvertPdfColors = options.Invert, AutoCropPdf = options.Crop,
             CompressPdfWhitespace = options.CompressWhitespace, AutoWidthMaximumCm = options.MaximumWidthCm };
         Preview.InvertColors = options.Invert; Preview.SetCropOptions(options.Crop, options.CompressWhitespace);

@@ -9,6 +9,7 @@ public sealed partial class LatexEditor
     private DispatcherOperation? _viewportNotification;
     private SourceLocation? _lastViewportLocation;
     private SourceLocation? _lastViewportFollowLocation;
+    private bool _suppressPendingViewportFollow;
 
     public event EventHandler<SourceLocation>? ViewportLocationChanged;
     public event EventHandler? VisibleRangeChanged;
@@ -77,20 +78,30 @@ public sealed partial class LatexEditor
         _viewportNotification = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             _viewportNotification = null;
+            var suppressFollow = _suppressPendingViewportFollow;
+            _suppressPendingViewportFollow = false;
             VisibleRangeChanged?.Invoke(this, EventArgs.Empty);
             if (ViewportLocation is not { } location) return;
             var follow = ViewportFollowLocation;
             if (location == _lastViewportLocation && follow == _lastViewportFollowLocation) return;
             _lastViewportLocation = location;
             _lastViewportFollowLocation = follow;
-            ViewportLocationChanged?.Invoke(this, location);
+            if (!suppressFollow) ViewportLocationChanged?.Invoke(this, location);
         }));
     }
+
+    internal void SuppressPendingViewportFollow()
+    {
+        if (_viewportNotification is { Status: DispatcherOperationStatus.Pending }) _suppressPendingViewportFollow = true;
+    }
+
+    internal void ResumePendingViewportFollow() => _suppressPendingViewportFollow = false;
 
     private void ResetViewportTracking()
     {
         _viewportNotification?.Abort();
         _viewportNotification = null;
+        _suppressPendingViewportFollow = false;
         _lastViewportLocation = null;
         _lastViewportFollowLocation = null;
     }

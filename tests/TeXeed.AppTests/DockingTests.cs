@@ -81,7 +81,7 @@ internal static partial class Program
         Invoke(window, "QueueFollowSync"); await Settle();
         if (!(bool)Field(window, "_followAwaitingSourceInteraction")! || (int)Field(window, "_navigationRequest")! != navigation)
             throw new Exception("Programmatic focus or layout restarted following before source interaction");
-        left.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent });
+        left.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent });
         await Settle();
         if ((bool)Field(window, "_followAwaitingSourceInteraction")!) throw new Exception("Source click did not resume following");
         Invoke(window, "MoveWorkspaceTab", TabWorkspace.PreviewKey, TabSide.Left, int.MaxValue, false); await Settle();

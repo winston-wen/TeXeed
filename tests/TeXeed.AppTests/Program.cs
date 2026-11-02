@@ -96,6 +96,11 @@ internal static partial class Program
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
+                if (args.Contains("--scroll-bounce-only"))
+                {
+                    await CheckScrollBounceAsync(window, output);
+                    await CloseAndObserveAsync(window, "single wheel stability"); result = 0; return;
+                }
                 if (args.Contains("--print-review"))
                 {
                     var printPath = Path.Combine(output, "print-source.pdf"); WritePrintPdf(printPath);
@@ -240,6 +245,12 @@ internal static partial class Program
                 {
                     await CheckPreviewSettingsAsync(window, output);
                     await CloseAndObserveAsync(window, "live preview settings regression");
+                    result = 0; return;
+                }
+                if (args.Contains("--editor-scroll-perf-only"))
+                {
+                    await CheckEditorScrollPerformanceAsync(window, output);
+                    await CloseAndObserveAsync(window, "editor and preview scroll performance");
                     result = 0; return;
                 }
                 if (args.Contains("--workspace-restore-only"))
@@ -1141,6 +1152,8 @@ internal static partial class Program
             await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
             pdfOffset = pdfScroll.VerticalOffset;
             await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Manual PDF scrolling was pulled back by a pending source-view follow");
+            editor.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+                { RoutedEvent = UIElement.PreviewMouseWheelEvent });
             anchor = await ScrollSourceAsync(275);
             await AwaitAnchorAsync(anchor);
             Console.WriteLine("PASS: manual PDF scrolling cancels a pending automatic follow; a later source scroll resumes following");

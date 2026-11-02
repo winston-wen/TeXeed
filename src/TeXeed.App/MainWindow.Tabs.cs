@@ -37,15 +37,21 @@ public partial class MainWindow
             strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
             GroupPane(side).PreviewMouseDown += (_, _) => { if (!_updatingWorkspace) _workspaceTabs.Focus(side); };
             editor.GotKeyboardFocus += (_, _) => SetActiveSource(editor);
-            editor.TextArea.PreviewMouseLeftButtonDown += (_, _) => ResumeFollowFromSource(editor);
-            editor.TextArea.PreviewKeyDown += (_, _) => ResumeFollowFromSource(editor);
-            editor.TextArea.PreviewMouseWheel += (_, _) => ResumeFollowFromSource(editor);
+            editor.PreviewMouseDown += (_, _) => ResumeFollowFromSource(editor);
+            editor.PreviewKeyDown += (_, _) => ResumeFollowFromSource(editor);
+            editor.PreviewMouseWheel += (_, _) => ResumeFollowFromSource(editor);
         }
         LogToggle.Click += (_, _) => MoveLogTo(TabSide.Left);
     }
     private void ResumeFollowFromSource(LatexEditor editor)
     {
-        if (!_followAwaitingSourceInteraction || _updatingWorkspace) return;
+        editor.ResumePendingViewportFollow();
+        if (_updatingWorkspace) return;
+        _userNavigationSequence++;
+        var resumeFollow = _followAwaitingSourceInteraction || _previewUserOwnsView;
+        _previewUserOwnsView = false;
+        if (_inverseQueryOwner != 0) CancelPendingNavigation();
+        if (!resumeFollow) return;
         _followAwaitingSourceInteraction = false;
         _pendingPreviewPosition = null;
         _activeEditor = editor;
