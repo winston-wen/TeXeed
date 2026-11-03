@@ -54,13 +54,16 @@ internal static partial class Program
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             var ink = GlyphInk(view, view).Where(i => i.Text.Contains("标题中轴")).OrderBy(i => i.Bounds.Top).ToArray();
             if (ink.Length != 6) throw new Exception("Did not render six Chinese heading samples: " + ink.Length);
+            var bodyInk = GlyphInk(view, view).Where(i => i.Text.Contains("正文第一行")).OrderBy(i => i.Bounds.Top).ToArray();
+            if (bodyInk.Length != 6) throw new Exception("Did not render six Chinese body samples: " + bodyInk.Length);
             var headingFormulas = Descendants<ChatFormula>(view).Where(f => f.Source == "x_i^2").OrderBy(f => f.TranslatePoint(new Point(), view).Y).ToArray();
             for (var i = 0; i < 6; i++)
             {
                 var formula = headingFormulas[i]; var box = formula.TransformToAncestor(view).TransformBounds(new Rect(formula.RenderSize));
                 titleResults.Add(new { level = i + 1, center = ink[i].Bounds.Top + ink[i].Bounds.Height / 2, ink[i].Baseline, ink[i].Weight, ink[i].Face,
                     formulaY = box.Y, formulaWidth = box.Width, formulaHeight = box.Height });
-                if (enforce && ink[i].Weight > 350) throw new Exception("Heading did not select a light typeface: " + ink[i].Face);
+                if (enforce && (ink[i].Face != bodyInk[i].Face || ink[i].Weight != bodyInk[i].Weight))
+                    throw new Exception($"Heading did not use the body's rendered face and weight: {ink[i].Face}/{ink[i].Weight} vs {bodyInk[i].Face}/{bodyInk[i].Weight}");
             }
             var display = Descendants<ChatFormula>(view).Single(f => f.Source == shortFormula);
             var rows = Descendants<ChatFormulaRow>(view).ToArray();

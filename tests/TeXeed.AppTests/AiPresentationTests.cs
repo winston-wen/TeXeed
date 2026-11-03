@@ -31,6 +31,9 @@ internal static partial class Program
         var reply = Descendants<AiReplyStatus>(view).Single(); var stamp = Descendants<TextBlock>(reply).Single();
         Check(sent.FontSize == 13 && header.FontSize == 13 && stamp.FontSize == 13 && rich.All(r => r.FontSize == 16), "Chat reading/metadata sizes diverge");
         var answer = rich.Single(r => r.ChatMode);
+        var answerParent = (StackPanel)answer.Parent;
+        var separator = answerParent.Children[answerParent.Children.IndexOf(answer) - 1] as Border ?? throw new Exception("Expanded final answer has no top separator");
+        Check(separator.Height == 1 && separator.IsVisible && separator.ActualWidth > 100, "Expanded final answer has no full-width top separator");
         Check(answer.Margin.Bottom == 0 && answer.Document.Blocks.LastBlock!.Margin.Bottom == 0 && reply.Margin.Top == 0, "Answer footer spacing is owned by more than one layer");
         var xs = rich.Select(r => r.TranslatePoint(r.Document.Blocks.OfType<Paragraph>().First().ContentStart.GetCharacterRect(LogicalDirection.Forward).TopLeft, view).X)
             .Append(sent.TranslatePoint(new Point(), view).X).Append(header.TranslatePoint(new Point(), view).X).Append(stamp.TranslatePoint(new Point(), view).X).ToArray();
@@ -43,8 +46,8 @@ internal static partial class Program
         var questionInk = GlyphInk(rich[0], view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
         var numberInk = GlyphInk(number, view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
         Check(Math.Abs(questionInk.Top + questionInk.Height / 2 - numberInk.Top - numberInk.Height / 2) < .5, "Turn number ink axis differs from the question");
-        DoubleClick(sent); Check(turn.Collapsed && !row.IsVisible, "Double-clicking send time does not fold the turn");
-        DoubleClick(reply); Check(!turn.Collapsed, "Answer-time expansion stopped working");
+        DoubleClick(sent); Check(turn.Collapsed && !row.IsVisible && !separator.IsVisible, "Double-clicking send time does not fold the turn and separator");
+        DoubleClick(reply); Check(!turn.Collapsed && separator.IsVisible, "Answer-time expansion did not restore the separator");
         foreach (var theme in new[] { "ristretto", "github-light-default" })
         {
             ThemeManager.Apply(theme); row.IsExpanded = true; host.UpdateLayout();

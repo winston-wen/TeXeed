@@ -151,5 +151,6 @@ public sealed partial class MarkdownView
         base.OnRender(drawingContext);
         var brush = (Brush)GetValue(CodeSurfaceBrushProperty);
         foreach (var bounds in _inlineCodeBounds) drawingContext.DrawRoundedRectangle(brush, null, bounds, InlineCodeRadius, InlineCodeRadius);
+        DrawWaves(drawingContext);
     }
 }

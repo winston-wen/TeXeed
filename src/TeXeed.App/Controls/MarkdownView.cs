@@ -17,6 +17,8 @@ namespace TeXeed.App.Controls;
 /// <summary>Selectable native Markdown with folding and image previews.</summary>
 public sealed partial class MarkdownView : RichTextBox
 {
+    private const double ChatParagraphSpacing = 10;
+    private double ChatLineHeight => Math.Max(25, FontSize * 25 / 16);
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseAutoLinks().DisableHtml().Build();
     public static readonly DependencyProperty MarkdownProperty = DependencyProperty.Register(
@@ -28,6 +30,9 @@ public sealed partial class MarkdownView : RichTextBox
     public static readonly DependencyProperty ChatModeProperty = DependencyProperty.Register(
         nameof(ChatMode), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
     public bool ChatMode { get => (bool)GetValue(ChatModeProperty); set => SetValue(ChatModeProperty, value); }
+    public static readonly DependencyProperty UseWavyEmphasisProperty = DependencyProperty.Register(
+        nameof(UseWavyEmphasis), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
+    public bool UseWavyEmphasis { get => (bool)GetValue(UseWavyEmphasisProperty); set => SetValue(UseWavyEmphasisProperty, value); }
     public static readonly DependencyProperty TurnNumberProperty = DependencyProperty.Register(
         nameof(TurnNumber), typeof(int), typeof(MarkdownView), new PropertyMetadata(0, (d, _) => ((MarkdownView)d).UpdateHeadingNumbers()));
     public int TurnNumber { get => (int)GetValue(TurnNumberProperty); set => SetValue(TurnNumberProperty, value); }
@@ -69,6 +74,9 @@ public sealed partial class MarkdownView : RichTextBox
         };
         Unloaded += (_, _) => { if (_renderPending) { _renderVersion++; _renderPaused = true; } };
         Loaded += (_, _) => { if (_renderPaused) Render(); };
+        Loaded += (_, _) => QueueWaveLayout();
+        IsVisibleChanged += (_, _) => QueueWaveLayout();
+        SizeChanged += (_, _) => QueueWaveLayout();
         SizeChanged += (_, e) => { if (!IsStreaming && Markdown.Contains("columns") && (e.PreviousSize.Width < 560) != (e.NewSize.Width < 560)) Render(); };
         // Own the copy command so rich editors cannot prefer the default RTF/XAML formula images.
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, e) =>
@@ -78,6 +86,13 @@ public sealed partial class MarkdownView : RichTextBox
             try { if (!selected.Selection.IsEmpty) selected.CopyToClipboard(selected.Selection.Start, selected.Selection.End); }
             catch (System.Runtime.InteropServices.ExternalException) { ToolTip = "剪贴板暂时被占用，请重试复制。"; }
         }, (_, e) => { e.CanExecute = !SelectionView().Selection.IsEmpty; e.Handled = true; }));
+    }
+
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.Property == FontSizeProperty && (ChatMode || UseWavyEmphasis) && !string.IsNullOrEmpty(Markdown)) Render();
+        else if (e.Property == ForegroundProperty) QueueWaveLayout();
     }
 
     internal string Revision { get; private set; } = "";
@@ -102,13 +117,13 @@ public sealed partial class MarkdownView : RichTextBox
                 _streamRun = new Run();
                 ClearRichState();
                 var paragraph = new Paragraph(_streamRun);
-                Document = new FlowDocument(paragraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
+                Document = new FlowDocument(paragraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseWavyEmphasis ? ChatLineHeight : 25 };
                 Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
             }
             if (ChatMode && _streamRun.Parent is Paragraph streamParagraph)
             {
                 streamParagraph.Margin = new Thickness(0);
-                streamParagraph.LineHeight = 25;
+                streamParagraph.LineHeight = ChatLineHeight;
                 streamParagraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
             }
             var next = Markdown ?? "";
@@ -132,17 +147,17 @@ public sealed partial class MarkdownView : RichTextBox
             var document = NewDocument(); ClearRichState(); _math = new ChatMath();
             try { AddBlocks(document.Blocks, Markdig.Markdown.Parse(_math.Prepare(source, Pipeline), Pipeline), 0); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { CodeFallback(document, source); }
-            TrimAnswerEnd(document); ApplyFolding(document); Document = document; RenderTask = Task.CompletedTask;
+            TrimAnswerEnd(document); ApplyFolding(document); Document = document; QueueWaveLayout(); RenderTask = Task.CompletedTask;
         }
     }
     private FlowDocument NewDocument()
     {
         var document = new FlowDocument { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
-            FontSize = FontSize, FontFamily = FontFamily, LineHeight = 25 };
+            FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseWavyEmphasis ? ChatLineHeight : 25 };
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _headingMarkers.Clear(); ClearMedia(); ClearCodeSurfaces(); }
+    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _headingMarkers.Clear(); _strongRuns.Clear(); _waves = null; ClearMedia(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
         ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));
@@ -181,7 +196,7 @@ public sealed partial class MarkdownView : RichTextBox
         { if (version != _renderVersion) return; CodeFallback(document, source); }
         if (version != _renderVersion) return;
         _renderPending = false; _annotationPointers.Clear(); LayoutVersion++;
-        Document = document; InvalidateMeasure();
+        Document = document; InvalidateMeasure(); QueueWaveLayout();
     }
 
     private void AddBlocks(BlockCollection target, ContainerBlock source, int depth)
@@ -219,11 +234,13 @@ public sealed partial class MarkdownView : RichTextBox
                 AddBlocks(section.Blocks, quote, depth + 1); target.Add(section); break;
             case ListBlock list:
                 var items = new System.Windows.Documents.List { MarkerStyle = list.IsOrdered ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
-                    Padding = new Thickness(24, 0, 0, 0), Margin = new Thickness(0, 4, 0, 12) };
+                    Padding = new Thickness(24, 0, 0, 0), Margin = ChatMode ? new Thickness(0, 0, 0, ChatParagraphSpacing) : new Thickness(0, 4, 0, 12) };
                 if (list.IsOrdered && int.TryParse(list.OrderedStart, out var start) && start > 0) items.StartIndex = start;
                 var itemNumber = items.StartIndex;
                 foreach (var child in list.OfType<ListItemBlock>())
                 { var item = new ListItem(); AddBlocks(item.Blocks, child, depth + 1);
+                    if (ChatMode && item.Blocks.LastBlock is { } lastItemBlock)
+                        lastItemBlock.Margin = new Thickness(lastItemBlock.Margin.Left, lastItemBlock.Margin.Top, lastItemBlock.Margin.Right, 0);
                     if (LinkListNumbers && list.IsOrdered && item.Blocks.FirstBlock is Paragraph paragraph && paragraph.Inlines.FirstInline is Hyperlink link)
                     { items.MarkerStyle = TextMarkerStyle.None; link.Inlines.InsertBefore(link.Inlines.FirstInline, new Run(itemNumber + ". ")); }
                     itemNumber++; items.ListItems.Add(item); }
@@ -256,7 +273,7 @@ public sealed partial class MarkdownView : RichTextBox
 
     private Paragraph Paragraph(ContainerInline? inline, int depth)
     {
-        var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, 10) };
+        var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, ChatParagraphSpacing) };
         if (ChatMode) paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         if (inline is not null) AddInlines(paragraph.Inlines, inline, depth + 1);
         return paragraph;
@@ -276,9 +293,15 @@ public sealed partial class MarkdownView : RichTextBox
                 case EmphasisInline emphasis:
                     var span = new Span();
                     if (emphasis.DelimiterChar == '~') span.TextDecorations = TextDecorations.Strikethrough;
-                    else if (emphasis.DelimiterCount >= 2) span.FontWeight = FontWeights.Bold;
+                    else if (emphasis.DelimiterCount >= 2)
+                    {
+                        if (ChatMode || UseWavyEmphasis) ApplyWavyEmphasis(span);
+                        else span.FontWeight = FontWeights.Bold;
+                    }
                     else span.FontStyle = FontStyles.Italic;
-                    AddInlines(span.Inlines, emphasis, depth + 1); target.Add(span); break;
+                    AddInlines(span.Inlines, emphasis, depth + 1); target.Add(span);
+                    if (ReferenceEquals(span.Tag, StrongEmphasisMarker)) RegisterStrongRuns(span);
+                    break;
                 case LinkInline link:
                     if (link.IsImage && TryImageUri(link.Url, out var imageUri))
                     {
@@ -286,11 +309,15 @@ public sealed partial class MarkdownView : RichTextBox
                     }
                     else if (!link.IsImage && link.Url?.StartsWith('#') == true)
                     {
-                        var local = EquationLink(Uri.UnescapeDataString(link.Url[1..]), null); AddInlines(local.Inlines, link, depth + 1); target.Add(local);
+                        var local = EquationLink(Uri.UnescapeDataString(link.Url[1..]), null); AddInlines(local.Inlines, link, depth + 1);
+                        if (ContainsStrongEmphasis(local.Inlines)) local.TextDecorations = null;
+                        target.Add(local);
                     }
                     else if (!link.IsImage && Uri.TryCreate(link.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
                     {
-                        var hyperlink = Link(uri); AddInlines(hyperlink.Inlines, link, depth + 1); target.Add(hyperlink);
+                        var hyperlink = Link(uri); AddInlines(hyperlink.Inlines, link, depth + 1);
+                        if (ContainsStrongEmphasis(hyperlink.Inlines)) hyperlink.TextDecorations = null;
+                        target.Add(hyperlink);
                     }
                     else { if (link.IsImage) target.Add(new Run("[图片] ")); AddInlines(target, link, depth + 1); }
                     break;

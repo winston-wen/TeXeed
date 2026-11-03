@@ -28,10 +28,11 @@ function svgHtml(turn){
  if(source)return source.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+turn.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+turn.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+turn.id+'-'+id+'"');
  if(!turn.answer)return '';turn.answerHeadingVersion=1;return turn.answerHtml=renderSavedAnswer(turn.answer,turn.id+(turn.id.startsWith('sim-')?'-playback':''));
 }
-function activity(s){const details=s.details||s.text,summary='<time>'+time(s.time,true)+'</time><span>'+esc(s.text)+'</span>';return !/[\r\n]/.test(details)&&details===s.text?'<div class="activity no-details"><div class="activity-summary">'+summary+'</div></div>':'<details class="activity"><summary>'+summary+'</summary><template class="activity-source">'+esc(details)+'</template></details>';}
+function activity(s){const details=s.details||s.text,hasDetails=/[\r\n]/.test(details)||details!==s.text,summary='<span>'+esc(s.text)+'</span>',stamp=s.time?'<time datetime="'+esc(s.time)+'">'+esc(time(s.time,true))+'</time>':'';return !hasDetails&&!stamp?'<div class="activity no-details"><div class="activity-summary">'+summary+'</div></div>':'<details class="activity"><summary>'+summary+'</summary>'+(stamp?'<div class="activity-time">'+stamp+'</div>':'')+(hasDetails?'<template class="activity-source">'+esc(details)+'</template>':'')+'</details>';}
 function mountActivityCode(details){
  if(details.querySelector('.activity-code'))return;
- const text=details.querySelector('.activity-source').content.textContent,lines=text.split(/\r\n|\r|\n/).length;
+ const source=details.querySelector('.activity-source');if(!source)return;
+ const text=source.content.textContent,lines=text.split(/\r\n|\r|\n/).length;
  const box=document.createElement('div');box.className='activity-code';
  const numbers=document.createElement('div');numbers.className='activity-numbers';numbers.setAttribute('aria-hidden','true');
  const labels=document.createElement('pre');labels.textContent=Array.from({length:lines},(_,i)=>i+1).join('\n');numbers.append(labels);
@@ -110,7 +111,7 @@ function turnHtml(t,index=0,turns=[t]){
  const retry=!running&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
  const stamp=folded?sent.replace(/^<div[^>]*>/,'').replace(/<\/div>$/,'')+'\n'+answerTime:answerTime;
  const footer='<div class="turn-footer '+(folded?'folded':'')+'" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+stamp+retry+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
- return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+processAfter+'</div>'+footer+'</article>';
+ return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer-start-divider" aria-hidden="true"></div><div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+processAfter+'</div>'+footer+'</article>';
 }
 function renderTurns(){
  const pos=$('reader').scrollTop;
@@ -144,24 +145,14 @@ function alignPendingIndicator(){
   dot.style.transform='translateY('+(previous+text.top+metrics.fontBoundingBoxAscent+(metrics.actualBoundingBoxDescent-metrics.actualBoundingBoxAscent)/2-box.top-box.height/2)+'px)';
  }
 }
-function alignReadingInk(headings=true){
- const labels=headings?[...document.querySelectorAll('.heading-label')]:[],questions=[...document.querySelectorAll('.question')];
- if(!labels.length&&!questions.length)return;
- const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),sans=getComputedStyle(document.documentElement).getPropertyValue('--sans');
+function alignReadingInk(){
+ const questions=[...document.querySelectorAll('.question')];
+ if(!questions.length)return;
+ const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
  const metrics=alignReadingInk.metrics||(alignReadingInk.metrics=new Map());
  const measure=(text,style,font)=>{font=font||style.font||[style.fontStyle,style.fontWeight,style.fontSize,style.fontFamily].join(' ');const key=font+'\n'+text;if(metrics.has(key))return metrics.get(key);ctx.font=font;const value=ctx.measureText(text);if(metrics.size>=512)metrics.clear();metrics.set(key,value);return value;};
- const edits=[];
  const axis=m=>(m.actualBoundingBoxDescent-m.actualBoundingBoxAscent)/2;
- for(const label of labels){
-  const walker=document.createTreeWalker(label,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode())if(walker.currentNode.textContent.trim()&&!walker.currentNode.parentElement.closest('.math,code'))nodes.push(walker.currentNode);
-  let firstOffset=0;
-  for(const [index,node] of nodes.entries()){
-   const style=getComputedStyle(node.parentElement),old=measure(node.textContent,style),next=measure(node.textContent,style,'300 '+style.fontSize+' '+sans),offset=axis(old)-axis(next);
-   edits.push(()=>{const span=document.createElement('span');span.className='heading-text';span.style.top=offset+'px';span.textContent=node.textContent;node.replaceWith(span);});if(index===0)firstOffset=offset;
-  }
-  const marker=label.previousElementSibling;if(marker)edits.push(()=>{marker.style.top=firstOffset+'px';});
- }
- edits.forEach(apply=>apply());const ordinalEdits=[];
+ const ordinalEdits=[];
  for(const question of questions){
   const number=question.querySelector('.turn-number');if(!number||!question.getClientRects().length)continue;
   const walker=document.createTreeWalker(question,NodeFilter.SHOW_TEXT),range=document.createRange();let node,top=null,inkTop=Infinity,inkBottom=-Infinity;

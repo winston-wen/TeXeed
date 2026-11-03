@@ -12,10 +12,13 @@ namespace TeXeed.App.Controls;
 // Shared process details for live and settled turns.
 public sealed class AiActivityView : Expander
 {
-    private readonly Run _time = new(" "), _text = new(" ");
+    private readonly Run _text = new(" ");
     private readonly Hyperlink _link = new() { TextDecorations = null };
     private readonly TextBlock _header;
     private TextEditor? _details;
+    private TextBlock? _time;
+    private StackPanel? _detailContent;
+    private Border? _detailSurface;
     private string? _detailText;
     private double _horizontalBarHeight;
     private AiSegment? _segment;
@@ -32,7 +35,6 @@ public sealed class AiActivityView : Expander
         SetResourceReference(ForegroundProperty, "Muted");
         Template = ActivityTemplate;
         _header = new TextBlock { TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
-        _header.Inlines.Add(_time); _header.Inlines.Add(new Run("  "));
         _link.SetResourceReference(TextElement.ForegroundProperty, "Muted");
         _link.Inlines.Add(_text); _link.Click += (_, _) => IsExpanded = !IsExpanded; _header.Inlines.Add(_link);
         Header = _header;
@@ -49,21 +51,24 @@ public sealed class AiActivityView : Expander
     private void Update()
     {
         if (_segment is null) return;
-        _time.Text = _segment.DisplayTime;
         _text.Text = _segment.Text;
         var text = string.IsNullOrEmpty(_segment.Details) ? _segment.Text : _segment.Details;
         var hasDetails = text.Contains('\n') || text.Contains('\r') || text != _segment.Text;
-        if (hasDetails && _text.Parent != _link)
+        if (!IsExpanded) return;
+        if (_detailContent is null)
         {
-            _header.Inlines.Remove(_text); _link.Inlines.Add(_text); _header.Inlines.Add(_link);
+            _time = new TextBlock { FontSize = AiChatTypography.MetadataFontSize, Margin = new Thickness(8, 4, 8, 4), TextWrapping = TextWrapping.Wrap };
+            _time.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+            _detailContent = new StackPanel(); _detailContent.Children.Add(_time);
+            _detailSurface = new Border { Child = _detailContent, CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 6, 0, 0) };
+            _detailSurface.SetResourceReference(Border.BackgroundProperty, "PanelBackground"); Content = _detailSurface;
         }
-        else if (!hasDetails)
+        _time!.Text = _segment.DisplayTime;
+        if (!hasDetails)
         {
-            if (_text.Parent == _link) { _header.Inlines.Remove(_link); _link.Inlines.Remove(_text); _header.Inlines.Add(_text); }
-            IsExpanded = false;
+            if (_details is not null) _details.Visibility = Visibility.Collapsed;
             return;
         }
-        if (!IsExpanded) return;
         if (_details is null)
         {
             _details = new TextEditor { IsReadOnly = true, ShowLineNumbers = true, WordWrap = false,
@@ -84,9 +89,9 @@ public sealed class AiActivityView : Expander
             _details.SetResourceReference(TextEditor.LineNumbersForegroundProperty, "Muted");
             _details.TextArea.SetResourceReference(ICSharpCode.AvalonEdit.Editing.TextArea.SelectionBrushProperty, "TextSelectionBackground");
             _details.TextArea.SetResourceReference(ICSharpCode.AvalonEdit.Editing.TextArea.SelectionForegroundProperty, "TextSelectionForeground");
-            var surface = new Border { Child = _details, CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 6, 0, 0) };
-            surface.SetResourceReference(Border.BackgroundProperty, "PanelBackground"); Content = surface;
+            _detailContent.Children.Add(_details);
         }
+        _details.Visibility = Visibility.Visible;
         if (_detailText != text)
         {
             _detailText = text; _details.Text = text;

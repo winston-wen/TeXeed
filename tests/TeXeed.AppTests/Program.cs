@@ -70,6 +70,11 @@ internal static partial class Program
                     await CheckAiGraySpacingAsync(window, output, args.Contains("--assert-uniform-gray-spacing"));
                     await CloseAndObserveAsync(window, "AI heading line spacing"); result = 0; return;
                 }
+                if (args.Contains("--ai-emphasis-only"))
+                {
+                    await CheckAiEmphasisAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI wavy emphasis"); result = 0; return;
+                }
                 if (args.Contains("--ai-reading-media-only"))
                 {
                     await CheckAiReadingMediaAsync(window, output, args.Contains("--ai-reading-media-input-review"));

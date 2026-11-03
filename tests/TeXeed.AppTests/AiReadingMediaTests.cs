@@ -37,8 +37,15 @@ internal static partial class Program
             for (var i = 0; i < headings.Length; i++)
             {
                 Check(new TextRange(headings[i].ContentStart, headings[i].ContentEnd).Text.StartsWith($"[3:h{i + 1}]"), "Heading marker has the wrong level or turn.");
-                Check(headings[i].FontSize == view.FontSize && headings[i].FontWeight == FontWeights.Light && headings[i].LineHeight == 25,
+                Check(headings[i].FontSize == view.FontSize && headings[i].FontWeight == view.FontWeight && Equals(headings[i].FontFamily, view.FontFamily) && headings[i].LineHeight == 25,
                     "Answer heading changed body typography.");
+                var toggle = (Hyperlink)headings[i].Inlines.FirstInline!;
+                var marker = toggle.Inlines.OfType<Run>().First();
+                Check(Equals(marker.FontFamily, view.FontFamily) && marker.FontWeight == view.FontWeight, "Heading marker did not use the body font.");
+                toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+                var hint = toggle.Inlines.OfType<Run>().Single(r => r.Text == "（已折叠）");
+                Check(Equals(hint.FontFamily, view.FontFamily) && hint.FontWeight == view.FontWeight && Math.Abs(hint.FontSize - view.FontSize * .8) < .01, "Folded hint did not use the body font and its existing size.");
+                toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
             }
             Check(plain.Document.Blocks.OfType<Paragraph>().First().FontSize > plain.FontSize, "Question/tutorial heading style changed.");
             var canonical = plain.CopySource(plain.Document.ContentStart, plain.Document.ContentEnd);
@@ -47,9 +54,9 @@ internal static partial class Program
             var document = view.Document; view.TurnNumber = 4;
             Check(ReferenceEquals(document, view.Document) && new TextRange(headings[5].ContentStart, headings[5].ContentEnd).Text.StartsWith("[4:h6]"), "Changing the ordinal rebuilt the answer or missed h6.");
             var h3 = (Hyperlink)headings[2].Inlines.FirstInline!; h3.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
-            Check(folds.Values.Single(), "Heading fold was not saved.");
+            Check(folds.Values.Count(v => v) == 1, "Heading fold was not saved.");
             h3.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
-            Check(!folds.Values.Single(), "Heading fold did not reopen.");
+            Check(folds.Values.All(v => !v), "Heading fold did not reopen.");
             var titleRun = ((Hyperlink)headings[5].Inlines.FirstInline!).Inlines.OfType<Run>().Last();
             view.Selection.Select(titleRun.ContentStart, titleRun.ContentEnd);
             Check(view.GetAnnotationSelection().Quote == "Heading 6", "Heading annotation contains decoration.");

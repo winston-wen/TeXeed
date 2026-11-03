@@ -108,6 +108,12 @@ public sealed class AiTurnView : StackPanel
             }
             else
             {
+                if (segment.Kind == "final")
+                {
+                    var divider = new Border { Height = 1, Margin = new Thickness(0, 8, 0, 8), IsHitTestVisible = false };
+                    divider.SetResourceReference(Border.BackgroundProperty, "ChatDivider");
+                    _body.Children.Add(divider);
+                }
                 var answer = Rich("", new Thickness(0, 2, 0, 0)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
                 answer.ChatMode = true; answer.TurnNumber = TurnNumber; answer.ImageBaseDirectory = ImageBaseDirectory;
                 answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => Changed?.Invoke());
@@ -125,7 +131,7 @@ public sealed class AiTurnView : StackPanel
         text = string.Concat(text.EnumerateRunes().Take(80));
         return text;
     }
-    private MarkdownView Rich(string source, Thickness margin, bool numbers = false) => new() { SourceLink = source => SourceRequested?.Invoke(source), LinkListNumbers = numbers, Markdown = source,
+    private MarkdownView Rich(string source, Thickness margin, bool numbers = false) => new() { SourceLink = source => SourceRequested?.Invoke(source), LinkListNumbers = numbers, UseWavyEmphasis = true, Markdown = source,
         Margin = new Thickness(margin.Left - AiChatTypography.RichTextInset, margin.Top, margin.Right, margin.Bottom), Padding = new Thickness(0) };
     internal void ShowPreview(AiEntry entry, int number)
     {

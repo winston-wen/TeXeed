@@ -111,7 +111,7 @@ public sealed partial class MarkdownView
     }
     private System.Windows.Documents.Inline ImageInline(Uri uri, string alt)
     {
-        var picture = new MarkdownPicture(uri, alt, () => { LayoutVersion++; _annotationPointers.Clear(); }) { Width = MediaWidth };
+        var picture = new MarkdownPicture(uri, alt, () => { LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); }) { Width = MediaWidth };
         _pictures.Add(picture);
         return new InlineUIContainer(picture) { Tag = "[图片] " + alt };
     }

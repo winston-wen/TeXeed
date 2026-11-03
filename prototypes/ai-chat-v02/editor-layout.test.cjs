@@ -7,8 +7,9 @@ const activityContext=vm.createContext({document,time:()=> '09:00:00',esc:value=
 vm.runInContext(app.slice(app.indexOf('function activity('),app.indexOf('const ICON_CLOSE=')),activityContext);
 for(const details of [undefined,'','已经完成']){
  const html=activityContext.activity({text:'已经完成',details,time:'2000-01-01T09:00:00+08:00'});
- assert.match(html,/class="activity no-details"/);assert.match(html,/<div class="activity-summary">/);assert.doesNotMatch(html,/<details|<summary|<template|tabindex/);
+ assert.match(html,/<details class="activity">/);assert.match(html,/<div class="activity-time"><time/);assert.doesNotMatch(html,/<template|tabindex/);
 }
+assert.match(activityContext.activity({text:'已经完成'}),/class="activity no-details"/);
 for(const details of ['共处理三项','已经完成\n详情仍可展开','已经完成\r\n第二行']){
  const html=activityContext.activity({text:'已经完成',details,time:'2000-01-01T09:00:00+08:00'});
  assert.match(html,/<details class="activity">/);assert.match(html,/<template class="activity-source">/);assert.doesNotMatch(html,/no-details/);
@@ -28,4 +29,4 @@ field.value='one\ntwo\nthree\nfour';editorContext.updateEditor(field);assert.dee
 field.id='annotation-input';field.value='one';editorContext.updateEditor(field);assert.deepEqual(lineHeights(),[20]);field.id='composer';
 editorContext.restoreComposerHeight();assert.equal(field.style.height,'81px');editorContext.resizeComposer(1);assert.equal(field.style.height,'41px');
 editorContext.installComposerResize();shell.grip.onkeydown({key:'Home',preventDefault(){}});assert.equal(field.style.height,'81px');
-console.log('Editor layout: redundant activity disclosures, measured line height, lazy mounting, scroll sync, three composer gutters, soft wraps and retained drafts passed.');
+console.log('Editor layout: timestamp-only disclosures, measured line height, lazy mounting, scroll sync, three composer gutters, soft wraps and retained drafts passed.');

@@ -216,7 +216,7 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         stack.Children.Add(header);
         var input = new TextBox
         {
-            Tag = entry, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72, MaxHeight = 200,
+            Tag = entry, IsReadOnly = false, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 72, MaxHeight = 200,
             AcceptsTab = true, FontFamily = new FontFamily("Cascadia Code, Consolas, Microsoft YaHei"), FontSize = 15,
             Padding = new Thickness(8), BorderThickness = new Thickness(0), Background = Brushes.Transparent,
             VerticalContentAlignment = VerticalAlignment.Top, VerticalScrollBarVisibility = ScrollBarVisibility.Auto

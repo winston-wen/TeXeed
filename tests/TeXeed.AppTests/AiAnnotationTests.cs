@@ -12,6 +12,12 @@ using TeXeed.Core;
 
 internal static partial class Program
 {
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetFocus();
     private const string MathFixture = """
         ## 合成例题：骰子点数与映射
 
@@ -138,6 +144,29 @@ internal static partial class Program
         var answerLayers = (Dictionary<MarkdownView, AiAnnotationLayer>)Field(ai, "_answerLayers")!;
         var answerPopup = (Popup)Field(answerLayers[answer], "_popup")!;
         Check(answerPopup.IsOpen, "Answer annotation did not open locally");
+        var answerInput = AnnotationVisuals<TextBox>(answerPopup.Child).Single();
+        Check(!answerInput.IsReadOnly, "Answer annotation input inherited a read-only state");
+        if (Environment.GetEnvironmentVariable("TEXEED_INTERACTIVE_INPUT") == "1")
+        {
+            window.Activate(); await Task.Delay(80);
+            var cursorBefore = new NativePoint(); GetCursorPos(out cursorBefore);
+            var originalLanguage = System.Windows.Input.InputLanguageManager.Current.CurrentInputLanguage;
+            try
+            {
+                System.Windows.Input.InputLanguageManager.Current.CurrentInputLanguage = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+                var point = answerInput.PointToScreen(new Point(Math.Min(30, answerInput.ActualWidth / 2), 18));
+                Check(SetCursorPos((int)point.X, (int)point.Y), "Unable to position mouse over answer annotation");
+                mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+                await Task.Delay(100);
+                Console.WriteLine($"Answer annotation interaction: popup={answerPopup.IsOpen}, input={answerInput.ActualWidth:F0}x{answerInput.ActualHeight:F0}, focus={answerInput.IsKeyboardFocusWithin}, readOnly={answerInput.IsReadOnly}, foreground={GetForegroundWindow()}, focusWindow={GetFocus()}");
+                Check(answerInput.IsKeyboardFocusWithin, "Clicking the answer annotation input did not focus its editor");
+                keybd_event(0x41, 0, 0, UIntPtr.Zero); keybd_event(0x41, 0, 2, UIntPtr.Zero);
+                await Task.Delay(100);
+                Console.WriteLine($"Answer annotation physical typing: input={System.Text.Json.JsonSerializer.Serialize(answerInput.Text)}, draft={System.Text.Json.JsonSerializer.Serialize(answerEntry.Question)}, focus={answerInput.IsKeyboardFocusWithin}, foreground={GetForegroundWindow()}, focusWindow={GetFocus()}");
+                Check(answerInput.Text.Equals("a", StringComparison.OrdinalIgnoreCase) && answerEntry.Question == answerInput.Text, "Physical typing did not update the answer annotation draft");
+            }
+            finally { System.Windows.Input.InputLanguageManager.Current.CurrentInputLanguage = originalLanguage; SetCursorPos(cursorBefore.X, cursorBefore.Y); }
+        }
         answerEntry.Question = "解释这一步";
         var answerConfirm = CreateKey(window, System.Windows.Input.Key.Enter, System.Windows.Input.Keyboard.PreviewKeyDownEvent);
         answerLayers[answer].HandleEditorKey(answerConfirm, System.Windows.Input.ModifierKeys.Control);

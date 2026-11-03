@@ -92,15 +92,16 @@ public sealed partial class MarkdownView
     }
     private Inline FormulaInline(ChatMath.Token token)
     {
-        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display, () => LayoutVersion++, FormulaAsset?.Invoke(token.Source, token.Display)))
+        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display, () => { LayoutVersion++; QueueWaveLayout(); }, FormulaAsset?.Invoke(token.Source, token.Display)))
             { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
         _clipboardMath.Add(inline, token);
         return inline;
     }
     private Paragraph DisplayFormula(ChatMath.Token token)
     {
-        var paragraph = new Paragraph { Margin = new Thickness(0, 12, 0, 18), Padding = new Thickness(8), LineHeight = double.NaN };
-        var formula = new ChatFormula(token.Source, true, () => LayoutVersion++, FormulaAsset?.Invoke(token.Source, true));
+        var paragraph = new Paragraph { Margin = ChatMode ? new Thickness(0, 0, 0, ChatParagraphSpacing) : new Thickness(0, 12, 0, 18),
+            Padding = ChatMode ? new Thickness(0) : new Thickness(8), LineHeight = double.NaN };
+        var formula = new ChatFormula(token.Source, true, () => { LayoutVersion++; QueueWaveLayout(); }, FormulaAsset?.Invoke(token.Source, true));
         var grid = new ChatFormulaRow(formula, token.Number, ChatMode ? Math.Max(0, 4 * FontSize - paragraph.Padding.Left) : 0, ChatMode);
         _formulaWidths.Add((grid, _columnCount));
         grid.Width = FormulaAvailableWidth(double.IsFinite(_measuredWidth) ? _measuredWidth : 0, _columnCount);
