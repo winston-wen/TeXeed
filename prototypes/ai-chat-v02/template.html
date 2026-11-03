@@ -113,11 +113,14 @@ h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .answer :is(h1,h2,h3,h4,h5,h6) { font:inherit; margin:0 }
 .heading-marker { color:#d8c09b; font-family:inherit; font-variant-numeric:tabular-nums; white-space:nowrap; margin-right:.5em; user-select:none }
 .passage ul,.passage ol,.rich-text ul,.rich-text ol { padding-left:1.5em; margin:8px 0 12px }
+.passage ol:has(>li:nth-child(10)),.rich-text ol:has(>li:nth-child(10)) { padding-left:2em }
+.passage ol:has(>li:nth-child(100)),.rich-text ol:has(>li:nth-child(100)),.passage ol[start],.rich-text ol[start] { padding-left:2.5em }
+.passage ol:has(>li:nth-child(1000)),.rich-text ol:has(>li:nth-child(1000)) { padding-left:3em }
 .passage li,.rich-text li { margin-bottom:6px }
 .answer .passage :is(ul,ol) { margin:0; }
 .answer .passage li { margin:0 }
 .answer strong,.question strong,.sent-summary strong {
- font-weight:inherit; line-height:1.65; padding-bottom:.25em; box-decoration-break:clone; -webkit-box-decoration-break:clone;
+ font-weight:inherit; line-height:1.9; padding-bottom:.25em; box-decoration-break:clone; -webkit-box-decoration-break:clone;
  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 4' preserveAspectRatio='none'%3E%3Cpath d='M0 2 C1 2 1 0 2 0 S3 4 4 4 S5 0 6 0 S7 2 8 2' fill='none' stroke='%23eee6de' stroke-width='.8'/%3E%3C/svg%3E");
  background-position:left bottom; background-size:.5em .125em; background-repeat:repeat-x;
 }

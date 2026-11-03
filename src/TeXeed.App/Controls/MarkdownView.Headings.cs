@@ -14,7 +14,7 @@ public sealed partial class MarkdownView
         paragraph.FontSize = FontSize;
         var text = HeadingRuns(paragraph.Inlines).Select(run => (Run: run, Weight: run.FontWeight)).ToArray();
         paragraph.FontFamily = FontFamily;
-        paragraph.LineHeight = ChatLineHeight;
+        if (double.IsNaN(paragraph.LineHeight)) paragraph.LineHeight = ChatLineHeight;
         var marker = new Run($"[{TurnNumber}:h{level}]\u2002")
         {
             Tag = HeadingNumberMarker, FontFamily = FontFamily

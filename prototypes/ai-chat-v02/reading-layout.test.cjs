@@ -17,6 +17,9 @@ assert.match(template,/\.answer-start-divider\s*\{[^}]*border-top:1px solid var\
 assert.match(template,/\.answer \.equation\s*\{\s*margin:0;\s*padding-top:0;\s*padding-bottom:0/);
 assert.doesNotMatch(template,/\.answer>\.passage:has\(>\.passage-body>:is\(h1/);
 assert.match(template,/\.answer strong,\.question strong,\.sent-summary strong/);
+assert.match(template,/font-weight:inherit;\s*line-height:1\.9;\s*padding-bottom:\.25em/);
+assert.match(template,/\.passage ol:has\(>li:nth-child\(10\)\)/);
+assert.match(template,/\.passage ol\[start\]/);
 assert.match(template,/background-size:\.5em \.125em/);
 assert.match(template,/\.heading-marker\s*\{[^}]*font-family:inherit/);
 assert.doesNotMatch(template,/\.heading-marker,\.heading-text\s*\{/);

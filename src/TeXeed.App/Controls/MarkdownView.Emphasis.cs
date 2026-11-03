@@ -13,7 +13,7 @@ public sealed partial class MarkdownView
     private DrawingGroup? _waves;
     private bool _waveLayoutQueued;
     private readonly record struct WaveFontKey(string Family, FontStyle Style, FontWeight Weight, FontStretch Stretch, double Size, double Dpi);
-    private static readonly Dictionary<WaveFontKey, (double Height, double InkBottom)> WaveMetrics = [];
+    private static readonly Dictionary<WaveFontKey, (double Height, double Baseline, double InkBottom)> WaveMetrics = [];
     private static readonly Queue<WaveFontKey> WaveMetricOrder = [];
     private const int WaveCacheLimit = 256;
     private static readonly double[] WaveSamples = [0, Math.Sqrt(.5), 1, Math.Sqrt(.5), 0, -Math.Sqrt(.5), -1, -Math.Sqrt(.5)];
@@ -99,7 +99,7 @@ public sealed partial class MarkdownView
                 {
                     var amplitude = size / 16;
                     var inkBottom = run is InlineUIContainer ? first.Bottom :
-                        first.Top + Math.Max(0, (first.Height - metrics.Height) / 2) + metrics.InkBottom;
+                        first.Top + first.Height * metrics.Baseline / metrics.Height + metrics.InkBottom - metrics.Baseline;
                     var center = inkBottom + size / 8 + amplitude;
                     AppendWave(stroke.Path, first.Left, last.Right, center, size);
                 }
@@ -115,13 +115,13 @@ public sealed partial class MarkdownView
         InvalidateVisual();
     }
 
-    private static (double Height, double InkBottom) GetWaveMetrics(Inline run, double size, double dpi)
+    private static (double Height, double Baseline, double InkBottom) GetWaveMetrics(Inline run, double size, double dpi)
     {
         var key = new WaveFontKey(run.FontFamily.Source, run.FontStyle, run.FontWeight, run.FontStretch, size, dpi);
         if (WaveMetrics.TryGetValue(key, out var metrics)) return metrics;
         var formatted = new FormattedText("国Agjpqy", CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
             new Typeface(run.FontFamily, run.FontStyle, run.FontWeight, run.FontStretch), size, Brushes.Black, dpi);
-        metrics = (formatted.Height, formatted.Height + formatted.OverhangAfter);
+        metrics = (formatted.Height, formatted.Baseline, formatted.Height + formatted.OverhangAfter);
         if (WaveMetrics.Count >= WaveCacheLimit) WaveMetrics.Remove(WaveMetricOrder.Dequeue());
         WaveMetrics.Add(key, metrics); WaveMetricOrder.Enqueue(key);
         return metrics;

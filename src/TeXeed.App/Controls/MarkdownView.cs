@@ -234,13 +234,22 @@ public sealed partial class MarkdownView : RichTextBox
                 AddBlocks(section.Blocks, quote, depth + 1); target.Add(section); break;
             case ListBlock list:
                 var items = new System.Windows.Documents.List { MarkerStyle = list.IsOrdered ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
-                    Padding = new Thickness(24, 0, 0, 0), Margin = ChatMode ? new Thickness(0, 0, 0, ChatParagraphSpacing) : new Thickness(0, 4, 0, 12) };
+                    Padding = new Thickness(ChatMode ? Math.Max(24, FontSize * 1.5) : 24, 0, 0, 0), Margin = ChatMode ? new Thickness(0, 0, 0, ChatParagraphSpacing) : new Thickness(0, 4, 0, 12) };
                 if (list.IsOrdered && int.TryParse(list.OrderedStart, out var start) && start > 0) items.StartIndex = start;
+                if (ChatMode && list.IsOrdered)
+                {
+                    var digits = ((long)items.StartIndex + Math.Max(0, list.Count - 1)).ToString().Length;
+                    items.Padding = new Thickness(items.Padding.Left + FontSize * .5 * (digits - 1), 0, 0, 0);
+                }
                 var itemNumber = items.StartIndex;
+                var lastListItem = list.OfType<ListItemBlock>().LastOrDefault();
                 foreach (var child in list.OfType<ListItemBlock>())
                 { var item = new ListItem(); AddBlocks(item.Blocks, child, depth + 1);
                     if (ChatMode && item.Blocks.LastBlock is { } lastItemBlock)
-                        lastItemBlock.Margin = new Thickness(lastItemBlock.Margin.Left, lastItemBlock.Margin.Top, lastItemBlock.Margin.Right, 0);
+                    {
+                        var afterWave = !ReferenceEquals(child, lastListItem) && lastItemBlock is Paragraph lastParagraph && ContainsStrongEmphasis(lastParagraph.Inlines) ? FontSize / 4 : 0;
+                        lastItemBlock.Margin = new Thickness(lastItemBlock.Margin.Left, lastItemBlock.Margin.Top, lastItemBlock.Margin.Right, afterWave);
+                    }
                     if (LinkListNumbers && list.IsOrdered && item.Blocks.FirstBlock is Paragraph paragraph && paragraph.Inlines.FirstInline is Hyperlink link)
                     { items.MarkerStyle = TextMarkerStyle.None; link.Inlines.InsertBefore(link.Inlines.FirstInline, new Run(itemNumber + ". ")); }
                     itemNumber++; items.ListItems.Add(item); }
@@ -276,6 +285,13 @@ public sealed partial class MarkdownView : RichTextBox
         var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, ChatParagraphSpacing) };
         if (ChatMode) paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         if (inline is not null) AddInlines(paragraph.Inlines, inline, depth + 1);
+        if (ContainsStrongEmphasis(paragraph.Inlines))
+        {
+            var extra = FontSize * 5 / 16;
+            paragraph.LineHeight = ChatLineHeight + extra;
+            paragraph.Margin = new Thickness(0, 0, 0, ChatParagraphSpacing - FontSize / 16);
+            paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+        }
         return paragraph;
     }
 
