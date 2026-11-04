@@ -1,9 +1,17 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const data=JSON.parse(fs.readFileSync(__dirname+'/transcripts.json','utf8'));
+const prompts=JSON.parse(fs.readFileSync(__dirname+'/prompts.json','utf8'));
+const index=fs.readFileSync(__dirname+'/index.html','utf8').replace(/\r\n/g,'\n'),start=index.indexOf('const DATA=')+'const DATA='.length,end=index.indexOf(';\n',start);
+assert.ok(start>='const DATA='.length&&end>start,'Built prototype must contain its generated data');
+assert.deepEqual(JSON.parse(index.slice(start,end)).prompts,prompts,'Built prototype must use current default instructions');
+assert.match(prompts.answer,/首个分节标题必须使用 Markdown 一级标题 #/);
+assert.match(prompts.answer,/不得跳过上级/);
+assert.match(prompts.answer,/不要添加包裹全文的统一一级标题/);
+assert.match(prompts.answer,/无需分节的简短回答不必添加标题/);
 data.visualPreview=JSON.parse(fs.readFileSync(__dirname+'/visual-preview.json','utf8'));
 const source=fs.readFileSync(__dirname+'/app.js','utf8').split('const requests=')[0].replace('/*__TRANSCRIPTS__*/',JSON.stringify(data));
 const normalKey='texeed-ai-baseline-v02';
-const saved={sampleHistoryVersion:1,active:'personal',conversations:[{id:'personal',title:'已有会话',draft:'保留这份草稿',turns:[],entries:[]}],events:[]};
+const saved={sampleHistoryVersion:1,active:'personal',conversations:[{id:'personal',title:'已有会话',draft:'保留这份草稿',turns:[{id:'old',answer:'## 已编号旧标题',request:{displayInstructions:'原有用户自定义提示词'}}],entries:[]}],events:[]};
 const store=new Map([[normalKey,JSON.stringify(saved)]]);
 function open(search){const context=vm.createContext({URLSearchParams,location:{search},localStorage:{getItem:key=>store.get(key)||null}});vm.runInContext(source,context);return {key:vm.runInContext('KEY',context),state:JSON.parse(vm.runInContext('JSON.stringify(state)',context))};}
 assert.deepEqual(open('').state,saved);

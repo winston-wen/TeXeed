@@ -9,7 +9,7 @@ namespace TeXeed.App.AI;
 internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan, CancellationToken, Task>? retryDelay = null)
 {
     private const string DisplayInstructions = "回答采用清晰的只读块式 Markdown：标题、连贯段落、列表、引用、管道表格。同一论点尽量写成 2–4 句的长段落，不把“令”“其中”“所以”和短公式各自拆段；预计宽度不超过五个汉字且不含等号的短公式融入相邻句子。公式使用 $…$、$$…$$、\\(…\\)、\\[…\\]，显示公式可用 \\tag{编号}、\\label{标识}，正文用 \\eqref{标识} 或 \\ref{标识} 跳转。需要并排对比时，使用独占行的 :::: columns，内部每栏用 ::: column 与 ::: 包围，最后用 :::: 结束。不要输出 HTML。公式采用标准 LaTeX/AMS 数学命令，括号和定界符必须闭合；中文说明放在 \\text{...} 内，不自造宏。宿主会真实编译检查排版，若收到失败诊断，须修复后返回完整回答。";
-    private const string HeadingInstructions = "新生成的长篇回答不要添加一个包裹全文的统一一级标题；可直接从正文或有意义的分节标题开始。新生成的分节标题只写标题文字，不自行添加数字、中文数字或罗马数字等标题序号，由 TeXeed 显示层自动编号；列表项编号和公式编号不受影响。校对、引用或续写已有内容时保留原有标题结构和已经写入的标题编号，不为这些规则改写已有内容；用户明确要求时按用户要求处理。";
+    private const string HeadingInstructions = "新生成的长篇回答不要添加一个包裹全文的统一一级标题；可直接从正文或有意义的分节标题开始，主题相关的一级分节可以并列。需要标题的新回答，其首个分节标题必须使用 Markdown 一级标题 #；之后的下级标题逐级衔接（# → ## → ###），不得跳过上级，但可以返回同级或更高层级。无需分节的简短回答不必添加标题。新生成的分节标题只写标题文字，不自行添加数字、中文数字或罗马数字等标题序号，由 TeXeed 显示层按层级及顺序连续编号；列表项编号和公式编号不受影响。校对、引用或续写已有内容时保留原有标题结构和已经写入的标题编号，不为这些规则改写已有内容；用户明确要求时按用户要求处理。";
     // Read-only fallback for tests and hosts without a connected workspace. The app supplies
     // a session-bound runner for fresh reads, reversible edits, saving and compilation.
     internal static string ExecuteTool(string name, string arguments, IReadOnlyList<ProjectFile> files)

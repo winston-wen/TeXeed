@@ -11,7 +11,7 @@ internal static partial class Program
     private static async Task CheckAiHeadingPromptAsync()
     {
         new AiCredentials { UseApiKey = true, ApiKey = "isolated-heading-test-not-a-real-key" }.Save();
-        const string previous = "# 1. 已有标题\n\n已有正文。\n\n## 1.1 已编号小节\n\n原有内容。";
+        const string previous = "## 1. 已有标题（历史缺少一级）\n\n已有正文。\n\n#### 1.1 已编号小节（历史跳级）\n\n原有内容。";
         var history = new[] { new AiTurn("先前的问题", previous) };
         foreach (var mode in new[] { "read", "workspace", "resume", "repair" })
         {
@@ -32,9 +32,17 @@ internal static partial class Program
                     throw new Exception($"Heading policy missing from {mode} request");
                 if (!instruction.Contains("新生成的分节标题只写标题文字") ||
                     !instruction.Contains("不自行添加数字、中文数字或罗马数字等标题序号") ||
+                    !instruction.Contains("按层级及顺序连续编号") ||
                     !instruction.Contains("列表项编号和公式编号不受影响") ||
                     !instruction.Contains("已经写入的标题编号") || !instruction.Contains("用户明确要求时按用户要求处理"))
                     throw new Exception($"Automatic heading numbering or preservation policy missing from {mode} request");
+                if (!instruction.Contains("首个分节标题必须使用 Markdown 一级标题 #") ||
+                    !instruction.Contains("下级标题逐级衔接（# → ## → ###）") ||
+                    !instruction.Contains("不得跳过上级") ||
+                    !instruction.Contains("可以返回同级或更高层级") ||
+                    !instruction.Contains("无需分节的简短回答不必添加标题") ||
+                    !instruction.Contains("主题相关的一级分节可以并列"))
+                    throw new Exception($"New-answer heading hierarchy policy missing from {mode} request");
                 var input = payload["input"]!.ToJsonString(new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
                 if (!input.Contains("1. 已有标题") || !input.Contains("1.1 已编号小节") || !input.Contains("已有正文"))
                     throw new Exception($"Existing numbered answer changed in {mode} request");
