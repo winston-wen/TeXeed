@@ -1,0 +1,102 @@
+{
+  "before": {
+    "samples": [
+      {
+        "sync": 0,
+        "frame": 7.199999988079071,
+        "complete": 212.09999999403954
+      },
+      {
+        "sync": 0,
+        "frame": 10.5,
+        "complete": 213.6000000089407
+      },
+      {
+        "sync": 0,
+        "frame": 12.200000002980232,
+        "complete": 213.5
+      },
+      {
+        "sync": 0,
+        "frame": 14.400000005960464,
+        "complete": 227.1000000089407
+      },
+      {
+        "sync": 0,
+        "frame": 2.6000000089406967,
+        "complete": 214.1000000089407
+      },
+      {
+        "sync": 0,
+        "frame": 3.7999999970197678,
+        "complete": 214
+      },
+      {
+        "sync": 0,
+        "frame": 5.200000002980232,
+        "complete": 213.90000000596046
+      }
+    ],
+    "medianSync": 0,
+    "medianFrame": 7.199999988079071,
+    "medianComplete": 213.90000000596046,
+    "sampledRetainedJsBytes": 13384,
+    "counts": {
+      "elements": 6927,
+      "controls": 270,
+      "visible": 17,
+      "draft": "保留测试草稿"
+    },
+    "errors": []
+  },
+  "after": {
+    "samples": [
+      {
+        "sync": 0.10000000894069672,
+        "frame": 8.400000005960464,
+        "complete": 211.70000000298023
+      },
+      {
+        "sync": 0,
+        "frame": 12.099999994039536,
+        "complete": 225.8999999910593
+      },
+      {
+        "sync": 0,
+        "frame": 2.2000000029802322,
+        "complete": 215.59999999403954
+      },
+      {
+        "sync": 0.09999999403953552,
+        "frame": 2.2000000029802322,
+        "complete": 213.5
+      },
+      {
+        "sync": 0,
+        "frame": 3.7000000029802322,
+        "complete": 212.20000000298023
+      },
+      {
+        "sync": 0,
+        "frame": 6.899999991059303,
+        "complete": 214
+      },
+      {
+        "sync": 0,
+        "frame": 8.600000008940697,
+        "complete": 215.40000000596046
+      }
+    ],
+    "medianSync": 0,
+    "medianFrame": 6.899999991059303,
+    "medianComplete": 214,
+    "sampledRetainedJsBytes": 15592,
+    "counts": {
+      "elements": 6927,
+      "controls": 270,
+      "visible": 17,
+      "draft": "保留测试草稿"
+    },
+    "errors": []
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "schema": "texeed-browser-performance-candidates-v1",
+  "status": "unverified_historical_candidates",
+  "purpose": "Keep synthetic browser samples and their provenance for reproducible comparisons; neither record is a verified historical best.",
+  "common_scenario": {
+    "turns": 50,
+    "ordered_items_per_turn": 12,
+    "activities_per_turn": 3,
+    "detail_lines_for_multiline_activities": 20,
+    "viewport_css_pixels": [1000, 820],
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "additional_fixed_wait_ms": 200,
+    "heap_sampling_interval_bytes": 1024,
+    "reconstructed_fixture": "../../performance-fixtures/browser-bookmarks-v1.cjs",
+    "fixture_sha256": "cd6c5c5c2df733ddb629d2456ec7a7bd32152e1d3031a9fe6e8fef0064971976"
+  },
+  "limitations": [
+    "The 200 ms wait is included in completion timing and is not measured work; frame timing is affected by frame phase.",
+    "The V8 sampled retained heap is an estimate and is not total allocation.",
+    "Both records contain seven measurements from a single browser process, not multi-process alternating confirmation.",
+    "The older raw file did not record browser version, hardware, fonts, complete resource identity, or a capture time; do not assume that its environment matches the later record.",
+    "The original local benchmark script was subsequently modified. The tracked fixture reconstructs its last recorded scenario, but the original script hash is not available.",
+    "The preliminary working-tree record preceded the change from per-turn linear search to a map while building the bookmark index; its menu-opening measurements do not identify the final implementation.",
+    "The two original local-script records loaded the old index from Git but loaded external JavaScript and vendor assets from the current worktree. The tracked runner instead reads the entire old prototype from one commit, so its method differs from those archived measurements.",
+    "A compact historical best may only be promoted after comparable environments and repeated alternating measurements have been verified."
+  ],
+  "records": [
+    {
+      "file": "candidates/0.3.49-reading-layout.json",
+      "sha256": "da41c9253029bf9d554b2bb94e25d7e5c1fb9a04e3e9d6e9f2486152b3cc32d0",
+      "source": "artifacts/reading-layout-performance.json and docs/ui-layout-and-performance.md, AI wave spacing section",
+      "before_related_commit": "6a971dc5a0d60c41e92859bdca4d98373d94501d",
+      "after_related_commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+      "environment": "Not recorded in the raw result.",
+      "identity": "The documentation identifies these as 0.3.48 and 0.3.49; the complete measured runtime and resource identity were not independently verified."
+    },
+    {
+      "file": "candidates/0.3.50-bookmark-working-tree.json",
+      "sha256": "5f6bd98349d1b1957316bacc380329bcca49c8e96d490d63c41e3e717471dde8",
+      "source": "artifacts/bookmark-performance.json, prior to bookmark index map optimization",
+      "before_commit": "4d5859dfd2442989c5ecd5772c5178c9e43cfc85",
+      "after_identity": "Uncommitted prototype working tree; menu indexing changed after this capture.",
+      "environment_observed_at_capture": { "os": "Windows 10.0.19045", "architecture": "x64", "cpu": "AMD Ryzen 7 5700X", "node": "v24.22.1", "browser": "Microsoft Edge 156.0.4314.58" },
+      "environment_limitations": "These are local observations made during the current session, not metadata embedded in the original JSON; fonts and display conditions were not captured."
+    },
+    {
+      "file": "candidates/0.3.50-bookmark-final-working-tree.json",
+      "sha256": "72eba61255547b09311a666c68022c48bc71066ad2d4eab4408a053080816b80",
+      "source": "artifacts/bookmark-final-performance.json, measured by the tracked runner after the bookmark index map optimization",
+      "before_commit": "4d5859dfd2442989c5ecd5772c5178c9e43cfc85",
+      "after_identity": "Uncommitted working tree prior to the subsequent numeric prefix-search correction; the following resource hashes identify the measured prototype files.",
+      "resource_sha256": {
+        "index.html": "f84990bef40861282c7f5d82650927f8abfffd793b832c443b9714c67dca4566",
+        "bookmarks.js": "9e24bf61010f7c12f900c9e2f7a2836bc3c51c4c8c1fc6bbf84c225e49c33485",
+        "rich-text.js": "2ea228ec4f883cd4b30a44eddb3f4cfe8dbf2e1e9fe62f43c83bafb1edf5da51",
+        "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+        "vendor/vendor-lock.json": "34d3f2abdc743a1cc0d37465279ad5dca098d0dd0e3ba7ade3ba8b44c65787d9"
+      },
+      "environment": "The observed OS, CPU, Node, browser and viewport are stored in the raw JSON; fonts and display conditions were not recorded."
+    },
+    {
+      "file": "candidates/0.3.50-bookmark-prefix-working-tree.json",
+      "sha256": "6ad16cfd860e8b263c101ec79eff45d80bf405c63bfbc7ee4676b6b147733aef",
+      "source": "artifacts/bookmark-prefix-performance.json, measured by the tracked runner after numeric prefix search and repeated-selection correction",
+      "before_commit": "4d5859dfd2442989c5ecd5772c5178c9e43cfc85",
+      "after_identity": "Uncommitted working tree after numeric prefix and repeated-selection correction, before the live selection restrictions; these resource hashes identify the measured prototype files.",
+      "resource_sha256": {
+        "index.html": "f84990bef40861282c7f5d82650927f8abfffd793b832c443b9714c67dca4566",
+        "bookmarks.js": "9825c42651c49809427e4f77b2f28e3dcaf0e79ed2dd0f3a4735d77507e886a2",
+        "rich-text.js": "2ea228ec4f883cd4b30a44eddb3f4cfe8dbf2e1e9fe62f43c83bafb1edf5da51",
+        "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+        "vendor/vendor-lock.json": "34d3f2abdc743a1cc0d37465279ad5dca098d0dd0e3ba7ade3ba8b44c65787d9"
+      },
+      "environment": "The observed OS, CPU, Node, browser and viewport are stored in the raw JSON; fonts and display conditions were not recorded."
+    },
+    {
+      "file": "candidates/0.3.50-bookmark-live-working-tree.json",
+      "sha256": "673a1e5898ce9c48353bd9b23a3292bb2883303f39985d2698e0633e4c14c59b",
+      "source": "artifacts/bookmark-live-performance.json, measured by the tracked runner after the live selection restrictions",
+      "before_commit": "4d5859dfd2442989c5ecd5772c5178c9e43cfc85",
+      "after_identity": "Uncommitted working tree; these resource hashes identify the measured prototype files. The final commit must be checked against them.",
+      "index_git_normalized_sha256": "266de6a424474c27f1e99d0c9179e151a7f14aae18ac050dbe88dac4625a9e0d",
+      "index_line_endings": "The measured index used CRLF on all 917 lines; its LF-normalized content matches the Git index. Replacing each LF in that Git version with CRLF reconstructs the measured bytes.",
+      "resource_sha256": {
+        "index.html": "113222e7719d6bdba82e8263a34c13e8b83b7363e30ae3afaf8a402a60157edd",
+        "bookmarks.js": "a2a1297f3bd25cfbcbfa03c2e86698ce409ca889c8a95173510c1e2d8e865ad4",
+        "rich-text.js": "2ea228ec4f883cd4b30a44eddb3f4cfe8dbf2e1e9fe62f43c83bafb1edf5da51",
+        "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+        "vendor/vendor-lock.json": "34d3f2abdc743a1cc0d37465279ad5dca098d0dd0e3ba7ade3ba8b44c65787d9"
+      },
+      "environment": "The observed OS, CPU, Node, browser and viewport are stored in the raw JSON; fonts and display conditions were not recorded."
+    }
+  ],
+  "replay": "Set TEXEED_PLAYWRIGHT_PATH and TEXEED_BROWSER_PATH if needed, then run node tests/performance-baselines/browser/run-benchmark.cjs --baseline <commit> --output artifacts/browser-bookmarks-performance.json."
+}

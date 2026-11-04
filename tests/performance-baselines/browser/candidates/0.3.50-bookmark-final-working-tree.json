@@ -1,0 +1,173 @@
+{
+  "schema": "texeed-browser-performance-candidate-v1",
+  "baselineCommit": "4d5859dfd2442989c5ecd5772c5178c9e43cfc85",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "156.0.4314.58",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "fixture": "tests/performance-fixtures/browser-bookmarks-v1.cjs",
+    "fixtureSha256": "cd6c5c5c2df733ddb629d2456ec7a7bd32152e1d3031a9fe6e8fef0064971976",
+    "iterations": 9,
+    "warmups": 2,
+    "frames": 2,
+    "extraWaitMs": 200,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "The extra 200 ms is a fixed wait in the reported completion duration, not measured work.",
+      "Frame timings depend on frame phase; sampled retained heap is not total allocation.",
+      "The after side reads the working tree; identify the exact committed files separately."
+    ]
+  },
+  "measurements": {
+    "before": {
+      "samples": [
+        {
+          "sync": 0.09999999403953552,
+          "frame": 10.900000005960464,
+          "complete": 213.19999998807907
+        },
+        {
+          "sync": 0,
+          "frame": 13,
+          "complete": 228
+        },
+        {
+          "sync": 0,
+          "frame": 17.700000017881393,
+          "complete": 229.2000000178814
+        },
+        {
+          "sync": 0,
+          "frame": 3.300000011920929,
+          "complete": 213.40000000596046
+        },
+        {
+          "sync": 0,
+          "frame": 5.0999999940395355,
+          "complete": 215.7000000178814
+        },
+        {
+          "sync": 0.20000001788139343,
+          "frame": 4.200000017881393,
+          "complete": 210.30000001192093
+        },
+        {
+          "sync": 0,
+          "frame": 9,
+          "complete": 212.30000001192093
+        }
+      ],
+      "medianSync": 0,
+      "medianFrame": 9,
+      "medianComplete": 213.40000000596046,
+      "sampledRetainedJsBytes": 11224,
+      "counts": {
+        "elements": 6927,
+        "controls": 270,
+        "visible": 17,
+        "draft": "保留测试草稿"
+      },
+      "errors": []
+    },
+    "after": {
+      "samples": [
+        {
+          "sync": 0,
+          "frame": 11.099999994039536,
+          "complete": 226.59999999403954
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frame": 16.69999998807907,
+          "complete": 227.2999999821186
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frame": 4.699999988079071,
+          "complete": 213.19999998807907
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frame": 6.899999976158142,
+          "complete": 211.59999999403954
+        },
+        {
+          "sync": 0,
+          "frame": 10.900000005960464,
+          "complete": 227.09999999403954
+        },
+        {
+          "sync": 0,
+          "frame": 15.899999976158142,
+          "complete": 225.2999999821186
+        },
+        {
+          "sync": 0,
+          "frame": 5.5999999940395355,
+          "complete": 212.89999997615814
+        }
+      ],
+      "medianSync": 0,
+      "medianFrame": 10.900000005960464,
+      "medianComplete": 225.2999999821186,
+      "sampledRetainedJsBytes": 21552,
+      "counts": {
+        "elements": 6942,
+        "controls": 276,
+        "visible": 18,
+        "draft": "保留测试草稿"
+      },
+      "errors": [],
+      "bookmarkOpening": {
+        "samples": [
+          {
+            "sync": 3.199999988079071,
+            "complete": 227.59999999403954,
+            "count": 100
+          },
+          {
+            "sync": 3.5,
+            "complete": 227.09999999403954,
+            "count": 100
+          },
+          {
+            "sync": 3.199999988079071,
+            "complete": 225.40000000596046,
+            "count": 100
+          },
+          {
+            "sync": 5.700000017881393,
+            "complete": 243.5,
+            "count": 100
+          },
+          {
+            "sync": 6,
+            "complete": 226.09999999403954,
+            "count": 100
+          },
+          {
+            "sync": 4.9000000059604645,
+            "complete": 225.69999998807907,
+            "count": 100
+          },
+          {
+            "sync": 3.9000000059604645,
+            "complete": 226.19999998807907,
+            "count": 100
+          }
+        ],
+        "medianSync": 3.9000000059604645,
+        "medianComplete": 226.19999998807907
+      }
+    }
+  }
+}

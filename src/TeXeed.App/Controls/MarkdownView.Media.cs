@@ -46,6 +46,7 @@ public sealed partial class MarkdownView
     {
         var view = new MarkdownView { Padding = new Thickness(0), Margin = new Thickness(-AiChatTypography.RichTextInset, 0, -AiChatTypography.RichTextInset, 0), FontFamily = FontFamily, FontSize = FontSize,
             ImageBaseDirectory = ImageBaseDirectory, SourceLink = SourceLink, LocalLink = LocalLink, FormulaAsset = FormulaAsset, _math = _math, _tableOwner = this };
+        view.SetBinding(ContextMenuProperty, new System.Windows.Data.Binding(nameof(ContextMenu)) { Source = this });
         var document = view.NewDocument(); view.AddBlock(document.Blocks, source, depth); view.Document = document;
         var table = (Table)document.Blocks.FirstBlock!; table.Margin = new Thickness(0);
         var widths = new double[table.RowGroups[0].Rows.Max(r => r.Cells.Count)];
@@ -65,6 +66,8 @@ public sealed partial class MarkdownView
         var viewport = new TableViewport(block, view, scroll, table, widths, widths.Sum(), view.CopySource(document.ContentStart, document.ContentEnd));
         _tableViews.Add(viewport); SizeTable(viewport);
         foreach (var (key, formula) in view._equations) _equations.TryAdd(key, formula);
+        foreach (var (key, formula) in view._bookmarkFormulas) _bookmarkFormulas.TryAdd(key, formula);
+        foreach (var (key, heading) in view._bookmarkHeadings) _bookmarkHeadings.TryAdd(key, heading);
         scroll.ScrollChanged += (_, e) => { if (e.HorizontalChange != 0) LayoutVersion++; };
         target.Add(block);
     }

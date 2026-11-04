@@ -60,7 +60,21 @@ details[open]>summary:before { transform:rotate(90deg) }
 #mark-button { margin-left:auto; white-space:nowrap; font-size:12px; border:1px solid transparent }
 #mark-button[aria-pressed=true] { color:var(--accent); background:var(--panel); border-color:var(--guide) }
 #mark-button:focus:not(:focus-visible) { outline:none }
-.chat { --text-inset:36px; min-height:0; width:min(1100px,calc(100% - 40px)); margin:0 auto 18px; padding-top:10px; display:grid; grid-template-rows:auto minmax(0,1fr) auto auto }
+.chat { --text-inset:36px; position:relative; min-height:0; width:min(1100px,calc(100% - 40px)); margin:0 auto 18px; padding-top:10px; display:grid; grid-template-rows:auto minmax(0,1fr) auto auto }
+.bookmark-ball { position:absolute; z-index:20; width:38px; height:38px; padding:0; display:grid; place-items:center; border:1px solid var(--guide); border-radius:50%; background:var(--question); color:var(--accent); box-shadow:0 3px 12px #0005; cursor:grab; touch-action:none }
+.bookmark-ball:active { cursor:grabbing }
+.bookmark-ball svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round }
+.bookmark-panel { position:absolute; z-index:21; width:min(340px,calc(100% - 12px)); max-height:min(440px,calc(100% - 12px)); display:flex; flex-direction:column; padding:10px; border:1px solid var(--guide); border-radius:9px; background:var(--question); box-shadow:0 8px 24px #0007 }
+.bookmark-panel[hidden] { display:none }
+.bookmark-panel input { width:100%; min-width:0; margin-bottom:8px }
+.bookmark-panel-list { overflow:auto; min-height:0 }
+.bookmark-section-head { display:flex; align-items:center; justify-content:space-between; color:var(--muted); font:12px/24px var(--sans); padding:2px 5px }
+.bookmark-section-head select { width:auto; padding:2px 5px; font-size:12px }
+.bookmark-row { display:flex; align-items:center; min-width:0 }
+.bookmark-row .bookmark-target { flex:1; min-width:0; text-align:left; padding:5px; border:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.bookmark-row .bookmark-target[aria-selected=true] { color:var(--accent); background:var(--hover) }
+.bookmark-row .bookmark-remove { flex:none; color:var(--quiet); border:0; padding:4px 7px }
+.bookmark-empty { color:var(--quiet); font-size:12px; padding:4px 5px }
 .search { grid-row:1; display:flex; gap:6px; align-items:center; margin-bottom:10px }
 .search input { min-width:0; flex:1 }
 .search span { font-size:12px; color:var(--muted) }
@@ -295,6 +309,8 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 /* Menus, history and auxiliary views. */
 .menu { position:fixed; z-index:30; border:1px solid var(--guide); border-radius:6px; background:var(--question); padding:5px; min-width:180px; box-shadow:0 6px 20px #0005 }
 .menu button { display:block; width:100%; text-align:left; font-size:13px; padding:7px 12px }
+.menu-note { display:block; color:var(--quiet); font:12px/1.5 var(--sans); padding:3px 12px 7px; max-width:260px }
+.menu-note[hidden] { display:none }
 .menu hr { border:0; border-top:1px solid var(--line); margin:4px }
 .history { min-height:0; display:grid; grid-template-rows:auto auto auto minmax(0,1fr) auto; gap:10px; padding:22px; overflow:hidden }
 .history input { margin:0; border:1px solid var(--guide); font:13px var(--sans); width:auto; background:var(--sidebar) }
@@ -392,6 +408,8 @@ dialog textarea { width:100%; height:220px }
     <button class="icon-button send" id="send" aria-label="发送问题" title="发送 · Ctrl+Enter"><svg class="icon" viewBox="0 0 16 16"><path d="M8,15 V1 M2,7 L8,1 14,7"/></svg></button><button class="icon-button send stop" id="stop" aria-label="停止回答" title="停止回答" hidden><svg class="icon" viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor" stroke="none"/></svg></button>
    </div>
   </div>
+  <button id="bookmark-ball" class="bookmark-ball" type="button" title="书签 · Ctrl+G；按住左键移动" aria-label="书签" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h10v15l-5-3-5 3z"/></svg></button>
+  <section id="bookmark-panel" class="bookmark-panel" aria-label="书签" hidden><input id="bookmark-search" autocomplete="off" placeholder="跳转到书签 · Ctrl+G" aria-label="搜索书签"><div class="bookmark-panel-list" id="bookmark-list"></div></section>
  </section>
  <section class="settings" id="settings" hidden><h2>AI 设置</h2><strong>账号与模型</strong><div class="row"><button data-setting="login">Continue with ChatGPT</button><button data-setting="add">添加账号</button><button data-setting="logout">退出</button></div><select aria-label="账号" disabled><option>ChatGPT（原型未连接账号）</option></select><div class="row"><label><input type="checkbox" disabled>使用 API Key（备用，单独计费）</label></div><div class="row"><input type="password" aria-label="API Key" disabled><button disabled>保存 Key</button><button disabled>清除</button></div><div class="row"><select aria-label="设置中的模型"><option>GPT-6.1-Sol</option></select><button data-setting="refresh">刷新模型</button></div><div class="row"><label>推理强度</label><select id="settings-effort"><option>服务端默认</option><option>低</option><option>中</option><option selected>高</option><option>很高</option><option>最高</option></select></div><p class="note">原型只复现设置面板布局，登录、账号和密钥操作未接入。</p><button disabled>取消登录 / 请求</button><p class="note">ChatGPT 使用所选账号授权的额度。API Key 为独立计费的备用方式，不会自动切换。凭据使用 Windows 当前用户加密存储。</p></section>
  <div class="closed" id="closed" hidden>AI 对话标签已关闭。<button id="reopen">重新打开</button></div>
@@ -405,7 +423,8 @@ dialog textarea { width:100%; height:220px }
 </main>
 <div class="menu" id="ai-menu" role="menu" hidden><button id="ai-new" role="menuitem">AI 对话</button><button id="ai-settings" role="menuitem">AI 设置</button><button id="ai-recent" role="menuitem" aria-haspopup="menu" aria-expanded="false">AI 历史 ›</button></div><div class="menu" id="ai-history-menu" role="menu" hidden></div>
 <div class="menu" id="options" hidden><button data-option="add">添加圈点说明</button><button data-option="all">全选圈点</button><button data-option="clear">清理已完成圈点</button><hr><button data-option="refresh">刷新模型</button><button data-option="settings">AI 设置</button></div>
-<div class="menu" id="answer-menu" hidden><button id="annotate">批注所选内容</button><button id="copy-selection">复制</button><button id="copy-answer">复制这段回答</button></div>
+<div class="menu" id="answer-menu" hidden><button id="annotate">批注所选内容</button><button id="bookmark-selection">为所选内容添加标签</button><span id="bookmark-unavailable" class="menu-note" hidden></span><button id="copy-selection">复制</button><button id="copy-answer">复制这段回答</button></div>
+<dialog id="bookmark-dialog" aria-label="添加标签"><form id="bookmark-form"><label for="bookmark-name">标签名称</label><input id="bookmark-name" maxlength="120" autocomplete="off"><div class="row"><button type="button" id="bookmark-cancel">取消</button><button type="submit" id="bookmark-save">添加</button></div></form></dialog>
 <section class="popup" id="annotation-editor" role="dialog" aria-label="原位批注" hidden><div class="annotation-header"><div class="popup-title" id="annotation-title"></div><button id="delete-annotation" class="icon-button" aria-label="删除此条批注" title="删除此条批注"><svg class="icon" viewBox="0 0 20 20"><path d="M3 5H17M7 5V2H13V5M5 5L6 18H14L15 5M8 8V15M12 8V15"/></svg></button><button id="send-annotation" class="icon-button" aria-label="加入 AI 会话待发区" title="加入 AI 会话待发区 · Ctrl+Enter"></button></div><textarea id="annotation-input" aria-label="原位批注内容"></textarea></section>
 
 <dialog id="entries-dialog" aria-label="本次圈点编辑"><div class="row"><h2>本次圈点</h2><span class="spacer"></span><button id="close-entries">完成</button></div><p class="muted">发送快照保存后即移出编辑区；停止或失败也可从历史查看原文。</p><div class="entries-scroll" id="entries"></div></dialog>
@@ -893,5 +912,6 @@ for(const c of state.conversations)for(const e of c.entries)if(e.state==='提交
 mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();alignReadingInk(false);alignPendingIndicator();restoreReading(current().reading);});
 if(location.search.includes('tools=1'))openLab();
 </script>
+<script src="bookmarks.js"></script>
 </body>
 </html>

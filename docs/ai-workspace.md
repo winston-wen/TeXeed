@@ -16,6 +16,12 @@
 
 历史管理使用分页工作区，支持标题、问题和回答搜索、多选删除、改名及页码跳转。已打开会话需先关闭再删除。会话标签双击打开改名窗口。圈点和批注的操作见 [AI 批注与排版](ai-annotations.md)。
 
+## 书签与跳转
+
+AI 对话中的书签浮球可左键按住拖动，范围限定在当前对话窗口。点击浮球或在对话内按 Ctrl+G 打开书签菜单；输入编号、标题或标签名筛选，上下键选择，Tab 补全，Enter 跳转。默认书签按行文顺序列出已完成回答中的标题和行间公式，编号形如 `1:h2`、`1:eq3`；相同标题级别可出现多次，并以标题文字区分。跳转会展开目标所在的折叠轮次和章节。
+
+选中问题或回答中的文字，右键选择「为所选内容添加标签」并填写名称，可在菜单的用户标签区按行文顺序或字典序查找、跳转及删除。标签、排序方式和浮球位置随会话保存。正在生成的回答会在本轮结束后排版，期间为避免锚点错位，添加标签不可用；普通实时提问在恢复记录保存后可以添加，带圈点的实时提问需等本轮结束。已有会话内容不会因生成提示词变更而改写。
+
 ## 项目工具与权限
 
 AI 可以列出目录、读取和检索源码、替换或创建文件、保存及编译。开始时提供当前入口、引擎和目录资料；后续按需读取未引用的模板、样式与构建说明。
@@ -61,6 +67,8 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-history
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-permissions-only --output artifacts/ai-permissions
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-reliability-only --output artifacts/ai-reliability
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-retry-only --output artifacts/ai-retry
+dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-bookmark-only --output artifacts/ai-bookmarks
+dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-bookmark-ui-only --output artifacts/ai-bookmark-ui
 ```
 
 这些回归使用隔离配置和模拟服务，覆盖流式接收、工具、取消、权限、存储和恢复。批注回归见 [AI 批注](ai-annotations.md)，性能复测见 [UI 性能](ui-layout-and-performance.md)。

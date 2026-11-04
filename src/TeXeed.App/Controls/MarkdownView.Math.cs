@@ -110,6 +110,7 @@ public sealed partial class MarkdownView
         _clipboardMath.Add(inline, token);
         _equations.TryAdd(token.Label ?? "eq-" + token.Number, paragraph);
         _equations.TryAdd("eq-" + token.Number, paragraph);
+        _bookmarkFormulas.TryAdd(token.PreparedOffset, paragraph);
         return paragraph;
     }
     private Hyperlink EquationLink(string label, string? text)

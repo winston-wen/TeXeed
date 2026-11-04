@@ -10,6 +10,7 @@ public sealed partial class MarkdownView
     private string _foldPrefix = "";
     private Action? _foldChanged;
     private readonly Dictionary<Section, Action> _revealSections = [];
+    private readonly Dictionary<Section, string> _bookmarkSections = [];
     private void Reveal(FrameworkContentElement target)
     {
         for (FrameworkContentElement? node = target; node is not null; node = node.Parent as FrameworkContentElement)
@@ -26,7 +27,7 @@ public sealed partial class MarkdownView
     private void ApplyFolding(FlowDocument document)
     {
         if (_folds is null) return;
-        _revealSections.Clear();
+        _revealSections.Clear(); _bookmarkSections.Clear();
         var blocks = document.Blocks.ToArray(); document.Blocks.Clear();
         var parents = new Stack<(int Level, Section Body)>();
         foreach (var block in blocks)
@@ -39,6 +40,7 @@ public sealed partial class MarkdownView
                 owner.Blocks.Add(paragraph);
                 var body = new Section(); owner.Blocks.Add(body);
                 var key = _foldPrefix + ":" + heading.Offset;
+                _bookmarkSections[body] = key;
                 // Keep headings inside the text engine. A Button inside every heading
                 // creates hundreds of embedded layout/hit-test islands in long answers.
                 var link = new Hyperlink { TextDecorations = null };

@@ -44,7 +44,9 @@ public partial class AiPanel : UserControl, IDisposable
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
     {
-        _connection = connection; InitializeComponent(); InitializeComposer();
+        _connection = connection; InitializeComponent(); InitializeComposer(); InitializeBookmarkUi();
+        LiveQuestion.Loaded += (_, _) => BookmarkQuestionLoaded(LiveQuestion);
+        LiveQuestion.Unloaded += (_, _) => BookmarkQuestionUnloaded(LiveQuestion);
         LiveTurnNumber.FontFamily = LiveQuestion.FontFamily;
         LiveTurnNumber.FontWeight = FontWeights.Normal;
         LiveSentTime.Focusable = true; LiveSentTime.Cursor = Cursors.Hand;
@@ -90,6 +92,10 @@ public partial class AiPanel : UserControl, IDisposable
         {
             if (IsSendGesture(e.Key, Keyboard.Modifiers) && Composer.IsKeyboardFocusWithin)
                 Composer_KeyDown(this, e);
+            else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
+            { OpenBookmarkUi(focusSearch: true); e.Handled = true; }
+            else if (e.Key == Key.Escape && _bookmarkSurface?.Visibility == Visibility.Visible)
+            { CloseBookmarkUi(); _bookmarkBall.Focus(); e.Handled = true; }
             else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
             { MessageSearchPanel.Visibility = Visibility.Visible; MessageSearchBox.Focus(); MessageSearchBox.SelectAll(); e.Handled = true; }
             else if (e.Key == Key.Escape && MessageSearchPanel.IsVisible)
@@ -228,13 +234,13 @@ public partial class AiPanel : UserControl, IDisposable
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
             _liveOrdinalAlignment.Schedule();
-            _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
+            _liveBookmarkCheckpointReady = false; _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
             LiveSentTime.Text = pendingTurn.SentTime; LiveReplyStatus.IsCollapsed = false;
             LiveReplyStatus.PendingText = "等待 AI 响应";
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
             _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (_foldingLiveTurn == pendingTurn && !_disposed) RevealLiveTurn(); }));
             AiTurnCheckpoint checkpoint;
-            try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); }
+            try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
             catch { LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
             book.Active.LastSentAt = sentAt;
             if (retry is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
@@ -319,7 +325,7 @@ public partial class AiPanel : UserControl, IDisposable
                     // Save the completed exchange before constructing its rich document.
                     await SaveAsync(); checkpoint.Commit(); Rebind(); RefreshTranscript();
                 }
-                if (ReferenceEquals(_foldingLiveTurn, pendingTurn)) _foldingLiveTurn = null;
+                if (ReferenceEquals(_foldingLiveTurn, pendingTurn)) { _foldingLiveTurn = null; _liveBookmarkCheckpointReady = false; }
             }
         });
     }

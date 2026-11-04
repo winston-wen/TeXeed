@@ -21,13 +21,14 @@ public sealed class AiTurnView : StackPanel
     private string? _imageBaseDirectory;
     public string? ImageBaseDirectory { get => _imageBaseDirectory; set { _imageBaseDirectory = value; foreach (var answer in Answers) answer.ImageBaseDirectory = value; } }
     internal Action? Changed;
-    internal Action<MarkdownView>? AnswerReady, AnswerGone;
+    internal Action<MarkdownView>? AnswerReady, AnswerGone, QuestionReady, QuestionGone;
     internal Action<AiEntry>? PreviewChanged;
     internal Action<string>? SourceRequested;
     internal Action? RetryRequested;
     private bool _canRetry;
     internal bool CanRetry { get => _canRetry; set { _canRetry = value; if (_footer is not null) _footer.CanRetry = value; } }
     internal List<MarkdownView> Answers { get; } = [];
+    internal List<MarkdownView> Questions { get; } = [];
     private readonly StackPanel _body = new(), _preview = new();
     private readonly TextBlock _number = new() { FontFamily = new FontFamily("Segoe UI, Microsoft YaHei"), FontSize = AiChatTypography.FontSize, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
     private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
@@ -66,8 +67,9 @@ public sealed class AiTurnView : StackPanel
     {
         _ordinalAlignment?.Dispose(); _ordinalAlignment = null;
         foreach (var old in Answers) AnswerGone?.Invoke(old);
+        foreach (var old in Questions) QuestionGone?.Invoke(old);
         if (_number.Parent is Panel question) question.Children.Remove(_number);
-        Answers.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
+        Answers.Clear(); Questions.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
         if (Turn is null) return;
         var entries = Turn.SentAnnotations;
         var prompt = entries.Count == 0 ? Turn.DisplayQuestion : Turn.Prompt ?? Turn.DisplayQuestion;
@@ -76,6 +78,7 @@ public sealed class AiTurnView : StackPanel
         void OpenSnapshot(string key) { if (int.TryParse(key.AsSpan("snapshot-".Length), out var n) && n > 0 && n <= entries.Count) ShowPreview(entries[n - 1], n); }
         var questionRow = new Grid(); questionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(AiChatTypography.TextLeft) }); questionRow.ColumnDefinitions.Add(new ColumnDefinition());
         var content = Rich(annotationsOnly ? annotationText : prompt, new Thickness(0, 8, 12, entries.Count == 0 || annotationsOnly ? -AiChatTypography.RichTextInset : 0), annotationsOnly); Grid.SetColumn(content, 1);
+        RegisterQuestion(content);
         if (annotationsOnly)
         {
             content.LocalLink = OpenSnapshot;
@@ -88,6 +91,7 @@ public sealed class AiTurnView : StackPanel
         if (entries.Count > 0 && !annotationsOnly)
         {
             var links = Rich(annotationText, new Thickness(AiChatTypography.TextLeft, 0, 12, -AiChatTypography.RichTextInset), true);
+            RegisterQuestion(links);
             links.LocalLink = OpenSnapshot;
             Children.Add(links);
         }
@@ -96,6 +100,12 @@ public sealed class AiTurnView : StackPanel
         _body.Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0); Children.Add(_body);
         _bodyBuilt = false;
         _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
+    }
+    private void RegisterQuestion(MarkdownView view)
+    {
+        Questions.Add(view);
+        view.Loaded += (_, _) => QuestionReady?.Invoke(view);
+        view.Unloaded += (_, _) => QuestionGone?.Invoke(view);
     }
     private void BuildBody()
     {

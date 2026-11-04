@@ -57,6 +57,16 @@ public partial class AiPanel
         annotate.Click += (_, _) => AnnotateAnswer(view);
         menu.Opened += (_, _) => annotate.IsEnabled = AnswerTurn(view) is not null;
         menu.Items.Add(annotate);
+        var bookmark = new MenuItem { Header = "为所选内容添加标签" };
+        ToolTipService.SetShowOnDisabled(bookmark, true);
+        menu.Opened += (_, _) =>
+        {
+            var completed = AnswerTurn(view) is not null;
+            bookmark.IsEnabled = view.HasBookmarkSelection && completed;
+            bookmark.ToolTip = completed ? null : "回答生成结束后可添加标签。";
+        };
+        bookmark.Click += (_, _) => { if (CaptureBookmarkSelection(view) is { } selection) RequestBookmarkLabel(selection); };
+        menu.Items.Add(bookmark);
         menu.Items.Add(new MenuItem { Header = "复制", Command = ApplicationCommands.Copy, CommandTarget = view });
         var copyAnswer = new MenuItem { Header = "复制这段回答" };
         copyAnswer.Click += (_, _) =>

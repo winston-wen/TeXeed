@@ -12,6 +12,7 @@ internal sealed class ChatMath
     internal sealed record Token(string Source, bool Display, string? Label, string? Number, string? Reference = null, bool Parenthesize = false)
     {
         internal string CopyTex { get; init; } = Source;
+        internal int PreparedOffset { get; init; } = -1;
     }
     internal Dictionary<string, Token> Tokens { get; } = [];
     internal Dictionary<string, string> Labels { get; } = [];
@@ -55,9 +56,10 @@ internal sealed class ChatMath
                     token = new(source, display, label, tag) { CopyTex = copyTex };
                 }
                 var key = Prefix + Tokens.Count + "END";
-                Tokens.Add(key, token);
                 output.Append(markdown, copied, match.Index - copied);
                 if (token.Display) output.Append("\n\n");
+                token = token with { PreparedOffset = output.Length };
+                Tokens.Add(key, token);
                 output.Append(key);
                 if (token.Display) output.Append("\n\n");
                 copied = match.Index + match.Length;

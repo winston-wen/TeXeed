@@ -1,0 +1,1190 @@
+{
+  "source_base_commit": "4d5859dfd2442989c5ecd5772c5178c9e43cfc85",
+  "snapshot_origin": "artifacts/bookmark-perf/candidate",
+  "matches_live_source_normalized_at_archive": true,
+  "modified_or_new": [
+    "src/TeXeed.App/AI/AiModels.cs",
+    "src/TeXeed.App/AI/AiResponses.cs",
+    "src/TeXeed.App/Controls/AiPanel.Annotations.cs",
+    "src/TeXeed.App/Controls/AiPanel.BookmarkUi.cs",
+    "src/TeXeed.App/Controls/AiPanel.Bookmarks.cs",
+    "src/TeXeed.App/Controls/AiPanel.History.cs",
+    "src/TeXeed.App/Controls/AiPanel.Reading.cs",
+    "src/TeXeed.App/Controls/AiPanel.xaml",
+    "src/TeXeed.App/Controls/AiPanel.xaml.cs",
+    "src/TeXeed.App/Controls/AiTurnView.cs",
+    "src/TeXeed.App/Controls/ChatMath.cs",
+    "src/TeXeed.App/Controls/MarkdownView.Bookmarks.cs",
+    "src/TeXeed.App/Controls/MarkdownView.Folding.cs",
+    "src/TeXeed.App/Controls/MarkdownView.Math.cs",
+    "src/TeXeed.App/Controls/MarkdownView.Media.cs",
+    "src/TeXeed.App/Controls/MarkdownView.cs",
+    "src/TeXeed.App/TeXeed.App.csproj"
+  ],
+  "all_source_files": [
+    {
+      "path": "src/TeXeed.App/AI/AiAgentPrompt.cs",
+      "sha256": "fb404dad231c2025b5a561a2eb41d89f62d67d8dfb2d25a32de88ed9e2803092",
+      "normalized_lf_sha256": "fb404dad231c2025b5a561a2eb41d89f62d67d8dfb2d25a32de88ed9e2803092",
+      "bytes": 7156
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiConnection.cs",
+      "sha256": "e20b275b9c195677c82f2be1a7ed07a488f6584e5273d8a5a5a6f69c5e3ae376",
+      "normalized_lf_sha256": "e20b275b9c195677c82f2be1a7ed07a488f6584e5273d8a5a5a6f69c5e3ae376",
+      "bytes": 5885
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiContextBudget.cs",
+      "sha256": "126077cd2529a732cac4ab9aa201e12b64dca8bfa63f8b3676a55e7afcea12d0",
+      "normalized_lf_sha256": "126077cd2529a732cac4ab9aa201e12b64dca8bfa63f8b3676a55e7afcea12d0",
+      "bytes": 839
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiContextUsage.cs",
+      "sha256": "dd8b4919a89be6d60ecabf5113988725f9842cf903b4b91f12c3120c66f1317f",
+      "normalized_lf_sha256": "dd8b4919a89be6d60ecabf5113988725f9842cf903b4b91f12c3120c66f1317f",
+      "bytes": 1389
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiCredentials.cs",
+      "sha256": "4e2e56e0f0a3892c9dad9245651c789b3cb87d51622fc40acd8edcd8009ff74e",
+      "normalized_lf_sha256": "4e2e56e0f0a3892c9dad9245651c789b3cb87d51622fc40acd8edcd8009ff74e",
+      "bytes": 4246
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiFailure.cs",
+      "sha256": "aa821f0177cd6fb8753bfce0ff50f30182f84757cca0f4ea99eb78941edf34ba",
+      "normalized_lf_sha256": "aa821f0177cd6fb8753bfce0ff50f30182f84757cca0f4ea99eb78941edf34ba",
+      "bytes": 2598
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiHistoryPage.cs",
+      "sha256": "73cd0d4a0c4fbcfd43e60315c3d38eb93456fe093d6358402d91d1c513d62e1c",
+      "normalized_lf_sha256": "73cd0d4a0c4fbcfd43e60315c3d38eb93456fe093d6358402d91d1c513d62e1c",
+      "bytes": 1816
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiMathProofreading.cs",
+      "sha256": "98266f6341d1e9fd1e5cee9ccc8565f821635d36765d2e61a171acd6a91c7e1b",
+      "normalized_lf_sha256": "98266f6341d1e9fd1e5cee9ccc8565f821635d36765d2e61a171acd6a91c7e1b",
+      "bytes": 2108
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiModel.cs",
+      "sha256": "abb3b57a05f3dc2a41da0a55fd3d268ff9f1821423243a0735df25ea9b158c42",
+      "normalized_lf_sha256": "abb3b57a05f3dc2a41da0a55fd3d268ff9f1821423243a0735df25ea9b158c42",
+      "bytes": 2777
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiModels.cs",
+      "sha256": "552d3ce614a9f5b24dd3182bdb5237cdf26ea5e93487391f5621aaa43384bed5",
+      "normalized_lf_sha256": "219cb2c7ca361a3a7f6c9126bc79b467e8f7d3028845652d49590c1ea0f8c6d6",
+      "bytes": 14232
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiPermissions.cs",
+      "sha256": "a22755e658c194217323bb92686a383c4fb10ce47b7eb8275793ecddf5ddd62a",
+      "normalized_lf_sha256": "a22755e658c194217323bb92686a383c4fb10ce47b7eb8275793ecddf5ddd62a",
+      "bytes": 2249
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiResponses.Context.cs",
+      "sha256": "659424bb522df09af51b8c9b93ec5a57fd2fa4979c83c8769f204eff540b312a",
+      "normalized_lf_sha256": "659424bb522df09af51b8c9b93ec5a57fd2fa4979c83c8769f204eff540b312a",
+      "bytes": 7153
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiResponses.Retry.cs",
+      "sha256": "ef9adc41dc1f31cf061a6e0ab8ba25a72f3cb236bed248d70192153a22ee85ee",
+      "normalized_lf_sha256": "ef9adc41dc1f31cf061a6e0ab8ba25a72f3cb236bed248d70192153a22ee85ee",
+      "bytes": 797
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiResponses.cs",
+      "sha256": "65123a32b06af92afe2b3c4e335e7f5f65e5ed5d79064bd1fde203737a15bcfe",
+      "normalized_lf_sha256": "085a12bb1d5a98fc2bd488562555fdd3bb8955a93478edf8c3a8010e4831bb47",
+      "bytes": 42034
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiSegment.cs",
+      "sha256": "8107095547cab8299fc5add66325fd0cf3e1c365e83183183559ee78065d27c2",
+      "normalized_lf_sha256": "8107095547cab8299fc5add66325fd0cf3e1c365e83183183559ee78065d27c2",
+      "bytes": 3737
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiShell.cs",
+      "sha256": "64d8d9175717b0f122c3482986fb3bd94937dda13a9a2b50168d4bece06f3be7",
+      "normalized_lf_sha256": "64d8d9175717b0f122c3482986fb3bd94937dda13a9a2b50168d4bece06f3be7",
+      "bytes": 3880
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiShellConsent.cs",
+      "sha256": "b68fce4c691aa739467fa9d11d80e965992e12a5a4483c6f322e2857a75d3a7f",
+      "normalized_lf_sha256": "b68fce4c691aa739467fa9d11d80e965992e12a5a4483c6f322e2857a75d3a7f",
+      "bytes": 738
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiTimestamp.cs",
+      "sha256": "fa79556afd1cd7b2cdbdbae694e987abdcb5f9c1c172b5e00ac2c71428a99e2e",
+      "normalized_lf_sha256": "fa79556afd1cd7b2cdbdbae694e987abdcb5f9c1c172b5e00ac2c71428a99e2e",
+      "bytes": 1357
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiTurnCheckpoint.cs",
+      "sha256": "e0ad8329d2a5cd2d77918ebc8cc8ce450562b51724034a2baa041f3617e5d475",
+      "normalized_lf_sha256": "e0ad8329d2a5cd2d77918ebc8cc8ce450562b51724034a2baa041f3617e5d475",
+      "bytes": 4998
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiWorkspaceFiles.cs",
+      "sha256": "07722c744b45864fe07f7ac32f0e09db961218a042b3e49d78e18421ff1b8397",
+      "normalized_lf_sha256": "07722c744b45864fe07f7ac32f0e09db961218a042b3e49d78e18421ff1b8397",
+      "bytes": 15216
+    },
+    {
+      "path": "src/TeXeed.App/AI/AiWorkspaceStore.cs",
+      "sha256": "f8fca223405c3adffafca36e11915bb419a9d44ee571fed436242fc4a8e1d05a",
+      "normalized_lf_sha256": "f8fca223405c3adffafca36e11915bb419a9d44ee571fed436242fc4a8e1d05a",
+      "bytes": 1069
+    },
+    {
+      "path": "src/TeXeed.App/AI/AssemblyInfo.cs",
+      "sha256": "fe864aaf9c85a76df692532e028a4688e9712d02a60a8b47265bfe9984070b3f",
+      "normalized_lf_sha256": "fe864aaf9c85a76df692532e028a4688e9712d02a60a8b47265bfe9984070b3f",
+      "bytes": 82
+    },
+    {
+      "path": "src/TeXeed.App/AI/ChatGptLogin.cs",
+      "sha256": "722d89a82766cc9dccdebb39ab26088f93f731742fdd5f0f9a8afff0f81d1d66",
+      "normalized_lf_sha256": "722d89a82766cc9dccdebb39ab26088f93f731742fdd5f0f9a8afff0f81d1d66",
+      "bytes": 9268
+    },
+    {
+      "path": "src/TeXeed.App/AiHistoryView.xaml",
+      "sha256": "0e19a2c492a0c6cd5fb02ba11ffa7cea5436839a0aa17c3296c9c7b5a59de0c7",
+      "normalized_lf_sha256": "0e19a2c492a0c6cd5fb02ba11ffa7cea5436839a0aa17c3296c9c7b5a59de0c7",
+      "bytes": 2969
+    },
+    {
+      "path": "src/TeXeed.App/AiHistoryView.xaml.cs",
+      "sha256": "b1c6e882914a575e114590bcddf59004ca008e20079c234a97d46b8eeb5c9b67",
+      "normalized_lf_sha256": "b1c6e882914a575e114590bcddf59004ca008e20079c234a97d46b8eeb5c9b67",
+      "bytes": 10213
+    },
+    {
+      "path": "src/TeXeed.App/App.xaml",
+      "sha256": "5755a515cd41c934dd0e5c874ecb695ace0b6fae277931719ed4eca9fcd54e41",
+      "normalized_lf_sha256": "5755a515cd41c934dd0e5c874ecb695ace0b6fae277931719ed4eca9fcd54e41",
+      "bytes": 387
+    },
+    {
+      "path": "src/TeXeed.App/App.xaml.cs",
+      "sha256": "1c0d5b03b69be18a9e917a2e048a845ebf8562d451c464d8dbe9efb83768775d",
+      "normalized_lf_sha256": "1c0d5b03b69be18a9e917a2e048a845ebf8562d451c464d8dbe9efb83768775d",
+      "bytes": 627
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/README.md",
+      "sha256": "8c980022bfa5fd627c7c88bc4d21500dad8359705fe51a18bcdd75a287cfa6d4",
+      "normalized_lf_sha256": "8c980022bfa5fd627c7c88bc4d21500dad8359705fe51a18bcdd75a287cfa6d4",
+      "bytes": 584
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/default_file.svg",
+      "sha256": "06d28856c58270cc05c7885ea6bc6b3b15855e75eeeded56372af08e82a4ad5b",
+      "normalized_lf_sha256": "06d28856c58270cc05c7885ea6bc6b3b15855e75eeeded56372af08e82a4ad5b",
+      "bytes": 168
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/default_folder.svg",
+      "sha256": "2769a1a98b586599268d6464892ecbcf1b6aaaa3b0fd238f0a2b2b79d699ce8f",
+      "normalized_lf_sha256": "2769a1a98b586599268d6464892ecbcf1b6aaaa3b0fd238f0a2b2b79d699ce8f",
+      "bytes": 194
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/default_folder_opened.svg",
+      "sha256": "28d02bc12111a848a333594b6e31476172cc42943c82b2c262df822a81178f69",
+      "normalized_lf_sha256": "28d02bc12111a848a333594b6e31476172cc42943c82b2c262df822a81178f69",
+      "bytes": 314
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_config.svg",
+      "sha256": "789e40a179398f81b944f330e5da08e1562cbf1f037417c62441ba3174407c96",
+      "normalized_lf_sha256": "789e40a179398f81b944f330e5da08e1562cbf1f037417c62441ba3174407c96",
+      "bytes": 937
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_csharp.svg",
+      "sha256": "7f6b1a627927408fd5047ece4bc5527a5cc04c03b0e9c610f732e39a2c7f9a4b",
+      "normalized_lf_sha256": "7f6b1a627927408fd5047ece4bc5527a5cc04c03b0e9c610f732e39a2c7f9a4b",
+      "bytes": 735
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_git.svg",
+      "sha256": "273a5c8719145b01e0e490629459b0c79b4a07b67220cb2bcec2c0f0f7feaf73",
+      "normalized_lf_sha256": "273a5c8719145b01e0e490629459b0c79b4a07b67220cb2bcec2c0f0f7feaf73",
+      "bytes": 677
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_image.svg",
+      "sha256": "5c893f16ace217a90a646fe8c590a9331e3a165e492ef1a7e14ce701eb9a9b59",
+      "normalized_lf_sha256": "5c893f16ace217a90a646fe8c590a9331e3a165e492ef1a7e14ce701eb9a9b59",
+      "bytes": 506
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_json.svg",
+      "sha256": "89efce449a8e2d6224cd0984263ab7c5bf518b9bedaee3267a3049e320389652",
+      "normalized_lf_sha256": "89efce449a8e2d6224cd0984263ab7c5bf518b9bedaee3267a3049e320389652",
+      "bytes": 1616
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_light_tex.svg",
+      "sha256": "b52d7aa85e8cb1b32a9c1dc73d7b0f1466b42c5fc430a45352929e35c6e58bbf",
+      "normalized_lf_sha256": "b52d7aa85e8cb1b32a9c1dc73d7b0f1466b42c5fc430a45352929e35c6e58bbf",
+      "bytes": 1125
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_markdown.svg",
+      "sha256": "fa10b34b3c72cc10ac1c6f7013c366e76b310fa3efab1635b1e382bc6d6f9530",
+      "normalized_lf_sha256": "fa10b34b3c72cc10ac1c6f7013c366e76b310fa3efab1635b1e382bc6d6f9530",
+      "bytes": 552
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_pdf2.svg",
+      "sha256": "e429fcec8a053d2dc1d4f459190ee28c0a9306be9c1fff057af81a814ccb70f0",
+      "normalized_lf_sha256": "e429fcec8a053d2dc1d4f459190ee28c0a9306be9c1fff057af81a814ccb70f0",
+      "bytes": 3600
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_tex.svg",
+      "sha256": "8a5cc59559a7a1853dee891f1ee9e41b5f977168bbd195dad3ffe0c010c43417",
+      "normalized_lf_sha256": "8a5cc59559a7a1853dee891f1ee9e41b5f977168bbd195dad3ffe0c010c43417",
+      "bytes": 1182
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Explorer/file_type_text.svg",
+      "sha256": "2d4d4b3039b6b85ab7ea34580cb4bd861dc0f24cf040d44449251d20960be790",
+      "normalized_lf_sha256": "2d4d4b3039b6b85ab7ea34580cb4bd861dc0f24cf040d44449251d20960be790",
+      "bytes": 626
+    },
+    {
+      "path": "src/TeXeed.App/Assets/README.md",
+      "sha256": "05d7dbcc627fe9856211b47d2baeb11b6d8ba513b81c44256cb550d317e85507",
+      "normalized_lf_sha256": "05d7dbcc627fe9856211b47d2baeb11b6d8ba513b81c44256cb550d317e85507",
+      "bytes": 401
+    },
+    {
+      "path": "src/TeXeed.App/Assets/TeXeed.ico",
+      "sha256": "7c15943cc0b24625866b324dce025ac6057785d2c86bc9dab77cd7dd9ce52184",
+      "normalized_lf_sha256": "94ff440b0f45f8d8205d7a47a7141a73211a40b668b04807a848855456c96094",
+      "bytes": 71345
+    },
+    {
+      "path": "src/TeXeed.App/Assets/TeXeed.png",
+      "sha256": "6e1eada83a8b8f6aa13682752b16cb8efcf8f8a6697234646f608c35321cd94c",
+      "normalized_lf_sha256": "db6fae83328e4523305b8163d6fddc21648a4f161ca34e66d57cf081591c6e96",
+      "bytes": 422325
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Tutorial/energy.svg",
+      "sha256": "c318433874f980112edf138ba4a433553645fccd8e0f71d4148ef87d06cd5e66",
+      "normalized_lf_sha256": "c318433874f980112edf138ba4a433553645fccd8e0f71d4148ef87d06cd5e66",
+      "bytes": 6468
+    },
+    {
+      "path": "src/TeXeed.App/Assets/Tutorial/sum.svg",
+      "sha256": "64cb6c71a0532ce122ebda873b96f6b5b236a6c89137bf076b879c43cc3e90a3",
+      "normalized_lf_sha256": "64cb6c71a0532ce122ebda873b96f6b5b236a6c89137bf076b879c43cc3e90a3",
+      "bytes": 12829
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiActivityView.cs",
+      "sha256": "6a26ea1494561adab2e1e1ccd8faac8b59be82a57a5350f6f28f60341b9da8cf",
+      "normalized_lf_sha256": "6a26ea1494561adab2e1e1ccd8faac8b59be82a57a5350f6f28f60341b9da8cf",
+      "bytes": 6525
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiAnnotationLayer.cs",
+      "sha256": "627bf3d7ca939d4a44af99f02937202f48f06b100e22193d6ca5573190af991d",
+      "normalized_lf_sha256": "627bf3d7ca939d4a44af99f02937202f48f06b100e22193d6ca5573190af991d",
+      "bytes": 16416
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiMarkMenu.cs",
+      "sha256": "a8416520754bcd0b0406d1d09f39497a1f31754fa5ed78478b8c2dfa2dbff164",
+      "normalized_lf_sha256": "a8416520754bcd0b0406d1d09f39497a1f31754fa5ed78478b8c2dfa2dbff164",
+      "bytes": 2152
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.Annotations.cs",
+      "sha256": "432b4e820523e39dfccf2637fc85812064deb26565876f522de8e9a9a3cd030a",
+      "normalized_lf_sha256": "7251e527ef8c83f7a679dd364f6f3d909bbe3e8f0596ce12e85aae8ec57a9843",
+      "bytes": 5397
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.BookmarkUi.cs",
+      "sha256": "f86a6e413b474e7bc01b33383674cd5b8652642576326f03eebdfe53bf6b22e6",
+      "normalized_lf_sha256": "f86a6e413b474e7bc01b33383674cd5b8652642576326f03eebdfe53bf6b22e6",
+      "bytes": 21185
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.Bookmarks.cs",
+      "sha256": "de3d5768d03fc68cfa276d591b44c91e2467bb9dea8659083276cb6faf0214cd",
+      "normalized_lf_sha256": "de3d5768d03fc68cfa276d591b44c91e2467bb9dea8659083276cb6faf0214cd",
+      "bytes": 11926
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.Composer.cs",
+      "sha256": "64c273a54f41a6c3b3f836081e2e8fe1991a23d9eea14cd8be5d9c8254357fbc",
+      "normalized_lf_sha256": "64c273a54f41a6c3b3f836081e2e8fe1991a23d9eea14cd8be5d9c8254357fbc",
+      "bytes": 968
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.History.cs",
+      "sha256": "f097504104ccf60ce9b5644a17377beea02259aa720699bf2ec32c906180017a",
+      "normalized_lf_sha256": "0b768ecd2b7581eb6227fd89e93170fb770dbfdfb7f2933a95eede8024a3eee6",
+      "bytes": 4160
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.Models.cs",
+      "sha256": "1f27296d5f651d82794afebf653431527751660bdf5cb41a92b2f59fa5a8d008",
+      "normalized_lf_sha256": "1f27296d5f651d82794afebf653431527751660bdf5cb41a92b2f59fa5a8d008",
+      "bytes": 5307
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.Reading.cs",
+      "sha256": "c7f4355148faf438dac166120c585fec5c8bb8392b0ddf1f8e56ae0759e00be3",
+      "normalized_lf_sha256": "bdcd1712c44128bf8392a5a79f1505508d2ad150fea857d97dd362ed4cbc697a",
+      "bytes": 9093
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.Scroll.cs",
+      "sha256": "51079f619d1f559d8ef8881410a5bee9f9fec6653934b5332d93117f9f856bf3",
+      "normalized_lf_sha256": "51079f619d1f559d8ef8881410a5bee9f9fec6653934b5332d93117f9f856bf3",
+      "bytes": 2421
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.xaml",
+      "sha256": "64942421cad8a7e7b44a05749ea08ae41cf433042d10ea870bf6bf6c7d1c3e7d",
+      "normalized_lf_sha256": "1f67a34ae46cc549e1c840522045e0902dbf64c443377e9e2f5314d56a1cfb4b",
+      "bytes": 18029
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiPanel.xaml.cs",
+      "sha256": "7f8fea3892a8dd78df80866692fae7eb6e4362fbbab8d1d811f83ff38e72535d",
+      "normalized_lf_sha256": "9b1327bf61c5178c2bc9323e11da68da9ffa48476a35046462745f357ab92d81",
+      "bytes": 24511
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiReplyStatus.cs",
+      "sha256": "0e502abc59c4bce6576ebf1df7863e2f0cb0a90c5280beef8bb88e6a5138cedc",
+      "normalized_lf_sha256": "0e502abc59c4bce6576ebf1df7863e2f0cb0a90c5280beef8bb88e6a5138cedc",
+      "bytes": 5376
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiSettingsPanel.xaml",
+      "sha256": "a0e2ca05fd5b35a874fd8608c8e6c39af2fb553f323ee7a1691bf03e3e1ea1b2",
+      "normalized_lf_sha256": "a0e2ca05fd5b35a874fd8608c8e6c39af2fb553f323ee7a1691bf03e3e1ea1b2",
+      "bytes": 2603
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiSettingsPanel.xaml.cs",
+      "sha256": "9bceb838135f4022eb3cbf04eb13dab5d888cd89d27ed212b09a08919213c8fb",
+      "normalized_lf_sha256": "9bceb838135f4022eb3cbf04eb13dab5d888cd89d27ed212b09a08919213c8fb",
+      "bytes": 9991
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiShellApproval.cs",
+      "sha256": "d3ad2e98564fa1685d910af22523bf0acaf10921fe7ecfc486a5357c214e2c2d",
+      "normalized_lf_sha256": "d3ad2e98564fa1685d910af22523bf0acaf10921fe7ecfc486a5357c214e2c2d",
+      "bytes": 4923
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AiTurnView.cs",
+      "sha256": "c980e7e61d7240b6d6e34e1ce47c3f5a9593691af4ead123eb91ace819ed83d2",
+      "normalized_lf_sha256": "1ca401b3506f1d5502a8436ff8de1860e85e8e967ec1fe93a2481166429bad0b",
+      "bytes": 12140
+    },
+    {
+      "path": "src/TeXeed.App/Controls/AutoScrollController.cs",
+      "sha256": "8cd244a9eee3b2f18472119c1d8b1e876c345a8a4fab7029c21805e2f73fd054",
+      "normalized_lf_sha256": "8cd244a9eee3b2f18472119c1d8b1e876c345a8a4fab7029c21805e2f73fd054",
+      "bytes": 10611
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatFormula.cs",
+      "sha256": "302ca79251862d26ec99640266d3fba4fc5a024d210069f9d239080deb3bbb46",
+      "normalized_lf_sha256": "302ca79251862d26ec99640266d3fba4fc5a024d210069f9d239080deb3bbb46",
+      "bytes": 3959
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatFormulaHost.cs",
+      "sha256": "590e063359add428672da83f5ec9149705b9fd921d5ac0925e9f531a3e674f2b",
+      "normalized_lf_sha256": "590e063359add428672da83f5ec9149705b9fd921d5ac0925e9f531a3e674f2b",
+      "bytes": 1921
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatFormulaRow.cs",
+      "sha256": "5e2e7e8ef8a913eaffba1c2eb53bd3c3e632ed6e2937be9a998b206c61b13267",
+      "normalized_lf_sha256": "5e2e7e8ef8a913eaffba1c2eb53bd3c3e632ed6e2937be9a998b206c61b13267",
+      "bytes": 2234
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatMath.cs",
+      "sha256": "00b9d0beeba204b7b18481c76d301ad40ce1e4d31d4d393447bccf1e3590b1bb",
+      "normalized_lf_sha256": "09c5f73f230f89efc2d8864f624ec00dc67dc3dca22548403055155b21f578e0",
+      "bytes": 4848
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatOrdinalAlignment.cs",
+      "sha256": "73dbc77759413db29e5696d52907eeca322d8a926ddc276ff873b6ea3688f2dd",
+      "normalized_lf_sha256": "73dbc77759413db29e5696d52907eeca322d8a926ddc276ff873b6ea3688f2dd",
+      "bytes": 5766
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatSvg.cs",
+      "sha256": "1d57fd03e1a9c7a28c87b2ea6c9e382d2e4044f4296908dda58d095de6f8301d",
+      "normalized_lf_sha256": "1d57fd03e1a9c7a28c87b2ea6c9e382d2e4044f4296908dda58d095de6f8301d",
+      "bytes": 6025
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatTexInput.cs",
+      "sha256": "2e904444f257fe036075a79747fceac7192f8347f035602235617c4fbaebdd50",
+      "normalized_lf_sha256": "2e904444f257fe036075a79747fceac7192f8347f035602235617c4fbaebdd50",
+      "bytes": 5667
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatTexRenderer.cs",
+      "sha256": "c0374c90a40955b232cd358ad712894761aae05708e3c150df19ce3412bab6c7",
+      "normalized_lf_sha256": "c0374c90a40955b232cd358ad712894761aae05708e3c150df19ce3412bab6c7",
+      "bytes": 12962
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ChatVirtualizingPanel.cs",
+      "sha256": "9763ce01f87e0b46413984c9a2df99a21bea27b5e749c7ecabb6d630cbc661c6",
+      "normalized_lf_sha256": "9763ce01f87e0b46413984c9a2df99a21bea27b5e749c7ecabb6d630cbc661c6",
+      "bytes": 293
+    },
+    {
+      "path": "src/TeXeed.App/Controls/CompactMenuPanel.cs",
+      "sha256": "15dde55f846c4682d188e9b7223834d01390cf10352efd2edda1dde97055bc58",
+      "normalized_lf_sha256": "15dde55f846c4682d188e9b7223834d01390cf10352efd2edda1dde97055bc58",
+      "bytes": 7917
+    },
+    {
+      "path": "src/TeXeed.App/Controls/DocumentOutline.xaml",
+      "sha256": "6a5ee7aa112b1ed8bf365ae0f941409fdcd53efbb93a27a5f1fa7f7a53e55b20",
+      "normalized_lf_sha256": "6a5ee7aa112b1ed8bf365ae0f941409fdcd53efbb93a27a5f1fa7f7a53e55b20",
+      "bytes": 7741
+    },
+    {
+      "path": "src/TeXeed.App/Controls/DocumentOutline.xaml.cs",
+      "sha256": "c8fd83770648d6ed6d80f085d747db8b0cb238f63e7ed4624b63e2060f9dd433",
+      "normalized_lf_sha256": "c8fd83770648d6ed6d80f085d747db8b0cb238f63e7ed4624b63e2060f9dd433",
+      "bytes": 17901
+    },
+    {
+      "path": "src/TeXeed.App/Controls/DragCursors.cs",
+      "sha256": "e9a2a46fb7b9bfc0d2e4a45471f142392ff0a082983cd07ee2dc4c90eb7b4a59",
+      "normalized_lf_sha256": "e9a2a46fb7b9bfc0d2e4a45471f142392ff0a082983cd07ee2dc4c90eb7b4a59",
+      "bytes": 4135
+    },
+    {
+      "path": "src/TeXeed.App/Controls/EditorSearchTheme.xaml",
+      "sha256": "f19251e75f0519586953df8128b63554b9863a85ea42293520e1574d3d6afbb8",
+      "normalized_lf_sha256": "f19251e75f0519586953df8128b63554b9863a85ea42293520e1574d3d6afbb8",
+      "bytes": 6651
+    },
+    {
+      "path": "src/TeXeed.App/Controls/EditorTabStrip.xaml",
+      "sha256": "b1797b1cd11d9b1777a1d1fb1011515c55e045224110ab9049e7f394d306997d",
+      "normalized_lf_sha256": "b1797b1cd11d9b1777a1d1fb1011515c55e045224110ab9049e7f394d306997d",
+      "bytes": 3503
+    },
+    {
+      "path": "src/TeXeed.App/Controls/EditorTabStrip.xaml.cs",
+      "sha256": "0df2e1e20f182af5c747dfa5a16163ce030a52648f31dfee4d39d451faba5fe5",
+      "normalized_lf_sha256": "0df2e1e20f182af5c747dfa5a16163ce030a52648f31dfee4d39d451faba5fe5",
+      "bytes": 13853
+    },
+    {
+      "path": "src/TeXeed.App/Controls/GrabCursor.cs",
+      "sha256": "f16f4b8d14cc1b1c7a2ffdcc043445217bb8e570808ebe1773d4624c8a8747df",
+      "normalized_lf_sha256": "f16f4b8d14cc1b1c7a2ffdcc043445217bb8e570808ebe1773d4624c8a8747df",
+      "bytes": 4608
+    },
+    {
+      "path": "src/TeXeed.App/Controls/HoverMarquee.cs",
+      "sha256": "a267f9a1ad7ec88585e5bba4d8ba46481ee8363f81a38dc2a2f36c475f45d0e8",
+      "normalized_lf_sha256": "a267f9a1ad7ec88585e5bba4d8ba46481ee8363f81a38dc2a2f36c475f45d0e8",
+      "bytes": 2997
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ImagePreview.cs",
+      "sha256": "f5b73bd223333cd62ecf0ad552060ca47396065a6dfbc41302b489462eaa735e",
+      "normalized_lf_sha256": "f5b73bd223333cd62ecf0ad552060ca47396065a6dfbc41302b489462eaa735e",
+      "bytes": 5890
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.AiMark.cs",
+      "sha256": "8b3003d04bb398891bf7da831e7f78b6a57fa46f5de5970c767a9a647669e3c8",
+      "normalized_lf_sha256": "8b3003d04bb398891bf7da831e7f78b6a57fa46f5de5970c767a9a647669e3c8",
+      "bytes": 3490
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.Annotations.cs",
+      "sha256": "0a1b3cfd4509f1abaf2fe88d0c5d17d81a4551a3485245b02dc7c9b5ecf45e88",
+      "normalized_lf_sha256": "0a1b3cfd4509f1abaf2fe88d0c5d17d81a4551a3485245b02dc7c9b5ecf45e88",
+      "bytes": 2441
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.FixedGrid.cs",
+      "sha256": "d0470b2b4897f8814b9f54b49451814d082ca7e548daa94e7c909611d695ff4c",
+      "normalized_lf_sha256": "d0470b2b4897f8814b9f54b49451814d082ca7e548daa94e7c909611d695ff4c",
+      "bytes": 15483
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.MultiCaret.cs",
+      "sha256": "f80b9b1e1fd71d623be9283806222597339bcf6b20b1a7f943f7be927af566ba",
+      "normalized_lf_sha256": "f80b9b1e1fd71d623be9283806222597339bcf6b20b1a7f943f7be927af566ba",
+      "bytes": 31331
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.Replacement.cs",
+      "sha256": "ceff86e4ade92610119da213a4b1745edc350c9683c21d45edd695bb57cfdcff",
+      "normalized_lf_sha256": "ceff86e4ade92610119da213a4b1745edc350c9683c21d45edd695bb57cfdcff",
+      "bytes": 6169
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.SearchUi.cs",
+      "sha256": "6480e37aa27f2d592ff6266b0a8ade267668426de1195067fa991ccbf1aea5fd",
+      "normalized_lf_sha256": "6480e37aa27f2d592ff6266b0a8ade267668426de1195067fa991ccbf1aea5fd",
+      "bytes": 4833
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.Theme.cs",
+      "sha256": "c8784cee28a8226d78161b7594bd5ab249e252b43fc462d1e1b18ce196f506b4",
+      "normalized_lf_sha256": "c8784cee28a8226d78161b7594bd5ab249e252b43fc462d1e1b18ce196f506b4",
+      "bytes": 1423
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.Viewport.cs",
+      "sha256": "d2fe7599342425b1598f27ceaaa7212b0c9230868e8bd57d1a67ffa07f46c8b8",
+      "normalized_lf_sha256": "d2fe7599342425b1598f27ceaaa7212b0c9230868e8bd57d1a67ffa07f46c8b8",
+      "bytes": 5007
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.WordWrap.cs",
+      "sha256": "3d18e906a95c5ebde9b960c710d0c76dba56004b56bef612c01baa859d12e981",
+      "normalized_lf_sha256": "3d18e906a95c5ebde9b960c710d0c76dba56004b56bef612c01baa859d12e981",
+      "bytes": 865
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexEditor.cs",
+      "sha256": "a04e85daa5cba1004941328db6feab7ce3219136ef21a1abe2228578eb307b06",
+      "normalized_lf_sha256": "a04e85daa5cba1004941328db6feab7ce3219136ef21a1abe2228578eb307b06",
+      "bytes": 36708
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LatexTitleBlock.cs",
+      "sha256": "61e0e3d92bdea0184cee893083d3f186db89a2f69b5e6c5f56898a06a693ec7f",
+      "normalized_lf_sha256": "61e0e3d92bdea0184cee893083d3f186db89a2f69b5e6c5f56898a06a693ec7f",
+      "bytes": 5213
+    },
+    {
+      "path": "src/TeXeed.App/Controls/LiteralText.cs",
+      "sha256": "e299d63eee777d97a4ad88a15414d2270b55fe10b0ce6f17d46847429692de66",
+      "normalized_lf_sha256": "e299d63eee777d97a4ad88a15414d2270b55fe10b0ce6f17d46847429692de66",
+      "bytes": 1356
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Bookmarks.cs",
+      "sha256": "4192251795358fa0e8d51f29644f4e14d7accca1151d4f4c7210020811fb92d9",
+      "normalized_lf_sha256": "4192251795358fa0e8d51f29644f4e14d7accca1151d4f4c7210020811fb92d9",
+      "bytes": 4929
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Clipboard.cs",
+      "sha256": "4f10eef4b6d64eb37a76d552d046881f1dac460aac5027abd45bed32d08935b5",
+      "normalized_lf_sha256": "4f10eef4b6d64eb37a76d552d046881f1dac460aac5027abd45bed32d08935b5",
+      "bytes": 3468
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Code.cs",
+      "sha256": "479a9846033a171f1c49c006563ea10421a3ca9e245c979399bd89864a844f3a",
+      "normalized_lf_sha256": "479a9846033a171f1c49c006563ea10421a3ca9e245c979399bd89864a844f3a",
+      "bytes": 8928
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Emphasis.cs",
+      "sha256": "e03462fdf2c40ef0b20db063495f67902e03caedfe8ec8521376ad2f47047324",
+      "normalized_lf_sha256": "e03462fdf2c40ef0b20db063495f67902e03caedfe8ec8521376ad2f47047324",
+      "bytes": 6966
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Folding.cs",
+      "sha256": "a5e2ba10a5d91cb5508a21462d07ddf0a7a4b9e96f525f4b65f2a544f169f32b",
+      "normalized_lf_sha256": "ab1365e4f2a27372309148a00792ed6e16f4f04744a06f5c022781e194875b78",
+      "bytes": 4107
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Headings.cs",
+      "sha256": "cde0c237685a747d25d7253e9f8ead5b758e1836ca7fce99e88fcdbff54ffa2e",
+      "normalized_lf_sha256": "cde0c237685a747d25d7253e9f8ead5b758e1836ca7fce99e88fcdbff54ffa2e",
+      "bytes": 3418
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Math.cs",
+      "sha256": "21cd52afd89ca5a93ba102b85267606f5d2b1813749020096481e54069756152",
+      "normalized_lf_sha256": "d284a5babc2644697a69d406d8dc83afd80ea2644cdc8d87656fdee45021214b",
+      "bytes": 9837
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.Media.cs",
+      "sha256": "4d4ee7632a1d86ed1cd1883b7ab8ba03f2c1f07104aa4ceea598553df9e958e0",
+      "normalized_lf_sha256": "4d4ee7632a1d86ed1cd1883b7ab8ba03f2c1f07104aa4ceea598553df9e958e0",
+      "bytes": 10468
+    },
+    {
+      "path": "src/TeXeed.App/Controls/MarkdownView.cs",
+      "sha256": "0a1a0b38510e9863f0fa6859ee7fc0376c302a63653a615a07c1e8733f12f596",
+      "normalized_lf_sha256": "0e46b20ed224f792a62cc05ad60e9a9bbfa5823f74155b73c8cba09d42b11c7c",
+      "bytes": 21769
+    },
+    {
+      "path": "src/TeXeed.App/Controls/OutlineFormula.cs",
+      "sha256": "4421eb6c9793d373a756cf6e9515d1b60185b636cc317565548941abbab4d22f",
+      "normalized_lf_sha256": "4421eb6c9793d373a756cf6e9515d1b60185b636cc317565548941abbab4d22f",
+      "bytes": 3236
+    },
+    {
+      "path": "src/TeXeed.App/Controls/OutlineTitleViewport.cs",
+      "sha256": "ec155869ec98c9ff34ed0a5d544c650d5ba856013d3e566479882c7d29b53a34",
+      "normalized_lf_sha256": "ec155869ec98c9ff34ed0a5d544c650d5ba856013d3e566479882c7d29b53a34",
+      "bytes": 5744
+    },
+    {
+      "path": "src/TeXeed.App/Controls/PdfPreview.Ai.cs",
+      "sha256": "08d675f2fb3cdf9f2a18cd7568d065a23267c04bf29a246d11344d55aed5a7ea",
+      "normalized_lf_sha256": "08d675f2fb3cdf9f2a18cd7568d065a23267c04bf29a246d11344d55aed5a7ea",
+      "bytes": 10374
+    },
+    {
+      "path": "src/TeXeed.App/Controls/PdfPreview.cs",
+      "sha256": "2f9b81cfbf68965c1ff5398879e6ba6d1dafa75356f9e4774cddd13981db4156",
+      "normalized_lf_sha256": "2f9b81cfbf68965c1ff5398879e6ba6d1dafa75356f9e4774cddd13981db4156",
+      "bytes": 36367
+    },
+    {
+      "path": "src/TeXeed.App/Controls/PreviewScrollViewer.xaml",
+      "sha256": "d0fb61b6a28a8ce190f92508bd52a9d357e9a875cbbc24088278f01e603598fa",
+      "normalized_lf_sha256": "d0fb61b6a28a8ce190f92508bd52a9d357e9a875cbbc24088278f01e603598fa",
+      "bytes": 1723
+    },
+    {
+      "path": "src/TeXeed.App/Controls/PreviewScrollViewer.xaml.cs",
+      "sha256": "63082af834ec56b577a9afda9cd401921380511168c11dc7f981b3caaa4e6195",
+      "normalized_lf_sha256": "63082af834ec56b577a9afda9cd401921380511168c11dc7f981b3caaa4e6195",
+      "bytes": 183
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ProjectFileIcon.cs",
+      "sha256": "5d55cbd6557586a968bbb7919677bc10bfae82fef0158a20fa387e2a4e6576ce",
+      "normalized_lf_sha256": "5d55cbd6557586a968bbb7919677bc10bfae82fef0158a20fa387e2a4e6576ce",
+      "bytes": 2889
+    },
+    {
+      "path": "src/TeXeed.App/Controls/ScrollActivity.cs",
+      "sha256": "afc835eecd735151ef69e75c6796d7a8f3d87e9b60b6911cf58a12e42f206319",
+      "normalized_lf_sha256": "afc835eecd735151ef69e75c6796d7a8f3d87e9b60b6911cf58a12e42f206319",
+      "bytes": 6794
+    },
+    {
+      "path": "src/TeXeed.App/Controls/TextBoxLineNumbers.cs",
+      "sha256": "fc9a229a08f6c83db1014572031e7180f92ff3b37abd89cea78df0ae96904084",
+      "normalized_lf_sha256": "fc9a229a08f6c83db1014572031e7180f92ff3b37abd89cea78df0ae96904084",
+      "bytes": 5516
+    },
+    {
+      "path": "src/TeXeed.App/DesktopIdentity.cs",
+      "sha256": "f0b859648269624bfe38cc84783259e8e97215cf3e74ca06148717a3b5a2409d",
+      "normalized_lf_sha256": "f0b859648269624bfe38cc84783259e8e97215cf3e74ca06148717a3b5a2409d",
+      "bytes": 723
+    },
+    {
+      "path": "src/TeXeed.App/ExplorerIcons.xaml",
+      "sha256": "8593811082c4801a83baa5d4b75f8207d464905a22bb22f2ac7f4efea4d25045",
+      "normalized_lf_sha256": "8593811082c4801a83baa5d4b75f8207d464905a22bb22f2ac7f4efea4d25045",
+      "bytes": 15740
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Ai.cs",
+      "sha256": "ab7bd5a09226c7f97de15f2d39c11d184f2d749e3f687d5d4ea21f140eadd7c4",
+      "normalized_lf_sha256": "ab7bd5a09226c7f97de15f2d39c11d184f2d749e3f687d5d4ea21f140eadd7c4",
+      "bytes": 6199
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.AiCompile.cs",
+      "sha256": "5c5799ff69348a8f233ab6b26eec20998f4dc1d98dd92acc215ec1309b6311b9",
+      "normalized_lf_sha256": "5c5799ff69348a8f233ab6b26eec20998f4dc1d98dd92acc215ec1309b6311b9",
+      "bytes": 7200
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.AiTools.cs",
+      "sha256": "a734924c01cf27ce419fcab79124dfd862501a06b02389ecc39a31f77fbdcadb",
+      "normalized_lf_sha256": "a734924c01cf27ce419fcab79124dfd862501a06b02389ecc39a31f77fbdcadb",
+      "bytes": 21868
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.AiWorkspace.cs",
+      "sha256": "8bfd8f1aec60f4cc843cb7fc79d2eb059ccd5cf2e3f08e6316e3133bd97ee84f",
+      "normalized_lf_sha256": "8bfd8f1aec60f4cc843cb7fc79d2eb059ccd5cf2e3f08e6316e3133bd97ee84f",
+      "bytes": 11471
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Bookmarks.cs",
+      "sha256": "924a33ee9ae5e31d13d2748680b1f4016629b023ae7432d9e47fd971abe9499e",
+      "normalized_lf_sha256": "924a33ee9ae5e31d13d2748680b1f4016629b023ae7432d9e47fd971abe9499e",
+      "bytes": 1908
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.FilePriority.cs",
+      "sha256": "95a2765084acb03a4ab27df1ac4cff515addf7b8ae23077b318740067c4b0ffe",
+      "normalized_lf_sha256": "95a2765084acb03a4ab27df1ac4cff515addf7b8ae23077b318740067c4b0ffe",
+      "bytes": 5335
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.FileRename.cs",
+      "sha256": "671ed34e402b949823cbf3ac2d121ca441a1a74347a5994f7fa8687f3373fba7",
+      "normalized_lf_sha256": "671ed34e402b949823cbf3ac2d121ca441a1a74347a5994f7fa8687f3373fba7",
+      "bytes": 7947
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Files.cs",
+      "sha256": "d979e183cc4de727fcb6bf179ee077792f435256bf7d01a8048b60b468337a5a",
+      "normalized_lf_sha256": "d979e183cc4de727fcb6bf179ee077792f435256bf7d01a8048b60b468337a5a",
+      "bytes": 17121
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Fullscreen.cs",
+      "sha256": "34a532de441139138f6fa4fb3a52b555e61dbfac22cd865e4171b806d8b84a2b",
+      "normalized_lf_sha256": "34a532de441139138f6fa4fb3a52b555e61dbfac22cd865e4171b806d8b84a2b",
+      "bytes": 5762
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Navigation.cs",
+      "sha256": "9122bd7ee49641502351ae79c57b2c162b718f8a53d90bc2ef1b2cdf4b813a8c",
+      "normalized_lf_sha256": "9122bd7ee49641502351ae79c57b2c162b718f8a53d90bc2ef1b2cdf4b813a8c",
+      "bytes": 9906
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Outline.cs",
+      "sha256": "b97bdfa10d24d04a3fa2973ad014551783d0bdec6f931b7e44bf432dac280193",
+      "normalized_lf_sha256": "b97bdfa10d24d04a3fa2973ad014551783d0bdec6f931b7e44bf432dac280193",
+      "bytes": 2592
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Print.cs",
+      "sha256": "437aedd826264a097c472e21a01e9faffd298294def9411ecbad7245db3bc517",
+      "normalized_lf_sha256": "437aedd826264a097c472e21a01e9faffd298294def9411ecbad7245db3bc517",
+      "bytes": 598
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.ReadingHistory.cs",
+      "sha256": "969327e12e093c0237a89c9ba08cebaeb8e2dc660054fec1228110d13c0658f3",
+      "normalized_lf_sha256": "969327e12e093c0237a89c9ba08cebaeb8e2dc660054fec1228110d13c0658f3",
+      "bytes": 8341
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Tabs.cs",
+      "sha256": "24a920799043f2e5b4fadc5988038ce7ea52bf7f4fe3c0a7d5a612151eb6f5ad",
+      "normalized_lf_sha256": "24a920799043f2e5b4fadc5988038ce7ea52bf7f4fe3c0a7d5a612151eb6f5ad",
+      "bytes": 15707
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Theme.cs",
+      "sha256": "048491de20bd0b6286ff2827fe422a61bdfd5de4fcfc65be1d3bf14d1a534336",
+      "normalized_lf_sha256": "048491de20bd0b6286ff2827fe422a61bdfd5de4fcfc65be1d3bf14d1a534336",
+      "bytes": 1990
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.TitleBar.cs",
+      "sha256": "e50783831b934f26da870de5b27b35eec34ea9daa0e0fd93f77d5e1a552aa7f0",
+      "normalized_lf_sha256": "e50783831b934f26da870de5b27b35eec34ea9daa0e0fd93f77d5e1a552aa7f0",
+      "bytes": 6229
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Welcome.cs",
+      "sha256": "ebc82479a0170a6b7163c12a6da349471433cb1766afbf741b0f39b142a76204",
+      "normalized_lf_sha256": "ebc82479a0170a6b7163c12a6da349471433cb1766afbf741b0f39b142a76204",
+      "bytes": 7393
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.WindowMenu.cs",
+      "sha256": "3e6692d8359a53e06252388173c5a45aeee70ef0494324fc7656fb95fbf62791",
+      "normalized_lf_sha256": "3e6692d8359a53e06252388173c5a45aeee70ef0494324fc7656fb95fbf62791",
+      "bytes": 5487
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.WordWrap.cs",
+      "sha256": "42f090c9616a46fcb33f2f2a7b1337f0e36bf523211ff8229306c0044c7740ee",
+      "normalized_lf_sha256": "42f090c9616a46fcb33f2f2a7b1337f0e36bf523211ff8229306c0044c7740ee",
+      "bytes": 595
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.Zoom.cs",
+      "sha256": "7fb9f55c274a6e1cec281d36d1b05099e8b0dfc5f45364225a122039fe34bc6b",
+      "normalized_lf_sha256": "7fb9f55c274a6e1cec281d36d1b05099e8b0dfc5f45364225a122039fe34bc6b",
+      "bytes": 2029
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.xaml",
+      "sha256": "d8458bc3a7b4c718b190685d180438a4a2bfabf21b6044b5c67fe2e5e52262f4",
+      "normalized_lf_sha256": "d8458bc3a7b4c718b190685d180438a4a2bfabf21b6044b5c67fe2e5e52262f4",
+      "bytes": 31572
+    },
+    {
+      "path": "src/TeXeed.App/MainWindow.xaml.cs",
+      "sha256": "168bccf611f553d6637b7b7841f9aca937d65954353d18d527bcb333de9416d5",
+      "normalized_lf_sha256": "168bccf611f553d6637b7b7841f9aca937d65954353d18d527bcb333de9416d5",
+      "bytes": 55977
+    },
+    {
+      "path": "src/TeXeed.App/PdfPrintDialogs.cs",
+      "sha256": "3d68b50b7adfecfc883f72fcc504f2d1b8b82d9e9a5033bc19e2806da60bd1bb",
+      "normalized_lf_sha256": "3d68b50b7adfecfc883f72fcc504f2d1b8b82d9e9a5033bc19e2806da60bd1bb",
+      "bytes": 9687
+    },
+    {
+      "path": "src/TeXeed.App/PdfPrintPreviewWindow.cs",
+      "sha256": "8be9a26b6792e2efe3399186b4ef1fece63e4cc5cde0bfa32157e5b03fb9677c",
+      "normalized_lf_sha256": "8be9a26b6792e2efe3399186b4ef1fece63e4cc5cde0bfa32157e5b03fb9677c",
+      "bytes": 6875
+    },
+    {
+      "path": "src/TeXeed.App/PdfPrintWindow.xaml",
+      "sha256": "0069c37d0d69aa82497ef72958495f0e775137b2236b9e6345c801bf5d5e108a",
+      "normalized_lf_sha256": "0069c37d0d69aa82497ef72958495f0e775137b2236b9e6345c801bf5d5e108a",
+      "bytes": 15007
+    },
+    {
+      "path": "src/TeXeed.App/PdfPrintWindow.xaml.cs",
+      "sha256": "a1cbad4a19f6337a421fde7b930eaa27d4f418e2f7b11dc0f41cdda2ab17ddb1",
+      "normalized_lf_sha256": "a1cbad4a19f6337a421fde7b930eaa27d4f418e2f7b11dc0f41cdda2ab17ddb1",
+      "bytes": 26015
+    },
+    {
+      "path": "src/TeXeed.App/PreviewSettingsWindow.xaml",
+      "sha256": "056efefe315e41217c22e92f8c5ded8bf7f1494208bcb865c2982eed5fc881d2",
+      "normalized_lf_sha256": "056efefe315e41217c22e92f8c5ded8bf7f1494208bcb865c2982eed5fc881d2",
+      "bytes": 3754
+    },
+    {
+      "path": "src/TeXeed.App/PreviewSettingsWindow.xaml.cs",
+      "sha256": "da9431401395c11ed452945b3a3a7ef3616a744a1c004f70034f2f30cc9c9826",
+      "normalized_lf_sha256": "da9431401395c11ed452945b3a3a7ef3616a744a1c004f70034f2f30cc9c9826",
+      "bytes": 5821
+    },
+    {
+      "path": "src/TeXeed.App/ProjectFiles.xaml",
+      "sha256": "51e30151c69edb23f3da31b5512168d1d555d8dbf76ebc7ea540ede6fb5de9d2",
+      "normalized_lf_sha256": "51e30151c69edb23f3da31b5512168d1d555d8dbf76ebc7ea540ede6fb5de9d2",
+      "bytes": 2669
+    },
+    {
+      "path": "src/TeXeed.App/Services/AtomicFile.cs",
+      "sha256": "4b22574979fca7ab1c4915562c0ead0578ee4dd885d2d52a593ea1f1ac825f2a",
+      "normalized_lf_sha256": "4b22574979fca7ab1c4915562c0ead0578ee4dd885d2d52a593ea1f1ac825f2a",
+      "bytes": 674
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfDocument.Crop.cs",
+      "sha256": "a48836874de69deb290566e203de52c7e33fb6f265a37d2c2ca393ec38270f1b",
+      "normalized_lf_sha256": "a48836874de69deb290566e203de52c7e33fb6f265a37d2c2ca393ec38270f1b",
+      "bytes": 7439
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfDocument.Geometry.cs",
+      "sha256": "084716606f9bddd4da28c80f671aceed57eed06fb16f607ba03402b472a9d181",
+      "normalized_lf_sha256": "084716606f9bddd4da28c80f671aceed57eed06fb16f607ba03402b472a9d181",
+      "bytes": 3358
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfDocument.cs",
+      "sha256": "431b5dd2eea3de778e3983e59096ed5c43a39e731d75f2438501341cbd9ad5e0",
+      "normalized_lf_sha256": "431b5dd2eea3de778e3983e59096ed5c43a39e731d75f2438501341cbd9ad5e0",
+      "bytes": 15428
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPageCrop.cs",
+      "sha256": "a6cde075b5cd696f976cb41f5489c465b73bbf09a96a065308ee2d220f58b2f9",
+      "normalized_lf_sha256": "a6cde075b5cd696f976cb41f5489c465b73bbf09a96a065308ee2d220f58b2f9",
+      "bytes": 3967
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPrintDrawing.cs",
+      "sha256": "2898f54f47459f4bf39a78c095514d308c64f4c0a02ce07eb17005028a1f27f5",
+      "normalized_lf_sha256": "2898f54f47459f4bf39a78c095514d308c64f4c0a02ce07eb17005028a1f27f5",
+      "bytes": 2692
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPrintJob.cs",
+      "sha256": "a9068ae574430b624322dc46ab817faa206c80e42e9443ad678de00272052162",
+      "normalized_lf_sha256": "a9068ae574430b624322dc46ab817faa206c80e42e9443ad678de00272052162",
+      "bytes": 1556
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPrintLayout.cs",
+      "sha256": "f1a835e2b2d826d6c82e320a90028e309c80acfc351455ddefe8703b0d0fd36f",
+      "normalized_lf_sha256": "f1a835e2b2d826d6c82e320a90028e309c80acfc351455ddefe8703b0d0fd36f",
+      "bytes": 3344
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPrintOptions.cs",
+      "sha256": "fd4ef557f7fba98aeb5f1979c72fa6fbea748f797770bcfeaea958af131d06c0",
+      "normalized_lf_sha256": "fd4ef557f7fba98aeb5f1979c72fa6fbea748f797770bcfeaea958af131d06c0",
+      "bytes": 3435
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPrintPaginator.cs",
+      "sha256": "97c9cf9acca3ebe0525da27e1c64869202ba963607dd5f4fe72ae1aa08e75b98",
+      "normalized_lf_sha256": "97c9cf9acca3ebe0525da27e1c64869202ba963607dd5f4fe72ae1aa08e75b98",
+      "bytes": 2755
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPrintPlan.cs",
+      "sha256": "2a2d54325b0dff18eb5b281174167a490db041ab7a9d6a671098a347a8d668b2",
+      "normalized_lf_sha256": "2a2d54325b0dff18eb5b281174167a490db041ab7a9d6a671098a347a8d668b2",
+      "bytes": 6373
+    },
+    {
+      "path": "src/TeXeed.App/Services/PdfPrinterService.cs",
+      "sha256": "4f632498097d234ad5bdffc52a8e49371b2d21a1e0eb985c0ab832b1535fc2a7",
+      "normalized_lf_sha256": "4f632498097d234ad5bdffc52a8e49371b2d21a1e0eb985c0ab832b1535fc2a7",
+      "bytes": 5354
+    },
+    {
+      "path": "src/TeXeed.App/Services/PhysicalScreen.cs",
+      "sha256": "1cfa4e5c3550fb64f4dec5f6db656e4db78c85bd2e23840eb91a51c0ca547b4d",
+      "normalized_lf_sha256": "1cfa4e5c3550fb64f4dec5f6db656e4db78c85bd2e23840eb91a51c0ca547b4d",
+      "bytes": 6218
+    },
+    {
+      "path": "src/TeXeed.App/Services/ProjectDirectoryCatalog.cs",
+      "sha256": "614b95aeedbe23a08721683441ebcf111705f921dea60f5f20618c3ecb5a1b29",
+      "normalized_lf_sha256": "614b95aeedbe23a08721683441ebcf111705f921dea60f5f20618c3ecb5a1b29",
+      "bytes": 2107
+    },
+    {
+      "path": "src/TeXeed.App/Services/ProjectExplorerSettings.cs",
+      "sha256": "34685f19e4eb5bcf9b1f4692b97bd681739e19eac067aa25d3007cce62bdb726",
+      "normalized_lf_sha256": "34685f19e4eb5bcf9b1f4692b97bd681739e19eac067aa25d3007cce62bdb726",
+      "bytes": 2325
+    },
+    {
+      "path": "src/TeXeed.App/Services/ProjectReadingStore.cs",
+      "sha256": "dcbfc1be82d7746c2e51b169aeefaba5f4b767062a633ec21d020b0ede26da17",
+      "normalized_lf_sha256": "dcbfc1be82d7746c2e51b169aeefaba5f4b767062a633ec21d020b0ede26da17",
+      "bytes": 2504
+    },
+    {
+      "path": "src/TeXeed.App/Services/SettingsStore.cs",
+      "sha256": "fbf3c471eaa3f4fa2d938a8de1f5a8862d32e73893f4e88240204bfc378db8ed",
+      "normalized_lf_sha256": "fbf3c471eaa3f4fa2d938a8de1f5a8862d32e73893f4e88240204bfc378db8ed",
+      "bytes": 3003
+    },
+    {
+      "path": "src/TeXeed.App/Services/TextSelectionRendering.cs",
+      "sha256": "66a8254b8a0d297183fbdce46a63c7b713e93e6b6b7822d74f2dab6fc2314924",
+      "normalized_lf_sha256": "66a8254b8a0d297183fbdce46a63c7b713e93e6b6b7822d74f2dab6fc2314924",
+      "bytes": 402
+    },
+    {
+      "path": "src/TeXeed.App/Services/ThemeManager.cs",
+      "sha256": "12b30576e18c6327a19a535867141a1e9a897f2221ec8622df325d619f66277c",
+      "normalized_lf_sha256": "12b30576e18c6327a19a535867141a1e9a897f2221ec8622df325d619f66277c",
+      "bytes": 4973
+    },
+    {
+      "path": "src/TeXeed.App/Services/TutorialContent.cs",
+      "sha256": "4f55b466cc0519fe2e26f06b24cd7f12dd46c48e1a338715c91bb44536425823",
+      "normalized_lf_sha256": "4f55b466cc0519fe2e26f06b24cd7f12dd46c48e1a338715c91bb44536425823",
+      "bytes": 2326
+    },
+    {
+      "path": "src/TeXeed.App/Services/WindowTheme.cs",
+      "sha256": "80400f145952ee8a1c4ae1970c6e049bb0ab4a2548386e59d55ed49d3614436b",
+      "normalized_lf_sha256": "80400f145952ee8a1c4ae1970c6e049bb0ab4a2548386e59d55ed49d3614436b",
+      "bytes": 784
+    },
+    {
+      "path": "src/TeXeed.App/SettingsWindow.xaml",
+      "sha256": "f18029144d9a38d639e1c7bbdffd1a131d2ab14503e76db33ed089ccd06e9a5e",
+      "normalized_lf_sha256": "f18029144d9a38d639e1c7bbdffd1a131d2ab14503e76db33ed089ccd06e9a5e",
+      "bytes": 4808
+    },
+    {
+      "path": "src/TeXeed.App/SettingsWindow.xaml.cs",
+      "sha256": "8e8db0d5d298eacc28215839e8edd92acf567f023bfb6f231eb9a28e07b8d11d",
+      "normalized_lf_sha256": "8e8db0d5d298eacc28215839e8edd92acf567f023bfb6f231eb9a28e07b8d11d",
+      "bytes": 5887
+    },
+    {
+      "path": "src/TeXeed.App/TeXeed.App.csproj",
+      "sha256": "fdf3e6efc64972e37e838ed2acf5ee86e5d29c8250bf39064b58b8226ed802b0",
+      "normalized_lf_sha256": "51a676f1c6196fe645f18a0b741f9514cd2b0e3d8dfa9e5fb4848d3055724ddc",
+      "bytes": 1391
+    },
+    {
+      "path": "src/TeXeed.App/Theme.xaml",
+      "sha256": "0f3051db80eb185ae3220f7c532a2746ff18265e4dcb787abe93b7f80109ba2d",
+      "normalized_lf_sha256": "0f3051db80eb185ae3220f7c532a2746ff18265e4dcb787abe93b7f80109ba2d",
+      "bytes": 18824
+    },
+    {
+      "path": "src/TeXeed.App/Themes/README.md",
+      "sha256": "5a0151a148fa667eae7833d4fe0055c5654de0e3f6a8a340e7b6f7a8ddde432d",
+      "normalized_lf_sha256": "5a0151a148fa667eae7833d4fe0055c5654de0e3f6a8a340e7b6f7a8ddde432d",
+      "bytes": 2854
+    },
+    {
+      "path": "src/TeXeed.App/Themes/github-light-default.json",
+      "sha256": "fa1967a4d5f45338e80acb544178f3e8be6a4d0f8b75589eb648c53e3520c40e",
+      "normalized_lf_sha256": "fa1967a4d5f45338e80acb544178f3e8be6a4d0f8b75589eb648c53e3520c40e",
+      "bytes": 1186
+    },
+    {
+      "path": "src/TeXeed.App/Themes/ristretto.json",
+      "sha256": "5cc4724f643f6efd7b10a95e4e796ef8f9accf2ea5eeb54c2a3b3bb07c4c9e52",
+      "normalized_lf_sha256": "5cc4724f643f6efd7b10a95e4e796ef8f9accf2ea5eeb54c2a3b3bb07c4c9e52",
+      "bytes": 1176
+    },
+    {
+      "path": "src/TeXeed.App/TitleBar.xaml",
+      "sha256": "e5774154de03e80d3e6289108eb3184c27bd22918cbb6e63b11aee67aea0fb5a",
+      "normalized_lf_sha256": "e5774154de03e80d3e6289108eb3184c27bd22918cbb6e63b11aee67aea0fb5a",
+      "bytes": 3887
+    },
+    {
+      "path": "src/TeXeed.App/WorkspaceIcons.xaml",
+      "sha256": "d886a28de3e24d49688940cf08bebc250f0e571949071755db7c2e0b1d06d13b",
+      "normalized_lf_sha256": "d886a28de3e24d49688940cf08bebc250f0e571949071755db7c2e0b1d06d13b",
+      "bytes": 5574
+    },
+    {
+      "path": "src/TeXeed.App/packages.lock.json",
+      "sha256": "366b0940f3cf15ad7fbb6dee8d2fa20d88dd117c8be3338db7cb7b7fd53a6a41",
+      "normalized_lf_sha256": "366b0940f3cf15ad7fbb6dee8d2fa20d88dd117c8be3338db7cb7b7fd53a6a41",
+      "bytes": 2921
+    },
+    {
+      "path": "src/TeXeed.Core/CompileService.Cache.cs",
+      "sha256": "f3fa5f83173c40f8a6266515babd684cc451b78361c064be6a8b96798ee7252a",
+      "normalized_lf_sha256": "f3fa5f83173c40f8a6266515babd684cc451b78361c064be6a8b96798ee7252a",
+      "bytes": 11956
+    },
+    {
+      "path": "src/TeXeed.Core/CompileService.Incremental.cs",
+      "sha256": "8e5b20f755171871592c1b90ea0e10731501075c66fe5a6ce084642fa3bbfa9d",
+      "normalized_lf_sha256": "8e5b20f755171871592c1b90ea0e10731501075c66fe5a6ce084642fa3bbfa9d",
+      "bytes": 17671
+    },
+    {
+      "path": "src/TeXeed.Core/CompileService.Layout.cs",
+      "sha256": "d32ca29b37f9ff2f5399c3e18acc6559be43ce888d0ee4958dc61f1c3dad7a68",
+      "normalized_lf_sha256": "d32ca29b37f9ff2f5399c3e18acc6559be43ce888d0ee4958dc61f1c3dad7a68",
+      "bytes": 2156
+    },
+    {
+      "path": "src/TeXeed.Core/CompileService.cs",
+      "sha256": "4a8fa8557624aa8ecb05df821750cc408b07caabd635736e8b3908cfedec5ab8",
+      "normalized_lf_sha256": "4a8fa8557624aa8ecb05df821750cc408b07caabd635736e8b3908cfedec5ab8",
+      "bytes": 30359
+    },
+    {
+      "path": "src/TeXeed.Core/EpsSyncMap.cs",
+      "sha256": "29dd901dda90add100831698b3515ac1ae16e2c29bf8582db0f86cd81dfa499d",
+      "normalized_lf_sha256": "29dd901dda90add100831698b3515ac1ae16e2c29bf8582db0f86cd81dfa499d",
+      "bytes": 6703
+    },
+    {
+      "path": "src/TeXeed.Core/LatexFormatter.cs",
+      "sha256": "472a5c98eab4e60a1db8f42d30dfacade82fa31aed463239d91719fa114d3331",
+      "normalized_lf_sha256": "472a5c98eab4e60a1db8f42d30dfacade82fa31aed463239d91719fa114d3331",
+      "bytes": 2697
+    },
+    {
+      "path": "src/TeXeed.Core/LatexIndexer.Bookmarks.cs",
+      "sha256": "bddf969adf037f2cf03f1fe76812496603a292184a43f7b6b39a1db9b9561955",
+      "normalized_lf_sha256": "bddf969adf037f2cf03f1fe76812496603a292184a43f7b6b39a1db9b9561955",
+      "bytes": 2229
+    },
+    {
+      "path": "src/TeXeed.Core/LatexIndexer.cs",
+      "sha256": "fc9f01b6603d8277cd1ac47346a0948d2e9d3530e8423718fd3fa1d2ac6decd6",
+      "normalized_lf_sha256": "fc9f01b6603d8277cd1ac47346a0948d2e9d3530e8423718fd3fa1d2ac6decd6",
+      "bytes": 16526
+    },
+    {
+      "path": "src/TeXeed.Core/LatexTitle.cs",
+      "sha256": "dfc128a0080e40ce6a9a14f9ab6d57b6a6e7e5ac33222d1d7f91c39fbd30232c",
+      "normalized_lf_sha256": "dfc128a0080e40ce6a9a14f9ab6d57b6a6e7e5ac33222d1d7f91c39fbd30232c",
+      "bytes": 9176
+    },
+    {
+      "path": "src/TeXeed.Core/Models.cs",
+      "sha256": "cccfb7751b73062b7afe0b83b44987d4c5dbc2b1df0f3f5e0e8a9b120a8ee3a3",
+      "normalized_lf_sha256": "cccfb7751b73062b7afe0b83b44987d4c5dbc2b1df0f3f5e0e8a9b120a8ee3a3",
+      "bytes": 3585
+    },
+    {
+      "path": "src/TeXeed.Core/ProjectIndexCache.cs",
+      "sha256": "a82429a0bf8e55e6d7a103f53fe6d1e4d97034668af0d229106dffae616ff7ca",
+      "normalized_lf_sha256": "a82429a0bf8e55e6d7a103f53fe6d1e4d97034668af0d229106dffae616ff7ca",
+      "bytes": 2131
+    },
+    {
+      "path": "src/TeXeed.Core/ProjectService.cs",
+      "sha256": "5e15ce18f94bc4f9d6bad5b7d6576d8d041aa6fdcf7a0f748403fa7c5066b127",
+      "normalized_lf_sha256": "5e15ce18f94bc4f9d6bad5b7d6576d8d041aa6fdcf7a0f748403fa7c5066b127",
+      "bytes": 18720
+    },
+    {
+      "path": "src/TeXeed.Core/SyncTexService.External.cs",
+      "sha256": "b7bafed7136ad91bb39545e010ed65209fb64062ac785b5fb2c6bb86d8813902",
+      "normalized_lf_sha256": "b7bafed7136ad91bb39545e010ed65209fb64062ac785b5fb2c6bb86d8813902",
+      "bytes": 11587
+    },
+    {
+      "path": "src/TeXeed.Core/SyncTexService.cs",
+      "sha256": "6d08e94f7a077eb27181a2b4ee4df7c6c7ffb05aabb3fcaa5db91a707600d418",
+      "normalized_lf_sha256": "6d08e94f7a077eb27181a2b4ee4df7c6c7ffb05aabb3fcaa5db91a707600d418",
+      "bytes": 34345
+    },
+    {
+      "path": "src/TeXeed.Core/TabWorkspace.cs",
+      "sha256": "ef562db0b8bb0e9e1b9f7532e492bf8d7ad81677eb485b94121d3816289916fd",
+      "normalized_lf_sha256": "ef562db0b8bb0e9e1b9f7532e492bf8d7ad81677eb485b94121d3816289916fd",
+      "bytes": 5940
+    },
+    {
+      "path": "src/TeXeed.Core/TeXeed.Core.csproj",
+      "sha256": "ed7c0f20902846adddafbfc178137e3a0dd399bba0a8c656195f76855d2233bb",
+      "normalized_lf_sha256": "ed7c0f20902846adddafbfc178137e3a0dd399bba0a8c656195f76855d2233bb",
+      "bytes": 121
+    },
+    {
+      "path": "src/TeXeed.Core/TexPageLayout.cs",
+      "sha256": "7ada56cb2676644b6e071573ece654f234c07595ce2167364ef422d95f61515b",
+      "normalized_lf_sha256": "7ada56cb2676644b6e071573ece654f234c07595ce2167364ef422d95f61515b",
+      "bytes": 5956
+    },
+    {
+      "path": "src/TeXeed.Core/packages.lock.json",
+      "sha256": "c30b149eb0b6c271aabe8d79d7b0318ba25f0bbd2ebf6a08faa3b67056bce9b3",
+      "normalized_lf_sha256": "c30b149eb0b6c271aabe8d79d7b0318ba25f0bbd2ebf6a08faa3b67056bce9b3",
+      "bytes": 88
+    }
+  ]
+}

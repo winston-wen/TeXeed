@@ -46,14 +46,17 @@ public partial class AiPanel
     internal async Task DeleteTurnAsync(string id)
     {
         if (_operation is not null) return;
-        _book.Turns.RemoveAll(t => t.Id == id);
+        if (_book.Turns.RemoveAll(t => t.Id == id) > 0)
+            _book.Active.Bookmarks.RemoveAll(b => b.Anchor?.TurnId == id);
         _book.Active.UpdatedAt = DateTimeOffset.UtcNow;
         RefreshTranscript();
         await SaveAsync();
     }
     private void ShowCurrentConversation()
     {
+        _bookmarkCache.Clear();
         _autoScroll.Stop();
+        RestoreBookmarkBallPosition();
         _restoringReading = true;
         _updating = true;
         Composer.Text = _book.Draft;

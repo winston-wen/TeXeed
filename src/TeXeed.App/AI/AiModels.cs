@@ -21,6 +21,14 @@ public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset,
     public int TextOffset { get; init; } = -1;
 }
 
+public sealed record AiUserBookmark
+{
+    public string Id { get; init; } = Guid.NewGuid().ToString("N");
+    public string Label { get; init; } = "";
+    public AiAnswerAnchor? Anchor { get; init; }
+    public List<string> FoldKeys { get; init; } = [];
+}
+
 public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -116,6 +124,10 @@ public sealed class AiConversation
     public double ReadingOffset { get; set; }
     public string? ReadingTurnId { get; set; }
     public double ReadingTurnOffset { get; set; }
+    public List<AiUserBookmark> Bookmarks { get; set; } = [];
+    public string BookmarkSort { get; set; } = "document";
+    public double? BookmarkBallX { get; set; }
+    public double? BookmarkBallY { get; set; }
     [JsonIgnore] internal HashSet<string> ShellApprovals { get; } = [];
 
     internal static string CleanQuestion(string text) => Regex.Replace(text, @"(?m)^\[[a-fA-F0-9]{8}\]\s*", "");
@@ -154,7 +166,7 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => e.Snapshot()).ToList()
     };
 }

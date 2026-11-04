@@ -1,0 +1,143 @@
+{
+  "before": {
+    "samples": [
+      {
+        "sync": 0,
+        "frame": 18.099999994039536,
+        "complete": 229.89999997615814
+      },
+      {
+        "sync": 0,
+        "frame": 2.899999976158142,
+        "complete": 214.5
+      },
+      {
+        "sync": 0,
+        "frame": 3.5999999940395355,
+        "complete": 213.30000001192093
+      },
+      {
+        "sync": 0,
+        "frame": 5.5999999940395355,
+        "complete": 215.59999999403954
+      },
+      {
+        "sync": 0.09999999403953552,
+        "frame": 5.199999988079071,
+        "complete": 214.59999999403954
+      },
+      {
+        "sync": 0.09999999403953552,
+        "frame": 6.800000011920929,
+        "complete": 216
+      },
+      {
+        "sync": 0.09999999403953552,
+        "frame": 6.5,
+        "complete": 215.80000001192093
+      }
+    ],
+    "medianSync": 0,
+    "medianFrame": 5.5999999940395355,
+    "medianComplete": 215.59999999403954,
+    "sampledRetainedJsBytes": 29048,
+    "counts": {
+      "elements": 6927,
+      "controls": 270,
+      "visible": 17,
+      "draft": "保留测试草稿"
+    },
+    "errors": []
+  },
+  "after": {
+    "samples": [
+      {
+        "sync": 0,
+        "frame": 4.5,
+        "complete": 210.10000002384186
+      },
+      {
+        "sync": 0,
+        "frame": 9.800000011920929,
+        "complete": 210.5
+      },
+      {
+        "sync": 0,
+        "frame": 14.800000011920929,
+        "complete": 229.5
+      },
+      {
+        "sync": 0,
+        "frame": 18,
+        "complete": 231
+      },
+      {
+        "sync": 0,
+        "frame": 2.2000000178813934,
+        "complete": 203.2000000178814
+      },
+      {
+        "sync": 0.09999999403953552,
+        "frame": 14.299999982118607,
+        "complete": 216.5
+      },
+      {
+        "sync": 0,
+        "frame": 13.300000011920929,
+        "complete": 228.59999999403954
+      }
+    ],
+    "medianSync": 0,
+    "medianFrame": 13.300000011920929,
+    "medianComplete": 216.5,
+    "sampledRetainedJsBytes": 23724,
+    "counts": {
+      "elements": 6942,
+      "controls": 276,
+      "visible": 18,
+      "draft": "保留测试草稿"
+    },
+    "errors": [],
+    "bookmarkOpening": {
+      "samples": [
+        {
+          "sync": 3,
+          "complete": 228.80000001192093,
+          "count": 100
+        },
+        {
+          "sync": 5.300000011920929,
+          "complete": 229.5,
+          "count": 100
+        },
+        {
+          "sync": 2.899999976158142,
+          "complete": 227.39999997615814,
+          "count": 100
+        },
+        {
+          "sync": 3.9000000059604645,
+          "complete": 226.80000001192093,
+          "count": 100
+        },
+        {
+          "sync": 3.300000011920929,
+          "complete": 243.30000001192093,
+          "count": 100
+        },
+        {
+          "sync": 2.899999976158142,
+          "complete": 231.69999998807907,
+          "count": 100
+        },
+        {
+          "sync": 3.300000011920929,
+          "complete": 245,
+          "count": 100
+        }
+      ],
+      "medianSync": 3.300000011920929,
+      "medianComplete": 229.5
+    }
+  }
+}

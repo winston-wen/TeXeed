@@ -1,0 +1,156 @@
+{
+  "schema": "texeed-bookmark-native-performance-candidate-v1",
+  "status": "uncommitted_working_tree_candidate_not_confirmed_history",
+  "source_base_commit": "4d5859dfd2442989c5ecd5772c5178c9e43cfc85",
+  "limitations": [
+    "The candidate application had uncommitted source changes. The recorded base commit alone does not identify it; source-manifest.json and source-snapshot reproduce its modified and new source files.",
+    "All timings are seven-sample medians per batch; scroll positions/directions alternate and are mixed within each batch. Timing variability exceeds 10% across both current and previous batches, so timings are not confirmed stable history.",
+    "The benchmark process printed DPI 2x2, WPF tier 2, ristretto theme and .NET 10.0.7. Full CPU/OS/font identity was not independently captured inside these specific processes; the older verified environment record is contextual, not new proof.",
+    "The 0.3.47 implementation predates wavy text; the historical allocation increase includes the earlier wave feature and must not be attributed wholly to bookmark UI.",
+    "Menu cold-open is one observed event rather than seven repetitions; no previous version has the equivalent menu. Search groups contain seven measured operations after one warmup.",
+    "The menu test source copied at archival time was not independently hashed by the measurement process; the screenshot run used the workspace Release tests and logged the stated command. It is retained as provenance, not a formal confirmed baseline."
+  ],
+  "dense_method_file": "../methods/dense-unique-width-v1.json",
+  "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+  "host_sha256": "3ad22f03d0d67433b13912f5d7c79177a39c7959ee99721f7e5b1a18bfd9e231",
+  "fixture_reference": "../../performance-fixtures/high-density-unique-width-fixture.cs",
+  "source_manifest_sha256": "fe3fbd089f8a6d32beebd11e3e62edad6c553c1b4096c9ad5158fe2cd3bb7c8d",
+  "candidate_binaries": {
+    "TeXeed.dll": "5d20ad7f099ad619bef7ee7c6acbbdbb0df30c25434f058a0e3585e1429f2346",
+    "TeXeed.Core.dll": "fbedb4eb3c357b3e16f54bbe98ee9acf238dabc79934e9670bacfa8502167bfc",
+    "TeXeed.AppTests.dll": "9b519b779ea437ed038541c84846394ac57711f278724fdda3eef804a9a1579b"
+  },
+  "benchmark_command": "dotnet <frozen>/tests/TeXeed.AppTests/bin/Release/net10.0-windows/win-x64/TeXeed.AppTests.dll --ai-ui-perf-only --with-headings --output <isolated-output>",
+  "candidate_build": "dotnet build <frozen>/tests/TeXeed.AppTests -c Release --no-restore -t:Rebuild",
+  "process_observed_context": {
+    "DpiScaleX": 2,
+    "DpiScaleY": 2,
+    "WpfTier": 2,
+    "Theme": "ristretto",
+    "Runtime": ".NET 10.0.7"
+  },
+  "reference_history": "../verified-history.json",
+  "historical_best_comparison": {
+    "resize_allocated_bytes": {
+      "confirmed_0.3.47": 1854424,
+      "candidate": 3616600,
+      "difference": 1762176,
+      "alarm": true
+    },
+    "resize_ms": {
+      "provisional_0.3.49": 194.2157,
+      "candidate_first_batch": 256.5964,
+      "alarm": true,
+      "qualification": "candidate/previous timing batches both vary by >10%; not a stable conclusion"
+    }
+  },
+  "menu": {
+    "source_artifact": "artifacts/bookmark-ui-final-screen/bookmark-ui-performance.json",
+    "evidence_file": "bookmark-ui-performance.json",
+    "sha256": "c4839b25961dd3cf77d8c34091a0a6c2ba25a332361489b78fd5c645150f0817",
+    "test_source": "AiBookmarkUiTests.cs.txt",
+    "test_source_sha256": "8689c12fcf287bc3ec06fad9b70007ed53339fcc8d5cebc5ef002b78fe6e643f",
+    "command": "dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-bookmark-ui-only --output <isolated-output>",
+    "conditions": "120 turns, 360 default items; first menu open including indexing and rendering through ApplicationIdle; 7 no-match and 7 clear searches after warmup; UI-thread allocations."
+  },
+  "records": [
+    {
+      "id": "before-0.3.49-1",
+      "source_directory": "artifacts/bookmark-perf/before-frozen",
+      "version": "0.3.49",
+      "files": {
+        "ui-performance.json": "26468bda79849fe80d92b11535e8a6a613b727b4ed8fbb4eeec84248a8ce6229",
+        "ui-performance-samples.json": "b7c00597a1811471e7eafbab686742b78314b7c7f357122087ff28eeb648ca6a"
+      }
+    },
+    {
+      "id": "before-0.3.49-2",
+      "source_directory": "artifacts/bookmark-perf/alternating-before-1",
+      "version": "0.3.49",
+      "files": {
+        "ui-performance.json": "27a409c5c97ec3d1a327f10691fe525aab4f6b3ffd679162c17e24b6f52ddf50",
+        "ui-performance-samples.json": "171059325529a85b72d8a7066d75d8fb5fcd03daf4f0ff52b5e7082f5bdd5bac"
+      }
+    },
+    {
+      "id": "before-0.3.49-3",
+      "source_directory": "artifacts/bookmark-perf/alternating-before-2",
+      "version": "0.3.49",
+      "files": {
+        "ui-performance.json": "a8eb04076c10a1d63786c94c53f58421dabbf249e89e5c2aaf62721cc7cb3534",
+        "ui-performance-samples.json": "971c5ef753e88449a94ad2cf9cbaf7cc6ecb9610954a93b1ada02c6ab0319e20"
+      }
+    },
+    {
+      "id": "candidate-1",
+      "source_directory": "artifacts/bookmark-perf/current-frozen",
+      "version": "uncommitted-0.3.51",
+      "files": {
+        "ui-performance.json": "8e12ed7db0ec9a39053600c7385099399026f8f7aad720702786302b9a1a7707",
+        "ui-performance-samples.json": "155c2f1871ce42421acf539483ff3a9c7164ca4c802e3217e1444789fbd8c689"
+      }
+    },
+    {
+      "id": "candidate-2",
+      "source_directory": "artifacts/bookmark-perf/alternating-current-1",
+      "version": "uncommitted-0.3.51",
+      "files": {
+        "ui-performance.json": "d590b863ae54eedae4f6b04a39d9e73b021bbbf9f344d35d443ee3f943e108b7",
+        "ui-performance-samples.json": "1a6f88376be82ca7f65ab0ab2cc1db330a7e892cbbe103ae85d14eb67cde222a"
+      }
+    },
+    {
+      "id": "candidate-3",
+      "source_directory": "artifacts/bookmark-perf/alternating-current-2",
+      "version": "uncommitted-0.3.51",
+      "files": {
+        "ui-performance.json": "bc12b4a5e420a0298c4444932cc7e7872797828af3bab2a33aea61751fcaa9cc",
+        "ui-performance-samples.json": "56ffbb86d71a7804e31ea85749965f8f6ad342d6e6902f344fc665ff5662726c"
+      }
+    },
+    {
+      "id": "history-0.3.47",
+      "source_directory": "artifacts/bookmark-perf/historical-best-run",
+      "version": "0.3.47",
+      "files": {
+        "ui-performance.json": "c9653997751b700f4b96cc519baeed935366369df4b9a70512e83560ca696f80",
+        "ui-performance-samples.json": "24ea7ec4481bb5881ff5552ed0ff9f4deb55e1ed232db29ee7afff4954e1160f"
+      }
+    }
+  ],
+  "index_cost": {
+    "conditions": "120 turns, 199440 source characters, 600 default entries; one cold GetBookmarks and one immediate cached GetBookmarks; elapsed through ApplicationIdle and UI-thread allocations. Each file is a single observation, not seven-sample evidence.",
+    "test_source": "AiBookmarkTests.cs.txt",
+    "test_source_sha256": "3372c6969edc2cdfd269d72f46c53208460a9190193cc39db25d6653e3420027",
+    "records": [
+      {
+        "source_artifact": "artifacts/ai-bookmarks-long/bookmark-index-performance.json",
+        "file": "index-cost/ai-bookmarks-long/bookmark-index-performance.json",
+        "sha256": "49c34e2053db511bcb4f78b849053cd3e90908f5d12f921be6942268c011f65b"
+      },
+      {
+        "source_artifact": "artifacts/ai-bookmarks-live/bookmark-index-performance.json",
+        "file": "index-cost/ai-bookmarks-live/bookmark-index-performance.json",
+        "sha256": "a44c679201b67c06e7a94829119b9c53fbd9051dd53996ddcf4ea1d8c0e08676"
+      },
+      {
+        "source_artifact": "artifacts/ai-bookmarks-complete/bookmark-index-performance.json",
+        "file": "index-cost/ai-bookmarks-complete/bookmark-index-performance.json",
+        "sha256": "c57d22a30ae2c838d2c87a20964a24f1060c84ee05f6e5d111c34fe49e217f42"
+      },
+      {
+        "source_artifact": "artifacts/bookmark-release-check/bookmark-index-performance.json",
+        "file": "index-cost/bookmark-release-check/bookmark-index-performance.json",
+        "sha256": "378be55fd000e0025cbe24fd80a0cac8202ed7e0754e4fd76a72e2f8eec6690c"
+      }
+    ],
+    "limitations": [
+      "The four observations were recorded at different implementation stages; their exact per-run source identity was not independently archived. Do not combine as repeated samples or treat as a confirmed history baseline.",
+      "The copied test source reflects the workspace at archival time and was not independently hashed by each measured process."
+    ]
+  },
+  "host_support_files": {
+    "AiTests.cs.txt": "b8f03b88640de58cc3031ba84cbebc841bb29b485dd6f234aa079f3467c4d3d4",
+    "SettingsMigrationTests.cs.txt": "cd21d4a241f0d24d1b6aa1796b14df4af00682c29c6563eb144bc0ac73b4990f"
+  }
+}

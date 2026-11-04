@@ -121,7 +121,10 @@ public partial class AiPanel
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
         view.AnswerGone = answer => Answer_Unloaded(answer, new RoutedEventArgs());
+        view.QuestionReady = BookmarkQuestionLoaded;
+        view.QuestionGone = BookmarkQuestionUnloaded;
         foreach (var answer in view.Answers.Where(a => a.IsLoaded)) Answer_Loaded(answer, new RoutedEventArgs());
+        foreach (var question in view.Questions.Where(q => q.IsLoaded)) BookmarkQuestionLoaded(question);
     }
     private void Turn_Unloaded(object sender, RoutedEventArgs e)
     {
