@@ -125,7 +125,7 @@ h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .rich-text h2 { font-size:19px }
 .rich-text h3,.rich-text h4 { font-size:17px }
 .answer :is(h1,h2,h3,h4,h5,h6) { font:inherit; margin:0 }
-.heading-marker { color:#d8c09b; font-family:inherit; font-variant-numeric:tabular-nums; white-space:nowrap; margin-right:.5em; user-select:none }
+.heading-marker { display:inline-block; color:#d8c09b; font-family:inherit; font-variant-numeric:tabular-nums; white-space:nowrap; margin-right:.5em; user-select:none }
 .passage ul,.passage ol,.rich-text ul,.rich-text ol { padding-left:1.5em; margin:8px 0 12px }
 .passage ol:has(>li:nth-child(10)),.rich-text ol:has(>li:nth-child(10)) { padding-left:2em }
 .passage ol:has(>li:nth-child(100)),.rich-text ol:has(>li:nth-child(100)),.passage ol[start],.rich-text ol[start] { padding-left:2.5em }
@@ -656,14 +656,35 @@ function alignPendingIndicator(){
   dot.style.transform='translateY('+(previous+text.top+metrics.fontBoundingBoxAscent+(metrics.actualBoundingBoxDescent-metrics.actualBoundingBoxAscent)/2-box.top-box.height/2)+'px)';
  }
 }
-function alignReadingInk(){
- const questions=[...document.querySelectorAll('.question')];
- if(!questions.length)return;
+function alignReadingInk(headingsChanged=true){
+ const questions=[...document.querySelectorAll('.question')],headings=headingsChanged?[...document.querySelectorAll('.heading-label')]:[];
+ if(!questions.length&&!headings.length)return;
  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
  const metrics=alignReadingInk.metrics||(alignReadingInk.metrics=new Map());
  const measure=(text,style,font)=>{font=font||style.font||[style.fontStyle,style.fontWeight,style.fontSize,style.fontFamily].join(' ');const key=font+'\n'+text;if(metrics.has(key))return metrics.get(key);ctx.font=font;const value=ctx.measureText(text);if(metrics.size>=512)metrics.clear();metrics.set(key,value);return value;};
  const axis=m=>(m.actualBoundingBoxDescent-m.actualBoundingBoxAscent)/2;
- const ordinalEdits=[];
+ const inkCanvas=headings.length?document.createElement('canvas'):null,inkContext=inkCanvas?.getContext('2d',{willReadFrequently:true}),inkCache=alignReadingInk.inkCache||(alignReadingInk.inkCache=new Map()),axisCache=alignReadingInk.axisCache||(alignReadingInk.axisCache=new Map());
+ const ink=(text,style)=>{const font=style.font||[style.fontStyle,style.fontWeight,style.fontSize,style.fontFamily].join(' '),axisKey=font+'\n'+text.slice(0,64);if(axisCache.has(axisKey))return axisCache.get(axisKey);let weight=0,moment=0,count=0;
+  for(const char of text){if(count++>=64)break;if(!char.trim())continue;const key=font+'\n'+char;let glyph=inkCache.get(key);
+   if(!glyph){const bounds=measure(char,style,font),left=Math.max(0,bounds.actualBoundingBoxLeft),right=Math.max(0,bounds.actualBoundingBoxRight),ascent=Math.max(0,bounds.actualBoundingBoxAscent),descent=Math.max(0,bounds.actualBoundingBoxDescent),scale=2,baseline=2+ascent;
+    if(!inkContext||!Number.isFinite(left+right+ascent+descent)||left+right===0||ascent+descent===0)glyph={weight:1,moment:axis(bounds)};
+    else{inkCanvas.width=Math.max(1,Math.ceil((left+right+4)*scale));inkCanvas.height=Math.max(1,Math.ceil((ascent+descent+4)*scale));inkContext.setTransform(scale,0,0,scale,0,0);inkContext.font=font;inkContext.fillStyle='#fff';inkContext.fillText(char,2+left,baseline);const pixels=inkContext.getImageData(0,0,inkCanvas.width,inkCanvas.height).data;let area=0,sum=0;for(let y=0;y<inkCanvas.height;y++)for(let x=0;x<inkCanvas.width;x++){const alpha=pixels[(y*inkCanvas.width+x)*4+3];area+=alpha;sum+=alpha*((y+.5)/scale-baseline);}glyph=area?{weight:area,moment:sum}:{weight:1,moment:axis(bounds)};}
+    if(inkCache.size>=1024)inkCache.clear();inkCache.set(key,glyph);
+   }weight+=glyph.weight;moment+=glyph.moment;
+  }const value=weight?moment/weight:axis(measure(text,style,font));if(axisCache.size>=512)axisCache.clear();axisCache.set(axisKey,value);return value;
+ };
+ const ordinalEdits=[],headingEdits=[],headingStyles=new WeakMap();
+ for(const label of headings){
+  const marker=label.previousElementSibling;if(!marker?.classList.contains('heading-marker'))continue;
+  let node=label.firstChild;if(!node||node.nodeType!==Node.TEXT_NODE||!node.textContent.trimStart()){
+   const walker=document.createTreeWalker(label,NodeFilter.SHOW_TEXT);node=null;let candidate;
+   while((candidate=walker.nextNode()))if(candidate.textContent.trimStart()&&!candidate.parentElement.closest('.math,svg')){node=candidate;break;}
+  }
+  if(!node)continue;
+  const scope=label.closest('.answer')||label,styles=headingStyles.get(scope)||{body:getComputedStyle(label)};headingStyles.set(scope,styles);
+  const bodyStyle=node.parentElement===label?styles.body:getComputedStyle(node.parentElement);
+  const text=node.textContent.trimStart();headingEdits.push(marker,ink(text,bodyStyle)-ink(marker.textContent,styles.body));
+ }
  for(const question of questions){
   const number=question.querySelector('.turn-number');if(!number||!question.getClientRects().length)continue;
   const walker=document.createTreeWalker(question,NodeFilter.SHOW_TEXT),range=document.createRange();let node,top=null,inkTop=Infinity,inkBottom=-Infinity;
@@ -679,6 +700,7 @@ function alignReadingInk(){
    ordinalEdits.push(()=>{number.style.transform='translateY('+((inkTop+inkBottom)/2-baseline-axis(m))+'px)';});
   }
  }
+ for(let i=0;i<headingEdits.length;i+=2)headingEdits[i].style.transform='translateY('+headingEdits[i+1]+'px)';
  ordinalEdits.forEach(apply=>apply());
 }
 function toggleTurn(t){const node=$(t.id+'-divider'),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
@@ -909,7 +931,7 @@ window.addEventListener('resize',commitAnnotation);
 new ResizeObserver(commitAnnotation).observe($('reader'));
 for(const c of state.conversations)for(const e of c.entries)if(e.state==='提交中')e.state='上次提交未完成，可重试';
 
-mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();alignReadingInk(false);alignPendingIndicator();restoreReading(current().reading);});
+mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();alignReadingInk.metrics?.clear();alignReadingInk.inkCache?.clear();alignReadingInk.axisCache?.clear();alignReadingInk();alignPendingIndicator();restoreReading(current().reading);});
 if(location.search.includes('tools=1'))openLab();
 </script>
 <script src="bookmarks.js"></script>

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Globalization;
+using System.Text;
 
 namespace TeXeed.App.Controls;
 
@@ -20,13 +21,37 @@ public sealed partial class MarkdownView
             Tag = HeadingNumberMarker, FontFamily = FontFamily
         };
         marker.SetResourceReference(TextElement.ForegroundProperty, "ChatHeading");
-        var sample = text.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Run.Text));
+        var sample = text.Select(item => (item.Run, item.Weight, Sample: FirstTitleWord(item.Run.Text)))
+            .FirstOrDefault(item => item.Sample.Length > 0);
+        if (sample.Run is null)
+        {
+            var fallback = text.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Run.Text));
+            sample = (fallback.Run, fallback.Weight, fallback.Run?.Text ?? "");
+        }
         if (sample.Run is not null)
-            OffsetInk(marker, InkAxis(sample.Run.Text, FontFamily, sample.Weight, sample.Run.FontStyle, FontSize)
-                - InkAxis(marker.Text, FontFamily, marker.FontWeight, FontStyles.Normal, FontSize));
+            OffsetInk(marker, InkAxis(sample.Sample, FontFamily, sample.Weight, sample.Run.FontStyle, FontSize)
+                - InkAxis(marker.Text, FontFamily, marker.FontWeight, FontStyles.Normal, FontSize) + FontSize * .04);
         if (paragraph.Inlines.FirstInline is { } first) paragraph.Inlines.InsertBefore(first, marker);
         else paragraph.Inlines.Add(marker);
         _headingMarkers.Add((marker, level));
+    }
+
+    private static string FirstTitleWord(string text)
+    {
+        var start = -1; var end = 0; var offset = 0; bool? scriptIsHan = null;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            var value = rune.Value;
+            var han = value is >= 0x3400 and <= 0x4DBF or >= 0x4E00 and <= 0x9FFF or >= 0xF900 and <= 0xFAFF or >= 0x20000 and <= 0x323AF;
+            if ((han || Rune.IsLetter(rune)) && (scriptIsHan is null || scriptIsHan == han))
+            {
+                if (start < 0) { start = offset; scriptIsHan = han; }
+                end = offset + rune.Utf16SequenceLength;
+            }
+            else if (start >= 0) break;
+            offset += rune.Utf16SequenceLength;
+        }
+        return start < 0 ? "" : text[start..end];
     }
 
     private static IEnumerable<Run> HeadingRuns(InlineCollection inlines)

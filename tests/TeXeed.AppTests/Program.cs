@@ -59,6 +59,11 @@ internal static partial class Program
                     await CheckAiTitleFormulaAsync(window, output, baselineIndex >= 0 ? args[baselineIndex + 1] : null, args.Contains("--assert-title-formula"));
                     await CloseAndObserveAsync(window, "AI heading font, equation layout and ordinal axis"); result = 0; return;
                 }
+                if (args.Contains("--ai-heading-axis-only"))
+                {
+                    await CheckAiHeadingAxisAsync(window, output, args.Contains("--assert-heading-axis"));
+                    await CloseAndObserveAsync(window, "AI heading marker alignment"); result = 0; return;
+                }
                 if (args.Contains("--ai-retry-only"))
                 {
                     await CheckAiRetryAsync(window, output);

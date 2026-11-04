@@ -1,0 +1,78 @@
+{
+  "schema": "texeed-title-axis-native-performance-v1",
+  "status": "candidate_before_commit",
+  "base_commit": "8f3e434274bc81cea66f968e3c27b91cb54e7724",
+  "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+  "host_sha256": "3ad22f03d0d67433b13912f5d7c79177a39c7959ee99721f7e5b1a18bfd9e231",
+  "sources": {
+    "MarkdownView.Headings.cs.txt": "84c9890286119d74e5aec123a26149423d7ed306dbc71530a1c6fe1fa6a1fc0b",
+    "TeXeed.App.csproj.txt": "2d6b8a86ce2f839b659f6663143a326e2920ed38125e9a0449c34c64a07a30e0"
+  },
+  "binaries": {
+    "TeXeed.dll": "b02f7c10bea674e3dcb491fe515cf628b1f55260ba9f96a3b38b371ff38fb3df",
+    "TeXeed.Core.dll": "33fe7e09aa761e29d34f5929e044a855e69beb9eb501c3b4d98d52d04920bea0",
+    "TeXeed.AppTests.dll": "e1fcc98aaeecb85f612755f211f04e30a46018fdaf7d82f7d97e01520d730f1f"
+  },
+  "method": "../methods/dense-unique-width-v1.json",
+  "history": "../verified-history.json",
+  "build": "Release win-x64; original base source plus the two archived modified files; common fixture and instrumented host from tests/performance-fixtures. AppTests was rebuilt in a frozen copy.",
+  "command": "dotnet <frozen>/tests/TeXeed.AppTests/bin/Release/net10.0-windows/win-x64/TeXeed.AppTests.dll --ai-ui-perf-only --with-headings --output <isolated-output>",
+  "sequence": "three base runs followed by three candidate runs, in separate processes; not an interleaved comparison",
+  "context": {
+    "DpiScaleX": 2,
+    "DpiScaleY": 2,
+    "WpfTier": 2,
+    "Theme": "ristretto",
+    "Runtime": ".NET 10.0.7"
+  },
+  "limitations": [
+    "Base source was rebuilt from the clean committed 0.3.51; candidate source is base plus the two archived modified source files.",
+    "Performance timings vary substantially between batches; no stable timing-history claim is made.",
+    "The older 0.3.47 baseline lacks wave emphasis; the increase in resize allocations includes this feature.",
+    "The context shown was logged by every process; CPU, font file and OS fingerprints were not independently recaptured for these six runs."
+  ],
+  "runs": [
+    {
+      "id": "before-1",
+      "files": {
+        "ui-performance.json": "e0818c2c3856fe897c98d8aba92d528eb218b48d4fed69855cea29c66e2908b0",
+        "ui-performance-samples.json": "a20f04e6c0d2838f98c3d0ca7f9e11e19cb9e64a34717a344792d068dd0c4dd6"
+      }
+    },
+    {
+      "id": "before-2",
+      "files": {
+        "ui-performance.json": "7481d01ba9087726557244b37e57e2936287043bda733555b165a717944f051c",
+        "ui-performance-samples.json": "adb5d21a0137201aa85d85c165e4bd83b9d338db31545cdc9dddc09af503aed7"
+      }
+    },
+    {
+      "id": "before-3",
+      "files": {
+        "ui-performance.json": "81d790c6e6bce183d34fcb5e41629ee7bf9958ab4dd909d5e106c26c18327ebe",
+        "ui-performance-samples.json": "6f795c62dd6aceeb568205bc82e9f500b343c55256157a4c5ff53c7b2772ea00"
+      }
+    },
+    {
+      "id": "after-1",
+      "files": {
+        "ui-performance.json": "909a5ebecdff09df474d27ee6b79d8c1325a7e757cbfc737457f53d3d58fddc0",
+        "ui-performance-samples.json": "850e0aa44a2b27ff60093c0dc0b84ff02b1ffa980a5b514563a1f58caf9e9d21"
+      }
+    },
+    {
+      "id": "after-2",
+      "files": {
+        "ui-performance.json": "c40a2d33fa3fcaaeddec1e862474181721f67bbd9d705a3378c34176d9ced9de",
+        "ui-performance-samples.json": "37cd3df3baad40a038c697f677bf425c8677b0d3940b0b04492b7f30eff69bc9"
+      }
+    },
+    {
+      "id": "after-3",
+      "files": {
+        "ui-performance.json": "8da34c6abb5d74dd884603c281b4d954233758f28b8f6329e90c85eee8ad011f",
+        "ui-performance-samples.json": "f41c743b76d4018031b2ea689c3715fd48936d0325a9e1768fdf1028be49116a"
+      }
+    }
+  ]
+}
