@@ -1,0 +1,73 @@
+{
+  "schema": "texeed-archived-performance-candidates-v1",
+  "status": "unverified_historical_candidates",
+  "purpose": "Preserve historical observations and their raw samples for later reproduction and comparison; this file is not a verified benchmark manifest.",
+  "limitations": [
+    "Each result contains seven measured samples from one process, after one warmup; the two 0.3.48 batches are independent measurements, not an alternating multi-process verification.",
+    "Each sample set mixes the two scroll directions and corresponding activity rows; do not interpret the minimum sample as a historical record.",
+    "OS, CPU, runtime, DPI, fonts, theme and renderer were not captured in the original result files; do not infer their historical values from the current environment.",
+    "The original results have no captured-at field or complete component manifest; the artifact path and raw data do not prove a complete runtime or application identity.",
+    "The 0.3.48 candidate directory was later overwritten. Its exact measured sources and binaries cannot be reconstructed from that directory alone.",
+    "These candidates include 0.3.47, which predates the wavy emphasis feature. Preserve its observations while separately explaining the cost and behavior of later functionality.",
+    "Each fixture is a separate scenario; the ordinary and dense metrics and results from different measurement windows or window-width sequences must not be mixed."
+  ],
+  "common_method": {
+    "configuration": "Release",
+    "warmup_count": 1,
+    "recorded_samples": 7,
+    "turns": 120,
+    "activities_per_turn": 15,
+    "detail_lines": 2000,
+    "widths_dip": "620 + run * 31 for runs 0 through 7",
+    "completion": "DispatcherPriority.ApplicationIdle",
+    "allocations": "UI thread, GC.GetAllocatedBytesForCurrentThread"
+  },
+  "scenarios": {
+    "ordinary": {
+      "fixture": "../../performance-fixtures/ordinary-unique-width-fixture.cs",
+      "fixture_sha256": "4ef3a1aed5b9716b7f7462b8098ae54e7a87a8932aabfa7a23759fac50f76339",
+      "contents": "Two headings, three bold spans, one italic span and one prewarmed display formula per answer."
+    },
+    "dense": {
+      "fixture": "../../performance-fixtures/high-density-unique-width-fixture.cs",
+      "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+      "contents": "Six headings, thirty bold spans and twelve italic spans per answer."
+    }
+  },
+  "versions": {
+    "0.3.47": {
+      "related_commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+      "evidence": "The archived baseline application source was compared with this commit: 169 of 170 tracked src text files matched; the sole difference was an empty win-x64 section omitted from the restored TeXeed.Core lock file. Application assets, binaries and the complete environment were not independently verified.",
+      "build_note": "The benchmark build was passed Version=0.3.48 to match the version number used for the then-current comparison."
+    },
+    "0.3.48": {
+      "related_commit": "6a971dc5a0d60c41e92859bdca4d98373d94501d",
+      "evidence": "The original measurement was reported as 0.3.48; the candidate source and binary used at the time were later overwritten, so identity with the related commit is not fully verified."
+    },
+    "0.3.49": {
+      "related_commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+      "evidence": "The final candidate application source was compared with this commit: 170 of 171 tracked src text files matched; the sole difference was an empty win-x64 section omitted from the restored TeXeed.Core lock file. Application assets, binaries and the complete environment were not independently verified."
+    }
+  },
+  "records": [
+    { "directory": "0.3.47-ordinary", "version": "0.3.47", "scenario": "ordinary", "source_artifact": "artifacts/perf-emphasis/old-ordinary" },
+    { "directory": "0.3.47-dense", "version": "0.3.47", "scenario": "dense", "source_artifact": "artifacts/perf-emphasis/old-dense-final" },
+    { "directory": "0.3.48-ordinary-batch1", "version": "0.3.48", "scenario": "ordinary", "source_artifact": "artifacts/perf-emphasis/new-ordinary" },
+    { "directory": "0.3.48-dense-batch1", "version": "0.3.48", "scenario": "dense", "source_artifact": "artifacts/perf-emphasis/new-dense-final" },
+    { "directory": "0.3.48-ordinary-batch2", "version": "0.3.48", "scenario": "ordinary", "source_artifact": "artifacts/wave-nextline-perf/before-ordinary" },
+    { "directory": "0.3.48-dense-batch2", "version": "0.3.48", "scenario": "dense", "source_artifact": "artifacts/wave-nextline-perf/before-dense" },
+    { "directory": "0.3.49-ordinary", "version": "0.3.49", "scenario": "ordinary", "source_artifact": "artifacts/wave-nextline-perf/final-ordinary" },
+    { "directory": "0.3.49-dense", "version": "0.3.49", "scenario": "dense", "source_artifact": "artifacts/wave-nextline-perf/final-dense" }
+  ],
+  "record_files": ["ui-performance.json", "ui-performance-samples.json"],
+  "record_sha256": {
+    "0.3.47-dense": { "ui-performance.json": "8952605a76d438fa44eb7c7fea5203b33f16322c16398cc1f05d9afbcf75974a", "ui-performance-samples.json": "f494229381f7b08e24c2e689d2112d5d781f4192ac0d1be53e99cb16fb663488" },
+    "0.3.47-ordinary": { "ui-performance.json": "8fce212816883a2cdf148a2054e3761f815e579965bae498acd01fe7feeb385a", "ui-performance-samples.json": "0fc22cd5dafa77ee790c89988359796a943673668606364ea3af59199ce86a66" },
+    "0.3.48-dense-batch1": { "ui-performance.json": "a55afff0458118ef2dc46625dc1c2a4c120c98b95397d33020869d44d3858b01", "ui-performance-samples.json": "b67579e69851ebf65ec0921f36a6cc603683d7f6c1a530a1f3dd75f67c6f2b64" },
+    "0.3.48-dense-batch2": { "ui-performance.json": "ff970c0dea97781ff62b486d47239d3f223accd786562958d3ae49a60ada579c", "ui-performance-samples.json": "ccf7321b7c83863b6daad69ab725a3eccbd67c7128268a9667e3dbbdc45ef01c" },
+    "0.3.48-ordinary-batch1": { "ui-performance.json": "628b802ccc15b1b7a26b79ba0c3d2b024372d00ff2b54cd3dcaa1221e7674ac1", "ui-performance-samples.json": "7bbc514f5320accd694f232bb49991b8dd2628e64057011ed78724203d5be5ee" },
+    "0.3.48-ordinary-batch2": { "ui-performance.json": "0f91b9d5229e65dc7420aae4d6d01c10646ad027c4a5e30b98154ad9ff1f00b2", "ui-performance-samples.json": "191ef2d88a84ca47ba5797b9bf5784442f40837594ec9f728c8ff689c252b690" },
+    "0.3.49-dense": { "ui-performance.json": "6f43ee81f6bcbd61f9b250dd5b557f9aa40795a34d4105f7169962a60a7c9c75", "ui-performance-samples.json": "51882b5ed9bd934d4d61c63f697465ea4347d9d566b3fa77687bf19ac7e0811a" },
+    "0.3.49-ordinary": { "ui-performance.json": "3967bd026e0f5c5e59cba77fb838818f0e67766ef4f8f296eb8c724480a7b623", "ui-performance-samples.json": "30a2ab377b47a0f93d0fba476ace38e8bc12274afcf917b249217755dff7a695" }
+  }
+}

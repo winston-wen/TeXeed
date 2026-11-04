@@ -1,0 +1,14 @@
+{
+  "scenario": "ai-reading-dense-unique-width-v1",
+  "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+  "program_cs_sha256": "3ad22f03d0d67433b13912f5d7c79177a39c7959ee99721f7e5b1a18bfd9e231",
+  "fake_handler_test_file_sha256": "b8f03b88640de58cc3031ba84cbebc841bb29b485dd6f234aa079f3467c4d3d4",
+  "settings_migration_test_file_sha256": "cd21d4a241f0d24d1b6aa1796b14df4af00682c29c6563eb144bc0ac73b4990f",
+  "host_source": "Both builds use tests/performance-fixtures/wpf-history-host.cs, derived from 0.3.47 Program.cs with an identical PerformanceContext logging addition. The common AiTests.cs contains AiFakeHandler; the common Program.cs contains reflection, visible-bounds and traversal helpers.",
+  "build": "dotnet restore --locked-mode -r win-x64 -p:NuGetAudit=false --ignore-failed-sources; dotnet build -c Release -r win-x64 --no-restore",
+  "command": "dotnet TeXeed.AppTests.dll --ai-ui-perf-only --with-headings --output <isolated-output>",
+  "fixture": "120 turns; each has 15 activity rows with 2000-line details and six headings with thirty bold and twelve italic spans. Each version uses its original bold rendering behavior.",
+  "window": "900 x 760 DIP initially; width set to 620 + 31 * run for runs 0..7",
+  "samples": "One warmup and seven recorded iterations, with alternating scroll positions. Every measured interaction waits until DispatcherPriority.ApplicationIdle; allocations are counted on the UI thread.",
+  "sequence": "old1,new1,old2,new2,old3,new3 in distinct processes with isolated settings and fake AI connection"
+}

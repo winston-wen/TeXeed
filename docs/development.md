@@ -9,6 +9,7 @@ TeXeed 使用 C#、.NET 10 和 WPF，编辑器基于 AvalonEdit，PDF 渲染使�
 - [AI 批注与排版](ai-annotations.md)：圈点、发送、公式和复制。
 - [PDF 裁边](pdf-cropping.md)、[打印](pdf-printing.md)。
 - [排版与 UI 性能](ui-layout-and-performance.md)：布局原则和性能复测。
+- [性能历史基准](performance-baselines.md)：历史最佳比较、样本保存及复测方法。
 
 ## 构建与运行
 

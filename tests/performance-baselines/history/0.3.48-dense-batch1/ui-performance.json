@@ -1,0 +1,12 @@
+{
+  "scroll_layout_ms": 86.2195,
+  "detail_toggle_ms": 15.37,
+  "resize_ms": 232.2603,
+  "scroll_allocated_bytes": 5812384,
+  "detail_allocated_bytes": 1418544,
+  "resize_allocated_bytes": 3615632,
+  "realized_turns": 1,
+  "realized_activities": 15,
+  "realized_controls": 60,
+  "visible_controls": 28
+}

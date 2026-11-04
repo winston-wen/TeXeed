@@ -1,0 +1,30 @@
+{
+  "schema": "texeed-benchmark-build-evidence-v1",
+  "source_verification": "All tracked src files were compared against Git blobs after locked restore and build; no differences.",
+  "versions": [
+    {
+      "version": "0.3.47",
+      "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+      "tracked_src_files": 190,
+      "src_mismatches": 0,
+      "app_version": "0.3.47.0",
+      "app_sha256": "a7414fb773d512d647f13ef10a0f9b8164ac9ba38ebb06653f45149517f1f4bf",
+      "core_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+      "test_host_sha256": "3d9e8f62ea04005bf000f7c5dee29ba5feeb81fd2f788223aed2f38ca6d62a07"
+    },
+    {
+      "version": "0.3.49",
+      "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+      "tracked_src_files": 191,
+      "src_mismatches": 0,
+      "app_version": "0.3.49.0",
+      "app_sha256": "a368be3334c6ae72917628d2b676c9cf347e711597fb089975228d782152c680",
+      "core_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+      "test_host_sha256": "c61eac2bdabbee16998c88ae683f5ecfc1bd93d0cb4621f2b80a555c28e86fa6"
+    }
+  ],
+  "dependency_evidence": "All six copied third-party DLLs have identical SHA-256 across both builds; full names and hashes are in the environment evidence.",
+  "restore": "Initial 0.3.47 locked restore without RID failed NU1004 due to the Core lockfile win-x64 entry; locked restore succeeded unmodified for both versions with explicit -r win-x64.",
+  "build": "dotnet build tests/TeXeed.AppTests/TeXeed.AppTests.csproj -c Release -r win-x64 --no-restore",
+  "host_source": "tests/performance-fixtures/wpf-history-host.cs; both builds use identical source with a WPF DPI/tier/theme/runtime logging addition."
+}

@@ -1,0 +1,1237 @@
+{
+  "schema": 1,
+  "runs": [
+    {
+      "id": "128c28b7a8bb0c638f526a3ac69cedb8e2d0d7176f21632ed3f0669c21fe6e57",
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "manifest": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "version": "0.3.47",
+        "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+        "execution_id": "20261104-dense-old-1",
+        "captured_at": "2026-11-04T09:48:45.6720054+08:00",
+        "warmup_count": 1,
+        "configuration": "Release",
+        "run_kind": "production",
+        "feature_overrides": [],
+        "components": {
+          "TeXeed.dll": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+          "TeXeed.Core.dll": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8"
+        },
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        },
+        "feature_notes": "0.3.47 uses the original bold rendering and does not include the later wavy emphasis feature.",
+        "evidence": {
+          "ended_at": "2026-11-04T09:48:50.4258738+08:00",
+          "application_assembly_version": "0.3.47.0",
+          "application_assembly_sha256": "a7414fb773d512d647f13ef10a0f9b8164ac9ba38ebb06653f45149517f1f4bf",
+          "core_assembly_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+          "test_assembly_sha256": "3d9e8f62ea04005bf000f7c5dee29ba5feeb81fd2f788223aed2f38ca6d62a07",
+          "tracked_src_files": 190,
+          "src_mismatches": 0,
+          "locked_restore": "win-x64",
+          "method_file": "tests/performance-baselines/methods/dense-unique-width-v1.json",
+          "environment_file": "tests/performance-baselines/environments/win10-19045-ryzen5700x-wpf192dpi.json",
+          "build_evidence_file": "tests/performance-baselines/environments/build-evidence-2026-11-04.json"
+        }
+      },
+      "sample_sha256": "f955c6a088b701783c3d5c7bcf6b4339a2ab1a69719926a2d5f440c6009310c5",
+      "summary_sha256": "0700eb3cf0c17d8cdd899a8ea5382616cc1c96234bc3d7e856cbc5678c6f7761",
+      "sample_text": "{\"elapsed\":{\"scroll_layout_ms\":[179.4489,75.4288,34.5887,75.6853,46.7436,78.3306,38.7574],\"detail_toggle_ms\":[14.5427,13.5685,6.5958,13.6967,6.8045,19.561,7.5023],\"resize_ms\":[188.073,195.3966,221.5815,185.0435,209.8317,170.6123,212.7319]},\"allocated\":{\"scroll_allocated_bytes\":[10281376,4880896,1826272,4701976,1822568,4806960,1822584],\"detail_allocated_bytes\":[1452016,1437280,349256,1446752,349584,1445944,349496],\"resize_allocated_bytes\":[1854424,2139672,1800544,2136016,1800528,2136240,1800440]}}",
+      "summary_text": "{\r\n  \"scroll_layout_ms\": 75.4288,\r\n  \"detail_toggle_ms\": 13.5685,\r\n  \"resize_ms\": 195.3966,\r\n  \"scroll_allocated_bytes\": 4701976,\r\n  \"detail_allocated_bytes\": 1437280,\r\n  \"resize_allocated_bytes\": 1854424,\r\n  \"realized_turns\": 1,\r\n  \"realized_activities\": 15,\r\n  \"realized_controls\": 60,\r\n  \"visible_controls\": 30\r\n}",
+      "sample": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            179.4489,
+            75.4288,
+            34.5887,
+            75.6853,
+            46.7436,
+            78.3306,
+            38.7574
+          ],
+          "detail_toggle_ms": [
+            14.5427,
+            13.5685,
+            6.5958,
+            13.6967,
+            6.8045,
+            19.561,
+            7.5023
+          ],
+          "resize_ms": [
+            188.073,
+            195.3966,
+            221.5815,
+            185.0435,
+            209.8317,
+            170.6123,
+            212.7319
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            10281376,
+            4880896,
+            1826272,
+            4701976,
+            1822568,
+            4806960,
+            1822584
+          ],
+          "detail_allocated_bytes": [
+            1452016,
+            1437280,
+            349256,
+            1446752,
+            349584,
+            1445944,
+            349496
+          ],
+          "resize_allocated_bytes": [
+            1854424,
+            2139672,
+            1800544,
+            2136016,
+            1800528,
+            2136240,
+            1800440
+          ]
+        }
+      },
+      "summary": {
+        "scroll_layout_ms": 75.4288,
+        "detail_toggle_ms": 13.5685,
+        "resize_ms": 195.3966,
+        "scroll_allocated_bytes": 4701976,
+        "detail_allocated_bytes": 1437280,
+        "resize_allocated_bytes": 1854424,
+        "realized_turns": 1,
+        "realized_activities": 15,
+        "realized_controls": 60,
+        "visible_controls": 30
+      },
+      "metrics": {
+        "scroll_layout_ms": {
+          "kind": "milliseconds",
+          "median": 75.4288
+        },
+        "detail_toggle_ms": {
+          "kind": "milliseconds",
+          "median": 13.5685
+        },
+        "resize_ms": {
+          "kind": "milliseconds",
+          "median": 195.3966
+        },
+        "scroll_allocated_bytes": {
+          "kind": "bytes",
+          "median": 4701976
+        },
+        "detail_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1437280
+        },
+        "resize_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1854424
+        }
+      }
+    },
+    {
+      "id": "b9e654fd6a7f9277b9c7ce300ced7374b98832d52d7d1c08ec13526149f41114",
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "manifest": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "version": "0.3.49",
+        "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+        "execution_id": "20261104-dense-new-1",
+        "captured_at": "2026-11-04T09:49:03.7351668+08:00",
+        "warmup_count": 1,
+        "configuration": "Release",
+        "run_kind": "production",
+        "feature_overrides": [],
+        "components": {
+          "TeXeed.dll": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+          "TeXeed.Core.dll": "8250ccad8772c9f2ea458045d1026f61b7ad5b11"
+        },
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        },
+        "feature_notes": "0.3.49 uses wavy emphasis, updated spacing and the annotation fix.",
+        "evidence": {
+          "ended_at": "2026-11-04T09:49:08.5447446+08:00",
+          "application_assembly_version": "0.3.49.0",
+          "application_assembly_sha256": "a368be3334c6ae72917628d2b676c9cf347e711597fb089975228d782152c680",
+          "core_assembly_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+          "test_assembly_sha256": "c61eac2bdabbee16998c88ae683f5ecfc1bd93d0cb4621f2b80a555c28e86fa6",
+          "tracked_src_files": 191,
+          "src_mismatches": 0,
+          "locked_restore": "win-x64",
+          "method_file": "tests/performance-baselines/methods/dense-unique-width-v1.json",
+          "environment_file": "tests/performance-baselines/environments/win10-19045-ryzen5700x-wpf192dpi.json",
+          "build_evidence_file": "tests/performance-baselines/environments/build-evidence-2026-11-04.json"
+        }
+      },
+      "sample_sha256": "dfdcf29208721871d9c2fd6bb282c434ce2c085b7ad507dfca18f948735a293d",
+      "summary_sha256": "d44aa3474031bf007ababb6590ad28a419ba3503b38913ad47f71df0cb0e2ff1",
+      "sample_text": "{\"elapsed\":{\"scroll_layout_ms\":[162.9326,104.1193,46.7322,74.6606,26.1473,81.1538,33.9405],\"detail_toggle_ms\":[16.2807,13.8804,7.4976,13.8737,6.9224,18.993,6.6018],\"resize_ms\":[181.8434,255.4579,189.7772,194.7446,194.2157,291.717,180.4411]},\"allocated\":{\"scroll_allocated_bytes\":[10762576,6090280,3578648,5853192,1531952,5846816,1531968],\"detail_allocated_bytes\":[1432112,1420336,320792,1424736,321080,1423232,320992],\"resize_allocated_bytes\":[3615120,5758176,3561784,5762064,3563912,5762064,3562168]}}",
+      "summary_text": "{\r\n  \"scroll_layout_ms\": 74.6606,\r\n  \"detail_toggle_ms\": 13.8737,\r\n  \"resize_ms\": 194.2157,\r\n  \"scroll_allocated_bytes\": 5846816,\r\n  \"detail_allocated_bytes\": 1420336,\r\n  \"resize_allocated_bytes\": 3615120,\r\n  \"realized_turns\": 1,\r\n  \"realized_activities\": 15,\r\n  \"realized_controls\": 60,\r\n  \"visible_controls\": 27\r\n}",
+      "sample": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            162.9326,
+            104.1193,
+            46.7322,
+            74.6606,
+            26.1473,
+            81.1538,
+            33.9405
+          ],
+          "detail_toggle_ms": [
+            16.2807,
+            13.8804,
+            7.4976,
+            13.8737,
+            6.9224,
+            18.993,
+            6.6018
+          ],
+          "resize_ms": [
+            181.8434,
+            255.4579,
+            189.7772,
+            194.7446,
+            194.2157,
+            291.717,
+            180.4411
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            10762576,
+            6090280,
+            3578648,
+            5853192,
+            1531952,
+            5846816,
+            1531968
+          ],
+          "detail_allocated_bytes": [
+            1432112,
+            1420336,
+            320792,
+            1424736,
+            321080,
+            1423232,
+            320992
+          ],
+          "resize_allocated_bytes": [
+            3615120,
+            5758176,
+            3561784,
+            5762064,
+            3563912,
+            5762064,
+            3562168
+          ]
+        }
+      },
+      "summary": {
+        "scroll_layout_ms": 74.6606,
+        "detail_toggle_ms": 13.8737,
+        "resize_ms": 194.2157,
+        "scroll_allocated_bytes": 5846816,
+        "detail_allocated_bytes": 1420336,
+        "resize_allocated_bytes": 3615120,
+        "realized_turns": 1,
+        "realized_activities": 15,
+        "realized_controls": 60,
+        "visible_controls": 27
+      },
+      "metrics": {
+        "scroll_layout_ms": {
+          "kind": "milliseconds",
+          "median": 74.6606
+        },
+        "detail_toggle_ms": {
+          "kind": "milliseconds",
+          "median": 13.8737
+        },
+        "resize_ms": {
+          "kind": "milliseconds",
+          "median": 194.2157
+        },
+        "scroll_allocated_bytes": {
+          "kind": "bytes",
+          "median": 5846816
+        },
+        "detail_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1420336
+        },
+        "resize_allocated_bytes": {
+          "kind": "bytes",
+          "median": 3615120
+        }
+      }
+    },
+    {
+      "id": "9539641115c730d16df02b52be44ab968256ead10461923799171a1bad600ba8",
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "manifest": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "version": "0.3.47",
+        "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+        "execution_id": "20261104-dense-old-2",
+        "captured_at": "2026-11-04T09:49:17.8475959+08:00",
+        "warmup_count": 1,
+        "configuration": "Release",
+        "run_kind": "production",
+        "feature_overrides": [],
+        "components": {
+          "TeXeed.dll": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+          "TeXeed.Core.dll": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8"
+        },
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        },
+        "feature_notes": "0.3.47 uses the original bold rendering and does not include the later wavy emphasis feature.",
+        "evidence": {
+          "ended_at": "2026-11-04T09:49:22.5509626+08:00",
+          "application_assembly_version": "0.3.47.0",
+          "application_assembly_sha256": "a7414fb773d512d647f13ef10a0f9b8164ac9ba38ebb06653f45149517f1f4bf",
+          "core_assembly_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+          "test_assembly_sha256": "3d9e8f62ea04005bf000f7c5dee29ba5feeb81fd2f788223aed2f38ca6d62a07",
+          "tracked_src_files": 190,
+          "src_mismatches": 0,
+          "locked_restore": "win-x64",
+          "method_file": "tests/performance-baselines/methods/dense-unique-width-v1.json",
+          "environment_file": "tests/performance-baselines/environments/win10-19045-ryzen5700x-wpf192dpi.json",
+          "build_evidence_file": "tests/performance-baselines/environments/build-evidence-2026-11-04.json"
+        }
+      },
+      "sample_sha256": "80f994e9574026402d3f0666fc9ab9f9c4f35c51707039e86130dc91e5441542",
+      "summary_sha256": "562be53f24b37a0ba32ddf91b5cd1e20e5ddf785ed9349777e6fb52d9f45842e",
+      "sample_text": "{\"elapsed\":{\"scroll_layout_ms\":[157.6748,79.6778,34.6093,74.8748,34.9221,77.4489,33.2103],\"detail_toggle_ms\":[11.8966,14.7629,6.6122,13.5365,6.5494,17.4405,6.1264],\"resize_ms\":[209.0816,183.582,218.5137,190.3018,219.2374,170.7193,223.3315]},\"allocated\":{\"scroll_allocated_bytes\":[10281376,4880896,1826272,4696648,1819544,4801632,1819560],\"detail_allocated_bytes\":[1452016,1437280,349256,1446752,349584,1445944,349496],\"resize_allocated_bytes\":[1854424,2139672,1799008,2132944,1797480,2133168,1797392]}}",
+      "summary_text": "{\r\n  \"scroll_layout_ms\": 74.8748,\r\n  \"detail_toggle_ms\": 11.8966,\r\n  \"resize_ms\": 209.0816,\r\n  \"scroll_allocated_bytes\": 4696648,\r\n  \"detail_allocated_bytes\": 1437280,\r\n  \"resize_allocated_bytes\": 1854424,\r\n  \"realized_turns\": 1,\r\n  \"realized_activities\": 15,\r\n  \"realized_controls\": 60,\r\n  \"visible_controls\": 30\r\n}",
+      "sample": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            157.6748,
+            79.6778,
+            34.6093,
+            74.8748,
+            34.9221,
+            77.4489,
+            33.2103
+          ],
+          "detail_toggle_ms": [
+            11.8966,
+            14.7629,
+            6.6122,
+            13.5365,
+            6.5494,
+            17.4405,
+            6.1264
+          ],
+          "resize_ms": [
+            209.0816,
+            183.582,
+            218.5137,
+            190.3018,
+            219.2374,
+            170.7193,
+            223.3315
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            10281376,
+            4880896,
+            1826272,
+            4696648,
+            1819544,
+            4801632,
+            1819560
+          ],
+          "detail_allocated_bytes": [
+            1452016,
+            1437280,
+            349256,
+            1446752,
+            349584,
+            1445944,
+            349496
+          ],
+          "resize_allocated_bytes": [
+            1854424,
+            2139672,
+            1799008,
+            2132944,
+            1797480,
+            2133168,
+            1797392
+          ]
+        }
+      },
+      "summary": {
+        "scroll_layout_ms": 74.8748,
+        "detail_toggle_ms": 11.8966,
+        "resize_ms": 209.0816,
+        "scroll_allocated_bytes": 4696648,
+        "detail_allocated_bytes": 1437280,
+        "resize_allocated_bytes": 1854424,
+        "realized_turns": 1,
+        "realized_activities": 15,
+        "realized_controls": 60,
+        "visible_controls": 30
+      },
+      "metrics": {
+        "scroll_layout_ms": {
+          "kind": "milliseconds",
+          "median": 74.8748
+        },
+        "detail_toggle_ms": {
+          "kind": "milliseconds",
+          "median": 11.8966
+        },
+        "resize_ms": {
+          "kind": "milliseconds",
+          "median": 209.0816
+        },
+        "scroll_allocated_bytes": {
+          "kind": "bytes",
+          "median": 4696648
+        },
+        "detail_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1437280
+        },
+        "resize_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1854424
+        }
+      }
+    },
+    {
+      "id": "c7f94e147d1bc9e751c38631825f62048c91228a7167c3f9d87e02d4648324c4",
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "manifest": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "version": "0.3.49",
+        "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+        "execution_id": "20261104-dense-new-2",
+        "captured_at": "2026-11-04T09:49:31.5891852+08:00",
+        "warmup_count": 1,
+        "configuration": "Release",
+        "run_kind": "production",
+        "feature_overrides": [],
+        "components": {
+          "TeXeed.dll": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+          "TeXeed.Core.dll": "8250ccad8772c9f2ea458045d1026f61b7ad5b11"
+        },
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        },
+        "feature_notes": "0.3.49 uses wavy emphasis, updated spacing and the annotation fix.",
+        "evidence": {
+          "ended_at": "2026-11-04T09:49:36.6300536+08:00",
+          "application_assembly_version": "0.3.49.0",
+          "application_assembly_sha256": "a368be3334c6ae72917628d2b676c9cf347e711597fb089975228d782152c680",
+          "core_assembly_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+          "test_assembly_sha256": "c61eac2bdabbee16998c88ae683f5ecfc1bd93d0cb4621f2b80a555c28e86fa6",
+          "tracked_src_files": 191,
+          "src_mismatches": 0,
+          "locked_restore": "win-x64",
+          "method_file": "tests/performance-baselines/methods/dense-unique-width-v1.json",
+          "environment_file": "tests/performance-baselines/environments/win10-19045-ryzen5700x-wpf192dpi.json",
+          "build_evidence_file": "tests/performance-baselines/environments/build-evidence-2026-11-04.json"
+        }
+      },
+      "sample_sha256": "e374c908e081326de46c5f90070ff689421a7b8515a5d0987c806f63e50c6713",
+      "summary_sha256": "4a727efad31cfeed5a2bea40aeeb8915ba516b403bdccf4a4c1e2a7345088b15",
+      "sample_text": "{\"elapsed\":{\"scroll_layout_ms\":[172.5394,121.355,87.7016,76.1207,32.1874,107.5938,30.8736],\"detail_toggle_ms\":[17.1452,14.77,9.96,14.21,7.8927,20.9179,6.8923],\"resize_ms\":[261.3199,250.8273,250.8817,202.634,187.9053,259.853,188.4701]},\"allocated\":{\"scroll_allocated_bytes\":[10762576,6090280,3578688,5853192,1531952,5841648,1531968],\"detail_allocated_bytes\":[1429640,1420336,320792,1424736,321080,1421400,320992],\"resize_allocated_bytes\":[3615632,5758176,3561784,5762064,3563912,5762064,3562168]}}",
+      "summary_text": "{\r\n  \"scroll_layout_ms\": 87.7016,\r\n  \"detail_toggle_ms\": 14.21,\r\n  \"resize_ms\": 250.8273,\r\n  \"scroll_allocated_bytes\": 5841648,\r\n  \"detail_allocated_bytes\": 1420336,\r\n  \"resize_allocated_bytes\": 3615632,\r\n  \"realized_turns\": 1,\r\n  \"realized_activities\": 15,\r\n  \"realized_controls\": 60,\r\n  \"visible_controls\": 27\r\n}",
+      "sample": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            172.5394,
+            121.355,
+            87.7016,
+            76.1207,
+            32.1874,
+            107.5938,
+            30.8736
+          ],
+          "detail_toggle_ms": [
+            17.1452,
+            14.77,
+            9.96,
+            14.21,
+            7.8927,
+            20.9179,
+            6.8923
+          ],
+          "resize_ms": [
+            261.3199,
+            250.8273,
+            250.8817,
+            202.634,
+            187.9053,
+            259.853,
+            188.4701
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            10762576,
+            6090280,
+            3578688,
+            5853192,
+            1531952,
+            5841648,
+            1531968
+          ],
+          "detail_allocated_bytes": [
+            1429640,
+            1420336,
+            320792,
+            1424736,
+            321080,
+            1421400,
+            320992
+          ],
+          "resize_allocated_bytes": [
+            3615632,
+            5758176,
+            3561784,
+            5762064,
+            3563912,
+            5762064,
+            3562168
+          ]
+        }
+      },
+      "summary": {
+        "scroll_layout_ms": 87.7016,
+        "detail_toggle_ms": 14.21,
+        "resize_ms": 250.8273,
+        "scroll_allocated_bytes": 5841648,
+        "detail_allocated_bytes": 1420336,
+        "resize_allocated_bytes": 3615632,
+        "realized_turns": 1,
+        "realized_activities": 15,
+        "realized_controls": 60,
+        "visible_controls": 27
+      },
+      "metrics": {
+        "scroll_layout_ms": {
+          "kind": "milliseconds",
+          "median": 87.7016
+        },
+        "detail_toggle_ms": {
+          "kind": "milliseconds",
+          "median": 14.21
+        },
+        "resize_ms": {
+          "kind": "milliseconds",
+          "median": 250.8273
+        },
+        "scroll_allocated_bytes": {
+          "kind": "bytes",
+          "median": 5841648
+        },
+        "detail_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1420336
+        },
+        "resize_allocated_bytes": {
+          "kind": "bytes",
+          "median": 3615632
+        }
+      }
+    },
+    {
+      "id": "8f644fe32a35dc96a43ce0dd421713f94f4647c8667c3400b69f524bf73b5525",
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "manifest": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "version": "0.3.47",
+        "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+        "execution_id": "20261104-dense-old-3",
+        "captured_at": "2026-11-04T09:49:52.1583559+08:00",
+        "warmup_count": 1,
+        "configuration": "Release",
+        "run_kind": "production",
+        "feature_overrides": [],
+        "components": {
+          "TeXeed.dll": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+          "TeXeed.Core.dll": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8"
+        },
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        },
+        "feature_notes": "0.3.47 uses the original bold rendering and does not include the later wavy emphasis feature.",
+        "evidence": {
+          "ended_at": "2026-11-04T09:49:56.8455374+08:00",
+          "application_assembly_version": "0.3.47.0",
+          "application_assembly_sha256": "a7414fb773d512d647f13ef10a0f9b8164ac9ba38ebb06653f45149517f1f4bf",
+          "core_assembly_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+          "test_assembly_sha256": "3d9e8f62ea04005bf000f7c5dee29ba5feeb81fd2f788223aed2f38ca6d62a07",
+          "tracked_src_files": 190,
+          "src_mismatches": 0,
+          "locked_restore": "win-x64",
+          "method_file": "tests/performance-baselines/methods/dense-unique-width-v1.json",
+          "environment_file": "tests/performance-baselines/environments/win10-19045-ryzen5700x-wpf192dpi.json",
+          "build_evidence_file": "tests/performance-baselines/environments/build-evidence-2026-11-04.json"
+        }
+      },
+      "sample_sha256": "24b2f00ac9ec4753b4105b03b9a7454f0f795ea96e26dc37fac1e892cb86014b",
+      "summary_sha256": "2519ed5b5280c1e3b8a7ac00571e54098cac01ac58087163b432a973d7495a37",
+      "sample_text": "{\"elapsed\":{\"scroll_layout_ms\":[188.5976,77.6816,36.2562,81.9497,36.4057,79.7889,40.3281],\"detail_toggle_ms\":[15.7019,14.836,7.003,13.1249,11.7073,21.5155,7.7306],\"resize_ms\":[178.2117,195.7951,222.9467,158.1075,212.7421,166.0134,214.7897]},\"allocated\":{\"scroll_allocated_bytes\":[10281376,4880896,1826272,4701976,1822568,4806960,1822584],\"detail_allocated_bytes\":[1452016,1437280,349256,1446752,349584,1445944,349496],\"resize_allocated_bytes\":[1854424,2139672,1800544,2136016,1800528,2136240,1800440]}}",
+      "summary_text": "{\r\n  \"scroll_layout_ms\": 77.6816,\r\n  \"detail_toggle_ms\": 13.1249,\r\n  \"resize_ms\": 195.7951,\r\n  \"scroll_allocated_bytes\": 4701976,\r\n  \"detail_allocated_bytes\": 1437280,\r\n  \"resize_allocated_bytes\": 1854424,\r\n  \"realized_turns\": 1,\r\n  \"realized_activities\": 15,\r\n  \"realized_controls\": 60,\r\n  \"visible_controls\": 30\r\n}",
+      "sample": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            188.5976,
+            77.6816,
+            36.2562,
+            81.9497,
+            36.4057,
+            79.7889,
+            40.3281
+          ],
+          "detail_toggle_ms": [
+            15.7019,
+            14.836,
+            7.003,
+            13.1249,
+            11.7073,
+            21.5155,
+            7.7306
+          ],
+          "resize_ms": [
+            178.2117,
+            195.7951,
+            222.9467,
+            158.1075,
+            212.7421,
+            166.0134,
+            214.7897
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            10281376,
+            4880896,
+            1826272,
+            4701976,
+            1822568,
+            4806960,
+            1822584
+          ],
+          "detail_allocated_bytes": [
+            1452016,
+            1437280,
+            349256,
+            1446752,
+            349584,
+            1445944,
+            349496
+          ],
+          "resize_allocated_bytes": [
+            1854424,
+            2139672,
+            1800544,
+            2136016,
+            1800528,
+            2136240,
+            1800440
+          ]
+        }
+      },
+      "summary": {
+        "scroll_layout_ms": 77.6816,
+        "detail_toggle_ms": 13.1249,
+        "resize_ms": 195.7951,
+        "scroll_allocated_bytes": 4701976,
+        "detail_allocated_bytes": 1437280,
+        "resize_allocated_bytes": 1854424,
+        "realized_turns": 1,
+        "realized_activities": 15,
+        "realized_controls": 60,
+        "visible_controls": 30
+      },
+      "metrics": {
+        "scroll_layout_ms": {
+          "kind": "milliseconds",
+          "median": 77.6816
+        },
+        "detail_toggle_ms": {
+          "kind": "milliseconds",
+          "median": 13.1249
+        },
+        "resize_ms": {
+          "kind": "milliseconds",
+          "median": 195.7951
+        },
+        "scroll_allocated_bytes": {
+          "kind": "bytes",
+          "median": 4701976
+        },
+        "detail_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1437280
+        },
+        "resize_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1854424
+        }
+      }
+    },
+    {
+      "id": "ed0dc68760d9833dde2944f571bfdee7e2d1b46c4399bbde14e3a23e606e56fa",
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "manifest": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "version": "0.3.49",
+        "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+        "execution_id": "20261104-dense-new-3",
+        "captured_at": "2026-11-04T09:50:05.2597048+08:00",
+        "warmup_count": 1,
+        "configuration": "Release",
+        "run_kind": "production",
+        "feature_overrides": [],
+        "components": {
+          "TeXeed.dll": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+          "TeXeed.Core.dll": "8250ccad8772c9f2ea458045d1026f61b7ad5b11"
+        },
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        },
+        "feature_notes": "0.3.49 uses wavy emphasis, updated spacing and the annotation fix.",
+        "evidence": {
+          "ended_at": "2026-11-04T09:50:10.2866539+08:00",
+          "application_assembly_version": "0.3.49.0",
+          "application_assembly_sha256": "a368be3334c6ae72917628d2b676c9cf347e711597fb089975228d782152c680",
+          "core_assembly_sha256": "619f37f37685297d14c6077cdc5c1150a36d8b93b4503e357f0fe4904167ab48",
+          "test_assembly_sha256": "c61eac2bdabbee16998c88ae683f5ecfc1bd93d0cb4621f2b80a555c28e86fa6",
+          "tracked_src_files": 191,
+          "src_mismatches": 0,
+          "locked_restore": "win-x64",
+          "method_file": "tests/performance-baselines/methods/dense-unique-width-v1.json",
+          "environment_file": "tests/performance-baselines/environments/win10-19045-ryzen5700x-wpf192dpi.json",
+          "build_evidence_file": "tests/performance-baselines/environments/build-evidence-2026-11-04.json"
+        }
+      },
+      "sample_sha256": "9b9653ff29718978bcf3180f12efc29719237776a452da1439ca177c4ea88bab",
+      "summary_sha256": "b653dc7582849cd98478f260ffcbfb53d537f27e02570ef40d53c51304399eb6",
+      "sample_text": "{\"elapsed\":{\"scroll_layout_ms\":[161.7556,117.5082,56.0953,96.9065,28.5737,84.4275,33.3657],\"detail_toggle_ms\":[14.124,13.4012,7.5963,15.2881,7.5838,19.7601,6.7715],\"resize_ms\":[173.3482,251.3423,293.249,266.729,193.1207,301.6862,180.9706]},\"allocated\":{\"scroll_allocated_bytes\":[10762576,6090232,3578648,5847792,1531952,5840544,1531968],\"detail_allocated_bytes\":[1429504,1420336,320832,1422176,320888,1419776,320800],\"resize_allocated_bytes\":[3615632,5758176,3561784,5762064,3563912,5762064,3562168]}}",
+      "summary_text": "{\r\n  \"scroll_layout_ms\": 84.4275,\r\n  \"detail_toggle_ms\": 13.4012,\r\n  \"resize_ms\": 251.3423,\r\n  \"scroll_allocated_bytes\": 5840544,\r\n  \"detail_allocated_bytes\": 1419776,\r\n  \"resize_allocated_bytes\": 3615632,\r\n  \"realized_turns\": 1,\r\n  \"realized_activities\": 15,\r\n  \"realized_controls\": 60,\r\n  \"visible_controls\": 27\r\n}",
+      "sample": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            161.7556,
+            117.5082,
+            56.0953,
+            96.9065,
+            28.5737,
+            84.4275,
+            33.3657
+          ],
+          "detail_toggle_ms": [
+            14.124,
+            13.4012,
+            7.5963,
+            15.2881,
+            7.5838,
+            19.7601,
+            6.7715
+          ],
+          "resize_ms": [
+            173.3482,
+            251.3423,
+            293.249,
+            266.729,
+            193.1207,
+            301.6862,
+            180.9706
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            10762576,
+            6090232,
+            3578648,
+            5847792,
+            1531952,
+            5840544,
+            1531968
+          ],
+          "detail_allocated_bytes": [
+            1429504,
+            1420336,
+            320832,
+            1422176,
+            320888,
+            1419776,
+            320800
+          ],
+          "resize_allocated_bytes": [
+            3615632,
+            5758176,
+            3561784,
+            5762064,
+            3563912,
+            5762064,
+            3562168
+          ]
+        }
+      },
+      "summary": {
+        "scroll_layout_ms": 84.4275,
+        "detail_toggle_ms": 13.4012,
+        "resize_ms": 251.3423,
+        "scroll_allocated_bytes": 5840544,
+        "detail_allocated_bytes": 1419776,
+        "resize_allocated_bytes": 3615632,
+        "realized_turns": 1,
+        "realized_activities": 15,
+        "realized_controls": 60,
+        "visible_controls": 27
+      },
+      "metrics": {
+        "scroll_layout_ms": {
+          "kind": "milliseconds",
+          "median": 84.4275
+        },
+        "detail_toggle_ms": {
+          "kind": "milliseconds",
+          "median": 13.4012
+        },
+        "resize_ms": {
+          "kind": "milliseconds",
+          "median": 251.3423
+        },
+        "scroll_allocated_bytes": {
+          "kind": "bytes",
+          "median": 5840544
+        },
+        "detail_allocated_bytes": {
+          "kind": "bytes",
+          "median": 1419776
+        },
+        "resize_allocated_bytes": {
+          "kind": "bytes",
+          "median": 3615632
+        }
+      }
+    }
+  ],
+  "confirmations": [
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "scroll_layout_ms",
+      "kind": "milliseconds",
+      "value": 77.6816,
+      "version": "0.3.47",
+      "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+      "evidence": [
+        "128c28b7a8bb0c638f526a3ac69cedb8e2d0d7176f21632ed3f0669c21fe6e57",
+        "8f644fe32a35dc96a43ce0dd421713f94f4647c8667c3400b69f524bf73b5525",
+        "9539641115c730d16df02b52be44ab968256ead10461923799171a1bad600ba8"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "resize_ms",
+      "kind": "milliseconds",
+      "value": 209.0816,
+      "version": "0.3.47",
+      "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+      "evidence": [
+        "128c28b7a8bb0c638f526a3ac69cedb8e2d0d7176f21632ed3f0669c21fe6e57",
+        "8f644fe32a35dc96a43ce0dd421713f94f4647c8667c3400b69f524bf73b5525",
+        "9539641115c730d16df02b52be44ab968256ead10461923799171a1bad600ba8"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "scroll_allocated_bytes",
+      "kind": "bytes",
+      "value": 4701976,
+      "version": "0.3.47",
+      "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+      "evidence": [
+        "128c28b7a8bb0c638f526a3ac69cedb8e2d0d7176f21632ed3f0669c21fe6e57",
+        "8f644fe32a35dc96a43ce0dd421713f94f4647c8667c3400b69f524bf73b5525",
+        "9539641115c730d16df02b52be44ab968256ead10461923799171a1bad600ba8"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "detail_allocated_bytes",
+      "kind": "bytes",
+      "value": 1437280,
+      "version": "0.3.47",
+      "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+      "evidence": [
+        "128c28b7a8bb0c638f526a3ac69cedb8e2d0d7176f21632ed3f0669c21fe6e57",
+        "8f644fe32a35dc96a43ce0dd421713f94f4647c8667c3400b69f524bf73b5525",
+        "9539641115c730d16df02b52be44ab968256ead10461923799171a1bad600ba8"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "resize_allocated_bytes",
+      "kind": "bytes",
+      "value": 1854424,
+      "version": "0.3.47",
+      "commit": "31a6656027b6b6f8e4f5fbec831b8341e4e814e8",
+      "evidence": [
+        "128c28b7a8bb0c638f526a3ac69cedb8e2d0d7176f21632ed3f0669c21fe6e57",
+        "8f644fe32a35dc96a43ce0dd421713f94f4647c8667c3400b69f524bf73b5525",
+        "9539641115c730d16df02b52be44ab968256ead10461923799171a1bad600ba8"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "detail_toggle_ms",
+      "kind": "milliseconds",
+      "value": 14.21,
+      "version": "0.3.49",
+      "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+      "evidence": [
+        "b9e654fd6a7f9277b9c7ce300ced7374b98832d52d7d1c08ec13526149f41114",
+        "c7f94e147d1bc9e751c38631825f62048c91228a7167c3f9d87e02d4648324c4",
+        "ed0dc68760d9833dde2944f571bfdee7e2d1b46c4399bbde14e3a23e606e56fa"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "scroll_allocated_bytes",
+      "kind": "bytes",
+      "value": 5846816,
+      "version": "0.3.49",
+      "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+      "evidence": [
+        "b9e654fd6a7f9277b9c7ce300ced7374b98832d52d7d1c08ec13526149f41114",
+        "c7f94e147d1bc9e751c38631825f62048c91228a7167c3f9d87e02d4648324c4",
+        "ed0dc68760d9833dde2944f571bfdee7e2d1b46c4399bbde14e3a23e606e56fa"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "detail_allocated_bytes",
+      "kind": "bytes",
+      "value": 1420336,
+      "version": "0.3.49",
+      "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+      "evidence": [
+        "b9e654fd6a7f9277b9c7ce300ced7374b98832d52d7d1c08ec13526149f41114",
+        "c7f94e147d1bc9e751c38631825f62048c91228a7167c3f9d87e02d4648324c4",
+        "ed0dc68760d9833dde2944f571bfdee7e2d1b46c4399bbde14e3a23e606e56fa"
+      ]
+    },
+    {
+      "cohort": {
+        "scenario": "ai-reading-dense-unique-width-v1",
+        "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+        "method_sha256": "b8aa9ea8dccb57a4edb6e638b6d26cf3e57bd6db2fed1049222bf4a84c99ff09",
+        "method_description": "120 turns; 15 activities; 2000 detail lines; 30 bold spans; continuous unique widths; one warmup, seven samples; ApplicationIdle; common instrumented WPF host.",
+        "environment": {
+          "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+          "os": "Microsoft Windows 10.0.19045",
+          "arch": "x64",
+          "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+          "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+          "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+          "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+          "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+        }
+      },
+      "metric": "resize_allocated_bytes",
+      "kind": "bytes",
+      "value": 3615632,
+      "version": "0.3.49",
+      "commit": "8250ccad8772c9f2ea458045d1026f61b7ad5b11",
+      "evidence": [
+        "b9e654fd6a7f9277b9c7ce300ced7374b98832d52d7d1c08ec13526149f41114",
+        "c7f94e147d1bc9e751c38631825f62048c91228a7167c3f9d87e02d4648324c4",
+        "ed0dc68760d9833dde2944f571bfdee7e2d1b46c4399bbde14e3a23e606e56fa"
+      ]
+    }
+  ]
+}

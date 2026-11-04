@@ -1,0 +1,80 @@
+{
+  "environment": {
+    "id": "win10-19045-x64-ryzen5700x-wpf192dpi-tier2-dotnet1007-a581927ab627-3127be025c6b",
+    "os": "Microsoft Windows 10.0.19045",
+    "arch": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor",
+    "runtime": ".NET 10.0.7 WindowsDesktop x64, SDK 10.0.203; external DLL SHA256 list=3127be025c6b047642fad793d3f0adc88aab9365b3a9998efeecc8a916c9d6c0",
+    "display": "one monitor; WPF owner window DpiScaleX=2 and DpiScaleY=2, observed inside every measurement process",
+    "fonts": "Selected Windows text and UI font files SHA256 list=a581927ab627bda93d505fcefe960e03b6ec53982ffe883f7d192ac8dcee1ba2",
+    "renderer": "WPF RenderCapability tier 2; ristretto theme, observed inside every measurement process"
+  },
+  "font_files": [
+    {
+      "name": "times.ttf",
+      "sha256": "2cff2a03d8034801979dd6d16f09b9a825c3d710fcf068f2ebfbf0e1425c87cf"
+    },
+    {
+      "name": "timesbd.ttf",
+      "sha256": "621b4a765fef5d255d19530f4bf936104c6519f2e232a0eef1923474e5b9cf22"
+    },
+    {
+      "name": "timesi.ttf",
+      "sha256": "3a1c2bc8528bfa432e0414d4ec69bf5813563c474e16a9ad0f57ca262f8d24a2"
+    },
+    {
+      "name": "timesbi.ttf",
+      "sha256": "2852329a38acf9252504669d9c23d5e88366cf77e8209d508f5e7198639648ea"
+    },
+    {
+      "name": "SourceHanSerifSC-Regular.otf",
+      "sha256": "354501e9a2821e35a8a691141a5b18cce5e42c602faf6a8a638ab0ac6f048081"
+    },
+    {
+      "name": "SourceHanSerifSC-Bold.otf",
+      "sha256": "293cc9aa6cc1ab488690d9e6d1746280b81c2681a3ffffd9a0dee96a1b94dd7d"
+    },
+    {
+      "name": "consola.ttf",
+      "sha256": "c6e6ce8119fdd47ec6a5449a08e2d2ad7f41ea03143aae193068ed9fa58eaebc"
+    },
+    {
+      "name": "segoeui.ttf",
+      "sha256": "ba32a222b23d727267cf1aba4e5296fe84ce99b9d910915103fc085d7931bc88"
+    },
+    {
+      "name": "msyh.ttc",
+      "sha256": "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f"
+    },
+    {
+      "name": "simfang.ttf",
+      "sha256": "3e2d44b01c9a248a61bedae4f15c8aae501328b1f7adfe6e111a5da5aa5c5104"
+    }
+  ],
+  "external_dependency_files": [
+    {
+      "name": "ICSharpCode.AvalonEdit.dll",
+      "sha256": "0fe9ac94aa22e60b32d670a3d35c58fef628d1b3352d56f32f2986bf5f96f844"
+    },
+    {
+      "name": "Markdig.dll",
+      "sha256": "373987671380016ed92a1703410b133ff7b671a5b35fea16d175db8f2a223813"
+    },
+    {
+      "name": "pdfium.dll",
+      "sha256": "55e7ebef29a1ec9523d1adb8b260a73e7dfb0f64d3f0285121d20ecd6148ef18"
+    },
+    {
+      "name": "PDFiumCore.dll",
+      "sha256": "a641bd5a63f4f5254bb480c7698b2e782110c5fbf53420dc9c868bb1d86360b4"
+    },
+    {
+      "name": "WpfMath.dll",
+      "sha256": "1b6c19c7b2e186eafc4a060db0302c772548bc7bcbd54491389879e333c874c7"
+    },
+    {
+      "name": "XamlMath.Shared.dll",
+      "sha256": "b4dd157cca11b83c867fdb06dd6845fa437f6c84c166278206bc94c952839791"
+    }
+  ]
+}
