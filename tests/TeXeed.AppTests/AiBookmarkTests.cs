@@ -13,6 +13,10 @@ internal static partial class Program
     {
         var checks = 0;
         void Check(bool value, string message) { checks++; if (!value) throw new Exception(message); }
+        var largeNumbers = new AiHeadingNumbers([int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue - 1]);
+        Check(largeNumbers.Next(6) == string.Join('.', Enumerable.Repeat(int.MaxValue, 6)), "Large multi-digit heading counters were truncated");
+        var rollover = new AiHeadingNumbers([9, 99, 0, 0, 0, 0]);
+        Check(rollover.Next(2) == "9.100" && rollover.Next(1) == "10" && rollover.Next(2) == "10.1", "Heading counters did not carry or reset at multiple digits");
         IEnumerable<Paragraph> Paragraphs(BlockCollection blocks) => blocks.SelectMany(block => block switch
         {
             Paragraph paragraph => [paragraph],
@@ -49,18 +53,39 @@ internal static partial class Program
             Console.WriteLine("Bookmark index performance: " + System.Text.Json.JsonSerializer.Serialize(performance));
             Check(initial.Count == reused.Count && visibleBefore == visibleAfter, "Indexing changed the visible conversation controls");
             var defaults = initial.Where(b => b.TurnIndex == 0).ToArray();
-            Check(defaults.Select(b => b.Label).SequenceEqual(["1:h1", "1:h2", "1:eq1", "1:h2", "1:eqA"]), "Default labels, source order, duplicate headings or tags are wrong");
+            Check(defaults.Select(b => b.Label).SequenceEqual(["1:1", "1:1.1", "1:eq1", "1:1.2", "1:eqA"]), "Default labels, source order, duplicate headings or tags are wrong");
             Check(defaults[1].Description.Contains("重复标题甲") && defaults[3].Description.Contains("重复标题乙"), "Duplicate heading descriptions are lost");
             Check(defaults.All(b => !b.Description.Contains("伪标题") && !b.Description.Contains("not-a-formula")), "Code block was indexed as a bookmark");
             Check(panel.GetBookmarks().Select(b => b.Id).SequenceEqual(panel.GetBookmarks().Select(b => b.Id)), "Repeated indexes are unstable");
+            var numberingTurn = book.Turns[0];
+            var numberingFirst = numberingTurn.Segments[0]; var numberingOriginal = numberingFirst.Text;
+            numberingFirst.Text = "## 1. 已有标题\n\n### 深一级\n\n## 下一标题\n\n```md\n# 不是标题\n```";
+            numberingTurn.Segments.Add(new AiSegment { Id = "numbering-activity", Kind = "activity", Text = "工具过程" });
+            numberingTurn.Segments.Add(new AiSegment { Id = "numbering-next", Kind = "final", Text = "# 新上级\n\n## 2. 已有编号" });
+            var numbered = panel.GetBookmarks().Where(b => b.TurnIndex == 0 && b.Kind == AiBookmarkKind.Heading).ToArray();
+            Check(numbered.Select(b => b.Label).SequenceEqual(["1:0.1", "1:0.1.1", "1:0.2", "1:1", "1:1.1"]), "Heading counters did not cross answer segments or handle missing ancestors");
+            var numberingView = new AiTurnView { TurnNumber = 1, Turn = numberingTurn };
+            var rendered = numberingView.Answers.SelectMany(a => Paragraphs(a.Document.Blocks)).Where(p => p.Inlines.FirstInline is Hyperlink)
+                .Select(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Trim()).ToArray();
+            Check(rendered.Length == numbered.Length && rendered.Zip(numbered).All(pair => pair.First.StartsWith("[" + pair.Second.Label + "]")), "Displayed markers differ from bookmark numbers across segments");
+            Check(rendered[0].Contains("1. 已有标题") && rendered[4].Contains("2. 已有编号"), "Existing heading numbers were altered");
+            numberingView.TurnNumber = 9;
+            Check(new TextRange(Paragraphs(numberingView.Answers[1].Document.Blocks).First().ContentStart, Paragraphs(numberingView.Answers[1].Document.Blocks).First().ContentEnd).Text.StartsWith("[9:1]"), "Changing turn number lost the cross-segment numbering");
+            numberingFirst.Text = "# 长回答\n\n" + new string('长', 4500);
+            numberingTurn.Segments[2].Text = "## 延迟排版后的章节";
+            var longNumberingView = new AiTurnView { TurnNumber = 1, Turn = numberingTurn };
+            await Task.WhenAll(longNumberingView.Answers.Select(view => view.RenderTask));
+            var followingHeading = Paragraphs(longNumberingView.Answers[1].Document.Blocks).First();
+            Check(new TextRange(followingHeading.ContentStart, followingHeading.ContentEnd).Text.StartsWith("[1:1.1]"), "Asynchronous rendering changed the next segment's numbering");
+            numberingFirst.Text = numberingOriginal; numberingTurn.Segments.RemoveRange(1, 2);
             var changed = book.Turns[79].Segments[0]; var original = changed.Text;
             changed.Text += "\n\n### 新增标题";
-            Check(panel.GetBookmarks().Any(b => b.TurnIndex == 79 && b.Label == "80:h3"), "Changed answer did not refresh its cached index");
+            Check(panel.GetBookmarks().Any(b => b.TurnIndex == 79 && b.Label == "80:1.2.1"), "Changed answer did not refresh its cached index");
             changed.Text = original;
-            Check(panel.GetBookmarks().All(b => b.TurnIndex != 79 || b.Label != "80:h3"), "Stale cached heading remained after an answer changed");
+            Check(panel.GetBookmarks().All(b => b.TurnIndex != 79 || b.Label != "80:1.2.1"), "Stale cached heading remained after an answer changed");
 
-            var target = panel.GetBookmarks().Single(b => b.TurnIndex == 60 && b.Label == "61:h2" && b.Description.Contains("甲"));
-            var outer = panel.GetBookmarks().Single(b => b.TurnIndex == 60 && b.Label == "61:h1");
+            var target = panel.GetBookmarks().Single(b => b.TurnIndex == 60 && b.Label == "61:1.1" && b.Description.Contains("甲"));
+            var outer = panel.GetBookmarks().Single(b => b.TurnIndex == 60 && b.Label == "61:1");
             var turn = book.Turns[60]; turn.Collapsed = true;
             turn.CollapsedSections[outer.SegmentId + ":" + outer.Position] = true;
             turn.CollapsedSections[target.SegmentId + ":" + target.Position] = true;
@@ -296,7 +321,7 @@ internal static partial class Program
             var legacyTurn = new AiTurn("旧提问", "## 旧回答标题\n\n旧正文。\n\n$$x+y$$");
             book.Turns.Add(legacyTurn); Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
             var legacyTarget = panel.GetBookmarks().Single(b => b.TurnId == legacyTurn.Id && b.Kind == AiBookmarkKind.Heading);
-            Check(legacyTarget.Label == "121:h2" && await panel.NavigateBookmarkAsync(legacyTarget), "Legacy answer without segments cannot be indexed and located");
+            Check(legacyTarget.Label == "121:0.1" && await panel.NavigateBookmarkAsync(legacyTarget), "Legacy answer without segments cannot be indexed and located");
             await panel.NewConversationAsync();
             Check(((System.Collections.IDictionary)Field(panel, "_bookmarkCache")!).Count == 0, "Switching conversations retained the old default index");
             var legacy = System.Text.Json.JsonSerializer.Deserialize<AiConversation>("{\"Title\":\"旧会话\",\"Draft\":\"旧草稿\"}")!;

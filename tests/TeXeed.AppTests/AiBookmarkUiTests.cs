@@ -125,15 +125,19 @@ internal static partial class Program
             Check(surface.IsVisible && (!physical || search.IsKeyboardFocusWithin), "Opening bookmarks did not focus the search field");
             Check(defaults.Items.Count == 360 && users.Items.Count == 0, "Automatic and user bookmark groups are not separate");
             var first = defaults.Items.Cast<object>().Select(Target).Where(t => t.TurnIndex == 0).ToArray();
-            Check(first.Select(t => t.Label).SequenceEqual(["1:h1", "1:h2", "1:eq1"]) &&
+            Check(first.Select(t => t.Label).SequenceEqual(["1:1", "1:1.1", "1:eq1"]) &&
                 first[0].Description == first[1].Description && first[0].Id != first[1].Id,
                 "Repeated heading text did not produce distinct grouped destinations");
-            search.Text = "1:h"; await Idle();
+            search.Text = "1:"; await Idle();
             var tab = CreateKey(host, Key.Tab, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(tab);
-            Check(tab.Handled && search.Text == "1:h1" && defaults.Items.Count == 1, "Tab did not complete an exact bookmark prefix");
-            search.Text = "31:h2"; await Idle();
+            Check(tab.Handled && search.Text == "1:1" && defaults.Items.Count == 2, "Tab did not complete an exact bookmark prefix");
+            search.Text = "[1:"; await Idle();
+            tab = CreateKey(host, Key.Tab, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(tab);
+            Check(tab.Handled && search.Text == "1:1", "Tab did not complete a bracketed bookmark prefix");
+            search.Text = "[31:1.1]"; await Idle();
+            Check(defaults.Items.Count == 1 && Target(defaults.Items[0]).Label == "31:1.1", "A full bracketed heading number did not match its bookmark");
             var targetTurn = book.Turns[30]; targetTurn.Collapsed = true;
-            var outer = panel.GetBookmarks().Single(t => t.TurnIndex == 30 && t.Label == "31:h1");
+            var outer = panel.GetBookmarks().Single(t => t.TurnIndex == 30 && t.Label == "31:1");
             targetTurn.CollapsedSections[outer.SegmentId + ":" + outer.Position] = true;
             var enter = CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(enter);
             for (var i = 0; i < 40 && targetTurn.Collapsed; i++) { await Task.Delay(30); host.UpdateLayout(); }

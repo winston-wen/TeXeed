@@ -36,7 +36,7 @@ internal static partial class Program
             Check(headings.Length == 6, "Six Markdown heading levels were not preserved.");
             for (var i = 0; i < headings.Length; i++)
             {
-                Check(new TextRange(headings[i].ContentStart, headings[i].ContentEnd).Text.StartsWith($"[3:h{i + 1}]"), "Heading marker has the wrong level or turn.");
+                Check(new TextRange(headings[i].ContentStart, headings[i].ContentEnd).Text.StartsWith($"[3:{string.Join('.', Enumerable.Repeat(1, i + 1))}]"), "Heading marker has the wrong level or turn.");
                 Check(headings[i].FontSize == view.FontSize && headings[i].FontWeight == view.FontWeight && Equals(headings[i].FontFamily, view.FontFamily) && headings[i].LineHeight == 25,
                     "Answer heading changed body typography.");
                 var toggle = (Hyperlink)headings[i].Inlines.FirstInline!;
@@ -50,9 +50,9 @@ internal static partial class Program
             Check(plain.Document.Blocks.OfType<Paragraph>().First().FontSize > plain.FontSize, "Question/tutorial heading style changed.");
             var canonical = plain.CopySource(plain.Document.ContentStart, plain.Document.ContentEnd);
             Check(view.CopySource(view.Document.ContentStart, view.Document.ContentEnd) == canonical, "Heading markers shifted canonical annotation offsets.");
-            Check(!view.CopyForClipboard(view.Document.ContentStart, view.Document.ContentEnd).Contains("[3:h"), "Clipboard included heading decoration.");
+            Check(!view.CopyForClipboard(view.Document.ContentStart, view.Document.ContentEnd).Contains("[3:"), "Clipboard included heading decoration.");
             var document = view.Document; view.TurnNumber = 4;
-            Check(ReferenceEquals(document, view.Document) && new TextRange(headings[5].ContentStart, headings[5].ContentEnd).Text.StartsWith("[4:h6]"), "Changing the ordinal rebuilt the answer or missed h6.");
+            Check(ReferenceEquals(document, view.Document) && new TextRange(headings[5].ContentStart, headings[5].ContentEnd).Text.StartsWith("[4:1.1.1.1.1.1]"), "Changing the ordinal rebuilt the answer or missed h6.");
             var h3 = (Hyperlink)headings[2].Inlines.FirstInline!; h3.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
             Check(folds.Values.Count(v => v) == 1, "Heading fold was not saved.");
             h3.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));

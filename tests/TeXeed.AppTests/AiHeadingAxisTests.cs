@@ -51,8 +51,8 @@ internal static partial class Program
             Capture(host, Path.Combine(output, "heading-marker-user-title.png"));
             var initialGlyphs = GlyphInk(view, view);
             File.WriteAllText(Path.Combine(output, "heading-marker-user-ink.json"), JsonSerializer.Serialize(initialGlyphs));
-            var initialMarker = initialGlyphs.Single(g => g.Text.Contains("[1:h2]"));
-            var initialTitle = initialGlyphs.Where(g => g.Bounds.Top < initialMarker.Bounds.Bottom && !g.Text.Contains("[1:h2]")).Select(g => g.Bounds).Aggregate(Rect.Empty, (a, b) => { a.Union(b); return a; });
+            var initialMarker = initialGlyphs.Single(g => g.Text.Contains("[1:0.1]"));
+            var initialTitle = initialGlyphs.Where(g => g.Bounds.Top < initialMarker.Bounds.Bottom && !g.Text.Contains("[1:0.1]")).Select(g => g.Bounds).Aggregate(Rect.Empty, (a, b) => { a.Union(b); return a; });
             foreach (var scale in new[] { 1d, 2d, 4d })
             {
                 var centers = HeadingInkCentroids(view, initialMarker.Bounds, initialTitle, scale);
@@ -66,8 +66,8 @@ internal static partial class Program
             host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
             Capture(host, Path.Combine(output, "heading-marker-user-title-large.png"));
             var largeGlyphs = GlyphInk(view, view);
-            var largeMarker = largeGlyphs.Single(g => g.Text.Contains("[1:h2]"));
-            var largeTitle = largeGlyphs.Where(g => g.Bounds.Top < largeMarker.Bounds.Bottom && !g.Text.Contains("[1:h2]")).Select(g => g.Bounds).Aggregate(Rect.Empty, (a, b) => { a.Union(b); return a; });
+            var largeMarker = largeGlyphs.Single(g => g.Text.Contains("[1:0.1]"));
+            var largeTitle = largeGlyphs.Where(g => g.Bounds.Top < largeMarker.Bounds.Bottom && !g.Text.Contains("[1:0.1]")).Select(g => g.Bounds).Aggregate(Rect.Empty, (a, b) => { a.Union(b); return a; });
             foreach (var scale in new[] { 1d, 2d, 4d })
             {
                 var centers = HeadingInkCentroids(view, largeMarker.Bounds, largeTitle, scale);
@@ -108,7 +108,7 @@ internal static partial class Program
                     host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
                 }
                 var glyphs = GlyphInk(view, view);
-                var marker = glyphs.Where(g => g.Text.Contains($"[{turn}:h{level}]")).ToArray();
+                var marker = glyphs.Where(g => g.Text.Contains($"[{turn}:{string.Join('.', Enumerable.Repeat(0, level - 1).Append(1))}]")).ToArray();
                 var title = glyphs.Where(g => g.Text.Contains(reference)).ToArray();
                 if (marker.Length != 1 || title.Length != 1)
                     throw new Exception($"Cannot identify marker/title glyphs: {size}, h{level}, {text}: {string.Join(" | ", glyphs.Select(g => g.Text))}");

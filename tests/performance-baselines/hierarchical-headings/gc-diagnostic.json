@@ -1,0 +1,911 @@
+{
+  "schema": "texeed-browser-heading-axis-performance-v1",
+  "baselineCommit": "444c3a8e435416f8e6a0fe7a0be3fb9d45e291af",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "156.0.4314.58",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "fixture": "tests/performance-fixtures/browser-heading-axis-v1.cjs",
+    "fixtureSha256": "86ace2243f80240a4980dcf9ada9e85ff4d58b28dcbdc0f5a9f615a0db0c4c12",
+    "rounds": 3,
+    "iterations": 9,
+    "warmups": 2,
+    "frames": 2,
+    "extraWaitMs": 200,
+    "heapSamplingInterval": 1024,
+    "collectGarbageBeforeSamplingStop": true,
+    "limitations": [
+      "Frame times depend on frame phase; the extra 200 ms is a fixed wait, not measured work.",
+      "V8 sampled retained heap is an estimate, not total allocations.",
+      "The after side reads the working tree; resource hashes identify the measured bytes.",
+      "All rounds share one browser process."
+    ]
+  },
+  "resources": {
+    "before": {
+      "index.html": "e66faa8f50e94a333026ee3ffdf5119f66e3e78286cbc9991857229794ef5605",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "d46cbd759b4309fe50cabfcd68e406fec4859b0dd29f5242be8ac0f5c751727d",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "7ec03038c1d62de671de92faab2140fee6442d0b207649b2bfecde0f7f964630"
+    },
+    "after": {
+      "index.html": "a5aa342cf8819680f05ef409fbab692af85b87d3cbaf97f8accb8320b3bbd370",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "2ea228ec4f883cd4b30a44eddb3f4cfe8dbf2e1e9fe62f43c83bafb1edf5da51",
+      "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+      "bookmarks.js": "c700c3d7a5f62b877b7a7795f21d849d82a4d70e5cd76fe8897542d3a69c0fc5"
+    }
+  },
+  "measurements": {
+    "before": [
+      {
+        "firstRender": {
+          "sync": 53.099999994039536,
+          "frame": 58.89999997615814
+        },
+        "samples": [
+          {
+            "sync": 36.900000005960464,
+            "frame": 41,
+            "complete": 246.5
+          },
+          {
+            "sync": 42.80000001192093,
+            "frame": 47.30000001192093,
+            "complete": 258.7000000178814
+          },
+          {
+            "sync": 35.099999994039536,
+            "frame": 38.70000001788139,
+            "complete": 245.90000000596046
+          },
+          {
+            "sync": 35.5,
+            "frame": 39.30000001192093,
+            "complete": 245.30000001192093
+          },
+          {
+            "sync": 38.900000005960464,
+            "frame": 42.80000001192093,
+            "complete": 246.69999998807907
+          },
+          {
+            "sync": 36.5,
+            "frame": 40.099999994039536,
+            "complete": 243.69999998807907
+          },
+          {
+            "sync": 41.19999998807907,
+            "frame": 45.599999994039536,
+            "complete": 260.90000000596046
+          }
+        ],
+        "medianSync": 36.900000005960464,
+        "medianFrame": 41,
+        "medianComplete": 246.5,
+        "sampledRetainedJsBytes": 132780,
+        "sampledSources": [
+          {
+            "name": "prepareReadingLayout",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 910,
+            "selfSize": 47472
+          },
+          {
+            "name": "alignReadingInk",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 660,
+            "selfSize": 22704
+          },
+          {
+            "name": "",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 636,
+            "selfSize": 17552
+          },
+          {
+            "name": "next",
+            "url": "",
+            "line": -1,
+            "selfSize": 10320
+          },
+          {
+            "name": "next",
+            "url": "",
+            "line": -1,
+            "selfSize": 6192
+          },
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 6192
+          },
+          {
+            "name": "(IDLE_EXTERNAL)",
+            "url": "",
+            "line": -1,
+            "selfSize": 3384
+          },
+          {
+            "name": "innerSerialize",
+            "url": "",
+            "line": 185,
+            "selfSize": 3232
+          },
+          {
+            "name": "",
+            "url": "",
+            "line": -1,
+            "selfSize": 2320
+          },
+          {
+            "name": "push",
+            "url": "",
+            "line": -1,
+            "selfSize": 2256
+          },
+          {
+            "name": "renderBubbles",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 720,
+            "selfSize": 2112
+          },
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 2064
+          },
+          {
+            "name": "parseEvaluationResultValue",
+            "url": "",
+            "line": 105,
+            "selfSize": 1512
+          },
+          {
+            "name": "measure",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 665,
+            "selfSize": 1176
+          },
+          {
+            "name": "",
+            "url": "",
+            "line": -1,
+            "selfSize": 1092
+          },
+          {
+            "name": "toLowerCase",
+            "url": "",
+            "line": -1,
+            "selfSize": 1080
+          },
+          {
+            "name": "Ht.tokenize",
+            "url": "http://127.0.0.1:56085/before/vendor/markdown-it/markdown-it.min.js",
+            "line": 1,
+            "selfSize": 1080
+          },
+          {
+            "name": "",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 701,
+            "selfSize": 1040
+          }
+        ],
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 48.79999998211861,
+          "frame": 59.29999998211861
+        },
+        "samples": [
+          {
+            "sync": 38.20000001788139,
+            "frame": 42,
+            "complete": 247.30000001192093
+          },
+          {
+            "sync": 43.80000001192093,
+            "frame": 48.599999994039536,
+            "complete": 259.90000000596046
+          },
+          {
+            "sync": 35.400000005960464,
+            "frame": 39.099999994039536,
+            "complete": 248.40000000596046
+          },
+          {
+            "sync": 37.30000001192093,
+            "frame": 41.099999994039536,
+            "complete": 250
+          },
+          {
+            "sync": 38.5,
+            "frame": 42.400000005960464,
+            "complete": 249.5
+          },
+          {
+            "sync": 36.5,
+            "frame": 40.599999994039536,
+            "complete": 244.2999999821186
+          },
+          {
+            "sync": 43.20000001788139,
+            "frame": 48.099999994039536,
+            "complete": 262.90000000596046
+          }
+        ],
+        "medianSync": 38.20000001788139,
+        "medianFrame": 42,
+        "medianComplete": 249.5,
+        "sampledRetainedJsBytes": 43108,
+        "sampledSources": [
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 13424
+          },
+          {
+            "name": "alignReadingInk",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 660,
+            "selfSize": 9296
+          },
+          {
+            "name": "innerSerialize",
+            "url": "",
+            "line": 185,
+            "selfSize": 5296
+          },
+          {
+            "name": "(IDLE_EXTERNAL)",
+            "url": "",
+            "line": -1,
+            "selfSize": 3384
+          },
+          {
+            "name": "slice",
+            "url": "",
+            "line": -1,
+            "selfSize": 3172
+          },
+          {
+            "name": "",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 701,
+            "selfSize": 2064
+          },
+          {
+            "name": "updateReadingContext",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 902,
+            "selfSize": 1164
+          },
+          {
+            "name": "renderTurns",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 628,
+            "selfSize": 1104
+          },
+          {
+            "name": "test",
+            "url": "",
+            "line": -1,
+            "selfSize": 1080
+          },
+          {
+            "name": "renderBubbles",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 720,
+            "selfSize": 1056
+          },
+          {
+            "name": "serializeAsCallArgument",
+            "url": "",
+            "line": 171,
+            "selfSize": 1036
+          },
+          {
+            "name": "turnEnd",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 607,
+            "selfSize": 1032
+          }
+        ],
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 49,
+          "frame": 60
+        },
+        "samples": [
+          {
+            "sync": 39.70000001788139,
+            "frame": 44,
+            "complete": 246.10000002384186
+          },
+          {
+            "sync": 42.599999994039536,
+            "frame": 47.599999994039536,
+            "complete": 263.19999998807907
+          },
+          {
+            "sync": 36.900000005960464,
+            "frame": 41.10000002384186,
+            "complete": 245.5
+          },
+          {
+            "sync": 40.599999994039536,
+            "frame": 45.39999997615814,
+            "complete": 260
+          },
+          {
+            "sync": 43.5,
+            "frame": 48.19999998807907,
+            "complete": 260.59999999403954
+          },
+          {
+            "sync": 37.80000001192093,
+            "frame": 41.900000005960464,
+            "complete": 247.10000002384186
+          },
+          {
+            "sync": 43.599999994039536,
+            "frame": 48.39999997615814,
+            "complete": 262.2999999821186
+          }
+        ],
+        "medianSync": 40.599999994039536,
+        "medianFrame": 45.39999997615814,
+        "medianComplete": 260,
+        "sampledRetainedJsBytes": 27288,
+        "sampledSources": [
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 8256
+          },
+          {
+            "name": "(IDLE_EXTERNAL)",
+            "url": "",
+            "line": -1,
+            "selfSize": 3384
+          },
+          {
+            "name": "alignReadingInk",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 660,
+            "selfSize": 3104
+          },
+          {
+            "name": "renderBubbles",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 720,
+            "selfSize": 2188
+          },
+          {
+            "name": "next",
+            "url": "",
+            "line": -1,
+            "selfSize": 2064
+          },
+          {
+            "name": "parseEvaluationResultValue",
+            "url": "",
+            "line": 105,
+            "selfSize": 1512
+          },
+          {
+            "name": "alignPendingIndicator",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 651,
+            "selfSize": 1416
+          },
+          {
+            "name": "updateReadingContext",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 902,
+            "selfSize": 1164
+          },
+          {
+            "name": "push",
+            "url": "",
+            "line": -1,
+            "selfSize": 1080
+          },
+          {
+            "name": "evaluate",
+            "url": "",
+            "line": 304,
+            "selfSize": 1040
+          },
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 1040
+          },
+          {
+            "name": "",
+            "url": "http://127.0.0.1:56085/before/index.html?test=1",
+            "line": 701,
+            "selfSize": 1040
+          }
+        ],
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ],
+    "after": [
+      {
+        "firstRender": {
+          "sync": 59.19999998807907,
+          "frame": 71.19999998807907
+        },
+        "samples": [
+          {
+            "sync": 40.19999998807907,
+            "frame": 44.69999998807907,
+            "complete": 247.19999998807907
+          },
+          {
+            "sync": 44.89999997615814,
+            "frame": 49.79999998211861,
+            "complete": 262.89999997615814
+          },
+          {
+            "sync": 37.20000001788139,
+            "frame": 40.80000001192093,
+            "complete": 248.5
+          },
+          {
+            "sync": 36.599999994039536,
+            "frame": 40.29999998211861,
+            "complete": 245.7999999821186
+          },
+          {
+            "sync": 40.79999998211861,
+            "frame": 44.5,
+            "complete": 258.19999998807907
+          },
+          {
+            "sync": 36.900000005960464,
+            "frame": 41.099999994039536,
+            "complete": 246.2000000178814
+          },
+          {
+            "sync": 44.19999998807907,
+            "frame": 48.79999998211861,
+            "complete": 262.40000000596046
+          }
+        ],
+        "medianSync": 40.19999998807907,
+        "medianFrame": 44.5,
+        "medianComplete": 248.5,
+        "sampledRetainedJsBytes": 61068,
+        "sampledSources": [
+          {
+            "name": "alignReadingInk",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 661,
+            "selfSize": 22704
+          },
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 14448
+          },
+          {
+            "name": "(IDLE_EXTERNAL)",
+            "url": "",
+            "line": -1,
+            "selfSize": 4660
+          },
+          {
+            "name": "next",
+            "url": "",
+            "line": -1,
+            "selfSize": 4128
+          },
+          {
+            "name": "test",
+            "url": "",
+            "line": -1,
+            "selfSize": 2268
+          },
+          {
+            "name": "innerSerialize",
+            "url": "",
+            "line": 185,
+            "selfSize": 2192
+          },
+          {
+            "name": "push",
+            "url": "",
+            "line": -1,
+            "selfSize": 2112
+          },
+          {
+            "name": "",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 702,
+            "selfSize": 2064
+          },
+          {
+            "name": "serializeAsCallArgument",
+            "url": "",
+            "line": 171,
+            "selfSize": 1168
+          },
+          {
+            "name": "updateReadingContext",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 903,
+            "selfSize": 1164
+          },
+          {
+            "name": "_promiseAwareJsonValueNoThrow",
+            "url": "",
+            "line": 326,
+            "selfSize": 1040
+          },
+          {
+            "name": "renderBubbles",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 721,
+            "selfSize": 1040
+          },
+          {
+            "name": "Ut",
+            "url": "http://127.0.0.1:56085/after/vendor/markdown-it/markdown-it.min.js",
+            "line": 1,
+            "selfSize": 1040
+          },
+          {
+            "name": "isRegExp",
+            "url": "",
+            "line": 35,
+            "selfSize": 1040
+          }
+        ],
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 56.10000002384186,
+          "frame": 62.20000001788139
+        },
+        "samples": [
+          {
+            "sync": 40,
+            "frame": 44.20000001788139,
+            "complete": 259
+          },
+          {
+            "sync": 42.89999997615814,
+            "frame": 47.79999998211861,
+            "complete": 262.2999999821186
+          },
+          {
+            "sync": 36,
+            "frame": 39.80000001192093,
+            "complete": 247.2000000178814
+          },
+          {
+            "sync": 36.60000002384186,
+            "frame": 40.30000001192093,
+            "complete": 248.2000000178814
+          },
+          {
+            "sync": 39.900000005960464,
+            "frame": 43.900000005960464,
+            "complete": 249
+          },
+          {
+            "sync": 36.900000005960464,
+            "frame": 41,
+            "complete": 246.80000001192093
+          },
+          {
+            "sync": 44.400000005960464,
+            "frame": 48.900000005960464,
+            "complete": 262.59999999403954
+          }
+        ],
+        "medianSync": 39.900000005960464,
+        "medianFrame": 43.900000005960464,
+        "medianComplete": 249,
+        "sampledRetainedJsBytes": 55728,
+        "sampledSources": [
+          {
+            "name": "alignReadingInk",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 661,
+            "selfSize": 22704
+          },
+          {
+            "name": "next",
+            "url": "",
+            "line": -1,
+            "selfSize": 8256
+          },
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 5168
+          },
+          {
+            "name": "(IDLE_EXTERNAL)",
+            "url": "",
+            "line": -1,
+            "selfSize": 4660
+          },
+          {
+            "name": "innerSerialize",
+            "url": "",
+            "line": 185,
+            "selfSize": 2192
+          },
+          {
+            "name": "",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 702,
+            "selfSize": 2064
+          },
+          {
+            "name": "serializeAsCallArgument",
+            "url": "",
+            "line": 171,
+            "selfSize": 1168
+          },
+          {
+            "name": "updateReadingContext",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 903,
+            "selfSize": 1164
+          },
+          {
+            "name": "values",
+            "url": "",
+            "line": -1,
+            "selfSize": 1080
+          },
+          {
+            "name": "evaluate",
+            "url": "",
+            "line": 304,
+            "selfSize": 1040
+          },
+          {
+            "name": "Ut",
+            "url": "http://127.0.0.1:56085/after/vendor/markdown-it/markdown-it.min.js",
+            "line": 1,
+            "selfSize": 1040
+          },
+          {
+            "name": "serialize",
+            "url": "",
+            "line": 174,
+            "selfSize": 1040
+          },
+          {
+            "name": "innerSerialize",
+            "url": "",
+            "line": 185,
+            "selfSize": 1040
+          },
+          {
+            "name": "",
+            "url": "",
+            "line": 324,
+            "selfSize": 1040
+          },
+          {
+            "name": "Number",
+            "url": "",
+            "line": -1,
+            "selfSize": 1036
+          },
+          {
+            "name": "",
+            "url": "",
+            "line": 324,
+            "selfSize": 1036
+          }
+        ],
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 50,
+          "frame": 61.30000001192093
+        },
+        "samples": [
+          {
+            "sync": 39.5,
+            "frame": 43.60000002384186,
+            "complete": 248.60000002384186
+          },
+          {
+            "sync": 43,
+            "frame": 47.69999998807907,
+            "complete": 262.69999998807907
+          },
+          {
+            "sync": 48,
+            "frame": 53.400000005960464,
+            "complete": 263.30000001192093
+          },
+          {
+            "sync": 37.099999994039536,
+            "frame": 40.900000005960464,
+            "complete": 245.80000001192093
+          },
+          {
+            "sync": 41.5,
+            "frame": 45.29999998211861,
+            "complete": 247.5
+          },
+          {
+            "sync": 37.19999998807907,
+            "frame": 41.599999994039536,
+            "complete": 249.09999999403954
+          },
+          {
+            "sync": 43.60000002384186,
+            "frame": 47.900000005960464,
+            "complete": 263.90000000596046
+          }
+        ],
+        "medianSync": 41.5,
+        "medianFrame": 45.29999998211861,
+        "medianComplete": 249.09999999403954,
+        "sampledRetainedJsBytes": 50888,
+        "sampledSources": [
+          {
+            "name": "alignReadingInk",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 661,
+            "selfSize": 17552
+          },
+          {
+            "name": "forEach",
+            "url": "",
+            "line": -1,
+            "selfSize": 9296
+          },
+          {
+            "name": "next",
+            "url": "",
+            "line": -1,
+            "selfSize": 8256
+          },
+          {
+            "name": "innerSerialize",
+            "url": "",
+            "line": 185,
+            "selfSize": 3232
+          },
+          {
+            "name": "ink",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 669,
+            "selfSize": 2072
+          },
+          {
+            "name": "",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 702,
+            "selfSize": 2064
+          },
+          {
+            "name": "(IDLE_EXTERNAL)",
+            "url": "",
+            "line": -1,
+            "selfSize": 1996
+          },
+          {
+            "name": "renderTurns",
+            "url": "http://127.0.0.1:56085/after/index.html?test=1",
+            "line": 628,
+            "selfSize": 1104
+          },
+          {
+            "name": "",
+            "url": "",
+            "line": -1,
+            "selfSize": 1092
+          },
+          {
+            "name": "String",
+            "url": "",
+            "line": -1,
+            "selfSize": 1080
+          },
+          {
+            "name": "evaluate",
+            "url": "",
+            "line": 304,
+            "selfSize": 1064
+          },
+          {
+            "name": "isDate",
+            "url": "",
+            "line": 42,
+            "selfSize": 1040
+          },
+          {
+            "name": "isArrayBuffer",
+            "url": "",
+            "line": 71,
+            "selfSize": 1040
+          }
+        ],
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ]
+  }
+}

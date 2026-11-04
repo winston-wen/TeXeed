@@ -235,8 +235,12 @@ public partial class AiPanel
     {
         if (_defaultBookmarks is null || _userBookmarks is null || _bookmarkSearch is null) return;
         var query = _bookmarkSearch.Text.Trim();
-        var numbered = query.Length > 0 && char.IsDigit(query[0]);
-        var matches = _bookmarkItems.Where(b => query.Length == 0 || (numbered ? b.Label.StartsWith(query, StringComparison.CurrentCultureIgnoreCase) : b.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase)) || b.Description.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToArray();
+        var numberQuery = query;
+        var bracketed = query.Length > 1 && query[0] == '[' && char.IsDigit(query[1]);
+        if (bracketed)
+            numberQuery = query[1..].TrimEnd(']');
+        var numbered = numberQuery.Length > 0 && char.IsDigit(numberQuery[0]);
+        var matches = _bookmarkItems.Where(b => query.Length == 0 || (numbered ? b.Label.StartsWith(numberQuery, StringComparison.CurrentCultureIgnoreCase) : b.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase)) || bracketed && b.Kind == AiBookmarkKind.User && b.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase) || b.Description.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToArray();
         var defaults = matches.Where(b => b.Kind != AiBookmarkKind.User).Select(b => new BookmarkRow(b)).ToArray();
         var users = matches.Where(b => b.Kind == AiBookmarkKind.User);
         if (_bookmarkOrder?.SelectedIndex == 1) users = users.OrderBy(b => b.Label, StringComparer.CurrentCultureIgnoreCase).ThenBy(b => b.TurnIndex).ThenBy(b => b.SegmentIndex).ThenBy(b => b.Position);

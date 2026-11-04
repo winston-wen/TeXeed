@@ -34,6 +34,7 @@ public partial class AiPanel
             var turn = conversation.Turns[turnIndex];
             turnIndices.TryAdd(turn.Id, turnIndex);
             var segments = turn.DisplaySegments;
+            var headingNumbers = new AiHeadingNumbers();
             for (var segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
             {
                 var segment = segments[segmentIndex];
@@ -44,7 +45,9 @@ public partial class AiPanel
                     _bookmarkCache[key] = cached = (segment.Text, MarkdownView.BookmarkFragments(segment.Text));
                 foreach (var item in cached.Items)
                 {
-                    var label = $"{turnIndex + 1}:{item.Number}";
+                    var number = item.Kind == AiBookmarkKind.Heading && int.TryParse(item.Number.AsSpan(1), out var level)
+                        ? headingNumbers.Next(level) : item.Number;
+                    var label = $"{turnIndex + 1}:{number}";
                     results.Add(new($"{turn.Id}:{segment.Id}:{item.Kind}:{item.Position}", label, item.Description,
                         turn.Id, segment.Id, item.Kind, turnIndex, segmentIndex, item.Position, null));
                 }

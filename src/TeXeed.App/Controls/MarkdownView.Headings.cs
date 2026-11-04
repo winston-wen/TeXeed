@@ -9,14 +9,20 @@ namespace TeXeed.App.Controls;
 public sealed partial class MarkdownView
 {
     private static readonly object HeadingNumberMarker = new();
-    private readonly List<(Run Run, int Level)> _headingMarkers = [];
+    private readonly List<(Run Run, string Number)> _headingMarkers = [];
+    private int[] _headingSeed = new int[6];
+    private AiHeadingNumbers _headingNumbers = new();
+    internal int[] HeadingSeed { set => _headingSeed = (int[])value.Clone(); }
+    internal int[] HeadingCounts => _headingNumbers.Snapshot();
+    private void ResetHeadingNumbers() => _headingNumbers = new AiHeadingNumbers(_headingSeed);
     private void AddHeadingNumber(Paragraph paragraph, int level)
     {
         paragraph.FontSize = FontSize;
         var text = HeadingRuns(paragraph.Inlines).Select(run => (Run: run, Weight: run.FontWeight)).ToArray();
         paragraph.FontFamily = FontFamily;
         if (double.IsNaN(paragraph.LineHeight)) paragraph.LineHeight = ChatLineHeight;
-        var marker = new Run($"[{TurnNumber}:h{level}]\u2002")
+        var number = _headingNumbers.Next(level);
+        var marker = new Run($"[{TurnNumber}:{number}]\u2002")
         {
             Tag = HeadingNumberMarker, FontFamily = FontFamily
         };
@@ -33,7 +39,7 @@ public sealed partial class MarkdownView
                 - InkAxis(marker.Text, FontFamily, marker.FontWeight, FontStyles.Normal, FontSize) + FontSize * .04);
         if (paragraph.Inlines.FirstInline is { } first) paragraph.Inlines.InsertBefore(first, marker);
         else paragraph.Inlines.Add(marker);
-        _headingMarkers.Add((marker, level));
+        _headingMarkers.Add((marker, number));
     }
 
     private static string FirstTitleWord(string text)
@@ -76,7 +82,7 @@ public sealed partial class MarkdownView
 
     private void UpdateHeadingNumbers()
     {
-        foreach (var (run, level) in _headingMarkers) run.Text = $"[{TurnNumber}:h{level}]\u2002";
+        foreach (var (run, number) in _headingMarkers) run.Text = $"[{TurnNumber}:{number}]\u2002";
         LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout();
     }
 

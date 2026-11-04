@@ -38,18 +38,22 @@ function answer(){
 context.current=()=>conversation;context.prepareReadingLayout=()=>{};
 context.document={querySelectorAll:selector=>selector==='.answer'?[renderedAnswer]:[],createElement:()=>({dataset:{},attributes:{},setAttribute(name,value){this.attributes[name]=value;}})};
 vm.runInContext(app.slice(app.indexOf('function enhanceAnswers('),app.indexOf('function toggleTurn(')),context);
-renderedAnswer=answer();const adjacentHeading={tagName:'H6',innerHTML:'Adjacent title'};renderedAnswer.passages[2].additionalHeadings=[adjacentHeading];context.enhanceAnswers();assert.match(adjacentHeading.innerHTML,/\[3:h6\]/);
-for(const p of renderedAnswer.passages.filter(p=>p.heading))assert.ok(p.heading.button.innerHTML.includes('[3:'+p.heading.tagName.toLowerCase()+']'));
+renderedAnswer=answer();const adjacentHeading={tagName:'H6',innerHTML:'Adjacent title'};renderedAnswer.passages[2].additionalHeadings=[adjacentHeading];renderedAnswer.passages[4].heading.innerHTML='2. 原有手写编号';context.enhanceAnswers();assert.match(adjacentHeading.innerHTML,/\[3:1\.1\.0\.0\.0\.1\]/);
+assert.deepEqual(renderedAnswer.passages.filter(p=>p.heading).map(p=>p.heading.button.innerHTML.match(/\[3:[\d.]+\]/)?.[0]),['[3:1]','[3:1.1]','[3:1.1.1]','[3:1.1.1.1]','[3:1.1.1.1.1]','[3:1.1.1.1.1.1]','[3:1.2]','[3:2]']);
+assert.match(renderedAnswer.passages[4].heading.button.innerHTML,/2\. 原有手写编号/);
 assert.equal(renderedAnswer.passages[4].hidden,false);for(let i=5;i<12;i++)assert.equal(renderedAnswer.passages[i].hidden,true);assert.equal(renderedAnswer.passages[12].hidden,false);
 turn.sections.p0=true;renderedAnswer=answer();context.enhanceAnswers();for(let i=1;i<14;i++)assert.equal(renderedAnswer.passages[i].hidden,true);assert.equal(renderedAnswer.passages[14].hidden,false);
-delete turn.sections.p0;conversation.turns.unshift({id:'new-first'});renderedAnswer=answer();context.enhanceAnswers();assert.match(renderedAnswer.passages[4].heading.button.innerHTML,/\[4:h3\]/);assert.equal(turn.sections.p4,true);
+delete turn.sections.p0;conversation.turns.unshift({id:'new-first'});renderedAnswer=answer();context.enhanceAnswers();assert.match(renderedAnswer.passages[4].heading.button.innerHTML,/\[4:1\.1\.1\]/);assert.equal(turn.sections.p4,true);
+renderedAnswer=answer();renderedAnswer.passages[0].heading=null;renderedAnswer.passages[2].heading.tagName='H2';context.enhanceAnswers();assert.match(renderedAnswer.passages[2].heading.button.innerHTML,/\[4:0\.1\]/);
+const firstSegment=answer(),secondSegment=answer();firstSegment.passages.splice(2);secondSegment.passages.splice(2);context.document.querySelectorAll=selector=>selector==='.answer'?[firstSegment,secondSegment]:[];context.enhanceAnswers();assert.match(firstSegment.passages[0].heading.button.innerHTML,/\[4:1\]/);assert.match(secondSegment.passages[0].heading.button.innerHTML,/\[4:2\]/,'Same-turn answer fragments share heading counters');context.document.querySelectorAll=selector=>selector==='.answer'?[renderedAnswer]:[];
 
 vm.runInContext(app.slice(app.indexOf('function serialize('),app.indexOf('function targetContext(')),context);
 const text=value=>({nodeType:3,nodeValue:value}),element=(name,classes,children)=>({nodeType:1,childNodes:children,matches:selectors=>selectors.split(',').some(selector=>selector.startsWith('.')?classes.includes(selector.slice(1)):name===selector)});
-const heading=element('h6',[],[element('button',[],[element('span',['heading-marker'],[text('[4:h6]')]),element('span',['heading-label'],[text('Deep title')])])]);
+const heading=element('h6',[],[element('button',[],[element('span',['heading-marker'],[text('[4:1.1.1.1.1.1]')]),element('span',['heading-label'],[text('Deep title')])])]);
 assert.equal(context.serialize(heading),'Deep title\n');assert.equal(context.serialize({nodeType:11,childNodes:[heading]}),'Deep title\n');
 
 let formulaHandler;const formulaTarget={passage:renderedAnswer.passages[11],scrollIntoView(){},classList:{add(){}}};
+renderedAnswer=answer();formulaTarget.passage=renderedAnswer.passages[11];
 context.$=id=>id==='thread'?{addEventListener(type,handler){formulaHandler=handler;}}:formulaTarget;context.renderTurns=()=>{};context.requestAnimationFrame=callback=>callback();context.saveReading=()=>{};
 const formulaStart=app.indexOf("$('thread').addEventListener('click',event=>{const b=event.target.closest('[data-equation-ref]')");
 vm.runInContext(app.slice(formulaStart,app.indexOf("window.addEventListener('resize',commitAnnotation)",formulaStart)),context);

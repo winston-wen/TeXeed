@@ -634,14 +634,15 @@ function renderTurns(){
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
  document.querySelectorAll('.answer code').forEach(code=>{const turn=current().turns.find(t=>t.id===code.closest('.answer').dataset.turn);if(!BUNDLED_TURNS.some(t=>t.id===turn.id&&t.answer===turn.answer))return;const text=code.textContent.trim();if(/^(?:main\.tex|qa\.md)(?::\d+(?:[–—-]\d+)?)?$/.test(text)){const b=document.createElement('button');b.className='file-link';b.dataset.file=text;b.textContent=text;b.title='打开源码快照'+(text.includes(':')?'并跳转到行号':'');code.replaceChildren(b);}});
+ const answerNumbers=new Map();
  document.querySelectorAll('.answer').forEach(answer=>{
-  prepareReadingLayout(answer);const index=current().turns.findIndex(t=>t.id===answer.dataset.turn),t=current().turns[index];let hiding=[];
+  prepareReadingLayout(answer);const index=current().turns.findIndex(t=>t.id===answer.dataset.turn),t=current().turns[index],numbers=answerNumbers.get(answer.dataset.turn)||[0,0,0,0,0,0];answerNumbers.set(answer.dataset.turn,numbers);let hiding=[];
   for(const p of answer.querySelectorAll(':scope>.passage')){
    const headings=[...p.querySelectorAll('h1,h2,h3,h4,h5,h6')],h=headings[0];
    if(!h){p.hidden=!!hiding.length||p.dataset.readingHidden==='true';continue;}
    const level=Number(h.tagName.slice(1));hiding=hiding.filter(x=>x<level);p.hidden=!!hiding.length||p.dataset.readingHidden==='true';
    let firstLabel;
-   for(const heading of headings){const label='<span class="heading-marker" aria-hidden="true">['+(index+1)+':'+heading.tagName.toLowerCase()+']</span><span class="heading-label">'+heading.innerHTML+'</span>';if(heading===h)firstLabel=label;else heading.innerHTML=label;}
+   for(const heading of headings){const depth=Number(heading.tagName.slice(1));numbers[depth-1]++;numbers.fill(0,depth);const label='<span class="heading-marker" aria-hidden="true">['+(index+1)+':'+numbers.slice(0,depth).join('.')+']</span><span class="heading-label">'+heading.innerHTML+'</span>';if(heading===h)firstLabel=label;else heading.innerHTML=label;}
    const collapsed=!!t.sections?.[p.id],b=document.createElement('button');b.className='heading-toggle';b.dataset.section=p.id;b.setAttribute('aria-expanded',String(!collapsed));
    b.innerHTML=firstLabel+(collapsed?'<span class="heading-collapsed">（已折叠）</span>':'');h.replaceChildren(b);if(collapsed)hiding.push(level);
   }

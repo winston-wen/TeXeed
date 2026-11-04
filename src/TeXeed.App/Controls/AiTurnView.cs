@@ -110,7 +110,10 @@ public sealed class AiTurnView : StackPanel
     private void BuildBody()
     {
         _bodyBuilt = true;
-        foreach (var segment in Turn.DisplaySegments)
+        var segments = Turn.DisplaySegments;
+        var remainingAnswers = segments.Count(segment => segment.Kind != "activity");
+        var headings = new AiHeadingNumbers();
+        foreach (var segment in segments)
         {
             if (segment.Kind == "activity")
             {
@@ -125,11 +128,18 @@ public sealed class AiTurnView : StackPanel
                     _body.Children.Add(divider);
                 }
                 var answer = Rich("", new Thickness(0, 2, 0, 0)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
+                answer.HeadingSeed = headings.Snapshot();
                 answer.ChatMode = true; answer.TurnNumber = TurnNumber; answer.ImageBaseDirectory = ImageBaseDirectory;
                 answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => Changed?.Invoke());
                 answer.Markdown = segment.Text;
                 answer.Loaded += (_, _) => AnswerReady?.Invoke(answer); answer.Unloaded += (_, _) => AnswerGone?.Invoke(answer);
                 Answers.Add(answer); _body.Children.Add(answer);
+                if (--remainingAnswers > 0)
+                {
+                    if (answer.RenderTask.IsCompletedSuccessfully) headings = new AiHeadingNumbers(answer.HeadingCounts);
+                    else foreach (var fragment in MarkdownView.BookmarkFragments(segment.Text))
+                        if (fragment.Kind == AiBookmarkKind.Heading && int.TryParse(fragment.Number.AsSpan(1), out var level)) headings.Next(level);
+                }
             }
         }
     }
