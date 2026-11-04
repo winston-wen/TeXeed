@@ -27,6 +27,10 @@ public sealed record AiUserBookmark
     public string Label { get; init; } = "";
     public AiAnswerAnchor? Anchor { get; init; }
     public List<string> FoldKeys { get; init; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ContextBefore { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ContextAfter { get; init; }
 }
 
 public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged

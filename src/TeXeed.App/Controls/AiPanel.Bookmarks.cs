@@ -12,6 +12,7 @@ public partial class AiPanel
     private const string BookmarkQuestionPrefix = "@question:";
     private readonly Dictionary<(string Turn, string Segment), (string Text, IReadOnlyList<AiBookmarkFragment> Items)> _bookmarkCache = [];
     private readonly HashSet<MarkdownView> _bookmarkQuestions = [];
+    private readonly Dictionary<MarkdownView, AiBookmarkMarkerLayer> _bookmarkMarkerLayers = [];
     private bool _liveBookmarkCheckpointReady;
 
     private AiTurn? StableLiveBookmarkQuestion()
@@ -83,9 +84,10 @@ public partial class AiPanel
         if (segmentId is null) return null;
         var selection = view.GetAnnotationSelection();
         if (string.IsNullOrWhiteSpace(selection.Quote) || selection.Quote.Length > 40000) return null;
+        var context = view.BookmarkSelectionContext();
         var anchor = new AiAnswerAnchor(turn.Id, segmentId, selection.Offset, selection.Length, selection.Quote, view.Revision)
             { TextOffset = selection.TextOffset };
-        return new(_book.Active.Id, anchor, view.BookmarkSelectionFoldKeys());
+        return new(_book.Active.Id, anchor, view.BookmarkSelectionFoldKeys(), context.Before, context.After);
     }
 
     internal bool AddBookmarkFromSelection(AiBookmarkSelection selection, string label)
@@ -105,13 +107,15 @@ public partial class AiPanel
             var segment = turn.DisplaySegments.FirstOrDefault(s => s.Id == selection.Anchor.SegmentId);
             if (segment is null || AiStorage.Hash(segment.Text) != selection.Anchor.Revision) return false;
         }
-        conversation.Bookmarks.Add(new() { Label = label, Anchor = selection.Anchor, FoldKeys = [.. selection.FoldKeys] });
+        conversation.Bookmarks.Add(new() { Label = label, Anchor = selection.Anchor, FoldKeys = [.. selection.FoldKeys], ContextBefore = selection.ContextBefore, ContextAfter = selection.ContextAfter });
+        RefreshBookmarkMarkers();
         Dirty(); SaveAnnotationChanges(); return true;
     }
 
     internal bool RemoveBookmark(AiBookmarkTarget bookmark)
     {
         if (bookmark.Kind != AiBookmarkKind.User || _book.Active.Bookmarks.RemoveAll(b => b.Id == bookmark.Id) == 0) return false;
+        RefreshBookmarkMarkers();
         Dirty(); SaveAnnotationChanges(); return true;
     }
 
@@ -126,7 +130,8 @@ public partial class AiPanel
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
             if (_disposed || _book.Active != conversation) return false;
             if (StableLiveBookmarkQuestion()?.Id != bookmark.TurnId) return await NavigateBookmarkAsync(bookmark);
-            var livePointer = LiveQuestion.BookmarkPointer(bookmark.Id, liveAnchor);
+            var liveSaved = conversation.Bookmarks.FirstOrDefault(item => item.Id == bookmark.Id);
+            var livePointer = liveSaved is null ? null : LiveQuestion.ResolveUserBookmark(liveSaved);
             History.UpdateLayout();
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
             if (livePointer is null || LiveQuestion.BookmarkPoint(livePointer) is not { } livePoint) return false;
@@ -160,8 +165,12 @@ public partial class AiPanel
             var saved = conversation.Bookmarks.FirstOrDefault(b => b.Id == bookmark.Id);
             if (saved is null) return false;
             view.RevealBookmarkFolds(saved.FoldKeys);
-            pointer = view.BookmarkPointer(bookmark.Id, anchor);
-            if (pointer is null && saved.FoldKeys.Count == 0) { view.RevealAllBookmarkFolds(); pointer = view.BookmarkPointer(bookmark.Id, anchor); }
+            pointer = view.ResolveUserBookmark(saved);
+            if (pointer is null && saved.FoldKeys.Count == 0)
+            {
+                view.RevealAllBookmarkFolds();
+                pointer = view.ResolveUserBookmark(saved);
+            }
         }
         else pointer = view.BookmarkBlock(bookmark.Kind, bookmark.Position) is TextElement block ? block.ContentStart : null;
         if (pointer is null) return false;
@@ -176,6 +185,7 @@ public partial class AiPanel
     private void BookmarkQuestionLoaded(MarkdownView view)
     {
         if (!_bookmarkQuestions.Add(view)) return;
+        RefreshBookmarkMarker(view, true);
         var menu = new ContextMenu();
         var bookmark = new MenuItem { Header = "为所选内容添加标签" };
         ToolTipService.SetShowOnDisabled(bookmark, true);
@@ -194,5 +204,37 @@ public partial class AiPanel
         view.ContextMenu = menu;
     }
 
-    private void BookmarkQuestionUnloaded(MarkdownView view) => _bookmarkQuestions.Remove(view);
+    private void BookmarkQuestionUnloaded(MarkdownView view) { _bookmarkQuestions.Remove(view); RemoveBookmarkMarker(view); }
+
+    private void RemoveBookmarkMarker(MarkdownView view)
+    {
+        if (_bookmarkMarkerLayers.Remove(view, out var layer)) layer.Dispose();
+    }
+    private void ClearBookmarkMarkers()
+    {
+        foreach (var layer in _bookmarkMarkerLayers.Values) layer.Dispose();
+        _bookmarkMarkerLayers.Clear();
+    }
+    private void RefreshBookmarkMarkers()
+    {
+        foreach (var view in _answerLayers.Keys) RefreshBookmarkMarker(view, false);
+        foreach (var view in _bookmarkQuestions) RefreshBookmarkMarker(view, true);
+    }
+    private void RefreshBookmarkMarker(MarkdownView view, bool question)
+    {
+        var turn = AnswerTurn(view) ?? (ReferenceEquals(view, LiveQuestion) ? StableLiveBookmarkQuestion() : null);
+        string? segment = view.DataContext is AiSegment answer ? answer.Id : null;
+        if (question && ReferenceEquals(view, LiveQuestion)) segment = BookmarkQuestionPrefix + "0";
+        else if (question && turn is not null && _turnViews.TryGetValue(turn.Id, out var owner))
+        {
+            var index = owner.Questions.IndexOf(view);
+            segment = index >= 0 ? BookmarkQuestionPrefix + index : null;
+        }
+        var bookmarks = turn is null || segment is null ? [] : _book.Active.Bookmarks.Where(b =>
+            b.Anchor is { } anchor && anchor.TurnId == turn.Id && anchor.SegmentId == segment).ToArray();
+        if (bookmarks.Length == 0) { RemoveBookmarkMarker(view); return; }
+        if (!_bookmarkMarkerLayers.TryGetValue(view, out var layer))
+            _bookmarkMarkerLayers[view] = layer = new AiBookmarkMarkerLayer(view, question);
+        layer.SetBookmarks(bookmarks);
+    }
 }

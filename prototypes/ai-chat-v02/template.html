@@ -90,6 +90,8 @@ details[open]>summary:before { transform:rotate(90deg) }
 .question,.answer,.snapshot-scroll { font:var(--reading-font)/var(--reading-line) var(--serif); font-weight:400; font-synthesis:none }
 .question { position:relative; background:transparent; border:0; padding:0; white-space:normal }
 .turn-number { position:absolute; right:calc(100% + .625em); top:0; color:#d8c09b; white-space:nowrap; font:var(--reading-font)/var(--reading-line) var(--serif); font-variant-numeric:tabular-nums; user-select:none }
+.user-bookmark-marker { position:absolute; right:calc(100% + 8px); width:10px; height:13px; color:#d8c09b; opacity:.8; pointer-events:none; user-select:none }
+.user-bookmark-marker svg { display:block; width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round }
 .question-text:empty { display:none }
 .question pre { font-family:var(--code-font) }
 .segments { margin:0; padding:0 }

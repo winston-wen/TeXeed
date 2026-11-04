@@ -1,0 +1,364 @@
+diff --git a/src/TeXeed.App/AI/AiModels.cs b/src/TeXeed.App/AI/AiModels.cs
+index 29738a8..f53f70a 100644
+--- a/src/TeXeed.App/AI/AiModels.cs
++++ b/src/TeXeed.App/AI/AiModels.cs
+@@ -27,6 +27,10 @@ public sealed record AiUserBookmark
+     public string Label { get; init; } = "";
+     public AiAnswerAnchor? Anchor { get; init; }
+     public List<string> FoldKeys { get; init; } = [];
++    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
++    public string? ContextBefore { get; init; }
++    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
++    public string? ContextAfter { get; init; }
+ }
+ 
+ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
+diff --git a/src/TeXeed.App/Controls/AiPanel.Annotations.cs b/src/TeXeed.App/Controls/AiPanel.Annotations.cs
+index cefbfe2..fc2d4c3 100644
+--- a/src/TeXeed.App/Controls/AiPanel.Annotations.cs
++++ b/src/TeXeed.App/Controls/AiPanel.Annotations.cs
+@@ -51,6 +51,7 @@ public partial class AiPanel
+             return view.AnnotationPoint(entry.Id, anchor);
+         }, RemoveAnnotation, margin: true, confirm: ConfirmAnnotation, commit: SaveAnnotationChanges);
+         _answerLayers.Add(view, layer);
++        RefreshBookmarkMarker(view, false);
+         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
+         var menu = new ContextMenu();
+         var annotate = new MenuItem { Header = "批注所选内容" };
+@@ -80,7 +81,7 @@ public partial class AiPanel
+     private void Answer_Unloaded(object sender, RoutedEventArgs e)
+     {
+         // Layers follow Loaded/Unloaded themselves; keep only currently attached answers in the panel.
+-        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; }
++        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; }
+     }
+     private void Answer_MouseUp(object sender, MouseButtonEventArgs e)
+     {
+diff --git a/src/TeXeed.App/Controls/AiPanel.Bookmarks.cs b/src/TeXeed.App/Controls/AiPanel.Bookmarks.cs
+index 5128aa5..7c5c9b0 100644
+--- a/src/TeXeed.App/Controls/AiPanel.Bookmarks.cs
++++ b/src/TeXeed.App/Controls/AiPanel.Bookmarks.cs
+@@ -12,6 +12,7 @@ public partial class AiPanel
+     private const string BookmarkQuestionPrefix = "@question:";
+     private readonly Dictionary<(string Turn, string Segment), (string Text, IReadOnlyList<AiBookmarkFragment> Items)> _bookmarkCache = [];
+     private readonly HashSet<MarkdownView> _bookmarkQuestions = [];
++    private readonly Dictionary<MarkdownView, AiBookmarkMarkerLayer> _bookmarkMarkerLayers = [];
+     private bool _liveBookmarkCheckpointReady;
+ 
+     private AiTurn? StableLiveBookmarkQuestion()
+@@ -83,9 +84,10 @@ public partial class AiPanel
+         if (segmentId is null) return null;
+         var selection = view.GetAnnotationSelection();
+         if (string.IsNullOrWhiteSpace(selection.Quote) || selection.Quote.Length > 40000) return null;
++        var context = view.BookmarkSelectionContext();
+         var anchor = new AiAnswerAnchor(turn.Id, segmentId, selection.Offset, selection.Length, selection.Quote, view.Revision)
+             { TextOffset = selection.TextOffset };
+-        return new(_book.Active.Id, anchor, view.BookmarkSelectionFoldKeys());
++        return new(_book.Active.Id, anchor, view.BookmarkSelectionFoldKeys(), context.Before, context.After);
+     }
+ 
+     internal bool AddBookmarkFromSelection(AiBookmarkSelection selection, string label)
+@@ -105,13 +107,15 @@ public partial class AiPanel
+             var segment = turn.DisplaySegments.FirstOrDefault(s => s.Id == selection.Anchor.SegmentId);
+             if (segment is null || AiStorage.Hash(segment.Text) != selection.Anchor.Revision) return false;
+         }
+-        conversation.Bookmarks.Add(new() { Label = label, Anchor = selection.Anchor, FoldKeys = [.. selection.FoldKeys] });
++        conversation.Bookmarks.Add(new() { Label = label, Anchor = selection.Anchor, FoldKeys = [.. selection.FoldKeys], ContextBefore = selection.ContextBefore, ContextAfter = selection.ContextAfter });
++        RefreshBookmarkMarkers();
+         Dirty(); SaveAnnotationChanges(); return true;
+     }
+ 
+     internal bool RemoveBookmark(AiBookmarkTarget bookmark)
+     {
+         if (bookmark.Kind != AiBookmarkKind.User || _book.Active.Bookmarks.RemoveAll(b => b.Id == bookmark.Id) == 0) return false;
++        RefreshBookmarkMarkers();
+         Dirty(); SaveAnnotationChanges(); return true;
+     }
+ 
+@@ -126,7 +130,8 @@ public partial class AiPanel
+             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+             if (_disposed || _book.Active != conversation) return false;
+             if (StableLiveBookmarkQuestion()?.Id != bookmark.TurnId) return await NavigateBookmarkAsync(bookmark);
+-            var livePointer = LiveQuestion.BookmarkPointer(bookmark.Id, liveAnchor);
++            var liveSaved = conversation.Bookmarks.FirstOrDefault(item => item.Id == bookmark.Id);
++            var livePointer = liveSaved is null ? null : LiveQuestion.ResolveUserBookmark(liveSaved);
+             History.UpdateLayout();
+             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+             if (livePointer is null || LiveQuestion.BookmarkPoint(livePointer) is not { } livePoint) return false;
+@@ -160,8 +165,12 @@ public partial class AiPanel
+             var saved = conversation.Bookmarks.FirstOrDefault(b => b.Id == bookmark.Id);
+             if (saved is null) return false;
+             view.RevealBookmarkFolds(saved.FoldKeys);
+-            pointer = view.BookmarkPointer(bookmark.Id, anchor);
+-            if (pointer is null && saved.FoldKeys.Count == 0) { view.RevealAllBookmarkFolds(); pointer = view.BookmarkPointer(bookmark.Id, anchor); }
++            pointer = view.ResolveUserBookmark(saved);
++            if (pointer is null && saved.FoldKeys.Count == 0)
++            {
++                view.RevealAllBookmarkFolds();
++                pointer = view.ResolveUserBookmark(saved);
++            }
+         }
+         else pointer = view.BookmarkBlock(bookmark.Kind, bookmark.Position) is TextElement block ? block.ContentStart : null;
+         if (pointer is null) return false;
+@@ -176,6 +185,7 @@ public partial class AiPanel
+     private void BookmarkQuestionLoaded(MarkdownView view)
+     {
+         if (!_bookmarkQuestions.Add(view)) return;
++        RefreshBookmarkMarker(view, true);
+         var menu = new ContextMenu();
+         var bookmark = new MenuItem { Header = "为所选内容添加标签" };
+         ToolTipService.SetShowOnDisabled(bookmark, true);
+@@ -194,5 +204,37 @@ public partial class AiPanel
+         view.ContextMenu = menu;
+     }
+ 
+-    private void BookmarkQuestionUnloaded(MarkdownView view) => _bookmarkQuestions.Remove(view);
++    private void BookmarkQuestionUnloaded(MarkdownView view) { _bookmarkQuestions.Remove(view); RemoveBookmarkMarker(view); }
++
++    private void RemoveBookmarkMarker(MarkdownView view)
++    {
++        if (_bookmarkMarkerLayers.Remove(view, out var layer)) layer.Dispose();
++    }
++    private void ClearBookmarkMarkers()
++    {
++        foreach (var layer in _bookmarkMarkerLayers.Values) layer.Dispose();
++        _bookmarkMarkerLayers.Clear();
++    }
++    private void RefreshBookmarkMarkers()
++    {
++        foreach (var view in _answerLayers.Keys) RefreshBookmarkMarker(view, false);
++        foreach (var view in _bookmarkQuestions) RefreshBookmarkMarker(view, true);
++    }
++    private void RefreshBookmarkMarker(MarkdownView view, bool question)
++    {
++        var turn = AnswerTurn(view) ?? (ReferenceEquals(view, LiveQuestion) ? StableLiveBookmarkQuestion() : null);
++        string? segment = view.DataContext is AiSegment answer ? answer.Id : null;
++        if (question && ReferenceEquals(view, LiveQuestion)) segment = BookmarkQuestionPrefix + "0";
++        else if (question && turn is not null && _turnViews.TryGetValue(turn.Id, out var owner))
++        {
++            var index = owner.Questions.IndexOf(view);
++            segment = index >= 0 ? BookmarkQuestionPrefix + index : null;
++        }
++        var bookmarks = turn is null || segment is null ? [] : _book.Active.Bookmarks.Where(b =>
++            b.Anchor is { } anchor && anchor.TurnId == turn.Id && anchor.SegmentId == segment).ToArray();
++        if (bookmarks.Length == 0) { RemoveBookmarkMarker(view); return; }
++        if (!_bookmarkMarkerLayers.TryGetValue(view, out var layer))
++            _bookmarkMarkerLayers[view] = layer = new AiBookmarkMarkerLayer(view, question);
++        layer.SetBookmarks(bookmarks);
++    }
+ }
+diff --git a/src/TeXeed.App/Controls/AiPanel.History.cs b/src/TeXeed.App/Controls/AiPanel.History.cs
+index f956ea1..ad2da3b 100644
+--- a/src/TeXeed.App/Controls/AiPanel.History.cs
++++ b/src/TeXeed.App/Controls/AiPanel.History.cs
+@@ -54,6 +54,7 @@ public partial class AiPanel
+     }
+     private void ShowCurrentConversation()
+     {
++        ClearBookmarkMarkers();
+         _bookmarkCache.Clear();
+         _autoScroll.Stop();
+         RestoreBookmarkBallPosition();
+@@ -63,7 +64,7 @@ public partial class AiPanel
+         _updating = false;
+         SyncPermission(); UpdateContextUsage();
+         MessageSearchBox.Clear();
+-        Rebind(); RefreshTranscript();
++        Rebind(); RefreshTranscript(); RefreshBookmarkMarkers();
+         StatusText.Text = "";
+         RestoreReadingAnchor();
+     }
+diff --git a/src/TeXeed.App/Controls/AiPanel.xaml.cs b/src/TeXeed.App/Controls/AiPanel.xaml.cs
+index dc9d468..ea55da9 100644
+--- a/src/TeXeed.App/Controls/AiPanel.xaml.cs
++++ b/src/TeXeed.App/Controls/AiPanel.xaml.cs
+@@ -339,5 +339,5 @@ public partial class AiPanel : UserControl, IDisposable
+         ScheduleReadingContext();
+     }
+     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
+-    public void Dispose() { _disposed = true; _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
++    public void Dispose() { _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+ }
+diff --git a/src/TeXeed.App/Controls/MarkdownView.Bookmarks.cs b/src/TeXeed.App/Controls/MarkdownView.Bookmarks.cs
+index 87123cb..6be5aea 100644
+--- a/src/TeXeed.App/Controls/MarkdownView.Bookmarks.cs
++++ b/src/TeXeed.App/Controls/MarkdownView.Bookmarks.cs
+@@ -10,13 +10,15 @@ namespace TeXeed.App.Controls;
+ internal enum AiBookmarkKind { Heading, Equation, User }
+ internal sealed record AiBookmarkTarget(string Id, string Label, string Description, string TurnId, string SegmentId,
+     AiBookmarkKind Kind, int TurnIndex, int SegmentIndex, int Position, AiAnswerAnchor? Anchor);
+-internal sealed record AiBookmarkSelection(string ConversationId, AiAnswerAnchor Anchor, IReadOnlyList<string> FoldKeys);
++internal sealed record AiBookmarkSelection(string ConversationId, AiAnswerAnchor Anchor, IReadOnlyList<string> FoldKeys, string? ContextBefore = null, string? ContextAfter = null);
+ internal sealed record AiBookmarkFragment(AiBookmarkKind Kind, string Number, string Description, int Position);
+ 
+ public sealed partial class MarkdownView
+ {
+     private readonly Dictionary<int, FrameworkContentElement> _bookmarkHeadings = [];
+     private readonly Dictionary<int, FrameworkContentElement> _bookmarkFormulas = [];
++    private int _markerVisibleTextVersion = -1;
++    private string _markerVisibleText = "";
+ 
+     internal static IReadOnlyList<AiBookmarkFragment> BookmarkFragments(string source)
+     {
+@@ -51,6 +53,19 @@ public sealed partial class MarkdownView
+ 
+     internal bool HasBookmarkSelection => !SelectionView().Selection.IsEmpty;
+ 
++    internal (string Before, string After) BookmarkSelectionContext()
++    {
++        var selection = SelectionView().Selection;
++        var before = selection.Start.Paragraph is { } first ? SelectionView().CopySource(first.ContentStart, selection.Start) : "";
++        var after = selection.End.Paragraph is { } last ? SelectionView().CopySource(selection.End, last.ContentEnd) : "";
++        var selected = SelectionView().CopySource(selection.Start, selection.End);
++        var left = 0; var right = selected.Length;
++        while (left < right && char.IsWhiteSpace(selected[left])) left++;
++        while (right > left && char.IsWhiteSpace(selected[right - 1])) right--;
++        before += selected[..left]; after = selected[right..] + after;
++        return (before.Length > 32 ? before[^32..] : before, after.Length > 32 ? after[..32] : after);
++    }
++
+     internal IReadOnlyList<string> BookmarkSelectionFoldKeys()
+     {
+         var view = SelectionView();
+@@ -89,6 +104,67 @@ public sealed partial class MarkdownView
+ 
+     internal TextPointer? BookmarkPointer(string id, AiAnswerAnchor anchor) => AnnotationPointer(id, anchor);
+ 
++    internal TextPointer? ResolveUserBookmark(AiUserBookmark bookmark)
++    {
++        if (bookmark.Anchor is not { } anchor || anchor.Revision != Revision ||
++            bookmark.FoldKeys.Any(key => _folds?.GetValueOrDefault(key) == true)) return null;
++        // Older bookmarks may omit the target's fold ancestry. A match in the
++        // visible document alone cannot rule out a duplicate in a closed section.
++        if (bookmark.FoldKeys.Count == 0 && bookmark.ContextBefore is null && bookmark.ContextAfter is null &&
++            _folds?.Values.Any(closed => closed) == true) return null;
++        var quote = anchor.Quote.TrimStart();
++        if (quote.Length == 0) return null;
++        if (_markerVisibleTextVersion != LayoutVersion)
++        {
++            _markerVisibleTextVersion = LayoutVersion;
++            _markerVisibleText = CopySource(Document.ContentStart, Document.ContentEnd);
++        }
++        var index = _markerVisibleText.IndexOf(quote, StringComparison.Ordinal);
++        if (index < 0) return null;
++        if (_markerVisibleText.IndexOf(quote, index + 1, StringComparison.Ordinal) >= 0)
++        {
++            var before = bookmark.ContextBefore ?? "";
++            var after = bookmark.ContextAfter ?? "";
++            if (before.Length == 0 && after.Length == 0)
++            {
++                // Questions without foldable sections retain their original offsets.
++                if (_bookmarkSections.Count != 0 || anchor.TextOffset < 0 || anchor.TextOffset > _markerVisibleText.Length - quote.Length ||
++                    !_markerVisibleText.AsSpan(anchor.TextOffset).StartsWith(quote)) return null;
++                index = anchor.TextOffset;
++            }
++            else
++            {
++                var match = -1;
++                for (var candidate = index; candidate >= 0; candidate = _markerVisibleText.IndexOf(quote, candidate + 1, StringComparison.Ordinal))
++                {
++                    var tail = candidate + quote.Length;
++                    if (before.Length > candidate || after.Length > _markerVisibleText.Length - tail ||
++                        !_markerVisibleText.AsSpan(candidate - before.Length, before.Length).SequenceEqual(before) ||
++                        !_markerVisibleText.AsSpan(tail, after.Length).SequenceEqual(after)) continue;
++                    if (match >= 0) return null;
++                    match = candidate;
++                }
++                if (match < 0) return null;
++                index = match;
++            }
++        }
++        return AnnotationPointer(bookmark.Id + ":visible", anchor with { TextOffset = index });
++    }
++
++    internal Point? BookmarkMarkerPoint(AiUserBookmark bookmark)
++    {
++        var pointer = ResolveUserBookmark(bookmark);
++        if (pointer is null || !pointer.HasValidLayout) return null;
++        var rect = pointer.GetCharacterRect(LogicalDirection.Forward);
++        if (rect.IsEmpty) return null;
++        foreach (var table in _tableViews)
++        {
++            if (!pointer.IsInSameDocument(table.View.Document.ContentStart)) continue;
++            return table.View.TranslatePoint(rect.TopLeft, this);
++        }
++        return rect.TopLeft;
++    }
++
+     internal Point? BookmarkPoint(TextPointer pointer)
+     {
+         if (!pointer.HasValidLayout) return null;
+diff --git a/src/TeXeed.App/Controls/MarkdownView.Emphasis.cs b/src/TeXeed.App/Controls/MarkdownView.Emphasis.cs
+index aa10418..1f7fa89 100644
+--- a/src/TeXeed.App/Controls/MarkdownView.Emphasis.cs
++++ b/src/TeXeed.App/Controls/MarkdownView.Emphasis.cs
+@@ -1,4 +1,6 @@
+ using System.Globalization;
++using System.Runtime.CompilerServices;
++using System.Reflection;
+ using System.Windows;
+ using System.Windows.Documents;
+ using System.Windows.Media;
+@@ -12,6 +14,14 @@ public sealed partial class MarkdownView
+     private readonly List<Inline> _strongRuns = [];
+     private DrawingGroup? _waves;
+     private bool _waveLayoutQueued;
++    private sealed class WaveRunWidth { internal double Width; internal WaveFontKey Font; internal string Text = ""; internal string Language = ""; internal TextFormattingMode FormattingMode; }
++    private readonly ConditionalWeakTable<Inline, WaveRunWidth> _waveRunWidths = new();
++    private static readonly (DependencyProperty Property, object Default)[] WaveDefaultTypography = typeof(Typography)
++        .GetFields(BindingFlags.Public | BindingFlags.Static)
++        .Where(field => field.FieldType == typeof(DependencyProperty))
++        .Select(field => (DependencyProperty)field.GetValue(null)!)
++        .Select(property => (property, property.GetMetadata(typeof(Run)).DefaultValue))
++        .ToArray();
+     private readonly record struct WaveFontKey(string Family, FontStyle Style, FontWeight Weight, FontStretch Stretch, double Size, double Dpi);
+     private static readonly Dictionary<WaveFontKey, (double Height, double Baseline, double InkBottom)> WaveMetrics = [];
+     private static readonly Queue<WaveFontKey> WaveMetricOrder = [];
+@@ -77,9 +87,34 @@ public sealed partial class MarkdownView
+                 strokes.Add(strokeKey, stroke);
+             }
+             var firstRect = start.GetCharacterRect(LogicalDirection.Forward);
++            var textRun = run as Run;
++            var canCache = textRun is not null && textRun.FlowDirection == FlowDirection.LeftToRight
++                && textRun.Text.All(ch => ch is >= '\u3400' and <= '\u9fff')
++                && start.Paragraph?.TextAlignment == TextAlignment.Left
++                && WaveDefaultTypography.All(item => Equals(textRun.GetValue(item.Property), item.Default));
++            if (canCache && textRun is not null && _waveRunWidths.TryGetValue(run, out var width)
++                && width.Text == textRun.Text && width.Font == new WaveFontKey(run.FontFamily.Source, run.FontStyle, run.FontWeight, run.FontStretch, size, dpi)
++                && width.Language == textRun.Language.IetfLanguageTag
++                && width.FormattingMode == TextOptions.GetTextFormattingMode(run)
++                && !firstRect.IsEmpty)
++            {
++                var nextLine = start.GetLineStartPosition(1);
++                if (nextLine is null || nextLine.CompareTo(end) >= 0)
++                {
++                    AddLine(firstRect, new Rect(firstRect.Left, firstRect.Top, width.Width, firstRect.Height));
++                    continue;
++                }
++            }
+             var lastRect = end.GetCharacterRect(LogicalDirection.Backward);
+             if (!firstRect.IsEmpty && !lastRect.IsEmpty && Math.Abs(firstRect.Top - lastRect.Top) < .5)
+             {
++                if (canCache && textRun is not null && lastRect.Right > firstRect.Left)
++                {
++                    var cache = _waveRunWidths.GetOrCreateValue(run);
++                    cache.Width = lastRect.Right - firstRect.Left; cache.Text = textRun.Text; cache.Language = textRun.Language.IetfLanguageTag;
++                    cache.Font = new WaveFontKey(run.FontFamily.Source, run.FontStyle, run.FontWeight, run.FontStretch, size, dpi);
++                    cache.FormattingMode = TextOptions.GetTextFormattingMode(run);
++                }
+                 AddLine(firstRect, lastRect);
+                 continue;
+             }
+diff --git a/src/TeXeed.App/TeXeed.App.csproj b/src/TeXeed.App/TeXeed.App.csproj
+index 2b5d7ab..2eaf785 100644
+--- a/src/TeXeed.App/TeXeed.App.csproj
++++ b/src/TeXeed.App/TeXeed.App.csproj
+@@ -8,7 +8,7 @@
+     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+     <PlatformTarget>x64</PlatformTarget>
+     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+-    <Version>0.3.52</Version>
++    <Version>0.3.53</Version>
+     <ApplicationIcon>Assets/TeXeed.ico</ApplicationIcon>
+     <Description>A native Windows LaTeX workspace</Description>
+   </PropertyGroup>

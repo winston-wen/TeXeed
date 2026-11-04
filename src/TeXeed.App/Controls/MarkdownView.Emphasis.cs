@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
@@ -12,6 +14,14 @@ public sealed partial class MarkdownView
     private readonly List<Inline> _strongRuns = [];
     private DrawingGroup? _waves;
     private bool _waveLayoutQueued;
+    private sealed class WaveRunWidth { internal double Width; internal WaveFontKey Font; internal string Text = ""; internal string Language = ""; internal TextFormattingMode FormattingMode; }
+    private readonly ConditionalWeakTable<Inline, WaveRunWidth> _waveRunWidths = new();
+    private static readonly (DependencyProperty Property, object Default)[] WaveDefaultTypography = typeof(Typography)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(field => field.FieldType == typeof(DependencyProperty))
+        .Select(field => (DependencyProperty)field.GetValue(null)!)
+        .Select(property => (property, property.GetMetadata(typeof(Run)).DefaultValue))
+        .ToArray();
     private readonly record struct WaveFontKey(string Family, FontStyle Style, FontWeight Weight, FontStretch Stretch, double Size, double Dpi);
     private static readonly Dictionary<WaveFontKey, (double Height, double Baseline, double InkBottom)> WaveMetrics = [];
     private static readonly Queue<WaveFontKey> WaveMetricOrder = [];
@@ -77,9 +87,34 @@ public sealed partial class MarkdownView
                 strokes.Add(strokeKey, stroke);
             }
             var firstRect = start.GetCharacterRect(LogicalDirection.Forward);
+            var textRun = run as Run;
+            var canCache = textRun is not null && textRun.FlowDirection == FlowDirection.LeftToRight
+                && textRun.Text.All(ch => ch is >= '\u3400' and <= '\u9fff')
+                && start.Paragraph?.TextAlignment == TextAlignment.Left
+                && WaveDefaultTypography.All(item => Equals(textRun.GetValue(item.Property), item.Default));
+            if (canCache && textRun is not null && _waveRunWidths.TryGetValue(run, out var width)
+                && width.Text == textRun.Text && width.Font == new WaveFontKey(run.FontFamily.Source, run.FontStyle, run.FontWeight, run.FontStretch, size, dpi)
+                && width.Language == textRun.Language.IetfLanguageTag
+                && width.FormattingMode == TextOptions.GetTextFormattingMode(run)
+                && !firstRect.IsEmpty)
+            {
+                var nextLine = start.GetLineStartPosition(1);
+                if (nextLine is null || nextLine.CompareTo(end) >= 0)
+                {
+                    AddLine(firstRect, new Rect(firstRect.Left, firstRect.Top, width.Width, firstRect.Height));
+                    continue;
+                }
+            }
             var lastRect = end.GetCharacterRect(LogicalDirection.Backward);
             if (!firstRect.IsEmpty && !lastRect.IsEmpty && Math.Abs(firstRect.Top - lastRect.Top) < .5)
             {
+                if (canCache && textRun is not null && lastRect.Right > firstRect.Left)
+                {
+                    var cache = _waveRunWidths.GetOrCreateValue(run);
+                    cache.Width = lastRect.Right - firstRect.Left; cache.Text = textRun.Text; cache.Language = textRun.Language.IetfLanguageTag;
+                    cache.Font = new WaveFontKey(run.FontFamily.Source, run.FontStyle, run.FontWeight, run.FontStretch, size, dpi);
+                    cache.FormattingMode = TextOptions.GetTextFormattingMode(run);
+                }
                 AddLine(firstRect, lastRect);
                 continue;
             }

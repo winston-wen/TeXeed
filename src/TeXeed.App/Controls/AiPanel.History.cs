@@ -54,6 +54,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        ClearBookmarkMarkers();
         _bookmarkCache.Clear();
         _autoScroll.Stop();
         RestoreBookmarkBallPosition();
@@ -63,7 +64,7 @@ public partial class AiPanel
         _updating = false;
         SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
-        Rebind(); RefreshTranscript();
+        Rebind(); RefreshTranscript(); RefreshBookmarkMarkers();
         StatusText.Text = "";
         RestoreReadingAnchor();
     }

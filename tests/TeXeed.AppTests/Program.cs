@@ -48,6 +48,11 @@ internal static partial class Program
                 if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
                     throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
+                if (args.Contains("--wave-cache-diff-only"))
+                {
+                    await CheckWaveCacheDiffAsync(window);
+                    await CloseAndObserveAsync(window, "Wave cache differential"); result = 0; return;
+                }
                 if (args.Contains("--ai-live-layout-only"))
                 {
                     await CheckAiLiveLayoutAsync(window, output, args.Contains("--assert-live-layout"));

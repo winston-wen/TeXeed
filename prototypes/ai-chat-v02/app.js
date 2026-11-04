@@ -116,7 +116,7 @@ function turnHtml(t,index=0,turns=[t]){
 function renderTurns(){
  const pos=$('reader').scrollTop;
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
- enhanceAnswers();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();requestAnimationFrame(updateReadingContext);
+ enhanceAnswers();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();requestAnimationFrame(updateReadingContext);
 }
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));

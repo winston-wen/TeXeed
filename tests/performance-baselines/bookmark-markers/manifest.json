@@ -1,0 +1,15 @@
+{
+  "schema": "texeed-bookmark-marker-performance-v1",
+  "status": "candidate_before_commit",
+  "base_commit": "16e49b499cfbf228da7ee082704de0fd05dcda96",
+  "method": "120 synthetic turns; one visible answer; compare no labels with 31 labels in that answer. Reset the window to 850 DIP and the same scroll offset before each condition. Warm each action, then record seven scroll and resize samples through ApplicationIdle. Resizes alternate 820/850 DIP. Allocations are UI-thread bytes; visible Control count excludes the drawn adorner.",
+  "command": "dotnet run --project tests/TeXeed.AppTests -c Release --no-restore -- --ai-bookmark-only --output <isolated-output>",
+  "environment": "same local Windows desktop and process configuration for both conditions; no independently captured OS, CPU, font or display fingerprint for this sample",
+  "limitations": ["The two conditions ran sequentially, not interleaved; timing contains scheduling noise.", "The recorded values are a feature-cost comparison, not an independently verified historical best.", "The marker-free condition and the 31-marker condition use the same candidate executable, so this does not replace the separate historical baseline comparison."],
+  "files": {
+    "AiBookmarkMarkerLayer.cs.txt": "1c5d2006eff5cad1dc3ca0d266630e550527f37fab9c03a66346a53749ea935f",
+    "candidate.patch": "48a8c8d183598e4c078985296f364c5f31855c914f2e408b6e63260c74e1349e",
+    "fixture.cs.txt": "a809c84ccf76546bd56245fa475ed51ffb1c823a188b25bd3718581e553f06bb",
+    "run-1.json": "7bb2aa43c96927a85e65c41864f0966df59a9aad66edd45f44636cf1a1466248"
+  }
+}

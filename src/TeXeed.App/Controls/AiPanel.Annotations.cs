@@ -51,6 +51,7 @@ public partial class AiPanel
             return view.AnnotationPoint(entry.Id, anchor);
         }, RemoveAnnotation, margin: true, confirm: ConfirmAnnotation, commit: SaveAnnotationChanges);
         _answerLayers.Add(view, layer);
+        RefreshBookmarkMarker(view, false);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
         var menu = new ContextMenu();
         var annotate = new MenuItem { Header = "批注所选内容" };
@@ -80,7 +81,7 @@ public partial class AiPanel
     private void Answer_Unloaded(object sender, RoutedEventArgs e)
     {
         // Layers follow Loaded/Unloaded themselves; keep only currently attached answers in the panel.
-        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; }
+        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; }
     }
     private void Answer_MouseUp(object sender, MouseButtonEventArgs e)
     {

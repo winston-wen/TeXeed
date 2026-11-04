@@ -339,5 +339,5 @@ public partial class AiPanel : UserControl, IDisposable
         ScheduleReadingContext();
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { _disposed = true; _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+    public void Dispose() { _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }

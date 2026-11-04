@@ -1,0 +1,74 @@
+{
+  "schema": "texeed-wave-optimization-native-performance-v1",
+  "status": "candidate_before_commit",
+  "base_commit": "16e49b499cfbf228da7ee082704de0fd05dcda96",
+  "fixture_sha256": "71e59ab515ea3c093c5413957b59139a6e84576c9129da2343e16b8e8e6308c6",
+  "host_sha256": "3ad22f03d0d67433b13912f5d7c79177a39c7959ee99721f7e5b1a18bfd9e231",
+  "sources": {
+    "MarkdownView.Emphasis.cs.txt": "e3c5684f353f9f94b7ea831a49e7d4a867923d0684fe055ceda20357b9b9a3b6",
+    "Program.cs.txt": "12d0b4c18528f9ba207ed277c1c06bc48a2bc687e8439b9abe4eced87c3558a7",
+    "WaveCacheDiffTests.cs.txt": "3c864e0876c804efdad436de503809f495e76dcb5e6d955f20ec229d1a0c54f7"
+  },
+  "method": "../methods/dense-unique-width-v1.json",
+  "history": "../verified-history.json",
+  "command": "dotnet <frozen>/tests/TeXeed.AppTests/bin/Release/net10.0-windows/win-x64/TeXeed.AppTests.dll --ai-ui-perf-only --with-headings --output <isolated-output>",
+  "sequence": "three original runs followed by three optimized runs, in separate processes; not an interleaved comparison",
+  "context": {
+    "DpiScaleX": 2,
+    "DpiScaleY": 2,
+    "WpfTier": 2,
+    "Theme": "ristretto",
+    "Runtime": ".NET 10.0.7"
+  },
+  "limitations": [
+    "Original 0.3.52 is the previously archived 8f3e434 base with the two source changes archived in title-axis (equivalent production source to 16e49b4).",
+    "The optimized host additionally includes a branch for the differential wave test; performance fixture is unchanged.",
+    "CPU, font file and OS fingerprints were not independently recaptured for these six runs.",
+    "Timings vary substantially between runs; allocations are more stable.",
+    "The 0.3.47 historical baseline lacks wave emphasis."
+  ],
+  "runs": [
+    {
+      "id": "before-1",
+      "files": {
+        "ui-performance.json": "02c95c7c19e1c6c68778cf69913ac27c6e7889690f52ccec3c1394ab12cd30e8",
+        "ui-performance-samples.json": "99eb2853edb2e1eb3153a4e8022fcd0a21226c225ab15285c9d48d1f99fb1ee0"
+      }
+    },
+    {
+      "id": "before-2",
+      "files": {
+        "ui-performance.json": "8352227dc4d45d01dc67f4caeff14f4b11c04af5dcc5558b979b0f324be840dd",
+        "ui-performance-samples.json": "9d1c0428cb760f2e9cfec68d61196c6d4fca1b1dac492f2ae5b9b802d10fdff6"
+      }
+    },
+    {
+      "id": "before-3",
+      "files": {
+        "ui-performance.json": "5cca77e4b9829dc14ec22b7066720218a1c13b765f7794d37292b4aed735b336",
+        "ui-performance-samples.json": "f1347d96ce1faee513654b104f558d40cba8a264c62fa7a49d216f7adf143a6b"
+      }
+    },
+    {
+      "id": "after-1",
+      "files": {
+        "ui-performance.json": "5d3c01163d3fef057ac5cad227975d3377aa21543c9ab9138208023e4f16c2f5",
+        "ui-performance-samples.json": "d3f5d8fd6140393a3e691782b172c1fbfa5230d02f8330bc698f2c35423dd981"
+      }
+    },
+    {
+      "id": "after-2",
+      "files": {
+        "ui-performance.json": "30b57cf9b349c194f45954861f63c6d68db10b156c1650384eaf410bd95690bc",
+        "ui-performance-samples.json": "cba591dfce53f7c5e7d2587805e302529b7a36dbcc5bdf1890e2606b10297b93"
+      }
+    },
+    {
+      "id": "after-3",
+      "files": {
+        "ui-performance.json": "746232412017e42f1201de3cda14a847fe17ff4de26da40bd1cece8976a5de95",
+        "ui-performance-samples.json": "68a481d6dc057e2b54ade4445214bddc222b6ec259f1112d972a08b7ba8db35f"
+      }
+    }
+  ]
+}
