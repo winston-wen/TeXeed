@@ -1,0 +1,698 @@
+{
+  "schema": "texeed-review-interactions-v1",
+  "fixtureSha256": "7119deb4dafa7f461ee155f5d0a381be045484a69c1c3ce7b753bbc1dbf365b8",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "156.0.4314.58",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "turns": 120,
+    "comments": 60,
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "New feature has no historical equivalent.",
+      "Frame time includes requestAnimationFrame scheduling.",
+      "Sampled retained JS heap is not total allocation.",
+      "Editing dispatches a browser input event after replacing text; IME behavior and persistence latency are not measured."
+    ]
+  },
+  "resources": {
+    "index.html": "d51304792d44a6dca17f3721a16c5457bd197bdfe1646bb5f4d6b01b4212a3af",
+    "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+    "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+    "review-search.css": "70ad9fdcbe639b04f65bb859647a5a0aa512df70123d5275780f7a839a1ad384",
+    "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+    "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+    "rich-text.js": "2ea228ec4f883cd4b30a44eddb3f4cfe8dbf2e1e9fe62f43c83bafb1edf5da51",
+    "bookmarks.js": "2a9de03c9fe7e33f0272ff95b09ace6a3f61a62bff6018cdc154b69c7b90f225",
+    "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+    "review-search.js": "103bc5edf76d5d9d058b836393de9ed4c1ae2dc1c4faeaa12d534d8aa715445b",
+    "review.js": "537e75162ab98c81218ef737583ca885e2b8dbf8641463ad21bc9aa396653e64",
+    "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+    "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+  },
+  "startupToFontsReadyMs": [
+    325.67629999999997,
+    238.61279999999988,
+    217.16309999999976
+  ],
+  "measurements": [
+    {
+      "round": 0,
+      "action": "edit",
+      "samples": [
+        {
+          "sync": 1.1000000014901161,
+          "frame": 6.600000001490116
+        },
+        {
+          "sync": 1.0999999940395355,
+          "frame": 8.299999997019768
+        },
+        {
+          "sync": 1.2000000029802322,
+          "frame": 12.700000002980232
+        },
+        {
+          "sync": 1,
+          "frame": 12.5
+        },
+        {
+          "sync": 1,
+          "frame": 10.699999995529652
+        },
+        {
+          "sync": 1.2000000029802322,
+          "frame": 9.800000004470348
+        },
+        {
+          "sync": 1.0999999940395355,
+          "frame": 8.899999998509884
+        }
+      ],
+      "medianSync": 1.0999999940395355,
+      "medianFrame": 9.800000004470348,
+      "sampledRetainedJsBytes": 106464,
+      "counts": {
+        "elements": 2393,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "action": "original",
+      "samples": [
+        {
+          "sync": 23.899999998509884,
+          "frame": 27
+        },
+        {
+          "sync": 20.900000005960464,
+          "frame": 23.5
+        },
+        {
+          "sync": 22.19999999552965,
+          "frame": 25.19999999552965
+        },
+        {
+          "sync": 19.900000005960464,
+          "frame": 22.80000000447035
+        },
+        {
+          "sync": 19.600000001490116,
+          "frame": 22
+        },
+        {
+          "sync": 26.799999997019768,
+          "frame": 29.799999997019768
+        },
+        {
+          "sync": 19.399999998509884,
+          "frame": 21.700000002980232
+        }
+      ],
+      "medianSync": 20.900000005960464,
+      "medianFrame": 23.5,
+      "sampledRetainedJsBytes": 47840,
+      "counts": {
+        "elements": 2331,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "action": "draft",
+      "samples": [
+        {
+          "sync": 24.69999999552965,
+          "frame": 27.5
+        },
+        {
+          "sync": 21.600000001490116,
+          "frame": 24
+        },
+        {
+          "sync": 21,
+          "frame": 23.700000002980232
+        },
+        {
+          "sync": 22.700000002980232,
+          "frame": 26.30000000447035
+        },
+        {
+          "sync": 22.100000001490116,
+          "frame": 24.80000000447035
+        },
+        {
+          "sync": 26.799999997019768,
+          "frame": 29.600000001490116
+        },
+        {
+          "sync": 21.80000000447035,
+          "frame": 25.399999998509884
+        }
+      ],
+      "medianSync": 22.100000001490116,
+      "medianFrame": 25.399999998509884,
+      "sampledRetainedJsBytes": 47372,
+      "counts": {
+        "elements": 2393,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "action": "comments",
+      "samples": [
+        {
+          "sync": 4.600000001490116,
+          "frame": 29
+        },
+        {
+          "sync": 4.399999998509884,
+          "frame": 33.899999998509884
+        },
+        {
+          "sync": 5.399999998509884,
+          "frame": 35
+        },
+        {
+          "sync": 4.399999998509884,
+          "frame": 34.20000000298023
+        },
+        {
+          "sync": 4.799999997019768,
+          "frame": 33.600000001490116
+        },
+        {
+          "sync": 5.399999998509884,
+          "frame": 34
+        },
+        {
+          "sync": 5.799999997019768,
+          "frame": 34.099999994039536
+        }
+      ],
+      "medianSync": 4.799999997019768,
+      "medianFrame": 34,
+      "sampledRetainedJsBytes": 3780,
+      "counts": {
+        "elements": 3413,
+        "visible": 50,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "action": "send-toggle",
+      "samples": [
+        {
+          "sync": 0.7999999970197678,
+          "frame": 33.399999998509884
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 34.29999999701977
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 34.399999998509884
+        },
+        {
+          "sync": 1,
+          "frame": 34.399999998509884
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 33.899999998509884
+        },
+        {
+          "sync": 1.1000000014901161,
+          "frame": 33.19999999552965
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 34.5
+        }
+      ],
+      "medianSync": 0.8999999985098839,
+      "medianFrame": 34.29999999701977,
+      "sampledRetainedJsBytes": 3160,
+      "counts": {
+        "elements": 3412,
+        "visible": 49,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "action": "edit",
+      "samples": [
+        {
+          "sync": 0.9000000059604645,
+          "frame": 12.900000005960464
+        },
+        {
+          "sync": 1.1000000014901161,
+          "frame": 12.800000004470348
+        },
+        {
+          "sync": 1.2000000029802322,
+          "frame": 11.5
+        },
+        {
+          "sync": 1,
+          "frame": 11.799999997019768
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 13.700000002980232
+        },
+        {
+          "sync": 1,
+          "frame": 13
+        },
+        {
+          "sync": 1,
+          "frame": 14.399999998509884
+        }
+      ],
+      "medianSync": 1,
+      "medianFrame": 12.900000005960464,
+      "sampledRetainedJsBytes": 96800,
+      "counts": {
+        "elements": 2393,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "action": "original",
+      "samples": [
+        {
+          "sync": 22,
+          "frame": 24.600000001490116
+        },
+        {
+          "sync": 18.19999999552965,
+          "frame": 20.5
+        },
+        {
+          "sync": 18.899999998509884,
+          "frame": 21.399999998509884
+        },
+        {
+          "sync": 19.600000001490116,
+          "frame": 21.900000005960464
+        },
+        {
+          "sync": 19.5,
+          "frame": 21.899999998509884
+        },
+        {
+          "sync": 24.599999994039536,
+          "frame": 27.299999997019768
+        },
+        {
+          "sync": 18.399999998509884,
+          "frame": 20.899999998509884
+        }
+      ],
+      "medianSync": 19.5,
+      "medianFrame": 21.899999998509884,
+      "sampledRetainedJsBytes": 48060,
+      "counts": {
+        "elements": 2331,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "action": "draft",
+      "samples": [
+        {
+          "sync": 24.399999998509884,
+          "frame": 27.200000002980232
+        },
+        {
+          "sync": 20.899999998509884,
+          "frame": 25.200000002980232
+        },
+        {
+          "sync": 21.200000002980232,
+          "frame": 24.200000002980232
+        },
+        {
+          "sync": 20.899999998509884,
+          "frame": 23.5
+        },
+        {
+          "sync": 21,
+          "frame": 23.600000001490116
+        },
+        {
+          "sync": 28,
+          "frame": 30.899999998509884
+        },
+        {
+          "sync": 22,
+          "frame": 24.400000005960464
+        }
+      ],
+      "medianSync": 21.200000002980232,
+      "medianFrame": 24.400000005960464,
+      "sampledRetainedJsBytes": 44228,
+      "counts": {
+        "elements": 2393,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "action": "comments",
+      "samples": [
+        {
+          "sync": 4.300000004470348,
+          "frame": 35.100000001490116
+        },
+        {
+          "sync": 4.300000004470348,
+          "frame": 34.5
+        },
+        {
+          "sync": 4.5,
+          "frame": 33.100000001490116
+        },
+        {
+          "sync": 5.299999997019768,
+          "frame": 33.899999998509884
+        },
+        {
+          "sync": 4.300000004470348,
+          "frame": 33.600000001490116
+        },
+        {
+          "sync": 4.299999997019768,
+          "frame": 33.899999998509884
+        },
+        {
+          "sync": 4.399999998509884,
+          "frame": 34.5
+        }
+      ],
+      "medianSync": 4.300000004470348,
+      "medianFrame": 33.899999998509884,
+      "sampledRetainedJsBytes": 2172,
+      "counts": {
+        "elements": 3413,
+        "visible": 50,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "action": "send-toggle",
+      "samples": [
+        {
+          "sync": 0.7999999970197678,
+          "frame": 33.79999999701977
+        },
+        {
+          "sync": 0.8000000044703484,
+          "frame": 33.80000000447035
+        },
+        {
+          "sync": 0.7999999970197678,
+          "frame": 33.600000001490116
+        },
+        {
+          "sync": 0.7999999970197678,
+          "frame": 33.600000001490116
+        },
+        {
+          "sync": 0.7999999970197678,
+          "frame": 33.899999998509884
+        },
+        {
+          "sync": 0.9000000059604645,
+          "frame": 34
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 33.400000005960464
+        }
+      ],
+      "medianSync": 0.7999999970197678,
+      "medianFrame": 33.79999999701977,
+      "sampledRetainedJsBytes": 1092,
+      "counts": {
+        "elements": 3412,
+        "visible": 49,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "action": "edit",
+      "samples": [
+        {
+          "sync": 1.7000000029802322,
+          "frame": 10.100000001490116
+        },
+        {
+          "sync": 1.1999999955296516,
+          "frame": 14.699999995529652
+        },
+        {
+          "sync": 1,
+          "frame": 13.799999997019768
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 14.899999998509884
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 13.199999995529652
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 12
+        },
+        {
+          "sync": 1,
+          "frame": 15.5
+        }
+      ],
+      "medianSync": 1,
+      "medianFrame": 13.799999997019768,
+      "sampledRetainedJsBytes": 120040,
+      "counts": {
+        "elements": 2393,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "action": "original",
+      "samples": [
+        {
+          "sync": 22.100000001490116,
+          "frame": 24.600000001490116
+        },
+        {
+          "sync": 17.899999998509884,
+          "frame": 20.19999999552965
+        },
+        {
+          "sync": 19.100000001490116,
+          "frame": 21.5
+        },
+        {
+          "sync": 19.299999997019768,
+          "frame": 21.69999999552965
+        },
+        {
+          "sync": 19.5,
+          "frame": 21.899999998509884
+        },
+        {
+          "sync": 24.799999997019768,
+          "frame": 27.5
+        },
+        {
+          "sync": 17.899999998509884,
+          "frame": 20.399999998509884
+        }
+      ],
+      "medianSync": 19.299999997019768,
+      "medianFrame": 21.69999999552965,
+      "sampledRetainedJsBytes": 49460,
+      "counts": {
+        "elements": 2331,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "action": "draft",
+      "samples": [
+        {
+          "sync": 23,
+          "frame": 26
+        },
+        {
+          "sync": 19.799999997019768,
+          "frame": 22.5
+        },
+        {
+          "sync": 19.5,
+          "frame": 22.19999999552965
+        },
+        {
+          "sync": 20.200000002980232,
+          "frame": 22.600000001490116
+        },
+        {
+          "sync": 19.899999998509884,
+          "frame": 22.399999998509884
+        },
+        {
+          "sync": 25.899999998509884,
+          "frame": 28.600000001490116
+        },
+        {
+          "sync": 19,
+          "frame": 21.5
+        }
+      ],
+      "medianSync": 19.899999998509884,
+      "medianFrame": 22.5,
+      "sampledRetainedJsBytes": 32312,
+      "counts": {
+        "elements": 2393,
+        "visible": 19,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "action": "comments",
+      "samples": [
+        {
+          "sync": 4.300000004470348,
+          "frame": 33.5
+        },
+        {
+          "sync": 4.399999998509884,
+          "frame": 34.69999999552965
+        },
+        {
+          "sync": 4.5,
+          "frame": 34.400000005960464
+        },
+        {
+          "sync": 4.399999998509884,
+          "frame": 33.899999998509884
+        },
+        {
+          "sync": 4.600000001490116,
+          "frame": 34.29999999701977
+        },
+        {
+          "sync": 4.600000001490116,
+          "frame": 33.100000001490116
+        },
+        {
+          "sync": 4.700000002980232,
+          "frame": 34.29999999701977
+        }
+      ],
+      "medianSync": 4.5,
+      "medianFrame": 34.29999999701977,
+      "sampledRetainedJsBytes": 7120,
+      "counts": {
+        "elements": 3413,
+        "visible": 50,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "action": "send-toggle",
+      "samples": [
+        {
+          "sync": 0.8999999985098839,
+          "frame": 33.80000000447035
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 34.19999999552965
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 34.20000000298023
+        },
+        {
+          "sync": 0.9000000059604645,
+          "frame": 34.400000005960464
+        },
+        {
+          "sync": 0.7999999970197678,
+          "frame": 34.099999994039536
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 35
+        },
+        {
+          "sync": 0.8999999985098839,
+          "frame": 34.399999998509884
+        }
+      ],
+      "medianSync": 0.8999999985098839,
+      "medianFrame": 34.20000000298023,
+      "sampledRetainedJsBytes": 2120,
+      "counts": {
+        "elements": 3412,
+        "visible": 49,
+        "comments": 60,
+        "draft": "保留性能草稿"
+      }
+    }
+  ]
+}

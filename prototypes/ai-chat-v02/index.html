@@ -4,6 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TeXeed · AI 对话原型</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="review.css">
+<link rel="stylesheet" href="review-search.css">
 <style>
 :root {
  color-scheme:dark; --bg:#292322; --sidebar:#211c1b; --question:#302927; --panel:#38302d;
@@ -517,11 +519,13 @@ const DATA={"basis": "合成示例", "title": "函数与数列（合成示例）
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const VISUAL_PREVIEW=new URLSearchParams(location.search).get('preview')==='visual';
-const KEY='texeed-ai-baseline-v02'+(VISUAL_PREVIEW?'-visual':'')+(location.search.includes('test=1')?'-test':'');
+const REVIEW_PREVIEW=new URLSearchParams(location.search).get('preview')==='review';
+const KEY='texeed-ai-baseline-v02'+(VISUAL_PREVIEW?'-visual':REVIEW_PREVIEW?'-review':'')+(location.search.includes('test=1')?'-test':'');
 const clone=x=>JSON.parse(JSON.stringify(x));
 const BUNDLED_TURNS=[...DATA.turns,...DATA.sampleConversations.flatMap(c=>c.turns),...DATA.visualPreview.conversations.flatMap(c=>c.turns)];
 function fresh(){const conversations=VISUAL_PREVIEW?clone(DATA.visualPreview.conversations):[{id:'collected',title:DATA.title,updatedAt:DATA.updatedAt,turns:clone(DATA.turns),entries:clone(DATA.entries),next:DATA.next,draft:DATA.draft,permission:'完全访问'},...clone(DATA.sampleConversations)];return {sampleHistoryVersion:1,visualMediaVersion:1,active:conversations[0].id,conversations,events:[]};}
 let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');}catch{}if(!state?.conversations?.length)state=fresh();
+if(REVIEW_PREVIEW&&!state.reviewDemoVersion){const prefix='一次修改可以保留 ',old='AI 回答的原文',added='AI 原始回答',suffix='，同时让新的表述更准确。',answer=prefix+old+suffix+'\n\n在修改稿中直接编辑这一段；也可以选择文字添加评论，并回复已有评论。';const turn={id:'review-demo-turn',question:'如何在 AI 回答中保留我的修改和评论？',answer,sentAt:'2026-11-06T10:00:00+08:00',answeredAt:'2026-11-06T10:00:12+08:00',segments:[],reviewDraft:{blocks:{'review-demo-turn-p0':{original:prefix+old+suffix,runs:[{kind:'ai',text:prefix},{kind:'deleted',text:old},{kind:'user',text:added},{kind:'ai',text:suffix}]}},comments:[{id:'review-demo-comment',turn:'review-demo-turn',block:'review-demo-turn-p0',start:prefix.length,end:prefix.length+added.length,quote:added,text:'这里的说法是否更准确？',replies:['可以，这样更容易看出原件会被保留。'],resolved:false}]}};const c={id:'review-demo',title:'回答编辑与评论示例',turns:[turn],entries:[],next:1,draft:'',permission:'完全访问'};state={sampleHistoryVersion:1,visualMediaVersion:1,reviewDemoVersion:1,active:c.id,conversations:[c],events:[]};}
 // Add sample history once to existing browser storage.
 if(!state.sampleHistoryVersion){for(const c of DATA.sampleConversations)if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.sampleHistoryVersion=1;}
 if(VISUAL_PREVIEW&&!state.visualMediaVersion){for(const c of DATA.visualPreview.conversations.filter(c=>c.id==='visual-media'))if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.visualMediaVersion=1;}
@@ -938,5 +942,7 @@ mountEditors(document);installComposerResize();installImageViewer();migrateSnaps
 if(location.search.includes('tools=1'))openLab();
 </script>
 <script src="bookmarks.js"></script>
+<script src="review.js"></script>
+<script src="review-search.js"></script>
 </body>
 </html>

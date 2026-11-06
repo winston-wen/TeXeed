@@ -1,0 +1,324 @@
+{
+  "schema": "texeed-review-selection-performance-v1",
+  "fixtureSha256": "4d06cce0a5767e76da8af67e12c0f1b82eaedfe294785aba9c08d492c94985d6",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "156.0.4314.58",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "conversations": 6,
+    "turnsPerConversation": 20,
+    "commentsPerTurn": 1,
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "Cross-conversation persistent selection has no old equivalent.",
+      "Two-frame timings include requestAnimationFrame scheduling.",
+      "Sampled retained JS heap is not total allocation."
+    ]
+  },
+  "resources": {
+    "index.html": "d51304792d44a6dca17f3721a16c5457bd197bdfe1646bb5f4d6b01b4212a3af",
+    "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+    "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+    "review-search.css": "70ad9fdcbe639b04f65bb859647a5a0aa512df70123d5275780f7a839a1ad384",
+    "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+    "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+    "rich-text.js": "2ea228ec4f883cd4b30a44eddb3f4cfe8dbf2e1e9fe62f43c83bafb1edf5da51",
+    "bookmarks.js": "2a9de03c9fe7e33f0272ff95b09ace6a3f61a62bff6018cdc154b69c7b90f225",
+    "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+    "review.js": "537e75162ab98c81218ef737583ca885e2b8dbf8641463ad21bc9aa396653e64",
+    "review-search.js": "103bc5edf76d5d9d058b836393de9ed4c1ae2dc1c4faeaa12d534d8aa715445b",
+    "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+    "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "action": "open",
+      "samples": [
+        {
+          "sync": 12.5,
+          "frame": 15.799999997019768
+        },
+        {
+          "sync": 12.100000001490116,
+          "frame": 25.700000002980232
+        },
+        {
+          "sync": 13.200000002980232,
+          "frame": 30.200000002980232
+        },
+        {
+          "sync": 13.800000004470348,
+          "frame": 31.100000001490116
+        },
+        {
+          "sync": 10.799999997019768,
+          "frame": 29.5
+        },
+        {
+          "sync": 10.700000002980232,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 11.100000001490116,
+          "frame": 32.29999999701977
+        }
+      ],
+      "medianSync": 12.100000001490116,
+      "medianFrame": 30.200000002980232,
+      "sampledRetainedJsBytes": 35620,
+      "counts": {
+        "options": 120,
+        "elements": 1611,
+        "visible": 31,
+        "conversations": 6,
+        "turns": 120,
+        "pins": 1,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "action": "select",
+      "samples": [
+        {
+          "sync": 0.9000000059604645,
+          "frame": 21
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 21.400000005960464
+        },
+        {
+          "sync": 0.6999999955296516,
+          "frame": 8.899999998509884
+        },
+        {
+          "sync": 0.8000000044703484,
+          "frame": 19.399999998509884
+        },
+        {
+          "sync": 0.7999999970197678,
+          "frame": 21.399999998509884
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 20.200000002980232
+        },
+        {
+          "sync": 0.6000000014901161,
+          "frame": 20.69999999552965
+        }
+      ],
+      "medianSync": 0.7000000029802322,
+      "medianFrame": 20.69999999552965,
+      "sampledRetainedJsBytes": 3180,
+      "counts": {
+        "options": 120,
+        "elements": 1612,
+        "visible": 32,
+        "conversations": 6,
+        "turns": 120,
+        "pins": 1,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "action": "open",
+      "samples": [
+        {
+          "sync": 14.100000001490116,
+          "frame": 32.100000001490116
+        },
+        {
+          "sync": 12.299999997019768,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 13.100000001490116,
+          "frame": 16.100000001490116
+        },
+        {
+          "sync": 14.100000001490116,
+          "frame": 28.30000000447035
+        },
+        {
+          "sync": 10.600000001490116,
+          "frame": 30.399999998509884
+        },
+        {
+          "sync": 10.899999998509884,
+          "frame": 28.80000000447035
+        },
+        {
+          "sync": 11,
+          "frame": 32.30000000447035
+        }
+      ],
+      "medianSync": 12.299999997019768,
+      "medianFrame": 30.399999998509884,
+      "sampledRetainedJsBytes": 28900,
+      "counts": {
+        "options": 120,
+        "elements": 1611,
+        "visible": 31,
+        "conversations": 6,
+        "turns": 120,
+        "pins": 1,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "action": "select",
+      "samples": [
+        {
+          "sync": 0.7000000029802322,
+          "frame": 20.700000002980232
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 10
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 3.9000000059604645
+        },
+        {
+          "sync": 0.6999999955296516,
+          "frame": 17.799999997019768
+        },
+        {
+          "sync": 0.7999999970197678,
+          "frame": 21.299999997019768
+        },
+        {
+          "sync": 0.6000000014901161,
+          "frame": 20.600000001490116
+        },
+        {
+          "sync": 0.6000000014901161,
+          "frame": 20.399999998509884
+        }
+      ],
+      "medianSync": 0.7000000029802322,
+      "medianFrame": 20.399999998509884,
+      "sampledRetainedJsBytes": 3192,
+      "counts": {
+        "options": 120,
+        "elements": 1612,
+        "visible": 32,
+        "conversations": 6,
+        "turns": 120,
+        "pins": 1,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "action": "open",
+      "samples": [
+        {
+          "sync": 12.400000005960464,
+          "frame": 32.100000001490116
+        },
+        {
+          "sync": 12.5,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 12.100000001490116,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 14.399999998509884,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 11.399999998509884,
+          "frame": 32
+        },
+        {
+          "sync": 11.199999995529652,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 11.5,
+          "frame": 28.799999997019768
+        }
+      ],
+      "medianSync": 12.100000001490116,
+      "medianFrame": 32.29999999701977,
+      "sampledRetainedJsBytes": 30836,
+      "counts": {
+        "options": 120,
+        "elements": 1611,
+        "visible": 31,
+        "conversations": 6,
+        "turns": 120,
+        "pins": 1,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "action": "select",
+      "samples": [
+        {
+          "sync": 0.7999999970197678,
+          "frame": 21.799999997019768
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 17.30000000447035
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frame": 21.899999998509884
+        },
+        {
+          "sync": 0.8000000044703484,
+          "frame": 19.600000001490116
+        },
+        {
+          "sync": 0.6999999955296516,
+          "frame": 21.100000001490116
+        },
+        {
+          "sync": 0.6999999955296516,
+          "frame": 21.5
+        },
+        {
+          "sync": 0.7000000029802322,
+          "frame": 21.5
+        }
+      ],
+      "medianSync": 0.7000000029802322,
+      "medianFrame": 21.5,
+      "sampledRetainedJsBytes": 4384,
+      "counts": {
+        "options": 120,
+        "elements": 1612,
+        "visible": 32,
+        "conversations": 6,
+        "turns": 120,
+        "pins": 1,
+        "draft": "保留性能草稿"
+      }
+    }
+  ]
+}
