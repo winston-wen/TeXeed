@@ -1,0 +1,489 @@
+{
+  "schema": "texeed-mentor-interactions-v1",
+  "fixtureSha256": "eb482e67206908979e3ef1120edcd4a66f79cdf044ee8e3eb7a0af4ab33d7a69",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "156.0.4314.58",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "paragraphs": 120,
+    "commentCounts": [
+      0,
+      60
+    ],
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "Sampled retained JavaScript heap is not total allocation.",
+      "Two-frame timings include scheduling.",
+      "Input uses browser insertText command, not a real operating-system IME.",
+      "Viewport intersection does not account for ancestor clipping."
+    ]
+  },
+  "resources": {
+    "mentor.html": "1cf26a166a623804020a3e4229ecfa455302b6d2ca33540eebabfb5f16d2bbd0",
+    "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+    "mentor.css": "b4722a61e843a9af5ee93ca2b9f7f73f21f5a6933f90f9ebbe1b65e2eac95740",
+    "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+    "mentor-core.js": "e311ed020c286a202f201224778f23c24bae5a4e3d8e0731b8736758b23d7327",
+    "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+    "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "count": 0,
+      "samples": [
+        {
+          "input": 1.0999999977648258,
+          "inputFrame": 31.199999999254942,
+          "sourceToggle": 5.600000001490116,
+          "sourceFrame": 33.19999999925494,
+          "commentsToggle": 0.6000000014901161,
+          "commentsFrame": 33.400000002235174
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31,
+          "sourceToggle": 4.800000000745058,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 1.699999999254942,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 1.0999999977648258,
+          "inputFrame": 30.299999997019768,
+          "sourceToggle": 7.700000002980232,
+          "sourceFrame": 33.400000002235174,
+          "commentsToggle": 0.6999999992549419,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 0.5999999977648258,
+          "inputFrame": 31.399999998509884,
+          "sourceToggle": 7.600000001490116,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.5999999977648258,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31,
+          "sourceToggle": 4.899999998509884,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.5,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 0.6999999992549419,
+          "inputFrame": 31.5,
+          "sourceToggle": 5.800000000745058,
+          "sourceFrame": 33.19999999925494,
+          "commentsToggle": 0.6999999992549419,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31,
+          "sourceToggle": 6.600000001490116,
+          "sourceFrame": 33.399999998509884,
+          "commentsToggle": 1.1000000014901161,
+          "commentsFrame": 33.20000000298023
+        }
+      ],
+      "medianInput": 0.8999999985098839,
+      "medianInputFrame": 31,
+      "medianSourceToggle": 5.800000000745058,
+      "medianSourceFrame": 33.30000000074506,
+      "medianCommentsToggle": 0.6999999992549419,
+      "medianCommentsFrame": 33.399999998509884,
+      "sampledRetainedJsBytes": 128844,
+      "counts": {
+        "elements": 332,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 0,
+      "count": 60,
+      "samples": [
+        {
+          "input": 1,
+          "inputFrame": 25.399999998509884,
+          "sourceToggle": 11.699999999254942,
+          "sourceFrame": 33.69999999925494,
+          "commentsToggle": 1.1000000014901161,
+          "commentsFrame": 33
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 24.800000000745058,
+          "sourceToggle": 13.600000001490116,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 1.199999999254942,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 1,
+          "inputFrame": 25.800000000745058,
+          "sourceToggle": 10,
+          "sourceFrame": 33.19999999925494,
+          "commentsToggle": 1,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 1.2999999970197678,
+          "inputFrame": 24.399999998509884,
+          "sourceToggle": 9.5,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 1,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 0.9000000022351742,
+          "inputFrame": 27.200000002980232,
+          "sourceToggle": 15.299999997019768,
+          "sourceFrame": 33.29999999701977,
+          "commentsToggle": 1,
+          "commentsFrame": 33.20000000298023
+        },
+        {
+          "input": 1,
+          "inputFrame": 27.199999999254942,
+          "sourceToggle": 9.399999998509884,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 1,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 23.699999999254942,
+          "sourceToggle": 9.899999998509884,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.8000000007450581,
+          "commentsFrame": 33.5
+        }
+      ],
+      "medianInput": 1,
+      "medianInputFrame": 25.399999998509884,
+      "medianSourceToggle": 10,
+      "medianSourceFrame": 33.30000000074506,
+      "medianCommentsToggle": 1,
+      "medianCommentsFrame": 33.5,
+      "sampledRetainedJsBytes": 187880,
+      "counts": {
+        "elements": 1111,
+        "comments": 60,
+        "visible": 35
+      }
+    },
+    {
+      "round": 1,
+      "count": 60,
+      "samples": [
+        {
+          "input": 1,
+          "inputFrame": 26.400000002235174,
+          "sourceToggle": 12.800000000745058,
+          "sourceFrame": 35,
+          "commentsToggle": 1,
+          "commentsFrame": 31.5
+        },
+        {
+          "input": 1.2000000029802322,
+          "inputFrame": 26.800000000745058,
+          "sourceToggle": 9.400000002235174,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.8999999985098839,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 21,
+          "sourceToggle": 13.900000002235174,
+          "sourceFrame": 34.100000001490116,
+          "commentsToggle": 0.6999999992549419,
+          "commentsFrame": 32.5
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 27.199999999254942,
+          "sourceToggle": 10.300000000745058,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 1,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 1,
+          "inputFrame": 24.5,
+          "sourceToggle": 9.400000002235174,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.8000000007450581,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 1.0999999977648258,
+          "inputFrame": 25.399999998509884,
+          "sourceToggle": 9.400000002235174,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.8999999985098839,
+          "commentsFrame": 34.5
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 25.199999999254942,
+          "sourceToggle": 10.900000002235174,
+          "sourceFrame": 33.400000002235174,
+          "commentsToggle": 0.8999999985098839,
+          "commentsFrame": 36.69999999925494
+        }
+      ],
+      "medianInput": 1.0999999977648258,
+      "medianInputFrame": 25.399999998509884,
+      "medianSourceToggle": 10.300000000745058,
+      "medianSourceFrame": 33.30000000074506,
+      "medianCommentsToggle": 0.8999999985098839,
+      "medianCommentsFrame": 33.5,
+      "sampledRetainedJsBytes": 178664,
+      "counts": {
+        "elements": 1111,
+        "comments": 60,
+        "visible": 35
+      }
+    },
+    {
+      "round": 1,
+      "count": 0,
+      "samples": [
+        {
+          "input": 0.6999999992549419,
+          "inputFrame": 31.599999997764826,
+          "sourceToggle": 8.100000001490116,
+          "sourceFrame": 33.20000000298023,
+          "commentsToggle": 0.5999999977648258,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 0.6999999992549419,
+          "inputFrame": 31.5,
+          "sourceToggle": 5.800000000745058,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.7999999970197678,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 0.8000000007450581,
+          "inputFrame": 31.099999997764826,
+          "sourceToggle": 5.100000001490116,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.5,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 0.8000000007450581,
+          "inputFrame": 31.600000001490116,
+          "sourceToggle": 8.5,
+          "sourceFrame": 33.19999999925494,
+          "commentsToggle": 0.8000000007450581,
+          "commentsFrame": 33.400000002235174
+        },
+        {
+          "input": 0.6999999992549419,
+          "inputFrame": 30.599999997764826,
+          "sourceToggle": 6.900000002235174,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.6000000014901161,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 0.6000000014901161,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 7.300000000745058,
+          "sourceFrame": 33.20000000298023,
+          "commentsToggle": 0.6999999992549419,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 0.5999999977648258,
+          "inputFrame": 31.599999997764826,
+          "sourceToggle": 8.300000000745058,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.5,
+          "commentsFrame": 33.30000000074506
+        }
+      ],
+      "medianInput": 0.6999999992549419,
+      "medianInputFrame": 31.599999997764826,
+      "medianSourceToggle": 7.300000000745058,
+      "medianSourceFrame": 33.30000000074506,
+      "medianCommentsToggle": 0.6000000014901161,
+      "medianCommentsFrame": 33.399999998509884,
+      "sampledRetainedJsBytes": 108988,
+      "counts": {
+        "elements": 332,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 2,
+      "count": 0,
+      "samples": [
+        {
+          "input": 0.5999999977648258,
+          "inputFrame": 31.5,
+          "sourceToggle": 5.199999999254942,
+          "sourceFrame": 33.399999998509884,
+          "commentsToggle": 1.1000000014901161,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.100000001490116,
+          "sourceToggle": 5.099999997764826,
+          "sourceFrame": 33.29999999701977,
+          "commentsToggle": 0.6000000014901161,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 0.6999999992549419,
+          "inputFrame": 31.399999998509884,
+          "sourceToggle": 5.100000001490116,
+          "sourceFrame": 33.5,
+          "commentsToggle": 0.6999999992549419,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 0.6999999992549419,
+          "inputFrame": 31.599999997764826,
+          "sourceToggle": 6.300000000745058,
+          "sourceFrame": 33.100000001490116,
+          "commentsToggle": 0.6999999992549419,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 0.9000000022351742,
+          "inputFrame": 31.5,
+          "sourceToggle": 5.900000002235174,
+          "sourceFrame": 33.19999999925494,
+          "commentsToggle": 0.7000000029802322,
+          "commentsFrame": 33.5
+        },
+        {
+          "input": 0.8000000007450581,
+          "inputFrame": 30.700000002980232,
+          "sourceToggle": 6,
+          "sourceFrame": 33.399999998509884,
+          "commentsToggle": 0.6000000014901161,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 0.7000000029802322,
+          "inputFrame": 31.300000000745058,
+          "sourceToggle": 8.600000001490116,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.8999999985098839,
+          "commentsFrame": 33.30000000074506
+        }
+      ],
+      "medianInput": 0.7000000029802322,
+      "medianInputFrame": 31.399999998509884,
+      "medianSourceToggle": 5.900000002235174,
+      "medianSourceFrame": 33.30000000074506,
+      "medianCommentsToggle": 0.6999999992549419,
+      "medianCommentsFrame": 33.30000000074506,
+      "sampledRetainedJsBytes": 120940,
+      "counts": {
+        "elements": 332,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 2,
+      "count": 60,
+      "samples": [
+        {
+          "input": 1,
+          "inputFrame": 26.199999999254942,
+          "sourceToggle": 11.699999999254942,
+          "sourceFrame": 33.400000002235174,
+          "commentsToggle": 1,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 1,
+          "inputFrame": 25.399999998509884,
+          "sourceToggle": 13.100000001490116,
+          "sourceFrame": 33.20000000298023,
+          "commentsToggle": 1.8999999985098839,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 1,
+          "inputFrame": 26.300000000745058,
+          "sourceToggle": 11.699999999254942,
+          "sourceFrame": 33.400000002235174,
+          "commentsToggle": 0.8999999985098839,
+          "commentsFrame": 33.399999998509884
+        },
+        {
+          "input": 0.8000000007450581,
+          "inputFrame": 27.100000001490116,
+          "sourceToggle": 11.399999998509884,
+          "sourceFrame": 34.399999998509884,
+          "commentsToggle": 1.4000000022351742,
+          "commentsFrame": 32.19999999925494
+        },
+        {
+          "input": 1.5,
+          "inputFrame": 23.5,
+          "sourceToggle": 12.399999998509884,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 0.7999999970197678,
+          "commentsFrame": 33.29999999701977
+        },
+        {
+          "input": 0.9000000022351742,
+          "inputFrame": 26.100000001490116,
+          "sourceToggle": 13.5,
+          "sourceFrame": 33.399999998509884,
+          "commentsToggle": 1.199999999254942,
+          "commentsFrame": 33.30000000074506
+        },
+        {
+          "input": 1,
+          "inputFrame": 25.600000001490116,
+          "sourceToggle": 10.5,
+          "sourceFrame": 33.30000000074506,
+          "commentsToggle": 1.0999999977648258,
+          "commentsFrame": 33.399999998509884
+        }
+      ],
+      "medianInput": 1,
+      "medianInputFrame": 26.100000001490116,
+      "medianSourceToggle": 11.699999999254942,
+      "medianSourceFrame": 33.399999998509884,
+      "medianCommentsToggle": 1.0999999977648258,
+      "medianCommentsFrame": 33.399999998509884,
+      "sampledRetainedJsBytes": 144168,
+      "counts": {
+        "elements": 1111,
+        "comments": 60,
+        "visible": 35
+      }
+    }
+  ]
+}

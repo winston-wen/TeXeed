@@ -1,0 +1,162 @@
+{
+  "schema": "texeed-mentor-comparable-after-v1",
+  "fixtureSha256": "51323cba87fc453c7838666347da751a66131f45811628e31ec98790138319b5",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "156.0.4314.58",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "paragraphs": 120,
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "heapSamplingInterval": 1024,
+    "measure": "force full render of one 120-paragraph document, measure synchronous work and two animation frames",
+    "limitations": [
+      "Sampled retained JavaScript heap is not total allocation.",
+      "Two-frame timings include scheduling.",
+      "The former per-turn interface and the mentor document have different controls and structures."
+    ]
+  },
+  "resources": {
+    "mentor.html": "1cf26a166a623804020a3e4229ecfa455302b6d2ca33540eebabfb5f16d2bbd0",
+    "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+    "mentor.css": "b4722a61e843a9af5ee93ca2b9f7f73f21f5a6933f90f9ebbe1b65e2eac95740",
+    "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+    "mentor-core.js": "df27e69df475d237eab6ce529925cfa6aa46f19bc13320832e8aa4a07c0d62fc"
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "samples": [
+        {
+          "sync": 3.599999997764826,
+          "frame": 32
+        },
+        {
+          "sync": 3.600000001490116,
+          "frame": 32
+        },
+        {
+          "sync": 4.5,
+          "frame": 32
+        },
+        {
+          "sync": 3.5,
+          "frame": 32.19999999925494
+        },
+        {
+          "sync": 3.400000002235174,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 3,
+          "frame": 32.100000001490116
+        },
+        {
+          "sync": 3.199999999254942,
+          "frame": 32.099999997764826
+        }
+      ],
+      "medianSync": 3.5,
+      "medianFrame": 32.099999997764826,
+      "sampledRetainedJsBytes": 31772,
+      "counts": {
+        "elements": 331,
+        "paragraphs": 120,
+        "visible": 13
+      }
+    },
+    {
+      "round": 1,
+      "samples": [
+        {
+          "sync": 2.7999999970197678,
+          "frame": 32.19999999925494
+        },
+        {
+          "sync": 5.399999998509884,
+          "frame": 31.600000001490116
+        },
+        {
+          "sync": 4.100000001490116,
+          "frame": 32.400000002235174
+        },
+        {
+          "sync": 3.599999997764826,
+          "frame": 31.599999997764826
+        },
+        {
+          "sync": 4.699999999254942,
+          "frame": 31.5
+        },
+        {
+          "sync": 3.699999999254942,
+          "frame": 32
+        },
+        {
+          "sync": 3.800000000745058,
+          "frame": 32
+        }
+      ],
+      "medianSync": 3.800000000745058,
+      "medianFrame": 32,
+      "sampledRetainedJsBytes": 20812,
+      "counts": {
+        "elements": 331,
+        "paragraphs": 120,
+        "visible": 13
+      }
+    },
+    {
+      "round": 2,
+      "samples": [
+        {
+          "sync": 3.2999999970197678,
+          "frame": 31.899999998509884
+        },
+        {
+          "sync": 3.900000002235174,
+          "frame": 31.900000002235174
+        },
+        {
+          "sync": 4.699999999254942,
+          "frame": 31.800000000745058
+        },
+        {
+          "sync": 3.400000002235174,
+          "frame": 32.30000000074506
+        },
+        {
+          "sync": 3.900000002235174,
+          "frame": 31.699999999254942
+        },
+        {
+          "sync": 4.899999998509884,
+          "frame": 31.800000000745058
+        },
+        {
+          "sync": 4.099999997764826,
+          "frame": 31.899999998509884
+        }
+      ],
+      "medianSync": 3.900000002235174,
+      "medianFrame": 31.899999998509884,
+      "sampledRetainedJsBytes": 30244,
+      "counts": {
+        "elements": 331,
+        "paragraphs": 120,
+        "visible": 13
+      }
+    }
+  ]
+}

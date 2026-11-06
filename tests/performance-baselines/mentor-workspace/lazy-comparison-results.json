@@ -1,0 +1,677 @@
+{
+  "schema": "texeed-mentor-comment-lazy-comparison-v1",
+  "fixtureSha256": "89e0acafefca0118449fd7fb435ce63f0621415006a95bd0d42e15d987558164",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "156.0.4314.58",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "paragraphs": 120,
+    "comments": 60,
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "Sampled retained JavaScript heap is not total allocation.",
+      "Two-frame timings include scheduling.",
+      "Input uses browser insertText command, not a real operating-system IME.",
+      "Viewport intersection does not account for ancestor clipping."
+    ]
+  },
+  "resources": {
+    "before": {
+      "mentor.html": "1cf26a166a623804020a3e4229ecfa455302b6d2ca33540eebabfb5f16d2bbd0",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "b4722a61e843a9af5ee93ca2b9f7f73f21f5a6933f90f9ebbe1b65e2eac95740",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "e311ed020c286a202f201224778f23c24bae5a4e3d8e0731b8736758b23d7327",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    },
+    "after": {
+      "mentor.html": "1cf26a166a623804020a3e4229ecfa455302b6d2ca33540eebabfb5f16d2bbd0",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "b4722a61e843a9af5ee93ca2b9f7f73f21f5a6933f90f9ebbe1b65e2eac95740",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "df27e69df475d237eab6ce529925cfa6aa46f19bc13320832e8aa4a07c0d62fc",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    }
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "side": "before",
+      "samples": [
+        {
+          "input": 1.1000000014901161,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 6.700000002980232,
+          "sourceFrame": 33.20000000298023,
+          "open": 4.399999998509884,
+          "openFrame": 33.599999997764826,
+          "close": 1.5,
+          "closeFrame": 33.19999999925494,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 6.900000002235174,
+          "sourceFrame": 33.30000000074506,
+          "open": 4.399999998509884,
+          "openFrame": 33.29999999701977,
+          "close": 1.300000000745058,
+          "closeFrame": 33.400000002235174,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 31.300000000745058,
+          "sourceToggle": 8,
+          "sourceFrame": 33.29999999701977,
+          "open": 4.700000002980232,
+          "openFrame": 33.30000000074506,
+          "close": 1.1000000014901161,
+          "closeFrame": 33.5,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 32.099999997764826,
+          "sourceToggle": 6.5,
+          "sourceFrame": 32.80000000074506,
+          "open": 4.600000001490116,
+          "openFrame": 33.400000002235174,
+          "close": 1,
+          "closeFrame": 33.100000001490116,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 5.900000002235174,
+          "sourceFrame": 33.30000000074506,
+          "open": 3.399999998509884,
+          "openFrame": 33.30000000074506,
+          "close": 1,
+          "closeFrame": 33.5,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.3999999985098839,
+          "inputFrame": 30.599999997764826,
+          "sourceToggle": 9.800000000745058,
+          "sourceFrame": 33.19999999925494,
+          "open": 4.900000002235174,
+          "openFrame": 33.30000000074506,
+          "close": 1.300000000745058,
+          "closeFrame": 33.399999998509884,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 7.200000002980232,
+          "sourceFrame": 33.400000002235174,
+          "open": 4,
+          "openFrame": 33.20000000298023,
+          "close": 1,
+          "closeFrame": 33.19999999925494,
+          "closed": 60,
+          "opened": 60
+        }
+      ],
+      "medianInput": 1.199999999254942,
+      "medianInputFrame": 31.699999999254942,
+      "medianSourceToggle": 6.900000002235174,
+      "medianSourceFrame": 33.29999999701977,
+      "medianOpen": 4.399999998509884,
+      "medianOpenFrame": 33.30000000074506,
+      "medianClose": 1.1000000014901161,
+      "medianCloseFrame": 33.399999998509884,
+      "sampledRetainedJsBytes": 143140,
+      "counts": {
+        "elements": 1111,
+        "comments": 60,
+        "visible": 13
+      }
+    },
+    {
+      "round": 0,
+      "side": "after",
+      "samples": [
+        {
+          "input": 1.0999999977648258,
+          "inputFrame": 29.899999998509884,
+          "sourceToggle": 8.699999999254942,
+          "sourceFrame": 33.399999998509884,
+          "open": 5.600000001490116,
+          "openFrame": 33.30000000074506,
+          "close": 1.300000000745058,
+          "closeFrame": 33.30000000074506,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.9000000022351742,
+          "inputFrame": 32,
+          "sourceToggle": 5.400000002235174,
+          "sourceFrame": 33.30000000074506,
+          "open": 5.800000000745058,
+          "openFrame": 33.30000000074506,
+          "close": 1.199999999254942,
+          "closeFrame": 33.399999998509884,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.899999998509884,
+          "sourceToggle": 8.5,
+          "sourceFrame": 33.30000000074506,
+          "open": 7.199999999254942,
+          "openFrame": 33.399999998509884,
+          "close": 1.2000000029802322,
+          "closeFrame": 33.400000002235174,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.5,
+          "inputFrame": 31.399999998509884,
+          "sourceToggle": 5.399999998509884,
+          "sourceFrame": 33.30000000074506,
+          "open": 4.699999999254942,
+          "openFrame": 33.399999998509884,
+          "close": 1.1000000014901161,
+          "closeFrame": 37,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.6999999992549419,
+          "inputFrame": 28.199999999254942,
+          "sourceToggle": 5.300000000745058,
+          "sourceFrame": 33.20000000298023,
+          "open": 6.299999997019768,
+          "openFrame": 33.399999998509884,
+          "close": 1.699999999254942,
+          "closeFrame": 33.29999999701977,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.899999998509884,
+          "sourceToggle": 5.600000001490116,
+          "sourceFrame": 33.30000000074506,
+          "open": 4.899999998509884,
+          "openFrame": 33.29999999701977,
+          "close": 1.7000000029802322,
+          "closeFrame": 33.30000000074506,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.1000000014901161,
+          "inputFrame": 31.700000002980232,
+          "sourceToggle": 5.5,
+          "sourceFrame": 33.29999999701977,
+          "open": 4.900000002235174,
+          "openFrame": 33.20000000298023,
+          "close": 1.199999999254942,
+          "closeFrame": 33.400000002235174,
+          "closed": 0,
+          "opened": 60
+        }
+      ],
+      "medianInput": 0.9000000022351742,
+      "medianInputFrame": 31.700000002980232,
+      "medianSourceToggle": 5.5,
+      "medianSourceFrame": 33.30000000074506,
+      "medianOpen": 5.600000001490116,
+      "medianOpenFrame": 33.30000000074506,
+      "medianClose": 1.2000000029802322,
+      "medianCloseFrame": 33.399999998509884,
+      "sampledRetainedJsBytes": 162168,
+      "counts": {
+        "elements": 331,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 1,
+      "side": "after",
+      "samples": [
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 31.199999999254942,
+          "sourceToggle": 9.300000000745058,
+          "sourceFrame": 35,
+          "open": 6.600000001490116,
+          "openFrame": 31.700000002980232,
+          "close": 2.199999999254942,
+          "closeFrame": 33.399999998509884,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.199999999254942,
+          "sourceToggle": 7,
+          "sourceFrame": 33.30000000074506,
+          "open": 10.299999997019768,
+          "openFrame": 33.399999998509884,
+          "close": 1.5999999977648258,
+          "closeFrame": 33.29999999701977,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 7.100000001490116,
+          "sourceFrame": 33.30000000074506,
+          "open": 7.099999997764826,
+          "openFrame": 33.19999999925494,
+          "close": 1.7000000029802322,
+          "closeFrame": 33.30000000074506,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1,
+          "inputFrame": 31.5,
+          "sourceToggle": 6.100000001490116,
+          "sourceFrame": 33.30000000074506,
+          "open": 4.800000000745058,
+          "openFrame": 33.399999998509884,
+          "close": 1.5,
+          "closeFrame": 33.400000002235174,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 31.300000000745058,
+          "sourceToggle": 6,
+          "sourceFrame": 33.30000000074506,
+          "open": 5,
+          "openFrame": 33.29999999701977,
+          "close": 3.300000000745058,
+          "closeFrame": 33.399999998509884,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.0999999977648258,
+          "inputFrame": 30.899999998509884,
+          "sourceToggle": 6,
+          "sourceFrame": 33.399999998509884,
+          "open": 4.5,
+          "openFrame": 33.5,
+          "close": 2,
+          "closeFrame": 33.100000001490116,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.9000000022351742,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 5.100000001490116,
+          "sourceFrame": 33.30000000074506,
+          "open": 5.699999999254942,
+          "openFrame": 33.400000002235174,
+          "close": 1.3999999985098839,
+          "closeFrame": 33.29999999701977,
+          "closed": 0,
+          "opened": 60
+        }
+      ],
+      "medianInput": 1.0999999977648258,
+      "medianInputFrame": 31.300000000745058,
+      "medianSourceToggle": 6.100000001490116,
+      "medianSourceFrame": 33.30000000074506,
+      "medianOpen": 5.699999999254942,
+      "medianOpenFrame": 33.399999998509884,
+      "medianClose": 1.7000000029802322,
+      "medianCloseFrame": 33.30000000074506,
+      "sampledRetainedJsBytes": 132548,
+      "counts": {
+        "elements": 331,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 1,
+      "side": "before",
+      "samples": [
+        {
+          "input": 1.199999999254942,
+          "inputFrame": 31.800000000745058,
+          "sourceToggle": 7.599999997764826,
+          "sourceFrame": 33.19999999925494,
+          "open": 4.199999999254942,
+          "openFrame": 33.399999998509884,
+          "close": 1,
+          "closeFrame": 35.5,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.2999999970197678,
+          "inputFrame": 28.899999998509884,
+          "sourceToggle": 7.600000001490116,
+          "sourceFrame": 33.5,
+          "open": 8.300000000745058,
+          "openFrame": 33.399999998509884,
+          "close": 1.4000000022351742,
+          "closeFrame": 33.30000000074506,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 14.5,
+          "sourceFrame": 33.30000000074506,
+          "open": 7,
+          "openFrame": 33.30000000074506,
+          "close": 1.1000000014901161,
+          "closeFrame": 33.19999999925494,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.1000000014901161,
+          "inputFrame": 31.800000000745058,
+          "sourceToggle": 6.899999998509884,
+          "sourceFrame": 33.30000000074506,
+          "open": 6.600000001490116,
+          "openFrame": 33.30000000074506,
+          "close": 1,
+          "closeFrame": 33.5,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.5,
+          "inputFrame": 31,
+          "sourceToggle": 10.100000001490116,
+          "sourceFrame": 33.100000001490116,
+          "open": 4.100000001490116,
+          "openFrame": 33.5,
+          "close": 1.3999999985098839,
+          "closeFrame": 33,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 0.9000000022351742,
+          "inputFrame": 32,
+          "sourceToggle": 10.900000002235174,
+          "sourceFrame": 33.400000002235174,
+          "open": 4.199999999254942,
+          "openFrame": 33.399999998509884,
+          "close": 1,
+          "closeFrame": 33.19999999925494,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.1000000014901161,
+          "inputFrame": 31.900000002235174,
+          "sourceToggle": 6.800000000745058,
+          "sourceFrame": 33.399999998509884,
+          "open": 4.300000000745058,
+          "openFrame": 33.30000000074506,
+          "close": 1.0999999977648258,
+          "closeFrame": 33.099999997764826,
+          "closed": 60,
+          "opened": 60
+        }
+      ],
+      "medianInput": 1.1000000014901161,
+      "medianInputFrame": 31.800000000745058,
+      "medianSourceToggle": 7.600000001490116,
+      "medianSourceFrame": 33.30000000074506,
+      "medianOpen": 4.300000000745058,
+      "medianOpenFrame": 33.399999998509884,
+      "medianClose": 1.0999999977648258,
+      "medianCloseFrame": 33.19999999925494,
+      "sampledRetainedJsBytes": 164496,
+      "counts": {
+        "elements": 1111,
+        "comments": 60,
+        "visible": 13
+      }
+    },
+    {
+      "round": 2,
+      "side": "before",
+      "samples": [
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.799999997019768,
+          "sourceToggle": 8.200000002980232,
+          "sourceFrame": 33.400000002235174,
+          "open": 7.399999998509884,
+          "openFrame": 33.399999998509884,
+          "close": 1.800000000745058,
+          "closeFrame": 33.099999997764826,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1,
+          "inputFrame": 31.900000002235174,
+          "sourceToggle": 6.699999999254942,
+          "sourceFrame": 33.30000000074506,
+          "open": 7.599999997764826,
+          "openFrame": 34.099999997764826,
+          "close": 1.1000000014901161,
+          "closeFrame": 32.600000001490116,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.5,
+          "inputFrame": 31.100000001490116,
+          "sourceToggle": 10.899999998509884,
+          "sourceFrame": 33.399999998509884,
+          "open": 4.5,
+          "openFrame": 33.399999998509884,
+          "close": 1.199999999254942,
+          "closeFrame": 33.19999999925494,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.8999999985098839,
+          "inputFrame": 31.800000000745058,
+          "sourceToggle": 8.5,
+          "sourceFrame": 33.19999999925494,
+          "open": 3.599999997764826,
+          "openFrame": 33.5,
+          "close": 1.300000000745058,
+          "closeFrame": 33.19999999925494,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.0999999977648258,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 7.699999999254942,
+          "sourceFrame": 33.399999998509884,
+          "open": 9.400000002235174,
+          "openFrame": 33.30000000074506,
+          "close": 1,
+          "closeFrame": 33.5,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.2000000029802322,
+          "inputFrame": 31.300000000745058,
+          "sourceToggle": 6.199999999254942,
+          "sourceFrame": 33.5,
+          "open": 4,
+          "openFrame": 33.100000001490116,
+          "close": 1.199999999254942,
+          "closeFrame": 33.399999998509884,
+          "closed": 60,
+          "opened": 60
+        },
+        {
+          "input": 1.5,
+          "inputFrame": 30.799999997019768,
+          "sourceToggle": 5.900000002235174,
+          "sourceFrame": 33.30000000074506,
+          "open": 3.800000000745058,
+          "openFrame": 34.400000002235174,
+          "close": 0.8999999985098839,
+          "closeFrame": 32.5,
+          "closed": 60,
+          "opened": 60
+        }
+      ],
+      "medianInput": 1.2000000029802322,
+      "medianInputFrame": 31.699999999254942,
+      "medianSourceToggle": 7.699999999254942,
+      "medianSourceFrame": 33.399999998509884,
+      "medianOpen": 4.5,
+      "medianOpenFrame": 33.399999998509884,
+      "medianClose": 1.199999999254942,
+      "medianCloseFrame": 33.19999999925494,
+      "sampledRetainedJsBytes": 149728,
+      "counts": {
+        "elements": 1111,
+        "comments": 60,
+        "visible": 13
+      }
+    },
+    {
+      "round": 2,
+      "side": "after",
+      "samples": [
+        {
+          "input": 1.1000000014901161,
+          "inputFrame": 31.699999999254942,
+          "sourceToggle": 5.700000002980232,
+          "sourceFrame": 33.5,
+          "open": 6.300000000745058,
+          "openFrame": 33.20000000298023,
+          "close": 2.100000001490116,
+          "closeFrame": 33.30000000074506,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.8999999985098839,
+          "inputFrame": 31.899999998509884,
+          "sourceToggle": 5.700000002980232,
+          "sourceFrame": 33.30000000074506,
+          "open": 6.300000000745058,
+          "openFrame": 33.400000002235174,
+          "close": 1.199999999254942,
+          "closeFrame": 38.79999999701977,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.300000000745058,
+          "inputFrame": 26.199999999254942,
+          "sourceToggle": 6.699999999254942,
+          "sourceFrame": 33.30000000074506,
+          "open": 10.099999997764826,
+          "openFrame": 33.19999999925494,
+          "close": 1.0999999977648258,
+          "closeFrame": 33.30000000074506,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.8000000007450581,
+          "inputFrame": 32.100000001490116,
+          "sourceToggle": 7.199999999254942,
+          "sourceFrame": 33.19999999925494,
+          "open": 4.5,
+          "openFrame": 33.30000000074506,
+          "close": 1.199999999254942,
+          "closeFrame": 33.400000002235174,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.5999999977648258,
+          "inputFrame": 31.299999997019768,
+          "sourceToggle": 5.100000001490116,
+          "sourceFrame": 33.30000000074506,
+          "open": 5.900000002235174,
+          "openFrame": 33.30000000074506,
+          "close": 1.199999999254942,
+          "closeFrame": 33.19999999925494,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 1.0999999977648258,
+          "inputFrame": 31.899999998509884,
+          "sourceToggle": 5.300000000745058,
+          "sourceFrame": 33.30000000074506,
+          "open": 5.5,
+          "openFrame": 33.30000000074506,
+          "close": 1,
+          "closeFrame": 34.099999997764826,
+          "closed": 0,
+          "opened": 60
+        },
+        {
+          "input": 0.8000000007450581,
+          "inputFrame": 31.300000000745058,
+          "sourceToggle": 6,
+          "sourceFrame": 33.30000000074506,
+          "open": 6.099999997764826,
+          "openFrame": 33.30000000074506,
+          "close": 1.3999999985098839,
+          "closeFrame": 33.5,
+          "closed": 0,
+          "opened": 60
+        }
+      ],
+      "medianInput": 1.0999999977648258,
+      "medianInputFrame": 31.699999999254942,
+      "medianSourceToggle": 5.700000002980232,
+      "medianSourceFrame": 33.30000000074506,
+      "medianOpen": 6.099999997764826,
+      "medianOpenFrame": 33.30000000074506,
+      "medianClose": 1.199999999254942,
+      "medianCloseFrame": 33.400000002235174,
+      "sampledRetainedJsBytes": 144848,
+      "counts": {
+        "elements": 331,
+        "comments": 0,
+        "visible": 13
+      }
+    }
+  ]
+}
