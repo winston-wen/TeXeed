@@ -38,10 +38,23 @@ public partial class AiPanel
     internal async Task DeleteConversationAsync(string id)
     {
         if (_store is not null) throw new InvalidOperationException("请先关闭会话窗口，再从历史管理删除。");
+        if (_project is null || !_book.Conversations.Any(c => c.Id == id)) return;
         await FinishConversationWorkAsync();
-        if (!_book.RemoveConversation(id)) return;
-        ShowCurrentConversation();
-        await SaveAsync();
+        var project = _project; var priorActive = _book.ActiveConversationId;
+        try
+        {
+            await WaitForGlobalCarryAsync(() => { AiGlobalCarry.Remove(project, id); return true; });
+            if (!_book.RemoveConversation(id)) return;
+            ShowCurrentConversation(); await SaveAsync();
+        }
+        catch
+        {
+            // Reload only after a failed delete; disk determines whether the tombstone is retained.
+            var restored = await AiStorage.LoadAsync(project);
+            _book.Conversations = restored.Conversations;
+            _book.ActiveConversationId = restored.Conversations.Any(c => c.Id == priorActive) ? priorActive : restored.ActiveConversationId;
+            ShowCurrentConversation(); throw;
+        }
     }
     internal async Task DeleteTurnAsync(string id)
     {
@@ -65,6 +78,8 @@ public partial class AiPanel
         SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript(); RefreshBookmarkMarkers();
+        BindSharedDocument();
+        RecoveryWarning.Text = _book.CarryRecoveryConflicts > 0 ? $"有 {_book.CarryRecoveryConflicts} 项跨会话回复或版本未能处理；恢复记录已保留，未覆盖文稿。" : "";
         StatusText.Text = "";
         RestoreReadingAnchor();
     }

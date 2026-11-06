@@ -133,6 +133,8 @@ public partial class AiPanel
     private void UpdateRetryActions()
     {
         var last = _book.Turns.LastOrDefault();
+        SharedRetryButton.Visibility = last?.IsIncomplete == true ? Visibility.Visible : Visibility.Collapsed;
+        SharedRetryButton.IsEnabled = _operation is null;
         foreach (var view in _turnViews.Values) view.CanRetry = _operation is null && last?.Id == view.Turn.Id && view.Turn.IsIncomplete;
     }
     private void RevealLiveTurn()

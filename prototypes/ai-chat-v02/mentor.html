@@ -11,7 +11,7 @@
 <div class="app">
   <header class="workspace-bar">
     <span class="app-name">AI</span>
-    <select id="mentor-session-list" class="workspace-tab session-list" aria-label="选择会话"><option>与导师共同研究</option></select>
+    <select id="mentor-session-list" class="workspace-tab session-list" aria-label="选择会话"><option>共同研究</option></select>
     <button id="mentor-session-new" class="session-new" type="button" aria-label="新建会话" title="新建会话">＋</button>
     <span class="workspace-spacer"></span>
     <span id="mentor-demo" class="demo-badge">模拟演示 · 未连接 AI</span>
@@ -33,7 +33,7 @@
           <div id="mentor-empty" class="document-empty">
             <div class="empty-mark" aria-hidden="true">✳</div>
             <h1>从一个问题开始</h1>
-            <p>写下你的问题，导师的初稿会出现在这里。<br>随后可以一起修改、讨论和补充。</p>
+            <p>写下你的问题，模型的初稿会出现在这里。<br>随后可以一起修改、讨论和补充。</p>
             <button id="mentor-example" class="example-button" type="button">填入示例问题</button>
           </div>
           <div id="mentor-initial-question" class="initial-question" hidden></div>
@@ -51,7 +51,7 @@
     <section class="composer-pane" aria-label="提问与讨论">
       <div class="composer-input">
         <div class="line-numbers" aria-hidden="true">1<br>2<br>3</div>
-        <textarea id="mentor-prompt" rows="3" aria-label="输入问题" placeholder="提出一个问题，或者告诉导师你想讨论什么…"></textarea>
+        <textarea id="mentor-prompt" rows="3" aria-label="输入问题" placeholder="提出一个问题，或说明你想讨论什么…"></textarea>
       </div>
       <div class="composer-controls">
         <button class="tool-icon" type="button" aria-label="添加附件" disabled>＋</button>

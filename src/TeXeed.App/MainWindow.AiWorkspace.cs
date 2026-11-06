@@ -134,16 +134,27 @@ public partial class MainWindow
     private async Task DeleteAiConversationsAsync(IReadOnlyCollection<string> ids)
     {
         if (_aiStore is null) return;
-        if(ids.Any(IsAiConversationOpen)) throw new InvalidOperationException("会话窗口已打开，关闭后才能删除。请先关闭对应的会话标签。");
+        if (ids.Any(IsAiConversationOpen)) throw new InvalidOperationException("会话窗口已打开，关闭后才能删除。请先关闭对应的会话标签。");
+        var store = _aiStore; var originals = store.Book.Conversations.ToArray(); var activeId = store.Book.ActiveConversationId;
         foreach (var id in ids) _deletingAi.Add(id);
         try
         {
-            foreach(var id in ids)
-                if(_aiPanels.Remove(id,out var panel)) { await panel.StopAndSaveAsync(); panel.Dispose(); }
-            _aiStore.Book.Conversations.RemoveAll(c=>ids.Contains(c.Id));
-            var active=_aiStore.Book.Active;
-            if(!_aiPanels.Values.Contains(_aiPanel)) _aiPanel=EnsureAiPanel(active.Id);
-            await _aiStore.SaveAsync(); RefreshAiAnnotations();
+            foreach (var id in ids)
+                if (_aiPanels.Remove(id, out var panel)) { await panel.StopAndSaveAsync(); panel.Dispose(); }
+            foreach (var id in ids) AiGlobalCarry.Remove(store.Project, id);
+            store.Book.Conversations.RemoveAll(c => ids.Contains(c.Id));
+            var active = store.Book.Active;
+            if (!_aiPanels.Values.Contains(_aiPanel)) _aiPanel = EnsureAiPanel(active.Id);
+            await store.SaveAsync(); RefreshAiAnnotations();
+        }
+        catch
+        {
+            // A still-present notebook conversation recovers its tombstone and prior selection.
+            var saved = await AiStorage.LoadAsync(store.Project);
+            foreach (var original in originals.Where(c => saved.Conversations.Any(x => x.Id == c.Id)))
+                if (!store.Book.Conversations.Any(c => c.Id == original.Id)) store.Book.Conversations.Add(original);
+            if (store.Book.Conversations.Any(c => c.Id == activeId)) store.Book.ActiveConversationId = activeId;
+            RefreshAiAnnotations(); throw;
         }
         finally { foreach (var id in ids) _deletingAi.Remove(id); }
     }

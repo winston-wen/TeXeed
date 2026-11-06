@@ -14,10 +14,10 @@ internal sealed class AiWorkspaceStore(string project, AiNotebook book)
         finally { _gate.Release(); }
         Changed?.Invoke();
     }
-    internal AiNotebook View(string id) => new() { Conversations = Book.Conversations, ActiveConversationId = id };
+    internal AiNotebook View(string id) => new() { Conversations = Book.Conversations, ActiveConversationId = id, CarryRecoveryConflicts = Book.CarryRecoveryConflicts };
     internal static async Task<AiWorkspaceStore> LoadAsync(string project)
     {
-        var book = await Task.Run(() => AiStorage.Load(project));
+        var book = await AiStorage.LoadAsync(project);
         var store = new AiWorkspaceStore(project, book);
         if (book.RequiresSave || AiTurnCheckpoint.PathsFor(project).Any()) await store.SaveAsync();
         return store;

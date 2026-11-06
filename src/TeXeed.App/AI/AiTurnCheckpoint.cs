@@ -85,6 +85,15 @@ internal sealed class AiTurnCheckpoint
             var conversation = book.Conversations.FirstOrDefault(c => c.Id == pending.ConversationId);
             if (conversation is null) { conversation = new() { Id = pending.ConversationId, Title = pending.Title }; book.Conversations.Add(conversation); }
             if (!conversation.Turns.Any(t => t.Id == pending.Turn.Id)) conversation.Turns.Add(pending.Turn);
+            conversation.CommentCarry.TryAdd(pending.Turn.Id, "temporary");
+            if (pending.Turn.MentorRequest is { } request)
+                foreach (var round in request.Rounds.Where(r => r.Carry == "temporary" && r.Project.Length > 0 && r.SelectionRevision.Length > 0))
+                {
+                    if (!AiGlobalCarry.ConsumeTemporary(round.Project, round.ConversationId, round.RoundId, round.SelectionRevision)) continue;
+                    if (!string.Equals(Path.GetFullPath(round.Project), Path.GetFullPath(project), StringComparison.OrdinalIgnoreCase)) continue;
+                    var source = book.Conversations.FirstOrDefault(c => c.Id == round.ConversationId);
+                    if (source is not null && source.CommentCarry.GetValueOrDefault(round.RoundId) == "temporary") source.CommentCarry[round.RoundId] = "none";
+                }
             conversation.LastSentAt = conversation.LastSend;
             if (!book.Conversations.Any(c => c.Id == book.ActiveConversationId)) book.ActiveConversationId = conversation.Id;
             // Only a successful notebook save retires this journal.

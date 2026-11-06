@@ -29,12 +29,12 @@
    <DataTemplate.Triggers><DataTrigger Binding="{Binding Kind}" Value="activity"><Setter TargetName="Activity" Property="Visibility" Value="Visible"/><Setter TargetName="Content" Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding Kind}" Value="final"><Setter TargetName="AnswerDivider" Property="Visibility" Value="Visible"/></DataTrigger></DataTemplate.Triggers>
   </DataTemplate>
  </UserControl.Resources>
- <Grid x:Name="ChatRoot" Background="{DynamicResource EditorBackground}" Margin="20,0,14,14">
+ <Grid x:Name="ChatRoot" Background="{DynamicResource EditorBackground}">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <DockPanel x:Name="MessageSearchPanel" Grid.Row="0" Visibility="Collapsed" Margin="0,0,0,8"><Button DockPanel.Dock="Right" Content="↓" Click="NextMatch_Click" Padding="5,3"/><Button DockPanel.Dock="Right" Content="↑" Click="PreviousMatch_Click" Padding="5,3"/><TextBlock x:Name="MessageMatchStatus" DockPanel.Dock="Right" Text="0" VerticalAlignment="Center" Margin="6,0"/><TextBox x:Name="MessageSearchBox" TextChanged="MessageSearch_Changed" ToolTip="查找问题和回答" AutomationProperties.Name="查找当前 AI 对话"/></DockPanel>
-  <Grid Grid.Row="1" ClipToBounds="True" Margin="-12,0,0,0">
+  <Grid Grid.Row="1" ClipToBounds="True">
   <!-- Reserve a stable gutter: first overflow must not reflow every rich document. -->
-   <ItemsControl x:Name="History" Margin="0,8,8,0" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="0" VirtualizingPanel.VirtualizationMode="Standard">
+   <ItemsControl x:Name="History" Visibility="Collapsed" Margin="0,8,8,0" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="0" VirtualizingPanel.VirtualizationMode="Standard">
     <ItemsControl.Template><ControlTemplate TargetType="ItemsControl"><ScrollViewer x:Name="MessagesScroll" CanContentScroll="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" PreviewMouseWheel="MessagesScroll_Wheel"><ItemsPresenter/></ScrollViewer></ControlTemplate></ItemsControl.Template>
     <ItemsControl.ItemsPanel><ItemsPanelTemplate><local:ChatVirtualizingPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
     <ItemsControl.Resources><DataTemplate DataType="{x:Type ai:AiTurn}"><local:AiTurnView Turn="{Binding}" Loaded="Turn_Loaded" Margin="12,0,0,30"/></DataTemplate></ItemsControl.Resources>
@@ -46,13 +46,14 @@
      <local:AiReplyStatus x:Name="LiveReplyStatus" IsThinking="True" Margin="36,0,4,0"/>
     </StackPanel>
    </ItemsControl>
+   <local:AiDocumentView x:Name="SharedDocumentView"/>
    <Border x:Name="ReadingContext" VerticalAlignment="Top" Panel.ZIndex="1" Visibility="Collapsed" Margin="12,0,0,0" BorderBrush="{DynamicResource ChatDivider}" BorderThickness="0,0,0,2" Background="{DynamicResource ChatQuestionBackground}" Padding="12,6" ClipToBounds="True"><StackPanel>
     <TextBlock x:Name="ReadingContextTitle" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" TextTrimming="CharacterEllipsis"/>
     <TextBlock x:Name="ReadingContextAnnotations" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
    </StackPanel></Border>
   </Grid>
-  <TextBlock x:Name="StatusText" Grid.Row="2" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="6,4,8,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
-  <Border x:Name="ComposerBorder" Grid.Row="3" BorderThickness="1" Background="{DynamicResource ChatQuestionBackground}" CornerRadius="24" Padding="0" Margin="0,8,0,0">
+  <StackPanel Grid.Row="2"><Button x:Name="SharedRetryButton" Content="重试上次请求" Visibility="Collapsed" HorizontalAlignment="Left" Margin="20,4,0,0" Padding="8,3" Click="SharedRetry_Click"/><local:AiReplyStatus x:Name="SharedReplyStatus" IsThinking="True" Visibility="Collapsed" Margin="20,0,14,0"/><TextBlock x:Name="RecoveryWarning" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" Margin="20,4,14,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="20,4,14,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
+  <Border x:Name="ComposerBorder" Grid.Row="3" BorderThickness="0,1,0,0" Background="{DynamicResource ChatQuestionBackground}" CornerRadius="0" Padding="0" Margin="0">
    <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource Guide}"/><Style.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ChatFocus}"/></Trigger></Style.Triggers></Style></Border.Style>
    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <Grid x:Name="ComposerEditor"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

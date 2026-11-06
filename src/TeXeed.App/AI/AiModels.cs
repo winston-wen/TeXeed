@@ -52,6 +52,14 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
     public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], PdfRevision = PdfRevision, IsPoint = IsPoint };
     public bool IsPoint { get; set; }
 }
+public sealed class AiMentorRequestSnapshot
+{
+    public string Source { get; set; } = "";
+    public string InitialSource { get; set; } = "";
+    public List<AiMentorReference> References { get; set; } = [];
+    public List<AiMentorRoundSelection> Rounds { get; set; } = [];
+    internal AiMentorRequestSnapshot Snapshot() => new() { Source = Source, InitialSource = InitialSource, References = References.Select(reference => reference with { Comment = reference.Comment.Snapshot() }).ToList(), Rounds = [.. Rounds] };
+}
 public sealed record AiTurn(string Question, string Answer)
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
@@ -62,6 +70,7 @@ public sealed record AiTurn(string Question, string Answer)
     public bool? Incomplete { get; init; }
     public string? EndReason { get; init; }
     public string? Prompt { get; init; }
+    public AiMentorRequestSnapshot? MentorRequest { get; init; }
     public List<AiEntry> SentAnnotations { get; init; } = [];
     public bool Collapsed { get; set; }
     public Dictionary<string, bool> CollapsedSections { get; init; } = [];
@@ -120,6 +129,8 @@ public sealed class AiConversation
     }
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
+    public AiSharedDocument SharedDocument { get; set; } = new();
+    public Dictionary<string, string> CommentCarry { get; set; } = [];
     public string Draft { get; set; } = "";
     public AiPermission Permission { get; set; } = AiPermission.FullAccess;
     public AiContextUsage? ContextUsage { get; set; }
@@ -170,14 +181,15 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
-        Entries = Entries.Select(e => e.Snapshot()).ToList()
+        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { MentorRequest = t.MentorRequest?.Snapshot(), SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        Entries = Entries.Select(e => e.Snapshot()).ToList(), SharedDocument = SharedDocument.Snapshot(), CommentCarry = new(CommentCarry)
     };
 }
 
 public sealed class AiNotebook
 {
     internal bool RequiresSave { get; set; }
+    internal int CarryRecoveryConflicts { get; set; }
     public List<AiConversation> Conversations { get; set; } = [];
     public string ActiveConversationId { get; set; } = "";
     [JsonIgnore] public AiConversation Active
@@ -215,6 +227,14 @@ internal static class AiStorage
     internal static string Home => Path.Combine(Environment.GetEnvironmentVariable("TEXEED_HOME") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TeXeed"), "ai");
     internal static string Hash(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     internal static string NotebookPath(string project) => Path.Combine(Home, "projects", Hash(Path.GetFullPath(project).ToUpperInvariant()) + ".json");
+    internal static async Task<AiNotebook> LoadAsync(string project, CancellationToken cancellationToken = default)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try { return await Task.Run(() => Load(project), cancellationToken); }
+            catch (AiGlobalCarryBusyException) when (attempt < 1200) { await Task.Delay(25, cancellationToken); }
+        }
+    }
     internal static AiNotebook Load(string project)
     {
         var path = NotebookPath(project);
@@ -235,7 +255,10 @@ internal static class AiStorage
 
         AiNotebook Restore(AiNotebook book)
         {
+            AiGlobalCarry.ReconcileDeleted(project, book);
             AiTurnCheckpoint.Recover(project, book);
+            book.CarryRecoveryConflicts = AiGlobalCarry.RecoverNotebook(project, book);
+            book.CarryRecoveryConflicts += AiGlobalCarry.RestorePendingReplies(project, book);
             foreach (var conversation in book.Conversations)
                 if (conversation.ReconcileSentAnnotations()) book.RequiresSave = true;
             return book;

@@ -135,7 +135,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
         if (tailStart < text.Length && char.IsLowSurrogate(text[tailStart])) tailStart++;
         return text[..head] + marker + text[tailStart..];
     }
-    internal async Task RunAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history, IReadOnlyList<ProjectFile> files, Action<string> delta, Action<string> status, CancellationToken token, string reasoningEffort = "", AiToolRunner? toolRunner = null, Action<AiStreamEvent>? activity = null, string? instructionsOverride = null, AiPermission permission = AiPermission.FullAccess, Action<AiContextUsage>? usage = null, long? contextWindow = null, AiContextMemory? memory = null, Action<AiContextMemory>? compacted = null, int? compactThreshold = null, JsonArray? preparedInput = null, string? connectionIdentity = null, Func<string, CancellationToken, Task<AiMathCheck>>? proofread = null, bool resuming = false)
+    internal async Task RunAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history, IReadOnlyList<ProjectFile> files, Action<string> delta, Action<string> status, CancellationToken token, string reasoningEffort = "", AiToolRunner? toolRunner = null, Action<AiStreamEvent>? activity = null, string? instructionsOverride = null, AiPermission permission = AiPermission.FullAccess, Action<AiContextUsage>? usage = null, long? contextWindow = null, AiContextMemory? memory = null, Action<AiContextMemory>? compacted = null, int? compactThreshold = null, JsonArray? preparedInput = null, string? connectionIdentity = null, Func<string, CancellationToken, Task<AiMathCheck>>? proofread = null, bool resuming = false, bool classifyCommentary = false)
     {
         var identity = connectionIdentity ?? connection.ConnectionIdentity;
         var budget = new AiContextBudget(contextWindow, compactThreshold);
@@ -197,7 +197,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                     {
                         totalCharacters += count;
                         if (totalCharacters > 200_000) throw new InvalidOperationException("本次回答超过 20 万字符，已停止接收。可缩小问题范围继续提问。");
-                    });
+                    }, classifyCommentary);
                     while (await ReadResponseLineAsync(reader, readDeadline) is { } line)
                     {
                         if (line.StartsWith("data:")) { eventData.AppendLine(line[5..].TrimStart()); if (eventData.Length > 8_000_000) throw new InvalidOperationException("AI 响应事件超过大小限制。"); continue; }
@@ -348,7 +348,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
         }
         return new JsonArray(merged.Values.Select(item => item.DeepClone()).ToArray());
     }
-    private sealed class ResponseText(int round, Action<string> delta, Action<AiStreamEvent>? activity, Action<int> countCharacters)
+    private sealed class ResponseText(int round, Action<string> delta, Action<AiStreamEvent>? activity, Action<int> countCharacters, bool classifyCommentary)
     {
         private sealed class Message(string segmentId)
         {
@@ -397,7 +397,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
             if (part == message.Parts.Keys.Last())
             {
                 countCharacters(chunk.Length); message.Text.Append(chunk); delta(chunk);
-                activity?.Invoke(new(message.SegmentId, "text", chunk, true));
+                activity?.Invoke(new(message.SegmentId, classifyCommentary && message.Phase == "commentary" ? "activity" : "text", chunk, true));
             }
             else SetText(message, string.Concat(message.Parts.Values.Select(value => value.ToString())));
         }
@@ -425,7 +425,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
             // The UI receives an authoritative replacement if the terminal item corrects
             // an earlier chunk; the legacy delta callback remains an append-only trace.
             delta(addition);
-            activity?.Invoke(new(message.SegmentId, "text", isSuffix ? addition : value, isSuffix));
+            activity?.Invoke(new(message.SegmentId, classifyCommentary && message.Phase == "commentary" ? "activity" : "text", isSuffix ? addition : value, isSuffix));
         }
     }
     private static string ToolLabel(string name, string arguments)
