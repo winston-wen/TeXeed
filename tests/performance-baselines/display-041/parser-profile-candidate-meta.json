@@ -1,0 +1,26 @@
+{
+  "fixture": "profile-parser.cjs",
+  "description": "three alternating old/optimized-candidate runs each for 120 plain paragraphs and full TeX envelope, 7 render events sampled",
+  "limitations": [
+    "Profile is sampled JavaScript attribution to nearest recognized stack frame; allocations may be optimized or charged to different frames.",
+    "Compiled renderer resources are frozen; references are not loaded."
+  ],
+  "files": {
+    "native-before/AiDocumentView.cs": "87825655dcd44bbc288780d15007ba8423bed4d4ef4c59088a70dab8d86cacfe",
+    "native-before/AiMentorIntegrationTests.cs": "c45112e1a022dcebba7b294c7f68795dd13878fe01df1c1c2cb9a64cb7506585",
+    "native-before/bookmarks.css": "56c00a0a981c30c3a76c2e48da910ad7f7c7b14e5ac063821d4f3ebe3bfd19ca",
+    "native-before/bookmarks.js": "caf129206190d0f5e3755116044fd0487db962c90619a441e763b66450c2ae1f",
+    "native-before/document.css": "67393c509ae009cb7b9c88e9b0835090851d24b9c0de0e9a798467b3aec87745",
+    "native-before/document.html": "97b966ad7e25fa4dc25313d7b68125709d529cb3f77ce233a4c054e4ff1b2056",
+    "native-before/document.js": "95c4f53ac592fc0a178302ea89a611a5c80b5d1b0bca04b7ebe3654398495f6b",
+    "native-before/mentor.css": "24eb16a25f5578b7469ee9b5b37119d4267f246277a649589bb4992764a266b8",
+    "profile-candidate/bookmarks.css": "56c00a0a981c30c3a76c2e48da910ad7f7c7b14e5ac063821d4f3ebe3bfd19ca",
+    "profile-candidate/bookmarks.js": "caf129206190d0f5e3755116044fd0487db962c90619a441e763b66450c2ae1f",
+    "profile-candidate/document.css": "88d8097c2b38d746405216cae489bc46b461a59482bc7accbf98e72efd7e27c4",
+    "profile-candidate/document.html": "97b966ad7e25fa4dc25313d7b68125709d529cb3f77ce233a4c054e4ff1b2056",
+    "profile-candidate/document.js": "acd722ac8f154923736c1be10298af5bfe18e3a13609189116b4b14c206808c3",
+    "profile-candidate/mentor.css": "24eb16a25f5578b7469ee9b5b37119d4267f246277a649589bb4992764a266b8",
+    "profile-parser.cjs": "1ebec6d21be20c5c01595fa60a52e64dd18e316522361e43cfbbad5dc6909c23"
+  },
+  "resultSha256": "95bbc6ca5a467ab92170b1685e6c2f317d1fc15ac736a435a0e664de00e8247c"
+}

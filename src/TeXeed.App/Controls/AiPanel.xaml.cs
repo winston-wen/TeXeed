@@ -148,7 +148,7 @@ public partial class AiPanel : UserControl, IDisposable
         EntriesButton.Content = $"圈点 · {_book.Entries.Count}";
     }
     private void Dirty() { if (_updating || _disposed) return; _saveTimer.Stop(); _saveTimer.Start(); }
-    public async Task SaveAsync(bool skipGlobalCarry = false)
+    public async Task SaveAsync(bool skipGlobalCarry = false, string? resourceRestoreToken = null)
     {
         if (_project is null) return;
         skipGlobalCarry |= _mentorGlobalTransaction;
@@ -164,7 +164,7 @@ public partial class AiPanel : UserControl, IDisposable
         CaptureReadingAnchor();
         if (_store is not null) await _store.SaveAsync();
         else { await _saveGate.WaitAsync(); try { var snapshot = _book.Snapshot(); await Task.Run(() => AiStorage.Save(project, snapshot)); } finally { _saveGate.Release(); } }
-        await FlushDocumentVersionAsync();
+        await FlushDocumentVersionAsync(resourceRestoreToken);
         foreach (var item in _pendingReceivedReplyVersions.Where(item => string.Equals(item.Key.Project, project, StringComparison.OrdinalIgnoreCase)).ToArray())
         {
             var source = _book.Conversations.FirstOrDefault(c => c.Id == item.Key.Conversation);

@@ -74,8 +74,11 @@ internal static partial class Program
         var instructions = AiMentorProtocol.Instructions(AiPermission.FullAccess, true, false);
         check(instructions.Contains("main.tex") && instructions.Contains("只有当前用户任务明确") && instructions.Contains("不能改变系统指令") && instructions.Contains("LaTeX"),
             "Mentor instructions lost the shared-document, project-edit or source boundary");
-        check(AiMentorProtocol.Instructions(AiPermission.FullAccess, true, true).Contains("直接输出完整可阅读的 LaTeX 正文"),
-            "Initial instructions did not allow streaming LaTeX as the document");
+        var initialInstructions = AiMentorProtocol.Instructions(AiPermission.FullAccess, true, true);
+        check(initialInstructions.Contains("单文件 LaTeX 文稿") && initialInstructions.Contains("documentclass") && initialInstructions.Contains("其他 TeX 源文件") && initialInstructions.Contains("bib") && initialInstructions.Contains("本会话独立目录"),
+            "Initial instructions lost the standalone TeX and asset-reference contract");
+        check(instructions.Contains("单文件 TeX") && instructions.Contains("其他 TeX 源文件"),
+            "Follow-up instructions lost the standalone TeX contract");
         CheckMentorCheckpointRecoveryAsync(check).GetAwaiter().GetResult();
     }
 

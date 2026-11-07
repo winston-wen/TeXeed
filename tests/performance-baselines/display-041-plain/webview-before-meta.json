@@ -1,0 +1,34 @@
+{
+  "baseline": "0be9eb74bc12582bc4c2736f30f27c171a980d74",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "architecture": "x64",
+    "webview": "156.0.4314.58",
+    "display": "offscreen 1000x800 WPF host"
+  },
+  "fixture": "tests/TeXeed.AppTests/AiFullDocumentPerfTests.cs::MeasureAiFullDocumentPerformanceAsync, TEXEED_PERF_PLAIN=1",
+  "limitations": [
+    "Built archived 0.4.0 commit with only the standalone performance fixture and its Program entry added.",
+    "CDP sampled JavaScript allocation is an estimate and excludes native process allocations.",
+    "Programmatic selection is not OS IME."
+  ],
+  "files": {
+    "AiDocumentView.cs": "87825655dcd44bbc288780d15007ba8423bed4d4ef4c59088a70dab8d86cacfe",
+    "AiFullDocumentPerfTests.cs": "4e423d3838c661e8ea3772c23ac6a7b9165fe46c50cbbc320961c1f4604589d2",
+    "bookmarks.css": "9eb3e4efe1953592eb57ea21d3bf936708a63124e9d20b12ae2096d9a2d54c9a",
+    "bookmarks.js": "a5fd73a477cce5a8609b340064d1681c618b5fbad64f70ce4426816bee8a1b93",
+    "document.css": "33ddb435bed1952717edef1f03a82dd5d14d669639175954455d54ab8a8261c0",
+    "document.html": "97b966ad7e25fa4dc25313d7b68125709d529cb3f77ce233a4c054e4ff1b2056",
+    "document.js": "95c4f53ac592fc0a178302ea89a611a5c80b5d1b0bca04b7ebe3654398495f6b",
+    "mentor.css": "24eb16a25f5578b7469ee9b5b37119d4267f246277a649589bb4992764a266b8",
+    "Program.cs": "4d2942e7245e2d860909882ea400a2c481e852894eb8cee67bd225630c0deb2d",
+    "AiMentorIntegrationTests.cs": "0fac2b16d1092ae81471ceb0dcdd3b661156bebac2348e3f25c698676fe023de"
+  },
+  "binaryHashesAtCapture": {
+    "app": "85c12994fbc088afa536ce2c1bc831f9c94031b94e4dc4d8ba1ff1aa03e44ac2",
+    "tests": "1907a152486cc04be59d51312425555336ef0915812b1348cdf0e52b70ebdb69"
+  },
+  "resultSha256": "885af0b8e57fff92fc50b25afafa8bb4b6e192df389dd3738428ef830179d6ea"
+}

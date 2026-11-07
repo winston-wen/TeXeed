@@ -1,0 +1,10 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const all=fs.readFileSync(path.join(__dirname,'../src/TeXeed.App/Assets/AiDocument/document.js'),'utf8');
+const start=all.indexOf(' function authorAt('),end=all.indexOf(' function mathMarkup(',start);assert(start>=0&&end>start);
+const functions=new Function('data','escape',all.slice(start,end)+';return {spansFor};');
+function baseline(text,absolute,authorship){function authorAt(pos){const s=authorship.find(x=>pos>=x.start&&pos<x.end);return s?.author||'ai'}let result='',start=0;while(start<text.length){const author=authorAt(absolute+start);let end=start+1;while(end<text.length&&authorAt(absolute+end)===author)end++;const contents=text.slice(start,end).split(/(\n+)/).map(part=>/^\n+$/.test(part)?'<span data-tex="'+part.replace(/\n/g,'&#10;')+'" contenteditable="false">'+'<br>'.repeat(part.length)+'</span>':escape(part)).join('');result+='<span class="'+(author==='user'?'mentor-user':'mentor-ai')+'">'+contents+'</span>';start=end}return result;}
+const text='甲🙂乙 & <a>\n中文 café 组合符 á 尾';let boundaries=[0],offset=0;for(const ch of text){offset+=ch.length;boundaries.push(offset)}let seed=13;function rand(n){seed=(seed*16807)%2147483647;return seed%n}
+for(let k=0;k<500;k++){const spans=[];for(let i=0,n=rand(12);i<n;i++){let a=rand(boundaries.length),b=rand(boundaries.length);if(a>b)[a,b]=[b,a];spans.push({start:boundaries[a],end:boundaries[b],author:rand(2)?'user':'ai'});}let a=rand(boundaries.length),b=rand(boundaries.length);if(a>b)[a,b]=[b,a];const from=boundaries[a],to=boundaries[b],slice=text.slice(from,to);assert.equal(functions({authorship:spans},escape).spansFor(slice,from),baseline(slice,from,spans),`case ${k}, source ${from}..${to}, spans ${JSON.stringify(spans)}`);}
+console.log('PASS author spans agree with baseline for gaps, overlapping/unsorted ranges, newlines and emoji');

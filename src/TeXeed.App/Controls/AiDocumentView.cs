@@ -19,6 +19,7 @@ public sealed class AiDocumentView : UserControl
     private AiSharedDocument? _document;
     private string _question = "", _userName = "用户", _modelName = "AI";
     private string? _preview;
+    private string? _assetDirectory;
     private string? _unapplied, _unappliedReason;
     private long _binding;
     private bool _ready, _initializing;
@@ -54,10 +55,34 @@ public sealed class AiDocumentView : UserControl
             core.NewWindowRequested += (_, e) => e.Handled = true;
             core.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
-            core.WebResourceRequested += (_, e) =>
+            core.WebResourceRequested += async (_, e) =>
             {
-                if (Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri) &&
-                    ((uri.Scheme == Uri.UriSchemeHttps && uri.Host == Host) || uri.Scheme is "data" or "blob")) return;
+                if (Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri))
+                {
+                    if (uri.Scheme == Uri.UriSchemeHttps && uri.Host == AiDocumentAssets.Host)
+                    {
+                        var directory = _assetDirectory; var binding = _binding.ToString();
+                        var deferral = e.GetDeferral();
+                        try
+                        {
+                            var result = e.ResourceContext == CoreWebView2WebResourceContext.Image && e.Request.Method == "GET"
+                                ? await Task.Run(() => AiDocumentAssets.TryReadImage(directory, binding, uri, out var bytes, out var mime) ? (bytes, mime) : ((byte[]?)null, ""))
+                                : ((byte[]?)null, "");
+                            if (result.Item1 is not null && binding == _binding.ToString() && string.Equals(directory, _assetDirectory, StringComparison.OrdinalIgnoreCase))
+                                e.Response = core.Environment.CreateWebResourceResponse(new MemoryStream(result.Item1), 200, "OK", "Content-Type: " + result.Item2 + "\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; sandbox\r\nX-Content-Type-Options: nosniff");
+                            else e.Response = core.Environment.CreateWebResourceResponse(null, 404, "Not Found", "Cache-Control: no-store");
+                        }
+                        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or ObjectDisposedException or InvalidOperationException)
+                        { /* The view may close while the image is being read. */ }
+                        finally
+                        {
+                            try { deferral.Complete(); }
+                            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or ObjectDisposedException or InvalidOperationException) { }
+                        }
+                        return;
+                    }
+                    if ((uri.Scheme == Uri.UriSchemeHttps && uri.Host == Host) || uri.Scheme is "data" or "blob") return;
+                }
                 e.Response = core.Environment.CreateWebResourceResponse(null, 403, "Forbidden", "");
             };
             core.WebMessageReceived += OnMessage;
@@ -71,10 +96,11 @@ public sealed class AiDocumentView : UserControl
 
     private static bool IsDocument(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && uri.Host == Host && uri.AbsolutePath == "/document.html";
 
-    public void Bind(AiSharedDocument document, string question, string userName, string modelName)
+    public void Bind(AiSharedDocument document, string question, string userName, string modelName, string? assetDirectory = null)
     {
-        if (!ReferenceEquals(_document, document)) { _binding++; _unapplied = null; _unappliedReason = null; if (_ready) Send(new { type = "clear-unapplied" }); }
+        if (!ReferenceEquals(_document, document) || !string.Equals(_assetDirectory, assetDirectory, StringComparison.OrdinalIgnoreCase)) { _binding++; _unapplied = null; _unappliedReason = null; if (_ready) Send(new { type = "clear-unapplied" }); }
         _document = document;
+        _assetDirectory = assetDirectory;
         _question = question ?? "";
         _userName = string.IsNullOrWhiteSpace(userName) ? "用户" : userName;
         _modelName = string.IsNullOrWhiteSpace(modelName) ? "AI" : modelName;

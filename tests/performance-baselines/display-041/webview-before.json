@@ -1,0 +1,344 @@
+{
+  "fixture": "120 paragraphs, 0 or 60 comments",
+  "timing": "render event and two animation frames; programmatic selection",
+  "allocation": "CDP sampled JavaScript allocations across seven operations, including objects collected by major/minor GC; estimate, not exact total",
+  "viewport": "offscreen 1000x800 WPF host",
+  "measurements": [
+    {
+      "round": 0,
+      "count": 0,
+      "samples": [
+        {
+          "render": 109.29999999701977,
+          "renderFrame": 125.70000000298023,
+          "selection": 0,
+          "selectionFrame": 18
+        },
+        {
+          "render": 79.20000000298023,
+          "renderFrame": 95.30000001192093,
+          "selection": 0.10000000894069672,
+          "selectionFrame": 17.30000001192093
+        },
+        {
+          "render": 45.8999999910593,
+          "renderFrame": 61.8999999910593,
+          "selection": 0,
+          "selectionFrame": 17.30000001192093
+        },
+        {
+          "render": 49,
+          "renderFrame": 65.30000001192093,
+          "selection": 0,
+          "selectionFrame": 17.700000002980232
+        },
+        {
+          "render": 114.79999999701977,
+          "renderFrame": 130.70000000298023,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 17.399999991059303
+        },
+        {
+          "render": 79.40000000596046,
+          "renderFrame": 94.29999999701977,
+          "selection": 0,
+          "selectionFrame": 17.299999997019768
+        },
+        {
+          "render": 78,
+          "renderFrame": 94.29999999701977,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.299999997019768
+        }
+      ],
+      "sampledRetainedJsBytes": 2699048,
+      "sampledAllocatedJsBytes": 2704996,
+      "counts": {
+        "comments": 0,
+        "elements": 295,
+        "paragraphs": 120,
+        "visible": 6
+      }
+    },
+    {
+      "round": 0,
+      "count": 60,
+      "samples": [
+        {
+          "render": 19.799999997019768,
+          "renderFrame": 34,
+          "selection": 0,
+          "selectionFrame": 17.299999997019768
+        },
+        {
+          "render": 19.899999991059303,
+          "renderFrame": 34.20000000298023,
+          "selection": 0,
+          "selectionFrame": 17.799999997019768
+        },
+        {
+          "render": 98.29999999701977,
+          "renderFrame": 111,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.599999994039536
+        },
+        {
+          "render": 20.400000005960464,
+          "renderFrame": 35.400000005960464,
+          "selection": 0,
+          "selectionFrame": 18.5
+        },
+        {
+          "render": 96.20000000298023,
+          "renderFrame": 110.6000000089407,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.5
+        },
+        {
+          "render": 156.29999999701977,
+          "renderFrame": 170.20000000298023,
+          "selection": 0,
+          "selectionFrame": 17.400000005960464
+        },
+        {
+          "render": 120,
+          "renderFrame": 134.69999998807907,
+          "selection": 0,
+          "selectionFrame": 17.700000002980232
+        }
+      ],
+      "sampledRetainedJsBytes": 4294556,
+      "sampledAllocatedJsBytes": 4306028,
+      "counts": {
+        "comments": 60,
+        "elements": 1194,
+        "paragraphs": 120,
+        "visible": 16
+      }
+    },
+    {
+      "round": 1,
+      "count": 0,
+      "samples": [
+        {
+          "render": 17.399999991059303,
+          "renderFrame": 34.19999998807907,
+          "selection": 0,
+          "selectionFrame": 17.099999994039536
+        },
+        {
+          "render": 17.799999997019768,
+          "renderFrame": 33.8999999910593,
+          "selection": 0,
+          "selectionFrame": 17.299999997019768
+        },
+        {
+          "render": 16.900000005960464,
+          "renderFrame": 33,
+          "selection": 0,
+          "selectionFrame": 17.099999994039536
+        },
+        {
+          "render": 17.700000002980232,
+          "renderFrame": 45.29999999701977,
+          "selection": 0.10000000894069672,
+          "selectionFrame": 17.299999997019768
+        },
+        {
+          "render": 16.599999994039536,
+          "renderFrame": 33.3999999910593,
+          "selection": 0,
+          "selectionFrame": 17.299999997019768
+        },
+        {
+          "render": 17.099999994039536,
+          "renderFrame": 33.599999994039536,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.399999991059303
+        },
+        {
+          "render": 20.700000002980232,
+          "renderFrame": 37.400000005960464,
+          "selection": 0,
+          "selectionFrame": 17.799999997019768
+        }
+      ],
+      "sampledRetainedJsBytes": 2653356,
+      "sampledAllocatedJsBytes": 2658592,
+      "counts": {
+        "comments": 0,
+        "elements": 295,
+        "paragraphs": 120,
+        "visible": 6
+      }
+    },
+    {
+      "round": 1,
+      "count": 60,
+      "samples": [
+        {
+          "render": 19.400000005960464,
+          "renderFrame": 34.20000000298023,
+          "selection": 0,
+          "selectionFrame": 17.5
+        },
+        {
+          "render": 20.200000002980232,
+          "renderFrame": 35.3999999910593,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.799999997019768
+        },
+        {
+          "render": 30.19999998807907,
+          "renderFrame": 44.3999999910593,
+          "selection": 0.10000000894069672,
+          "selectionFrame": 17.5
+        },
+        {
+          "render": 20.599999994039536,
+          "renderFrame": 37.099999994039536,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.299999997019768
+        },
+        {
+          "render": 34.80000001192093,
+          "renderFrame": 48.5,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.5
+        },
+        {
+          "render": 19.899999991059303,
+          "renderFrame": 34.599999994039536,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.399999991059303
+        },
+        {
+          "render": 19.200000002980232,
+          "renderFrame": 34.29999999701977,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.5
+        }
+      ],
+      "sampledRetainedJsBytes": 4241908,
+      "sampledAllocatedJsBytes": 4253288,
+      "counts": {
+        "comments": 60,
+        "elements": 1194,
+        "paragraphs": 120,
+        "visible": 16
+      }
+    },
+    {
+      "round": 2,
+      "count": 0,
+      "samples": [
+        {
+          "render": 24.399999991059303,
+          "renderFrame": 41,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.700000002980232
+        },
+        {
+          "render": 16.5,
+          "renderFrame": 33.1000000089407,
+          "selection": 0,
+          "selectionFrame": 17.599999994039536
+        },
+        {
+          "render": 16.899999991059303,
+          "renderFrame": 33.70000000298023,
+          "selection": 0,
+          "selectionFrame": 17.200000002980232
+        },
+        {
+          "render": 16.399999991059303,
+          "renderFrame": 33.599999994039536,
+          "selection": 0,
+          "selectionFrame": 17.399999991059303
+        },
+        {
+          "render": 18.599999994039536,
+          "renderFrame": 35.5,
+          "selection": 0,
+          "selectionFrame": 17.400000005960464
+        },
+        {
+          "render": 16.600000008940697,
+          "renderFrame": 33.400000005960464,
+          "selection": 0,
+          "selectionFrame": 17.69999998807907
+        },
+        {
+          "render": 16.799999997019768,
+          "renderFrame": 33.3999999910593,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 17.69999998807907
+        }
+      ],
+      "sampledRetainedJsBytes": 1248256,
+      "sampledAllocatedJsBytes": 1251032,
+      "counts": {
+        "comments": 0,
+        "elements": 295,
+        "paragraphs": 120,
+        "visible": 6
+      }
+    },
+    {
+      "round": 2,
+      "count": 60,
+      "samples": [
+        {
+          "render": 18.80000001192093,
+          "renderFrame": 34.1000000089407,
+          "selection": 0,
+          "selectionFrame": 17.600000008940697
+        },
+        {
+          "render": 18.599999994039536,
+          "renderFrame": 34.19999998807907,
+          "selection": 0,
+          "selectionFrame": 18
+        },
+        {
+          "render": 19.099999994039536,
+          "renderFrame": 34.19999998807907,
+          "selection": 0,
+          "selectionFrame": 17.19999998807907
+        },
+        {
+          "render": 18.700000002980232,
+          "renderFrame": 34.5,
+          "selection": 0,
+          "selectionFrame": 17.69999998807907
+        },
+        {
+          "render": 31.100000008940697,
+          "renderFrame": 46.6000000089407,
+          "selection": 0,
+          "selectionFrame": 17.400000005960464
+        },
+        {
+          "render": 19,
+          "renderFrame": 34.400000005960464,
+          "selection": 0,
+          "selectionFrame": 17.599999994039536
+        },
+        {
+          "render": 20.700000002980232,
+          "renderFrame": 34.80000001192093,
+          "selection": 0.10000000894069672,
+          "selectionFrame": 17.5
+        }
+      ],
+      "sampledRetainedJsBytes": 2851088,
+      "sampledAllocatedJsBytes": 2860528,
+      "counts": {
+        "comments": 60,
+        "elements": 1194,
+        "paragraphs": 120,
+        "visible": 16
+      }
+    }
+  ]
+}

@@ -79,7 +79,7 @@ public partial class AiPanel
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript(); RefreshBookmarkMarkers();
         BindSharedDocument();
-        RecoveryWarning.Text = _book.CarryRecoveryConflicts > 0 ? $"有 {_book.CarryRecoveryConflicts} 项跨会话回复或版本未能处理；恢复记录已保留，未覆盖文稿。" : "";
+        UpdateRecoveryWarning();
         StatusText.Text = "";
         RestoreReadingAnchor();
     }

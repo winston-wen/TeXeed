@@ -39,6 +39,16 @@ internal static partial class Program
             || expectedAiHome.StartsWith(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TeXeed") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("UI tests require an isolated AI credentials directory.");
         Console.WriteLine("Isolated test AI home: " + expectedAiHome);
+        if (args.Contains("--ai-document-resource-versions-only"))
+        {
+            try { CheckAiDocumentResourceVersionsAsync(output).GetAwaiter().GetResult(); return 0; }
+            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+        }
+        if (args.Contains("--ai-document-assets-only"))
+        {
+            try { CheckAiDocumentAssets(output); return 0; }
+            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+        }
         if (args.Contains("--ai-global-carry-only"))
         {
             try { CheckAiGlobalCarry(output); return 0; }
@@ -50,6 +60,10 @@ internal static partial class Program
             catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
         }
         File.WriteAllText(Path.Combine(config, "settings.json"), JsonSerializer.Serialize(new AppSettings { LivePreview = false }));
+        if (args.Contains("--ai-document-assets-integration-only"))
+            return RunAiDocumentAssetsIntegration(output);
+        if (args.Contains("--ai-full-document-perf-only"))
+            return RunAiFullDocumentPerformance(output);
         if (args.Contains("--ai-mentor-integration-only"))
             return RunAiMentorIntegration(output);
         var result = 1;

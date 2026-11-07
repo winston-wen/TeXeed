@@ -1,0 +1,3 @@
+'use strict';
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),here=__dirname,sha=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+for(const suffix of ['','-candidate']){const meta=JSON.parse(fs.readFileSync(path.join(here,'parser-profile'+suffix+'-meta.json'),'utf8'));for(const [p,h] of Object.entries(meta.files))if(sha(path.join(here,p))!==h)throw Error('profile resource differs: '+p);const resultPath=path.join(here,'parser-profile'+suffix+'.json');if(sha(resultPath)!==meta.resultSha256)throw Error('profile result hash mismatch');if(JSON.parse(fs.readFileSync(resultPath,'utf8')).runs.length!==12)throw Error('incomplete profile runs');}console.log('Candidate and final allocation profile sources and samples verified.');

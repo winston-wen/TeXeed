@@ -1,0 +1,41 @@
+{
+  "baseline": "0be9eb74bc12582bc4c2736f30f27c171a980d74",
+  "fixture": "AiFullDocumentPerfTests::MeasureAiFullDocumentPerformanceAsync",
+  "files": {
+    "src/TeXeed.App/Assets/AiDocument/bookmarks.css": "56c00a0a981c30c3a76c2e48da910ad7f7c7b14e5ac063821d4f3ebe3bfd19ca",
+    "src/TeXeed.App/Assets/AiDocument/bookmarks.js": "34e6ebc416b7cd0d211574467f97e462f3bba9fdf31c64927f59010a40fc7e80",
+    "src/TeXeed.App/Assets/AiDocument/document.css": "88d8097c2b38d746405216cae489bc46b461a59482bc7accbf98e72efd7e27c4",
+    "src/TeXeed.App/Assets/AiDocument/document.html": "97b966ad7e25fa4dc25313d7b68125709d529cb3f77ce233a4c054e4ff1b2056",
+    "src/TeXeed.App/Assets/AiDocument/document.js": "0fbc05d5db93541e2e65beff561dcc9419ea8c8a77aadb9768b4415f11eb021d",
+    "src/TeXeed.App/Assets/AiDocument/mentor.css": "24eb16a25f5578b7469ee9b5b37119d4267f246277a649589bb4992764a266b8",
+    "tests/TeXeed.AppTests/AiFullDocumentPerfTests.cs": "4e423d3838c661e8ea3772c23ac6a7b9165fe46c50cbbc320961c1f4604589d2",
+    "tests/TeXeed.AppTests/AiMentorIntegrationTests.cs": "c45112e1a022dcebba7b294c7f68795dd13878fe01df1c1c2cb9a64cb7506585",
+    "tests/TeXeed.AppTests/Program.cs": "d193f01394ecbebc2a9371c2b10c762153cde9f3df8faa577934fb763f4f3586",
+    "src/TeXeed.App/Controls/AiDocumentView.cs": "586361fa73fe085bc2cb6aa3d975d0c45fb8a64e39c6b26cdf7ea1c6325d529f",
+    "src/TeXeed.App/Controls/AiPanel.xaml.cs": "109e68709500ef4c561f956cf0d578ae8878dcc1fb80ce34f17bec03eb0f0a27",
+    "src/TeXeed.App/Controls/AiPanel.xaml": "8fcd5068f5d4855cfaf5fd6e004767ca4565164fca2e09dbe9b5e881fb4b8ecd",
+    "src/TeXeed.App/Controls/AiPanel.SharedDocument.cs": "0a7b9d3702ca16cc471cf59089153efc49d356bda9bd3f284913ddd6f3017594",
+    "src/TeXeed.App/AI/AiDocumentRepository.cs": "89569a1d0af990ada58373adb63e2b7abf0ac30911e34922c731dbad51e3ff00",
+    "src/TeXeed.App/AI/AiDocumentAssets.cs": "749bf97b1b6c55c50a82e995b2f145686198a340ce8c12a9f3388c4c018074c3",
+    "src/TeXeed.App/AI/AiSharedDocument.cs": "be71959c8337a5b9a8dae96da8cdba4f971533d4f5867c27c95cf5e6d4614078"
+  },
+  "binaryHashesAtCapture": {
+    "app": "607e05319e0a9f81d96577baabbd638d4c9d38bba8b4a61d4d19d2f7c5b2ee50",
+    "tests": "cf8fb05e36920f88e97aaecfe3ef75bdf74326d0f57732d957ba347da02cd9ae"
+  },
+  "resultSha256": "e04afd3e513033dee0461c14064a13018004a2a9cbbf52f7bfe8ff0325116f7f",
+  "limitations": [
+    "CDP sampling estimates JavaScript allocations including collected objects; it excludes WPF and native process allocations.",
+    "Offscreen programmatic selection does not simulate OS IME.",
+    "Full TeX fixture references image and bibliography files without loading actual assets."
+  ],
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "webview2": "156.0.4314.58",
+    "dotnet": "10.0",
+    "display": "offscreen 1000x800 WPF host"
+  }
+}

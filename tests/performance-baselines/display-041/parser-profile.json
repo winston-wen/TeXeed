@@ -1,0 +1,212 @@
+{
+  "fixture": "120 paragraphs; full fixture adds TeX preamble, section and unresolved image/Bib references",
+  "method": "headless Edge, three alternating rounds, two warmups then seven host state renders; sampled JS allocations including collected objects attributed to closest recognized function in allocation stack",
+  "limitations": [
+    "Profile buckets are sampling estimates and do not include browser-native DOM or WPF allocations.",
+    "The unrecognized bucket includes harness and native frames; engine allocation optimizations can shift attribution.",
+    "The full fixture references but does not supply image/Bib resources."
+  ],
+  "runs": [
+    {
+      "round": 0,
+      "mode": "old",
+      "kind": "plain",
+      "total": 2909552,
+      "by": {
+        "other": 353200,
+        "render": 317540,
+        "spansFor": 1751892,
+        "blockHTML": 245384,
+        "inline": 19536,
+        "parse": 221472,
+        "markComments": 528
+      }
+    },
+    {
+      "round": 0,
+      "mode": "old",
+      "kind": "full",
+      "total": 3019852,
+      "by": {
+        "other": 355672,
+        "render": 339992,
+        "spansFor": 1811800,
+        "blockHTML": 271216,
+        "inline": 23232,
+        "parse": 216372,
+        "comments": 520,
+        "markComments": 1048
+      }
+    },
+    {
+      "round": 0,
+      "mode": "new",
+      "kind": "plain",
+      "total": 1857020,
+      "by": {
+        "other": 354400,
+        "render": 322116,
+        "spansFor": 362596,
+        "blockHTML": 212288,
+        "inline": 91556,
+        "nextAuthorBoundary": 47528,
+        "parse": 465480,
+        "markComments": 1056
+      }
+    },
+    {
+      "round": 0,
+      "mode": "new",
+      "kind": "full",
+      "total": 2258404,
+      "by": {
+        "other": 376080,
+        "render": 348100,
+        "inline": 89320,
+        "spansFor": 360520,
+        "blockHTML": 221688,
+        "nextAuthorBoundary": 55432,
+        "parse": 470948,
+        "documentCommand": 313008,
+        "imageMarkup": 8952,
+        "extractMathMacros": 9496,
+        "comments": 620,
+        "authorAt": 3712,
+        "markComments": 528
+      }
+    },
+    {
+      "round": 1,
+      "mode": "new",
+      "kind": "plain",
+      "total": 1861096,
+      "by": {
+        "other": 358852,
+        "render": 320004,
+        "blockHTML": 234848,
+        "inline": 86764,
+        "spansFor": 377172,
+        "nextAuthorBoundary": 44968,
+        "parse": 437968,
+        "markComments": 520
+      }
+    },
+    {
+      "round": 1,
+      "mode": "new",
+      "kind": "full",
+      "total": 2284124,
+      "by": {
+        "other": 381824,
+        "render": 350948,
+        "inline": 90940,
+        "spansFor": 364672,
+        "imageMarkup": 5840,
+        "blockHTML": 208628,
+        "nextAuthorBoundary": 55344,
+        "parse": 476404,
+        "extractMathMacros": 8376,
+        "documentCommand": 336752,
+        "markComments": 1760,
+        "authorAt": 2636
+      }
+    },
+    {
+      "round": 1,
+      "mode": "old",
+      "kind": "plain",
+      "total": 2907916,
+      "by": {
+        "other": 358188,
+        "render": 322812,
+        "spansFor": 1728116,
+        "inline": 19012,
+        "blockHTML": 255096,
+        "parse": 223364,
+        "markComments": 708,
+        "comments": 620
+      }
+    },
+    {
+      "round": 1,
+      "mode": "old",
+      "kind": "full",
+      "total": 3072640,
+      "by": {
+        "render": 342532,
+        "blockHTML": 276552,
+        "spansFor": 1846400,
+        "inline": 21648,
+        "parse": 227196,
+        "other": 357076,
+        "markComments": 1236
+      }
+    },
+    {
+      "round": 2,
+      "mode": "old",
+      "kind": "plain",
+      "total": 2955032,
+      "by": {
+        "other": 356224,
+        "render": 321436,
+        "spansFor": 1782368,
+        "blockHTML": 275600,
+        "inline": 22176,
+        "parse": 196164,
+        "markComments": 1064
+      }
+    },
+    {
+      "round": 2,
+      "mode": "old",
+      "kind": "full",
+      "total": 3032872,
+      "by": {
+        "other": 352756,
+        "markComments": 1588,
+        "render": 341964,
+        "spansFor": 1827212,
+        "blockHTML": 265664,
+        "inline": 21120,
+        "parse": 222568
+      }
+    },
+    {
+      "round": 2,
+      "mode": "new",
+      "kind": "plain",
+      "total": 1781164,
+      "by": {
+        "other": 356240,
+        "render": 325844,
+        "spansFor": 348912,
+        "blockHTML": 203364,
+        "inline": 87280,
+        "nextAuthorBoundary": 53256,
+        "parse": 404488,
+        "markComments": 1780
+      }
+    },
+    {
+      "round": 2,
+      "mode": "new",
+      "kind": "full",
+      "total": 2261484,
+      "by": {
+        "other": 371424,
+        "render": 352460,
+        "spansFor": 363920,
+        "imageMarkup": 7432,
+        "inline": 83052,
+        "nextAuthorBoundary": 49144,
+        "blockHTML": 220072,
+        "parse": 493712,
+        "documentCommand": 299836,
+        "extractMathMacros": 13064,
+        "markComments": 1588,
+        "authorAt": 5780
+      }
+    }
+  ]
+}
