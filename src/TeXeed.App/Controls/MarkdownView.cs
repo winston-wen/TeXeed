@@ -157,7 +157,7 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _equations.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); _strongRuns.Clear(); _waves = null; ClearMedia(); ClearCodeSurfaces(); }
+    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); _strongRuns.Clear(); _waves = null; ClearMedia(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
         ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));
@@ -195,7 +195,7 @@ public sealed partial class MarkdownView : RichTextBox
         catch (Exception ex) when (ex is not OutOfMemoryException)
         { if (version != _renderVersion) return; CodeFallback(document, source); }
         if (version != _renderVersion) return;
-        _renderPending = false; LayoutVersion++;
+        _renderPending = false; _annotationPointers.Clear(); LayoutVersion++;
         Document = document; InvalidateMeasure(); QueueWaveLayout();
     }
 
@@ -214,6 +214,7 @@ public sealed partial class MarkdownView : RichTextBox
             case HeadingBlock heading:
                 var h = Paragraph(heading.Inline, depth);
                 h.Tag = new HeadingInfo(heading.Level, heading.Span.Start);
+                _bookmarkHeadings.TryAdd(heading.Span.Start, h);
                 if (ChatMode) AddHeadingNumber(h, heading.Level);
                 else
                 {

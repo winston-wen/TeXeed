@@ -1,0 +1,5 @@
+PASS: all preview follow modes round-trip, with legacy migration, key priority and invalid-value defaults
+Isolated test AI home: C:\Users\winst\Desktop\texeed\artifacts\perf-redo-native\results\before-2\profile\ai
+System.Exception: Performance fixture did not realize activity rows.
+   at Program.CheckAiUiPerformanceAsync(MainWindow owner, String output, String baseline, Boolean normalizeTypography, Boolean withHeadings, Boolean complexQuestions, Boolean inlineCode) in /_1/tests/TeXeed.AppTests/AiUiPerformanceTests.cs:line 57
+   at Program.<>c__DisplayClass136_0.<<Main>b__2>d.MoveNext() in /_1/tests/TeXeed.AppTests/Program.cs:line 292

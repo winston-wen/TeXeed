@@ -89,8 +89,10 @@ internal static partial class Program
         scroll.RaiseEvent(Button(MouseButton.Middle, Mouse.PreviewMouseUpEvent));
         if (auto.IsActive) throw new Exception("Releasing a middle-button drag did not end PDF autoscroll");
         if (!auto.Start(anchor)) throw new Exception("PDF autoscroll did not restart");
+        Invoke(window, "SetAiMarking", true);
         window.RaiseEvent(CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent));
-        if (auto.IsActive) throw new Exception("Escape did not stop PDF autoscroll");
+        if (auto.IsActive || !(bool)Field(window, "_aiMarking")!) throw new Exception("Escape did not stop PDF autoscroll without leaving AI marking");
+        Invoke(window, "SetAiMarking", false);
         if (!auto.Start(anchor)) throw new Exception("PDF autoscroll did not start for handled key test");
         var handledKey = CreateKey(window, Key.B, Keyboard.PreviewKeyDownEvent); handledKey.Handled = true;
         window.RaiseEvent(handledKey);

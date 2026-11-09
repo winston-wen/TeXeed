@@ -157,9 +157,22 @@ internal static partial class Program
         window.UpdateLayout();
         Check(preview.VisiblePage == 2, "Print current-page lookup does not follow the PDF reading position");
         Check(preview.CapturePrintView() is { IsEmpty: false } view && new Rect(document.Pages[1]).Contains(view), "Reading view did not capture a valid original PDF region");
+        var aiIcon = Descendants<Button>((FrameworkElement)window.FindName("WorkspaceIconBar")).Single(b => Equals(b.Tag, "ai-mark"));
         foreach (var theme in new[] { "ristretto", "github-light-default" })
         {
             ThemeManager.Apply(theme); window.UpdateLayout();
+            var iconBitmap = new RenderTargetBitmap(288, 256, 768, 768, PixelFormats.Pbgra32);
+            var iconDrawing = new DrawingVisual();
+            using (var drawing = iconDrawing.RenderOpen())
+            {
+                drawing.DrawRectangle(ThemeManager.Brush("SidebarBackground"), null, new Rect(0, 0, 36, 32));
+                drawing.DrawRectangle(new VisualBrush(aiIcon), null, new Rect(0, 0, 36, 32));
+            }
+            iconBitmap.Render(iconDrawing);
+            using (var iconFile = File.Create(Path.Combine(output, "ai-icon-" + theme + ".png")))
+            { var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(iconBitmap)); encoder.Save(iconFile); }
+            Check(Descendants<System.Windows.Shapes.Path>(aiIcon).Count() == 2, "AI icon must layer the letters and crossing pencil separately");
+            Capture(window, Path.Combine(output, "workspace-icons-" + theme + ".png"));
             var dialog = new PdfPrintWindow(path, "Print regression · mixed page sizes", 2, viewRegion: new Rect(100, 100, 200, 120)) { Owner = window };
             dialog.Show();
             await WaitUntilAsync(() => (bool)Field(dialog, "_ready")! && ((Image)dialog.FindName("PageImage")).Source is not null,

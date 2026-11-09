@@ -26,6 +26,7 @@ function lineHeights(){return [...labels.innerHTML.matchAll(/height:(\d+)px/g)].
 for(const value of ['', 'one', 'one\ntwo']){field.value=value;editorContext.updateEditor(field);assert.deepEqual(lineHeights(),[20,20,20]);assert.equal(field.value,value);}
 field.value='a long wrapped logical line';editorContext.updateEditor(field);assert.deepEqual(lineHeights(),[60,20,20]);assert.equal(field.value,'a long wrapped logical line');
 field.value='one\ntwo\nthree\nfour';editorContext.updateEditor(field);assert.deepEqual(lineHeights(),[20,20,20,20]);
+field.id='annotation-input';field.value='one';editorContext.updateEditor(field);assert.deepEqual(lineHeights(),[20]);field.id='composer';
 editorContext.restoreComposerHeight();assert.equal(field.style.height,'81px');editorContext.resizeComposer(1);assert.equal(field.style.height,'41px');
 editorContext.installComposerResize();shell.grip.onkeydown({key:'Home',preventDefault(){}});assert.equal(field.style.height,'81px');
 console.log('Editor layout: timestamp-only disclosures, measured line height, lazy mounting, scroll sync, three composer gutters, soft wraps and retained drafts passed.');

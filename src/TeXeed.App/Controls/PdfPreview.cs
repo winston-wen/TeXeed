@@ -174,6 +174,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
 
     public PdfPreview()
     {
+        InitializeAiSelection();
         Loaded += (_, _) => AttachDisplayEvents();
         _empty.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         var grid = new Grid();
@@ -279,6 +280,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _autoScroll.Stop();
+        CancelAiSelection();
         var version = ++_loadVersion;
         _cropCancellation?.Cancel();
         _loadCancellation?.Cancel(); _loadCancellation?.Dispose();
@@ -354,6 +356,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
     public void Clear()
     {
         _autoScroll.Stop();
+        CancelAiSelection();
         _loadVersion++; _renderVersion++;
         _loadCancellation?.Cancel(); _cropCancellation?.Cancel();
         _renderTimer.Stop(); _highlightTimer.Stop(); _renderAgain = false;
@@ -435,6 +438,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
                 / (sizes.Max(s => s.Width) * 96 / 72), MaximumZoom);
         ZoomChanged?.Invoke(this, EventArgs.Empty);
         if (_layoutZoom == _zoom && _layouts.Count == document.Pages.Count) { ScheduleRender(); return; }
+        CancelAiSelection();
         _layoutZoom = _zoom;
         _renderVersion++;
         // Keep the last raster on screen while the background renderer catches up.

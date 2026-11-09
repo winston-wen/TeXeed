@@ -1,10 +1,12 @@
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace TeXeed.App.AI;
 
 public sealed class AiSegment : INotifyPropertyChanged
 {
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     private string _kind = "text", _text = "";
     public string Kind { get => _kind; set { if (_kind == value) return; _kind = value; Changed(nameof(Kind)); } }
@@ -19,7 +21,7 @@ public sealed class AiSegment : INotifyPropertyChanged
         Kind == "activity" && (Text is "已连接 AI" or "正在连接 AI" or "正在准备请求");
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Changed(string name) => PropertyChanged?.Invoke(this, new(name));
-    public AiSegment Snapshot() => new() { Id = Id, Kind = Kind, Text = Text, Details = Details, CreatedAt = CreatedAt, ReferenceTime = ReferenceTime };
+    public AiSegment Snapshot() => new() { Id = Id, Kind = Kind, Text = Text, Details = Details, CreatedAt = CreatedAt, ReferenceTime = ReferenceTime, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
 }
 
 internal sealed record AiStreamEvent(string Id, string Kind, string Text, bool Append = false, string Details = "", bool Reset = false);

@@ -27,11 +27,6 @@
         "resolved": "0.41.3",
         "contentHash": "i3vSTyGpBGWbJB04aJ3cPJs0T3BV2e1nduW3EUHK/i+xUupYbym75iZPss/XjqhS5JlBErwQYnx7ofK3Zcsozg=="
       },
-      "Microsoft.Web.WebView2": {
-        "type": "Transitive",
-        "resolved": "1.0.4314.35",
-        "contentHash": "x5MFf2W03xueU1mMNvivXfHSsQ+ODo7vJ36qw/dLtU5Gs+8d7+7N7zzmNNDoT3ffosmcvZNBtUnlzyiDUuBkSQ=="
-      },
       "PDFiumCore": {
         "type": "Transitive",
         "resolved": "155.0.8057",
@@ -60,7 +55,6 @@
         "dependencies": {
           "AvalonEdit": "[6.3.1.120, )",
           "Markdig": "[0.41.3, )",
-          "Microsoft.Web.WebView2": "[1.0.4314.35, )",
           "PDFiumCore": "[155.0.8057, )",
           "TeXeed.Core": "[1.0.0, )",
           "WpfMath": "[2.1.0, )"
@@ -85,11 +79,6 @@
         "type": "Transitive",
         "resolved": "155.0.8057",
         "contentHash": "ebTLAJuXIItKJkjU5kByDT+XOlmemUpKyhWkI/+LAJQhzgDJtNNs2jt/nF+rWNXB75WD3gA6hctLNuZ40iOm+g=="
-      },
-      "Microsoft.Web.WebView2": {
-        "type": "Transitive",
-        "resolved": "1.0.4314.35",
-        "contentHash": "x5MFf2W03xueU1mMNvivXfHSsQ+ODo7vJ36qw/dLtU5Gs+8d7+7N7zzmNNDoT3ffosmcvZNBtUnlzyiDUuBkSQ=="
       }
     }
   }

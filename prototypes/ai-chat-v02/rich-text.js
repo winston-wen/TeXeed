@@ -97,7 +97,7 @@
    else if(token&&tokens[token[1]].block)content=tokens[token[1]].html;
    else content=root.renderRichText(chunk).replace(allTokens,(_,index)=>tokens[index].html);
    const id=escape(prefix)+'-p'+index;
-   return '<section class="passage" id="'+id+'" data-block="'+id+'"><div class="passage-body">'+content+'</div></section>';
+   return '<section class="passage" id="'+id+'" data-block="'+id+'"><div class="passage-body">'+content+'</div><div class="margin-notes"></div></section>';
   }).join('\n');
  };
 })(globalThis);

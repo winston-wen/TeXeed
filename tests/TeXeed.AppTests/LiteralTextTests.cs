@@ -82,6 +82,15 @@ internal static partial class Program
             Check(ReferenceEquals(Invoke(window, "FindMenuAccessKey", System.Windows.Input.Key.F), menu.Items[0]), "Alt+F no longer selects File");
             var escaped = new MenuItem { Header = "保存__副本(_S)_尾" }; LiteralText.SetRecognizesAccessKey(escaped, true);
             Check(LiteralText.MenuLabel(escaped) == "保存_副本(S)_尾", "Explicit mnemonic decoding removed extra literal underscores");
+            var ai = (AiPanel)Field(window, "_aiPanel")!;
+            var book = (TeXeed.App.AI.AiNotebook)Field(ai, "_book")!;
+            const string annotation = "[批注] C:\\a_b\\main__file.tex";
+            book.Turns.Add(new TeXeed.App.AI.AiTurn("[主题] a_b", string.Join("\n\n", Enumerable.Repeat("正文用于检查滚动提示。", 60)))
+                { SentAnnotations = [new() { Question = annotation }], Prompt = "[主题] a_b" });
+            Invoke(window, "OpenAiTab"); Invoke(ai, "RefreshTranscript"); await Settle();
+            ((ScrollViewer)ai.FindName("MessagesScroll")).ScrollToEnd(); await Settle();
+            var context = (TextBlock)ai.FindName("ReadingContextAnnotations");
+            Check(context.IsVisible && context.Text == "1. " + annotation, "Plain reading hint showed Markdown escape characters");
         }
         finally { File.Delete(themeFile); ThemeManager.Apply("ristretto"); }
         Console.WriteLine($"Literal UI text: {count} checks passed (wide/compact menus, breadcrumbs, tooltips, automation, filenames, themes, both palettes and Alt mnemonics).");

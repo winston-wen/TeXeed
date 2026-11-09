@@ -69,7 +69,7 @@ internal static partial class Program
             Check(!Descendants<System.Windows.Shapes.Path>(picker).Any(), "Composer picker still displays a dropdown chevron");
             picker.IsDropDownOpen = true; host.UpdateLayout(); Check(picker.IsDropDownOpen, "Arrow-free picker cannot open"); picker.IsDropDownOpen = false;
         }
-        foreach (var name in new[] { "PermissionPicker", "ContextUsageText", "ModelPicker", "EffortPicker" })
+        foreach (var name in new[] { "PermissionPicker", "EntriesButton", "ContextUsageText", "ModelPicker", "EffortPicker" })
         {
             var control = (FrameworkElement)panel.FindName(name); var glyphs = GlyphBounds(control);
             if (glyphs.Length == 0) continue;
@@ -176,7 +176,7 @@ internal static partial class Program
         await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle); host.UpdateLayout();
         var middles = new List<double>();
         Check(numbers.PaintedNumbers.SequenceEqual(new[] { 1, 2, 3 }) && GlyphBounds(numbers).Length == 3, "The final empty composer does not render all three line-number glyphs");
-        foreach (var name in new[] { "PermissionPicker", "ContextUsageText", "ModelPicker", "EffortPicker" })
+        foreach (var name in new[] { "PermissionPicker", "EntriesButton", "ContextUsageText", "ModelPicker", "EffortPicker" })
         {
             var ink = GlyphBounds((FrameworkElement)panel.FindName(name)).Aggregate(Rect.Empty, (total, rect) => { total.Union(rect); return total; });
             middles.Add(ink.Top + ink.Height / 2); Console.WriteLine($"Populated toolbar {name} ink middle: {middles[^1]:F2}");

@@ -6,7 +6,7 @@ TeXeed 使用 C#、.NET 10 和 WPF，编辑器基于 AvalonEdit，PDF 渲染使�
 
 - [编辑器与工作区](ui-chrome.md)：导航、标签、侧栏、快捷键和主题。
 - [AI 工作区](ai-workspace.md)：会话、连接、工具、权限和存储。
-- [AI 共同文稿与评论](ai-annotations.md)：共同文稿、评论、发送和版本。
+- [AI 批注与排版](ai-annotations.md)：圈点、发送、公式和复制。
 - [PDF 裁边](pdf-cropping.md)、[打印](pdf-printing.md)。
 - [排版与 UI 性能](ui-layout-and-performance.md)：布局原则和性能复测。
 - [性能历史基准](performance-baselines.md)：历史最佳比较、样本保存及复测方法。
@@ -46,10 +46,7 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build
 | `--completion-only`、`--code-style-only` | 补全和 Markdown 代码样式 |
 | `--ai-only`、`--ai-permissions-only` | 模拟 AI 服务、工具和权限 |
 | `--ai-history-only`、`--ai-reliability-only` | 会话保存、恢复和长对话 |
-| `--ai-session-views-only`、`--ai-comment-sidebar-only`、`--ai-readonly-comments-only`、`--comment-alignment-only` | 会话源码、PDF、评论与字形对齐 |
-| `--ai-build-failure-ui-only`、`--ai-build-failure-perf-only` | 会话真实编译失败、日志复制及显示性能 |
-| `--ai-native-mentor-only`、`--ai-workspace-tabs-only`、`--tex-document-bookmarks-only` | 模拟模型与原生源码、会话标签、TeX 书签 |
-| `--project-comment-store-only`、`--project-comments-ui-only` | 项目评论存储、原生界面、PDF 定位与失败保护 |
+| `--ai-pins-only`、`--ai-reading-only`、`--ai-annotations-only` | 批注编辑、确认和主编辑框发送 |
 | `--ai-prototype-only` | 原生 AI 界面与原型约定 |
 | `--ai-math-scroll-only`、`--ai-math-copy-only`、`--ai-math-proofread-only` | 公式渲染、复制和校对 |
 | `--crop-only`、`--layout-only`、`--print-only` | 裁边、版心和打印输出 |

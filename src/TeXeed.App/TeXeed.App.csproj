@@ -8,7 +8,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.4.2</Version>
+    <Version>0.4.0</Version>
     <ApplicationIcon>Assets/TeXeed.ico</ApplicationIcon>
     <Description>A native Windows LaTeX workspace</Description>
   </PropertyGroup>
@@ -16,10 +16,6 @@
     <Resource Include="Assets/TeXeed.ico" />
     <Resource Include="Assets/TeXeed.png" />
     <EmbeddedResource Include="Assets/Tutorial/*.svg" />
-    <Content Include="Assets/AiDocument/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../../prototypes/ai-chat-v02/fonts/review/*.ttf" Link="Assets/AiDocument/fonts/review/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../../prototypes/ai-chat-v02/fonts/review/*.txt" Link="Assets/AiDocument/fonts/review/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../../prototypes/ai-chat-v02/vendor/katex/**" Link="Assets/AiDocument/vendor/katex/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Themes/*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Themes/README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="Themes/*.json" />
@@ -28,6 +24,5 @@
     <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
     <PackageReference Include="PDFiumCore" Version="155.0.8057" />
     <PackageReference Include="WpfMath" Version="2.1.0" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
   </ItemGroup>
 </Project>

@@ -35,6 +35,7 @@ public sealed record AiUserBookmark
 
 public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
 {
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "问题";
     private string _question = "";
@@ -49,18 +50,12 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
     public List<AiSourceBlock> Sources { get; set; } = [];
     public List<AiPdfBlock> PdfBlocks { get; set; } = [];
     public string PdfRevision { get; set; } = "";
-    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], PdfRevision = PdfRevision, IsPoint = IsPoint };
+    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
     public bool IsPoint { get; set; }
-}
-public sealed class AiMentorRequestSnapshot
-{
-    public string Source { get; set; } = "";
-    public string InitialSource { get; set; } = "";
-    public List<AiMentorReference> References { get; set; } = [];
-    internal AiMentorRequestSnapshot Snapshot() => new() { Source = Source, InitialSource = InitialSource, References = References.Select(reference => reference with { Comment = reference.Comment.Snapshot() }).ToList() };
 }
 public sealed record AiTurn(string Question, string Answer)
 {
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; init; }
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? SentAt { get; init; }
@@ -69,7 +64,6 @@ public sealed record AiTurn(string Question, string Answer)
     public bool? Incomplete { get; init; }
     public string? EndReason { get; init; }
     public string? Prompt { get; init; }
-    public AiMentorRequestSnapshot? MentorRequest { get; init; }
     public List<AiEntry> SentAnnotations { get; init; } = [];
     public bool Collapsed { get; set; }
     public Dictionary<string, bool> CollapsedSections { get; init; } = [];
@@ -111,6 +105,7 @@ public sealed record AiContextMemory(string Summary, string[] TurnIds, string Fi
 
 public sealed class AiConversation
 {
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "新对话";
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
@@ -128,8 +123,6 @@ public sealed class AiConversation
     }
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
-    public AiSharedDocument SharedDocument { get; set; } = new();
-    public AiCommentDrafts CommentDrafts { get; set; } = new();
     public string Draft { get; set; } = "";
     public AiPermission Permission { get; set; } = AiPermission.FullAccess;
     public AiContextUsage? ContextUsage { get; set; }
@@ -150,15 +143,44 @@ public sealed class AiConversation
         var text = CleanQuestion(question).Replace('\r', ' ').Replace('\n', ' ').Trim();
         return text.Length == 0 ? "新对话" : string.Concat(text.EnumerateRunes().Take(20));
     }
+    internal bool ReconcileSentAnnotations()
+    {
+        var changed = false;
+        for (var i = 0; i < Turns.Count; i++)
+        {
+            var turn = Turns[i];
+            if (turn.Prompt is not null || turn.SentAnnotations.Count > 0) continue;
+            // Legacy turns embedded the complete submitted question. A matching
+            // title alone must not consume a draft edited since that submission.
+            var prompt = "\n" + turn.Question + "\n";
+            var entries = Entries.Where(e => e.State is "已完成" or "提交中" or "未完成，可重试" or "上次提交未完成，可重试")
+                .Where(e => new[] { e.DisplayTitle, e.Title }.Any(label => prompt.Contains("\n" + label + "：" + e.Question + "\n", StringComparison.Ordinal))).ToArray();
+            if (entries.Length == 0) continue;
+            foreach (var entry in entries)
+                foreach (var label in new[] { entry.DisplayTitle, entry.Title })
+                    prompt = prompt.Replace("\n" + label + "：" + entry.Question + "\n", "\n", StringComparison.Ordinal);
+            Turns[i] = turn with { Prompt = prompt.Trim('\n'), SentAnnotations = entries.Select((e, n) => e.Snapshot(n + 1)).ToList() };
+            changed = true;
+        }
+        var sent = Turns.SelectMany(t => t.SentAnnotations).GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.Last());
+        // Acceptance, rather than successful completion, consumes a pending entry.
+        // Compare the payload too so an edited/replaced draft remains untouched.
+        return Entries.RemoveAll(e => sent.TryGetValue(e.Id, out var snapshot)
+            && e.Title == snapshot.Title && e.Question == snapshot.Question
+            && e.PdfRevision == snapshot.PdfRevision && e.IsPoint == snapshot.IsPoint
+            && e.AnswerAnchor == snapshot.AnswerAnchor
+            && e.Sources.SequenceEqual(snapshot.Sources) && e.PdfBlocks.SequenceEqual(snapshot.PdfBlocks)) > 0 || changed;
+    }
     internal AiConversation Snapshot() => new()
     {
-        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { MentorRequest = t.MentorRequest?.Snapshot(), SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
-        Entries = Entries.Select(e => e.Snapshot()).ToList(), SharedDocument = SharedDocument.Snapshot(), CommentDrafts = CommentDrafts.Snapshot()
+        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        Entries = Entries.Select(e => e.Snapshot()).ToList(), AdditionalData = AdditionalData is null ? null : new(AdditionalData)
     };
 }
 
 public sealed class AiNotebook
 {
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
     internal bool RequiresSave { get; set; }
     public List<AiConversation> Conversations { get; set; } = [];
     public string ActiveConversationId { get; set; } = "";
@@ -190,15 +212,13 @@ public sealed class AiNotebook
         return true;
     }
     internal AiNotebook Snapshot() => new()
-    { ActiveConversationId = Active.Id, Conversations = Conversations.Select(c => c.Snapshot()).ToList() };
+    { ActiveConversationId = Active.Id, Conversations = Conversations.Select(c => c.Snapshot()).ToList(), AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
 }
 internal static class AiStorage
 {
     internal static string Home => Path.Combine(Environment.GetEnvironmentVariable("TEXEED_HOME") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TeXeed"), "ai");
     internal static string Hash(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     internal static string NotebookPath(string project) => Path.Combine(Home, "projects", Hash(Path.GetFullPath(project).ToUpperInvariant()) + ".json");
-    internal static Task<AiNotebook> LoadAsync(string project, CancellationToken cancellationToken = default) =>
-        Task.Run(() => Load(project), cancellationToken);
     internal static AiNotebook Load(string project)
     {
         var path = NotebookPath(project);
@@ -220,6 +240,8 @@ internal static class AiStorage
         AiNotebook Restore(AiNotebook book)
         {
             AiTurnCheckpoint.Recover(project, book);
+            foreach (var conversation in book.Conversations)
+                if (conversation.ReconcileSentAnnotations()) book.RequiresSave = true;
             return book;
         }
     }

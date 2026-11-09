@@ -10,6 +10,7 @@ public sealed partial class MarkdownView
     private string _foldPrefix = "";
     private Action? _foldChanged;
     private readonly Dictionary<Section, Action> _revealSections = [];
+    private readonly Dictionary<Section, string> _bookmarkSections = [];
     private void Reveal(FrameworkContentElement target)
     {
         for (FrameworkContentElement? node = target; node is not null; node = node.Parent as FrameworkContentElement)
@@ -26,7 +27,7 @@ public sealed partial class MarkdownView
     private void ApplyFolding(FlowDocument document)
     {
         if (_folds is null) return;
-        _revealSections.Clear();
+        _revealSections.Clear(); _bookmarkSections.Clear();
         var blocks = document.Blocks.ToArray(); document.Blocks.Clear();
         var parents = new Stack<(int Level, Section Body)>();
         foreach (var block in blocks)
@@ -39,6 +40,7 @@ public sealed partial class MarkdownView
                 owner.Blocks.Add(paragraph);
                 var body = new Section(); owner.Blocks.Add(body);
                 var key = _foldPrefix + ":" + heading.Offset;
+                _bookmarkSections[body] = key;
                 // Keep headings inside the text engine. A Button inside every heading
                 // creates hundreds of embedded layout/hit-test islands in long answers.
                 var link = new Hyperlink { TextDecorations = null };
@@ -54,13 +56,13 @@ public sealed partial class MarkdownView
                     var closed = !_folds.GetValueOrDefault(key); _folds[key] = closed;
                     if (closed) { owner.Blocks.Remove(body); link.Inlines.Add(hint); }
                     else { owner.Blocks.Add(body); link.Inlines.Remove(hint); }
-                    LayoutVersion++; QueueWaveLayout(); _foldChanged?.Invoke(); e.Handled = true;
+                    LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); _foldChanged?.Invoke(); e.Handled = true;
                 };
                 _revealSections[body] = () =>
                 {
                     if (!_folds.GetValueOrDefault(key)) return;
                     _folds[key] = false; owner.Blocks.Add(body); link.Inlines.Remove(hint);
-                    LayoutVersion++; QueueWaveLayout(); _foldChanged?.Invoke();
+                    LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); _foldChanged?.Invoke();
                 };
                 if (_folds.GetValueOrDefault(key)) { owner.Blocks.Remove(body); link.Inlines.Add(hint); }
                 parents.Push((heading.Level, body));

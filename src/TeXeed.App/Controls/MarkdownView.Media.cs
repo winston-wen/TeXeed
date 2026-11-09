@@ -66,6 +66,8 @@ public sealed partial class MarkdownView
         var viewport = new TableViewport(block, view, scroll, table, widths, widths.Sum(), view.CopySource(document.ContentStart, document.ContentEnd));
         _tableViews.Add(viewport); SizeTable(viewport);
         foreach (var (key, formula) in view._equations) _equations.TryAdd(key, formula);
+        foreach (var (key, formula) in view._bookmarkFormulas) _bookmarkFormulas.TryAdd(key, formula);
+        foreach (var (key, heading) in view._bookmarkHeadings) _bookmarkHeadings.TryAdd(key, heading);
         scroll.ScrollChanged += (_, e) => { if (e.HorizontalChange != 0) LayoutVersion++; };
         target.Add(block);
     }
@@ -75,6 +77,30 @@ public sealed partial class MarkdownView
             ? _tableViews.FirstOrDefault(t => ReferenceEquals(t.Block, block)) : null;
 
     private MarkdownView SelectionView() => _selectionView ?? this;
+    internal (int Offset, int Length, string Quote, int TextOffset) GetAnnotationSelection()
+    {
+        var view = SelectionView();
+        var start = view.Selection.Start; var end = view.Selection.End;
+        if (view.Selection.IsEmpty && start.Paragraph is { } paragraph) { start = paragraph.ContentStart; end = paragraph.ContentEnd; }
+        var textOffset = view.CopySource(view.Document.ContentStart, start).Length;
+        var offset = view.Document.ContentStart.GetOffsetToPosition(start);
+        if (!ReferenceEquals(view, this))
+        {
+            var block = _tableViews.Single(t => ReferenceEquals(t.View, view)).Block;
+            textOffset += CopySource(Document.ContentStart, block.ElementStart).Length;
+            offset = Document.ContentStart.GetOffsetToPosition(block.ElementStart);
+        }
+        return (offset, start.GetOffsetToPosition(end), view.CopySource(start, end).Trim(), textOffset);
+    }
+    internal Point? AnnotationPoint(string id, AiAnswerAnchor anchor)
+    {
+        var pointer = AnnotationPointer(id, anchor);
+        if (pointer is null || !pointer.HasValidLayout) return null;
+        var point = pointer.GetCharacterRect(LogicalDirection.Forward).TopRight;
+        foreach (var table in _tableViews)
+            if (pointer.IsInSameDocument(table.View.Document.ContentStart)) return table.View.TranslatePoint(point, this);
+        return point;
+    }
     private bool TryImageUri(string? source, out Uri uri)
     {
         uri = null!;
@@ -88,7 +114,7 @@ public sealed partial class MarkdownView
     }
     private System.Windows.Documents.Inline ImageInline(Uri uri, string alt)
     {
-        var picture = new MarkdownPicture(uri, alt, () => { LayoutVersion++; QueueWaveLayout(); }) { Width = MediaWidth };
+        var picture = new MarkdownPicture(uri, alt, () => { LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); }) { Width = MediaWidth };
         _pictures.Add(picture);
         return new InlineUIContainer(picture) { Tag = "[图片] " + alt };
     }

@@ -29,16 +29,16 @@
    <DataTemplate.Triggers><DataTrigger Binding="{Binding Kind}" Value="activity"><Setter TargetName="Activity" Property="Visibility" Value="Visible"/><Setter TargetName="Content" Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding Kind}" Value="final"><Setter TargetName="AnswerDivider" Property="Visibility" Value="Visible"/></DataTrigger></DataTemplate.Triggers>
   </DataTemplate>
  </UserControl.Resources>
- <Grid x:Name="ChatRoot" Background="{DynamicResource EditorBackground}">
+ <Grid x:Name="ChatRoot" Background="{DynamicResource EditorBackground}" Margin="20,0,14,14">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <DockPanel x:Name="MessageSearchPanel" Grid.Row="0" Visibility="Collapsed" Margin="0,0,0,8"><Button DockPanel.Dock="Right" Content="↓" Click="NextMatch_Click" Padding="5,3"/><Button DockPanel.Dock="Right" Content="↑" Click="PreviousMatch_Click" Padding="5,3"/><TextBlock x:Name="MessageMatchStatus" DockPanel.Dock="Right" Text="0" VerticalAlignment="Center" Margin="6,0"/><TextBox x:Name="MessageSearchBox" TextChanged="MessageSearch_Changed" ToolTip="查找问题和回答" AutomationProperties.Name="查找当前 AI 对话"/></DockPanel>
-  <Grid Grid.Row="1" ClipToBounds="True">
+  <Grid Grid.Row="1" ClipToBounds="True" Margin="-12,0,0,0">
   <!-- Reserve a stable gutter: first overflow must not reflow every rich document. -->
-   <ItemsControl x:Name="History" Visibility="Collapsed" Margin="0,8,8,0" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="0" VirtualizingPanel.VirtualizationMode="Standard">
+   <ItemsControl x:Name="History" Margin="0,8,8,0" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="0" VirtualizingPanel.VirtualizationMode="Standard">
     <ItemsControl.Template><ControlTemplate TargetType="ItemsControl"><ScrollViewer x:Name="MessagesScroll" CanContentScroll="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" PreviewMouseWheel="MessagesScroll_Wheel"><ItemsPresenter/></ScrollViewer></ControlTemplate></ItemsControl.Template>
     <ItemsControl.ItemsPanel><ItemsPanelTemplate><local:ChatVirtualizingPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
     <ItemsControl.Resources><DataTemplate DataType="{x:Type ai:AiTurn}"><local:AiTurnView Turn="{Binding}" Loaded="Turn_Loaded" Margin="12,0,0,30"/></DataTemplate></ItemsControl.Resources>
-    <StackPanel x:Name="EmptyConversation" Margin="24,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/></StackPanel>
+    <StackPanel x:Name="EmptyConversation" Margin="24,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
     <StackPanel x:Name="LiveContainer" Visibility="Collapsed" Margin="12,8,0,30">
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock x:Name="LiveTurnNumber" FontSize="16" Foreground="{DynamicResource ChatHeading}" Margin="-40,8,10,0" HorizontalAlignment="Right" VerticalAlignment="Top"/><local:MarkdownView x:Name="LiveQuestion" Grid.Column="1" Margin="-5,8,12,0" Padding="0" UseWavyEmphasis="True"/></Grid>
      <TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontSize="13" TextWrapping="Wrap" LineHeight="26.5" LineStackingStrategy="BlockLineHeight" Margin="36,0,4,0"/>
@@ -46,14 +46,13 @@
      <local:AiReplyStatus x:Name="LiveReplyStatus" IsThinking="True" Margin="36,0,4,0"/>
     </StackPanel>
    </ItemsControl>
-   <local:AiDocumentView x:Name="SharedDocumentView"/>
    <Border x:Name="ReadingContext" VerticalAlignment="Top" Panel.ZIndex="1" Visibility="Collapsed" Margin="12,0,0,0" BorderBrush="{DynamicResource ChatDivider}" BorderThickness="0,0,0,2" Background="{DynamicResource ChatQuestionBackground}" Padding="12,6" ClipToBounds="True"><StackPanel>
     <TextBlock x:Name="ReadingContextTitle" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" TextTrimming="CharacterEllipsis"/>
     <TextBlock x:Name="ReadingContextAnnotations" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
    </StackPanel></Border>
   </Grid>
-  <StackPanel Grid.Row="2"><Button x:Name="SharedRetryButton" Content="重试上次请求" Visibility="Collapsed" HorizontalAlignment="Left" Margin="20,4,0,0" Padding="8,3" Click="SharedRetry_Click"/><ScrollViewer x:Name="SharedSubmittedMessage" Visibility="Collapsed" MaxHeight="90" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="20,4,14,0"><StackPanel><TextBlock Text="本次附言" Foreground="{DynamicResource Muted}" FontSize="11"/><TextBlock x:Name="SharedSubmittedText" TextWrapping="Wrap" FontSize="14" AutomationProperties.Name="本次发送的附言"/></StackPanel></ScrollViewer><local:AiReplyStatus x:Name="SharedReplyStatus" IsThinking="True" Visibility="Collapsed" Margin="20,0,14,0"/><TextBlock x:Name="RecoveryWarning" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" Margin="20,4,14,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="20,4,14,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
-  <Border x:Name="ComposerBorder" Grid.Row="3" BorderThickness="0,1,0,0" Background="{DynamicResource ChatQuestionBackground}" CornerRadius="0" Padding="0" Margin="0">
+  <TextBlock x:Name="StatusText" Grid.Row="2" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="6,4,8,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+  <Border x:Name="ComposerBorder" Grid.Row="3" BorderThickness="1" Background="{DynamicResource ChatQuestionBackground}" CornerRadius="24" Padding="0" Margin="0,8,0,0">
    <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource Guide}"/><Style.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ChatFocus}"/></Trigger></Style.Triggers></Style></Border.Style>
    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <Grid x:Name="ComposerEditor"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -64,11 +63,12 @@
     <Thumb x:Name="ComposerResize" Grid.Row="0" VerticalAlignment="Top" Height="4" Cursor="SizeNS" DragDelta="ComposerResize_DragDelta" AutomationProperties.Name="调整编辑栏高度"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template></Thumb>
     <Border Grid.Row="1" BorderThickness="0" Margin="0" Padding="11,4,11,11" x:Name="ComposerToolbar" TextElement.FontSize="13" TextElement.Foreground="{DynamicResource Muted}">
      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <Button x:Name="AddButton" Click="Options_Click" Style="{StaticResource ComposerIcon}" ToolTip="对话操作" Margin="0,0,8,0" AutomationProperties.Name="对话操作">
+      <Button x:Name="AddButton" Click="Options_Click" Style="{StaticResource ComposerIcon}" ToolTip="添加圈点与对话操作" Margin="0,0,8,0" AutomationProperties.Name="添加圈点与对话操作">
        <Path Data="M 8,1 V 15 M 1,8 H 15" Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-       <Button.ContextMenu><ContextMenu><MenuItem Header="刷新模型" Click="RefreshModels_Click"/><MenuItem Header="AI 设置" Click="Settings_Click"/></ContextMenu></Button.ContextMenu>
+       <Button.ContextMenu><ContextMenu><MenuItem Header="添加圈点说明" Click="Add_Click"/><MenuItem Header="全选圈点" Click="SelectAll_Click"/><MenuItem Header="清理已完成圈点" Click="ClearDone_Click"/><Separator/><MenuItem Header="刷新模型" Click="RefreshModels_Click"/><MenuItem Header="AI 设置" Click="Settings_Click"/></ContextMenu></Button.ContextMenu>
       </Button>
       <ComboBox x:Name="PermissionPicker" Style="{StaticResource ComposerChoice}" Grid.Column="1" SelectionChanged="Permission_Changed" AutomationProperties.Name="会话权限"/>
+      <Button x:Name="EntriesButton" Height="24" FontSize="13" Grid.Column="2" Content="圈点 · 0" Click="Entries_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,0" Padding="5,0" BorderThickness="0" Foreground="{DynamicResource Muted}"/>
       <Grid x:Name="ModelControls" Grid.Column="3" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBlock x:Name="ContextUsageText" Text="—" FontSize="11" Foreground="{DynamicResource Muted}" Margin="8,0,7,0" VerticalAlignment="Center" AutomationProperties.Name="上下文使用百分比"/>
        <ComboBox x:Name="ModelPicker" Style="{StaticResource ComposerChoice}" Grid.Column="1" SelectionChanged="ChatModel_Changed" ToolTip="选择模型" AutomationProperties.Name="AI 对话模型" MinWidth="90" MaxWidth="190"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
@@ -82,6 +82,24 @@
     </Border>
    </Grid>
   </Border>
+  <Popup x:Name="EntriesPopup" PlacementTarget="{Binding ElementName=EntriesButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True"><Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}" BorderThickness="1" CornerRadius="10" Padding="12" Width="430"><StackPanel><Button Content="完成" Click="CloseEntries_Click" HorizontalAlignment="Right"/>
+    <Expander x:Name="ContextExpander" Header="圈点与问题条目" IsExpanded="True" Visibility="Collapsed">
+     <ScrollViewer x:Name="ContextScroll" MaxHeight="170" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="Entries"><ItemsControl.ItemTemplate><DataTemplate>
+       <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="2,4" Margin="0,0,0,4"><StackPanel>
+        <DockPanel><Button DockPanel.Dock="Right" Content="×" Padding="6,0" Click="Remove_Click" ToolTip="移除此条目"/><CheckBox IsChecked="{Binding Selected, Mode=TwoWay}" Click="Entry_Changed" VerticalAlignment="Center"/><TextBlock Text="{Binding DisplayTitle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Title}"/></DockPanel>
+        <Expander Header="查看上下文"><StackPanel>
+         <TextBlock Text="{Binding AnswerAnchor.Quote}" TextWrapping="Wrap" MaxHeight="140"/>
+         <ItemsControl ItemsSource="{Binding Sources}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding File}" TextWrapping="Wrap"/><TextBox Text="{Binding Text, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="140" VerticalScrollBarVisibility="Auto"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+         <ItemsControl ItemsSource="{Binding PdfBlocks}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Page, StringFormat=PDF 第 {0} 页}"/><Image Loaded="Thumbnail_Loaded" Stretch="Uniform" MaxHeight="140"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+         <TextBlock Text="{Binding State}" Foreground="{DynamicResource Muted}"/>
+        </StackPanel></Expander>
+        <TextBox Text="{Binding Question, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="Question_Changed" PreviewKeyDown="Entry_KeyDown" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" AcceptsTab="True" MaxHeight="140" ToolTip="对此处的单独说明（可留空，使用下方统一问题）"/>
+       </StackPanel></Border>
+      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     </ScrollViewer>
+    </Expander>
+  </StackPanel></Border></Popup>
 
  </Grid>
 </UserControl>

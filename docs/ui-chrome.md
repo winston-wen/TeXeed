@@ -66,4 +66,4 @@ Ctrl+滚轮以鼠标位置缩放，适合宽度和窗口调整保留阅读中心
 | PDF 缩放 | Ctrl+滚轮 |
 | AI 菜单 | Alt+A |
 
-AI 附言编辑框的 Ctrl+Enter 用于发送，见 [AI 共同文稿与评论](ai-annotations.md)。
+AI 编辑框与批注框的 Ctrl+Enter 分别用于发送和确认，见 [AI 批注](ai-annotations.md)。

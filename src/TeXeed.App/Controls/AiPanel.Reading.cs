@@ -8,6 +8,7 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
+    internal static bool IsAnnotationInput(IInputElement? input) => input is FrameworkElement { Tag: AiEntry } or FrameworkElement { DataContext: AiEntry };
     private bool _restoringReading;
     private readonly Dictionary<string, AiTurnView> _turnViews = [];
     private bool _readingQueued;
@@ -63,10 +64,10 @@ public partial class AiPanel
         CaptureReadingAnchor();
         if (active is null || active.Turn.Collapsed || active.TranslatePoint(new Point(), MessagesScroll).Y >= -24)
         { ReadingContext.Visibility = Visibility.Collapsed; return; }
-        ReadingContextTitle.Text = (active.Turn.Prompt ?? active.Turn.DisplayQuestion).Split('\n').FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "提问";
-        if (string.IsNullOrWhiteSpace(ReadingContextTitle.Text)) ReadingContextTitle.Text = "提问";
+        ReadingContextTitle.Text = (active.Turn.Prompt ?? active.Turn.DisplayQuestion).Split('\n').FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "圈点提问";
+        if (string.IsNullOrWhiteSpace(ReadingContextTitle.Text)) ReadingContextTitle.Text = "圈点提问";
         ReadingContextTitle.ToolTip = ReadingContextTitle.Text;
-        ReadingContextAnnotations.Text = "";
+        ReadingContextAnnotations.Text = active.Turn.SentAnnotations.Count == 0 ? "本轮没有圈点" : string.Join("   ", active.Turn.SentAnnotations.Select((e, n) => $"{n + 1}. {AiTurnView.AnnotationSummary(e)}"));
         ReadingContextAnnotations.ToolTip = ReadingContextAnnotations.Text;
         ReadingContext.Visibility = Visibility.Visible;
     }
@@ -90,6 +91,21 @@ public partial class AiPanel
         var preview = new Window { Owner = Window.GetWindow(this), Title = "当前项目源码 · " + reference, Width = 760, Height = 600, Content = editor };
         preview.Show(); if (int.TryParse(match.Groups[2].Value, out var line)) { line = Math.Clamp(line, 1, editor.Document.LineCount); editor.ScrollToLine(line); editor.Select(editor.Document.GetLineByNumber(line).Offset, editor.Document.GetLineByNumber(line).Length); }
     }
+    private void Entries_Click(object sender, RoutedEventArgs e) => EntriesPopup.IsOpen = !EntriesPopup.IsOpen;
+    private void CloseEntries_Click(object sender, RoutedEventArgs e) => EntriesPopup.IsOpen = false;
+    private void Entry_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: AiEntry entry }) HandleEntryKey(entry, e, Keyboard.Modifiers);
+    }
+    internal void HandleEntryKey(AiEntry entry, KeyEventArgs e, ModifierKeys modifiers)
+    {
+        if (!IsSendGesture(e.Key, modifiers)) return;
+        e.Handled = true;
+        if (e.IsRepeat) return;
+        ConfirmAnnotation(entry);
+        EntriesPopup.IsOpen = false;
+        SaveAnnotationChanges();
+    }
     private void Turn_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not AiTurnView view) return;
@@ -102,9 +118,13 @@ public partial class AiPanel
         view.SourceRequested = OpenChatSource;
         view.RetryRequested = async () => await SubmitAsync(view.Turn);
         view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;
+        view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
         view.AnswerGone = answer => Answer_Unloaded(answer, new RoutedEventArgs());
+        view.QuestionReady = BookmarkQuestionLoaded;
+        view.QuestionGone = BookmarkQuestionUnloaded;
         foreach (var answer in view.Answers.Where(a => a.IsLoaded)) Answer_Loaded(answer, new RoutedEventArgs());
+        foreach (var question in view.Questions.Where(q => q.IsLoaded)) BookmarkQuestionLoaded(question);
     }
     private void Turn_Unloaded(object sender, RoutedEventArgs e)
     {
@@ -113,8 +133,6 @@ public partial class AiPanel
     private void UpdateRetryActions()
     {
         var last = _book.Turns.LastOrDefault();
-        SharedRetryButton.Visibility = last?.IsIncomplete == true ? Visibility.Visible : Visibility.Collapsed;
-        SharedRetryButton.IsEnabled = _operation is null;
         foreach (var view in _turnViews.Values) view.CanRetry = _operation is null && last?.Id == view.Turn.Id && view.Turn.IsIncomplete;
     }
     private void RevealLiveTurn()

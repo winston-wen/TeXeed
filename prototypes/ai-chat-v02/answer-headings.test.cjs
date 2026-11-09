@@ -56,7 +56,7 @@ let formulaHandler;const formulaTarget={passage:renderedAnswer.passages[11],scro
 renderedAnswer=answer();formulaTarget.passage=renderedAnswer.passages[11];
 context.$=id=>id==='thread'?{addEventListener(type,handler){formulaHandler=handler;}}:formulaTarget;context.renderTurns=()=>{};context.requestAnimationFrame=callback=>callback();context.saveReading=()=>{};
 const formulaStart=app.indexOf("$('thread').addEventListener('click',event=>{const b=event.target.closest('[data-equation-ref]')");
-vm.runInContext(app.slice(formulaStart,app.indexOf('mountEditors(document);',formulaStart)),context);
+vm.runInContext(app.slice(formulaStart,app.indexOf("window.addEventListener('resize',commitAnnotation)",formulaStart)),context);
 turn.sections={p0:true,p2:true,p4:true,p6:true,p8:true,p10:true,p12:true};
 const link={dataset:{equationRef:'third-eq-1'},closest:selector=>selector==='.turn'?{id:turn.id}:renderedAnswer};formulaHandler({target:{closest:()=>link}});
 for(const key of ['p0','p2','p4','p6','p8','p10'])assert.equal(turn.sections[key],false);assert.equal(turn.sections.p12,true);

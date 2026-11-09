@@ -83,7 +83,7 @@ public sealed partial class MarkdownView
     private void UpdateHeadingNumbers()
     {
         foreach (var (run, number) in _headingMarkers) run.Text = $"[{TurnNumber}:{number}]\u2002";
-        LayoutVersion++; QueueWaveLayout();
+        LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout();
     }
 
     private static bool IsDecoration(TextPointer pointer, out TextPointer end)

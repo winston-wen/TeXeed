@@ -1,0 +1,26 @@
+[
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-fixtures\\high-density-unique-width-fixture.cs",
+    "Hash": "71E59AB515EA3C093C5413957B59139A6E84576C9129DA2343E16B8E8E6308C6"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-fixtures\\wpf-history-host.cs",
+    "Hash": "3AD22F03D0D67433B13912F5D7C79177A39C7959EE99721F7E5B1A18BFD9E231"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\perf-redo-native\\after\\src\\TeXeed.App\\AI\\AiModels.cs",
+    "Hash": "A43FDFCE6BDFD6526D24190E04E8D3EEDD2127E9EEF03383A2B4CEEBEE70D063"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\perf-redo-native\\after\\src\\TeXeed.App\\AI\\AiSegment.cs",
+    "Hash": "49C6AD52560E25F9766CD8B139C80B4FCD3D1FDED34E2539F5B9AA056F07E80F"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\perf-redo-native\\after\\src\\TeXeed.App\\bin\\Release\\net10.0-windows\\win-x64\\TeXeed.dll",
+    "Hash": "31DE7E17EC1B961B5B1A69610ED0A45EBACDDFC68BF859A05655E1A4C1CDD6C4"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\perf-redo-native\\before\\src\\TeXeed.App\\bin\\Release\\net10.0-windows\\win-x64\\TeXeed.dll",
+    "Hash": "ACD42D46EA292229AE60A423201F47E53147D5E116E4EB9BA8C722A21A4E0D32"
+  }
+]

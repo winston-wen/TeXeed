@@ -76,6 +76,37 @@ public sealed partial class MarkdownView
         if (run is not null && ReferenceEquals(run.Tag, CodePaddingMarker)) { end = run.ElementEnd; return true; }
         end = pointer; return false;
     }
+    private TextPointer? LegacyAnnotationPointer(int offset)
+    {
+        if (offset < 0) return null;
+        foreach (var (pointer, length) in LegacySymbolRanges())
+        {
+            if (offset < length) return pointer.GetPositionAtOffset(offset);
+            offset -= length;
+        }
+        return offset == 0 ? Document.ContentEnd : null;
+    }
+    private IEnumerable<(TextPointer Pointer, int Length)> LegacySymbolRanges()
+    {
+        // Project decorative spans and nested table viewports out of the old symbol stream.
+        for (var pointer = Document.ContentStart; pointer is not null;)
+        {
+            if (IsDecoration(pointer, out var paddingEnd)) { pointer = paddingEnd; continue; }
+            if (EmbeddedTable(pointer) is { } table)
+            {
+                foreach (var range in table.View.LegacySymbolRanges()) yield return range;
+                pointer = table.Block.ElementEnd; continue;
+            }
+            var context = pointer.GetPointerContext(LogicalDirection.Forward);
+            if (context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
+                && pointer.GetAdjacentElement(LogicalDirection.Forward) is Span span && ReferenceEquals(span.Tag, CodeSpanMarker))
+            { pointer = context == TextPointerContext.ElementStart ? span.ContentStart : span.ElementEnd; continue; }
+            var next = pointer.GetNextContextPosition(LogicalDirection.Forward);
+            if (next is null) yield break;
+            yield return (pointer, pointer.GetOffsetToPosition(next));
+            pointer = next;
+        }
+    }
     private bool InCurrentDocument(TextElement element)
     {
         for (DependencyObject? parent = element; parent is not null; parent = (parent as FrameworkContentElement)?.Parent)

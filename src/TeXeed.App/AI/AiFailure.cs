@@ -24,7 +24,6 @@ internal static class AiFailure
             ?? json?["response"]?["incomplete_details"]?["reason"]?.ToString() ?? "未收到完成确认";
         var recovery = code switch
         {
-            "context_length_exceeded" or "context_window_exceeded" or "max_context_length_exceeded" or "input_too_long" => "请求超过模型上下文窗口。共同文稿与评论未截断、未改动；可选择更大上下文窗口的模型后重试。",
             "subscription_sharing_usage_limit_exceeded" => "请检查 ChatGPT 设置中的 TeXeed 用量额度。",
             "subscription_sharing_user_not_eligible" => "当前账号或工作区不允许此项 ChatGPT 额度使用。",
             "subscription_sharing_unsupported_capability" => "请求包含当前登录通道不支持的能力。",
@@ -35,11 +34,9 @@ internal static class AiFailure
         // Diagnostics never display bearer strings or token-shaped values.
         message = Regex.Replace(message, @"(?i)Bearer\s+\S+|sk-[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[已隐藏凭据]");
         message = message[..Math.Min(message.Length, 1800)];
-        if (code is "context_length_exceeded" or "context_window_exceeded" or "max_context_length_exceeded" or "input_too_long") return new AiContextLimitException(message);
         return code is "server_is_overloaded" or "server_error" or "temporarily_unavailable"
             ? new AiTransientFailureException(message) : new InvalidOperationException(message);
     }
 }
 
 internal sealed class AiTransientFailureException(string message) : InvalidOperationException(message);
-internal sealed class AiContextLimitException(string message) : InvalidOperationException(message);

@@ -56,7 +56,7 @@ internal static partial class Program
         var pdf = Path.Combine(output, "preview.pdf"); WriteThemePdf(pdf); await preview.LoadAsync(pdf); await Settle();
         var pdfCount = preview.PageCount;
         Invoke(window, "MoveWorkspaceTab", TabWorkspace.PreviewKey, TabSide.Left, int.MaxValue, false); await Settle();
-        if (preview.PageCount != pdfCount || !preview.IsDescendantOf((DependencyObject)window.FindName("PreviewContent")) || !right.IsVisible)
+        if (preview.PageCount != pdfCount || preview.Parent != window.FindName("PreviewContent") || !right.IsVisible)
             throw new Exception("Preview move reloaded PDF or hid the other source pane");
         await WaitForPreviewRenderedAsync(window);
         Capture(window, Path.Combine(output, "preview-left-source-right.png"));

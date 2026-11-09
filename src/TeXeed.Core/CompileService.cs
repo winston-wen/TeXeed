@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace TeXeed.Core;
 
-public sealed partial class CompileService(bool disableMiKTeXInstaller = false, bool captureFullLogs = false)
+public sealed partial class CompileService(bool disableMiKTeXInstaller = false)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly object cancellationLock = new();
@@ -119,7 +119,7 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false, 
                 if (pass > 1)
                     foreach (var extension in new[] { ".pdf", ".log", ".synctex", ".synctex.gz", ".fls", TexPageLayout.Extension })
                         File.Delete(Path.Combine(buildDirectory, job + extension));
-                result = await RunProcessAsync(engine.Path, arguments, workingDirectory, env, token, captureFullLogs ? int.MaxValue : 4 * 1024 * 1024);
+                result = await RunProcessAsync(engine.Path, arguments, workingDirectory, env, token);
                 AppendRun(log, pass == 1 ? engine.Name : $"{engine.Name} · 第 {pass} 遍", result);
                 success = result.ExitCode == 0;
                 if (!success || !directEngine) break;
@@ -144,7 +144,7 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false, 
                         if (bibliographyPath is null)
                             throw new IOException($"文献处理需要 {bibliography.Tool}，但未找到该程序。请安装完整的 MiKTeX / TeX Live，或使用 latexmk。");
                         File.Delete(bbl);
-                        var bibResult = await RunBibliographyAsync(project, buildDirectory, job, bibliography.Tool, bibliographyPath, env, token, captureFullLogs ? int.MaxValue : 4 * 1024 * 1024);
+                        var bibResult = await RunBibliographyAsync(project, buildDirectory, job, bibliography.Tool, bibliographyPath, env, token);
                         AppendRun(log, bibliography.Tool, bibResult);
                         success = bibResult.ExitCode == 0;
                         if (!success) break;
@@ -169,7 +169,7 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false, 
             var diagnosticLog = result.Output;
             if (File.Exists(generatedLog))
             {
-                var fileLog = await ReadLimitedAsync(generatedLog, token, captureFullLogs ? int.MaxValue : 4 * 1024 * 1024);
+                var fileLog = await ReadLimitedAsync(generatedLog, token);
                 diagnosticLog = fileLog;
                 log.AppendLine("\n──── TeX 日志 ────").AppendLine(fileLog);
             }
@@ -444,7 +444,7 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false, 
 
     internal sealed record ProcessResult(int ExitCode, string Output);
 
-    internal static async Task<ProcessResult> RunProcessAsync(string executable, IEnumerable<string> arguments, string workingDirectory, IDictionary<string, string>? environment, CancellationToken ct, int outputLimit = 4 * 1024 * 1024)
+    internal static async Task<ProcessResult> RunProcessAsync(string executable, IEnumerable<string> arguments, string workingDirectory, IDictionary<string, string>? environment, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         var start = new ProcessStartInfo(executable)
@@ -468,8 +468,8 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false, 
         using var process = new Process { StartInfo = start };
         process.Start();
         process.StandardInput.Close();
-        var outputTask = ReadLimitedAsync(process.StandardOutput.BaseStream, maximum: outputLimit);
-        var errorTask = ReadLimitedAsync(process.StandardError.BaseStream, maximum: outputLimit);
+        var outputTask = ReadLimitedAsync(process.StandardOutput.BaseStream);
+        var errorTask = ReadLimitedAsync(process.StandardError.BaseStream);
         try
         {
             await process.WaitForExitAsync(ct);
@@ -486,14 +486,15 @@ public sealed partial class CompileService(bool disableMiKTeXInstaller = false, 
         }
     }
 
-    private static async Task<string> ReadLimitedAsync(string path, CancellationToken token, int maximum = 4 * 1024 * 1024)
+    private static async Task<string> ReadLimitedAsync(string path, CancellationToken token)
     {
         await using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        return await ReadLimitedAsync(stream, token, maximum);
+        return await ReadLimitedAsync(stream, token);
     }
 
-    private static async Task<string> ReadLimitedAsync(Stream stream, CancellationToken token = default, int maximum = 4 * 1024 * 1024)
+    private static async Task<string> ReadLimitedAsync(Stream stream, CancellationToken token = default)
     {
+        const int maximum = 4 * 1024 * 1024;
         using var captured = new MemoryStream();
         var buffer = new byte[4096];
         int read;

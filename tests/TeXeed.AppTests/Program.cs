@@ -16,26 +16,6 @@ internal static partial class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        if (args.Contains("--ai-comment-location-only"))
-        {
-            try { CheckAiCommentLocationAsync().GetAwaiter().GetResult(); return 0; }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
-        if (args.Contains("--ai-document-context-only"))
-        {
-            try { CheckAiDocumentContext(); return 0; }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
-        if (args.Contains("--ai-mentor-protocol-only"))
-        {
-            try
-            {
-                CheckAiMentorProtocol((ok, message) => { if (!ok) throw new InvalidOperationException(message); });
-                Console.WriteLine("Mentor prompt, document patches and discussion anchors verified.");
-                return 0;
-            }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
         var outputArgument = Array.IndexOf(args, "--output");
         var output = outputArgument >= 0 && outputArgument + 1 < args.Length
@@ -49,40 +29,7 @@ internal static partial class Program
             || expectedAiHome.StartsWith(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TeXeed") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("UI tests require an isolated AI credentials directory.");
         Console.WriteLine("Isolated test AI home: " + expectedAiHome);
-        if (args.Contains("--project-comment-store-only"))
-        {
-            try { CheckProjectCommentStoreAsync(output).GetAwaiter().GetResult(); return 0; }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
-        if (args.Contains("--ai-document-compiler-only"))
-        {
-            try { CheckAiDocumentCompilerAsync(output).GetAwaiter().GetResult(); return 0; }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
-        if (args.Contains("--ai-document-resource-versions-only"))
-        {
-            try { CheckAiDocumentResourceVersionsAsync(output).GetAwaiter().GetResult(); return 0; }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
-        if (args.Contains("--ai-document-assets-only"))
-        {
-            try { CheckAiDocumentAssets(output); return 0; }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
-        if (args.Contains("--ai-shared-document-only"))
-        {
-            try { CheckAiSharedDocumentAsync(output).GetAwaiter().GetResult(); return 0; }
-            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
-        }
         File.WriteAllText(Path.Combine(config, "settings.json"), JsonSerializer.Serialize(new AppSettings { LivePreview = false }));
-        if (args.Contains("--ai-document-assets-integration-only"))
-            return RunAiDocumentAssetsIntegration(output);
-        if (args.Contains("--ai-full-document-perf-only"))
-            return RunAiFullDocumentPerformance(output);
-        if (args.Contains("--ai-mentor-integration-only"))
-            return RunAiMentorIntegration(output);
-        if (args.Contains("--ai-native-mentor-only"))
-            return RunAiNativeMentorIntegration(output);
         var result = 1;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
@@ -93,56 +40,6 @@ internal static partial class Program
             try
             {
                 await Task.Delay(200);
-                if (args.Contains("--ai-readonly-comments-only"))
-                {
-                    await CheckAiReadOnlyCommentListAsync(window);
-                    await CloseAndObserveAsync(window, "read-only comments"); result = 0; return;
-                }
-                if (args.Contains("--comment-alignment-only"))
-                {
-                    await CheckCommentAlignmentAsync(window, output);
-                    await CloseAndObserveAsync(window, "comment alignment"); result = 0; return;
-                }
-                if (args.Contains("--project-comments-ui-only"))
-                {
-                    await CheckProjectCommentsUiAsync(window, output);
-                    await CloseAndObserveAsync(window, "project comments"); result = 0; return;
-                }
-                if (args.Contains("--ai-blocks-only"))
-                {
-                    await CheckAiBlocksAsync(window, output);
-                    await CloseAndObserveAsync(window, "AI blocks"); result = 0; return;
-                }
-                if (args.Contains("--ai-native-session-perf-only"))
-                {
-                    await MeasureAiNativeSessionPerfAsync(window, output);
-                    await CloseAndObserveAsync(window, "AI native session performance"); result = 0; return;
-                }
-                if (args.Contains("--ai-build-failure-perf-only"))
-                {
-                    await MeasureAiBuildFailurePerfAsync(window, output);
-                    await CloseAndObserveAsync(window, "AI build failure performance"); result = 0; return;
-                }
-                if (args.Contains("--ai-build-failure-ui-only"))
-                {
-                    await CheckAiBuildFailureUiAsync(window, output);
-                    await CloseAndObserveAsync(window, "AI build failure UI"); result = 0; return;
-                }
-                if (args.Contains("--ai-session-views-only"))
-                {
-                    await CheckAiSessionViewsAsync(window, output);
-                    await CloseAndObserveAsync(window, "AI session views"); result = 0; return;
-                }
-                if (args.Contains("--ai-workspace-tabs-only"))
-                {
-                    await CheckAiWorkspaceTabsAsync(window, output);
-                    await CloseAndObserveAsync(window, "AI workspace tabs"); result = 0; return;
-                }
-                if (args.Contains("--ai-comment-sidebar-only"))
-                {
-                    await CheckAiCommentSidebarAsync(window, output);
-                    await CloseAndObserveAsync(window, "AI comment sidebar"); result = 0; return;
-                }
                 var mainMenu = (Menu)window.FindName("MainMenu");
                 if (mainMenu.Visibility != Visibility.Visible) throw new Exception("Wide title bar must show its menu");
                 var windowGrid = (Grid)window.Content;
@@ -183,6 +80,11 @@ internal static partial class Program
                     await CheckAiGraySpacingAsync(window, output, args.Contains("--assert-uniform-gray-spacing"));
                     await CloseAndObserveAsync(window, "AI heading line spacing"); result = 0; return;
                 }
+                if (args.Contains("--ai-bookmark-only"))
+                {
+                    await CheckAiBookmarksAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI bookmark navigation"); result = 0; return;
+                }
                 if (args.Contains("--ai-emphasis-only"))
                 {
                     await CheckAiEmphasisAsync(window, output);
@@ -192,6 +94,11 @@ internal static partial class Program
                 {
                     await CheckAiHeadingPromptAsync();
                     await CloseAndObserveAsync(window, "AI heading prompt"); result = 0; return;
+                }
+                if (args.Contains("--ai-bookmark-ui-only"))
+                {
+                    await CheckAiBookmarkUiAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI bookmark UI"); result = 0; return;
                 }
                 if (args.Contains("--ai-reading-media-only"))
                 {
@@ -245,6 +152,11 @@ internal static partial class Program
                 {
                     await CheckAiPermissionsAsync(window, output);
                     await CloseAndObserveAsync(window, "AI permissions and shell regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-focus-only"))
+                {
+                    await CheckAiFocusAsync(window);
+                    result = 0; app.Shutdown(); return;
                 }
                 if (args.Contains("--literal-text-only"))
                 {
@@ -347,6 +259,16 @@ internal static partial class Program
                 {
                     await CheckAiMathProofreadingAsync(window, output);
                     await CloseAndObserveAsync(window, "AI math proofreading"); result = 0; return;
+                }
+                if (args.Contains("--ai-annotations-only"))
+                {
+                    await CheckAiAnnotationsAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI annotation and block rendering regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-pins-only"))
+                {
+                    await CheckAiPinsAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI pin editor regression"); result = 0; return;
                 }
                 if (args.Contains("--ai-only"))
                 {
@@ -972,8 +894,8 @@ internal static partial class Program
         var search = (TextBox)window.FindName("SearchBox");
         var buttons = Descendants<Button>(rail).ToArray();
         window.UpdateLayout();
-        if (buttons.Length != 6 || window.FindName("CollapseWorkspaceButton") is not null)
-            throw new Exception("Permanent rail must contain six panel functions and no collapse button");
+        if (buttons.Length != 7 || window.FindName("CollapseWorkspaceButton") is not null)
+            throw new Exception("Permanent rail must contain six panel functions plus AI marking and no collapse button");
         var positions = buttons.ToDictionary(b => b, b => b.TranslatePoint(new Point(), window));
         var path = editor.CurrentFilePath; var text = editor.Text;
         column.Width = new GridLength(315); window.UpdateLayout();

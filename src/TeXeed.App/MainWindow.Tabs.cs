@@ -35,7 +35,7 @@ public partial class MainWindow
             strip.DockDragMoved = UpdateDockDrag;
             strip.DockDropped += DropWorkspaceTab;
             strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
-            GroupPane(side).PreviewMouseDown += (_, _) => { if (!_updatingWorkspace && _workspaceTabs.FocusedSide != side) { _workspaceTabs.Focus(side); RefreshWorkspaceViews(); } };
+            GroupPane(side).PreviewMouseDown += (_, _) => { if (!_updatingWorkspace) _workspaceTabs.Focus(side); };
             editor.GotKeyboardFocus += (_, _) => SetActiveSource(editor);
             editor.PreviewMouseDown += (_, _) => ResumeFollowFromSource(editor);
             editor.PreviewKeyDown += (_, _) => ResumeFollowFromSource(editor);
@@ -89,32 +89,6 @@ public partial class MainWindow
         if (_transitioning || _closing || _allowClose) return;
         var range = scope switch { TabCloseScope.All => TabCloseRange.All, TabCloseScope.Others => TabCloseRange.Others,
             TabCloseScope.Left => TabCloseRange.Before, TabCloseScope.Right => TabCloseRange.After, _ => TabCloseRange.This };
-        if (_workspaceTabs.Owner(path) is { } side)
-        {
-            var tabs = _workspaceTabs.Tabs(side); var index = tabs.ToList().FindIndex(key => string.Equals(key, path, StringComparison.OrdinalIgnoreCase));
-            IEnumerable<string> candidates = range switch { TabCloseRange.All => tabs, TabCloseRange.Others => tabs.Where(k => k != path), TabCloseRange.Before => tabs.Take(index), TabCloseRange.After => tabs.Skip(index + 1), _ => new[] { path } };
-            var closingKeys = candidates.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            if (closingKeys.Where(TabWorkspace.IsAiSource).Select(TabWorkspace.AiDocumentConversationId).Where(id => id is not null).Any(id => _aiSources.TryGetValue(id!, out var source) && source.HasConflict))
-            { Status("会话源码存在冲突草稿，请先处理后再关闭标签。"); return; }
-            var lastSessions = closingKeys.Select(AiConversationForKey).Where(c => c is not null).Select(c => c!.Id).Distinct()
-                .Where(id => new[] { TabWorkspace.AiConversationKey(id), TabWorkspace.AiSourceKey(id), TabWorkspace.AiPreviewKey(id) }
-                    .All(key => _workspaceTabs.Owner(key) is null || closingKeys.Contains(key))).ToArray();
-            if (lastSessions.Length > 0) _transitioning = true;
-            try
-            {
-                foreach (var id in lastSessions)
-                {
-                    if (_closingAi.Contains(id)) return;
-                    if (!_aiPanels.TryGetValue(id, out var panel)) continue;
-                    _aiSources.TryGetValue(id, out var source);
-                    _closingAi.Add(id); panel.IsEnabled = false; if (source is not null) source.IsEnabled = false;
-                    try { await panel.SaveAsync(); await panel.StopAndSaveAsync(); }
-                    catch (Exception ex) { Status("会话未关闭，保存失败：" + ex.Message); return; }
-                    finally { panel.IsEnabled = true; if (source is not null) source.IsEnabled = true; _closingAi.Remove(id); }
-                }
-            }
-            finally { if (lastSessions.Length > 0) _transitioning = false; }
-        }
         var closed = _workspaceTabs.Close(path, range);
         foreach (var editor in Editors)
             if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
@@ -194,12 +168,10 @@ public partial class MainWindow
                         if (!string.Equals(editor.CurrentFilePath, file.Path, StringComparison.OrdinalIgnoreCase) || editor.Text != file.Content) editor.ShowFile(file, file.Content);
                     }
                 }
-                if (active is not null && AiConversationForKey(active) is { } activeAi)
+                if (active is not null && AiConversationForKey(active) is { } activeAi && _aiPanels.TryGetValue(activeAi.Id,out var activePanel))
                 {
-                    EnsureAiSessionViews(activeAi.Id);
-                    var view = TabWorkspace.IsAiSource(active) ? (UIElement)_aiSources[activeAi.Id] : TabWorkspace.IsAiPreview(active) ? _aiPreviews[activeAi.Id] : _aiCommentTabs[activeAi.Id];
-                    if (view is FrameworkElement element && element.Parent is Panel oldAi && oldAi != GroupBody(side)) oldAi.Children.Remove(element);
-                    if (view is FrameworkElement child && child.Parent is null) GroupBody(side).Children.Add(child);
+                    if (activePanel.Parent is Panel oldAi && oldAi != GroupBody(side)) oldAi.Children.Remove(activePanel);
+                    if (activePanel.Parent is null) GroupBody(side).Children.Add(activePanel);
                 }
                 if (active == TabWorkspace.AiSettingsKey)
                 {
@@ -218,24 +190,11 @@ public partial class MainWindow
                 }
                 UpdateTabStrip(side);
             }
-            foreach(var (id,source) in _aiSources)
-            {
-                var key=TabWorkspace.AiSourceKey(id);
-                source.Visibility=_workspaceTabs.Owner(key) is { } aiSide && _workspaceTabs.Active(aiSide)==key ? Visibility.Visible : Visibility.Collapsed;
-            }
-            foreach(var (id,pdf) in _aiPreviews)
-            {
-                var pdfKey=TabWorkspace.AiPreviewKey(id);
-                pdf.Visibility = _workspaceTabs.Owner(pdfKey) is { } aiSide && _workspaceTabs.Active(aiSide)==pdfKey ? Visibility.Visible : Visibility.Collapsed;
-            }
-            foreach(var (id,comment) in _aiCommentTabs)
+            foreach(var (id,panel) in _aiPanels)
             {
                 var key=TabWorkspace.AiConversationKey(id);
-                comment.Visibility=_workspaceTabs.Owner(key) is { } aiSide && _workspaceTabs.Active(aiSide)==key ? Visibility.Visible : Visibility.Collapsed;
+                panel.Visibility=_workspaceTabs.Owner(key) is { } aiSide && _workspaceTabs.Active(aiSide)==key ? Visibility.Visible : Visibility.Collapsed;
             }
-            var selectedSession = _workspaceTabs.FocusedTab is { } focusedKey ? AiConversationForKey(focusedKey) : null;
-            if (selectedSession is not null) { var panel = EnsureAiPanel(selectedSession.Id); SetAiTarget(panel); ShowAiSidebar(panel); }
-            else ShowAiSidebar(null);
             _aiSettings.Visibility = _workspaceTabs.Owner(TabWorkspace.AiSettingsKey) is { } settingsSide && _workspaceTabs.Active(settingsSide)==TabWorkspace.AiSettingsKey ? Visibility.Visible : Visibility.Collapsed;
             if(_aiHistory is not null) _aiHistory.Visibility=_workspaceTabs.Owner(TabWorkspace.AiHistoryKey) is { } historySide && _workspaceTabs.Active(historySide)==TabWorkspace.AiHistoryKey ? Visibility.Visible : Visibility.Collapsed;
             var previewSide = _workspaceTabs.Owner(TabWorkspace.PreviewKey)!.Value;
