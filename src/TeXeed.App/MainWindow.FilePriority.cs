@@ -20,6 +20,12 @@ public partial class MainWindow
     private ContextMenu ExplorerFileMenu(string path)
     {
         var menu = new ContextMenu();
+        if (Path.GetExtension(path).Equals(".tex", StringComparison.OrdinalIgnoreCase))
+        {
+            var openEntry = new MenuItem { Header = "作为主文件打开" };
+            openEntry.Click += async (_, _) => await OpenProjectEntryAsync(path);
+            menu.Items.Add(openEntry);
+        }
         var rename = new MenuItem { Header = "重命名" };
         rename.Click += (_, _) => ShowExplorerRename(path);
         var priority = new MenuItem();

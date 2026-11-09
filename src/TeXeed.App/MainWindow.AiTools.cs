@@ -231,7 +231,7 @@ public partial class MainWindow
                     _revision++; RefreshTabs(); RefreshIndex();
                 }
                 finally { _saveGate.Release(); }
-                return $"已创建 {relative}，请按需在主文件中引用并编译。\nSHA256={AiStorage.Hash(content)}";
+                return $"已创建 {relative}。可按文稿用途单独编译，或在需要时从其他文件引用。\nSHA256={AiStorage.Hash(content)}";
             }
             if (name is "save_project" or "compile_project")
             {

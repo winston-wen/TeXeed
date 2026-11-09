@@ -132,10 +132,19 @@ public partial class MainWindow : Window
         var answer = MessageBox.Show(this, "保存当前项目中的修改？", "未保存的修改", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         return answer == MessageBoxResult.No || answer == MessageBoxResult.Yes && await SaveAsync(true) && _changes.Count == 0;
     }
-    private Task OpenAsync(string path) => SwitchProjectAsync(path, false);
+    private Task OpenAsync(string path)
+    {
+        if (_project is not null)
+        {
+            var relative = Path.GetRelativePath(_project.Root, Path.GetFullPath(path));
+            if (!Path.IsPathRooted(relative) && relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                && Path.GetExtension(path).Equals(".tex", StringComparison.OrdinalIgnoreCase)) return OpenProjectEntryAsync(path);
+        }
+        return SwitchProjectAsync(path, false);
+    }
     private async Task SwitchProjectAsync(string path, bool createNew)
     {
-        if (_transitioning || _closing) return;
+        if (_transitioning || _closing || _switchingEntryPreview) return;
         _transitioning = true; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = false;
         try
         {
@@ -151,7 +160,7 @@ public partial class MainWindow : Window
             _externalChangePending = false; _assetChangePending = false;
             await InitializeAiProjectAsync(project.MainPath);
             SetAiMarking(false);
-            _previewWarning = false; _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
+            _previewWarning = false; _project = project; _entryPreviews.Clear(); _restoredPreviewEntry = null; _activePreviewEntry = project.MainPath; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
             ResetDirectoryCatalog();
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
@@ -164,12 +173,15 @@ public partial class MainWindow : Window
             _pendingPreviewPosition = null;
             if (!await RestoreReadingHistoryAsync(ProjectReadingStore.Load(project.MainPath)))
             { ActivateFile(main.Path); RefreshIndex(); }
-            var initialInputs = new CompileInputSnapshot(project); _previewInputs = initialInputs;
+            project = _project!;
+            var previewProject = project.IsolateEntryOutputs
+                ? await LoadCompileEntryAsync(project, Path.GetRelativePath(project.Root, project.MainPath), CancellationToken.None) : project;
+            var initialInputs = new CompileInputSnapshot(previewProject); _previewInputs = initialInputs;
             SetupWatcher();
             _settings = _settings with { RecentProjects = new[] { project.MainPath }.Concat(_settings.RecentProjects.Where(p => !p.Equals(project.MainPath, StringComparison.OrdinalIgnoreCase))).Take(10).ToArray() };
             PersistSettings(); UpdateRecent();
             Status(project.Warnings.Count > 0 ? string.Join("；", project.Warnings) : $"已打开 {project.Name} · {project.Files.Count} 个文件");
-            var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
+            var cached = await _compiler.GetCachedPreviewAsync(previewProject, _settings);
             if (cached is not null)
             {
                 try
@@ -180,7 +192,7 @@ public partial class MainWindow : Window
                     await Preview.LoadAsync(cached.PdfPath);
                     RestorePendingPreviewPosition();
                     _pdfPath = cached.PdfPath;
-                    _previewProject = project;
+                    _previewProject = previewProject;
                     cacheCurrent &= dependencyVersion == initialInputs.ChangeVersion;
                     _pdfRevision = cacheCurrent ? _revision : -1;
                     Status(cacheCurrent ? "已加载本地编译缓存 · 无需重新编译"
@@ -194,6 +206,13 @@ public partial class MainWindow : Window
         finally
         {
             _transitioning = false; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = true;
+            if (_restoredPreviewEntry is { } restored)
+            {
+                _restoredPreviewEntry = null;
+                if (!await SelectEntryPreviewAsync(restored) && _workspaceTabs.Owner(TabWorkspace.PreviewKey) is { } previewSide)
+                    _workspaceTabs.Select(previewSide, TabWorkspace.PreviewKey);
+                RefreshTabs();
+            }
             QueueExternalRefresh();
             if (_settings.LivePreview && _project != null && (_changes.Count > 0 || _pdfRevision != _revision)) ScheduleLiveBuild();
             else if (_pdfRevision == _revision && _pdfPath is not null) QueueFollowSync();
@@ -270,6 +289,12 @@ public partial class MainWindow : Window
             }
             var updated = await _projects.SaveAsync(original, snapshot);
             if (session != _session) return false;
+            foreach (var path in snapshot.Keys)
+            {
+                _previewInputs?.Observe(path);
+                foreach (var entry in _entryPreviews.Values)
+                    if (!ReferenceEquals(entry.Inputs, _previewInputs)) entry.Inputs?.Observe(path);
+            }
             // The user may type, or undo back to the old baseline, while the disk write is awaited.
             var liveEdits = CurrentFiles().Where(f => snapshot.ContainsKey(f.Path) || _changes.ContainsKey(f.Path))
                 .ToDictionary(f => f.Path, f => f.Content, StringComparer.OrdinalIgnoreCase);
@@ -287,7 +312,7 @@ public partial class MainWindow : Window
             var retained = original.Files.Where(f => !updated.Files.Any(next => next.Path.Equals(f.Path, StringComparison.OrdinalIgnoreCase)) &&
                 (_tabs.Contains(f.Path, StringComparer.OrdinalIgnoreCase) || liveEdits.ContainsKey(f.Path)))
                 .Select(f => snapshot.TryGetValue(f.Path, out var saved) ? f with { Content = saved } : f);
-            _project = updated with { Files = baselines.Concat(retained).ToArray() };
+            _project = updated with { Files = baselines.Concat(retained).ToArray(), IsolateEntryOutputs = original.IsolateEntryOutputs };
             _changes.Clear();
             foreach (var file in _project.Files)
             {
@@ -321,12 +346,21 @@ public partial class MainWindow : Window
     private async Task BuildAsync(bool explicitRequest = true, CancellationToken cancellationToken = default, bool reportErrors = true, string? entryFile = null)
     {
         if (_aiShellRunning) { Status("AI 命令正在执行，结束后可编译。"); return; }
-        if (_project == null || _transitioning || _closing) return;
+        if (_project == null || _transitioning || _closing || _switchingEntryPreview) return;
         if (!explicitRequest && !_settings.LivePreview) return;
         if (_building)
         {
             if (ActiveBuildNeedsReplacement) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; }
             return;
+        }
+        if (entryFile is not null)
+        {
+            var requested = string.IsNullOrWhiteSpace(entryFile) ? _project.MainPath : ValidateAiPath(_project.Root, entryFile);
+            if (!string.Equals(requested, _activePreviewEntry, StringComparison.OrdinalIgnoreCase))
+            {
+                await OpenProjectEntryAsync(requested, false, true, true);
+                if (_project is null || !string.Equals(requested, _activePreviewEntry, StringComparison.OrdinalIgnoreCase)) return;
+            }
         }
         _building = true; _buildAgain = false; var session = _session; var epoch = _buildEpoch;
         _buildAgainExplicit = false; _scheduledBuildExplicit = false;
@@ -339,7 +373,11 @@ public partial class MainWindow : Window
             cancellationToken.ThrowIfCancellationRequested();
             if (_changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
             var revision = _revision; var project = _project;
-            project = await LoadCompileEntryAsync(project, entryFile, cancellationToken);
+            var chosenEntry = entryFile ?? (_activePreviewEntry is not null && !string.Equals(_activePreviewEntry, project.MainPath, StringComparison.OrdinalIgnoreCase)
+                ? Path.GetRelativePath(project.Root, _activePreviewEntry) : null);
+            if (project.IsolateEntryOutputs && string.IsNullOrWhiteSpace(chosenEntry)) chosenEntry = Path.GetRelativePath(project.Root, project.MainPath);
+            project = await LoadCompileEntryAsync(project, chosenEntry, cancellationToken);
+            if (_project.IsolateEntryOutputs) project = project with { IsolateEntryOutputs = true };
             if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
             if (revision != _revision || _changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
             _lastCompileEntryPath = project.MainPath; _lastCompileRevision = revision; _lastCompileBuildEpoch = epoch;
@@ -585,9 +623,12 @@ public partial class MainWindow : Window
                 // A checked-in .bbl or other normally generated suffix can be an
                 // explicit source dependency. Inspect UI-owned snapshots here.
                 if (!potentialInput && _activeCompileInputs?.Contains(path) != true && _previewInputs?.Contains(path) != true &&
+                    !_entryPreviews.Values.Any(entry => entry.Inputs?.Contains(path) == true) &&
                     _project?.Files.Any(f => f.Path.Equals(path, StringComparison.OrdinalIgnoreCase)) != true) return;
                 _activeCompileInputs?.Observe(path);
                 if (!ReferenceEquals(_activeCompileInputs, _previewInputs)) _previewInputs?.Observe(path);
+                foreach (var entry in _entryPreviews.Values)
+                    if (!ReferenceEquals(entry.Inputs, _activeCompileInputs) && !ReferenceEquals(entry.Inputs, _previewInputs)) entry.Inputs?.Observe(path);
                 _externalChangePending = true; _assetChangePending |= !source;
                 QueueExternalRefresh();
             });
@@ -638,7 +679,7 @@ public partial class MainWindow : Window
             }
             if (session != _session || _transitioning || _closing || _changes.Count > 0)
             { if (session == _session) _externalChangePending = true; return; }
-            updated = updated with { Files = updated.Files.Concat(detached).ToArray() };
+            updated = updated with { Files = updated.Files.Concat(detached).ToArray(), IsolateEntryOutputs = _project.IsolateEntryOutputs };
             var changed = assetChanged || updated.Files.Count != _project.Files.Count || updated.Files.Any(f => !_project.Files.Any(old => old.Path == f.Path && old.Content == f.Content));
             _project = updated;
             if (!previewCurrent)
@@ -666,6 +707,13 @@ public partial class MainWindow : Window
         var dialog = new OpenFileDialog { Title = "打开主 LaTeX 文件", Filter = "LaTeX 文档 (*.tex)|*.tex", CheckFileExists = true };
         if (dialog.ShowDialog(this) == true) await OpenAsync(dialog.FileName);
     }
+    private Task OpenSeparateProjectAsync(string path) => SwitchProjectAsync(path, false);
+    private async void OpenSeparateProject_Click(object sender, RoutedEventArgs e)
+    {
+        if (_transitioning || _closing) return;
+        var dialog = new OpenFileDialog { Title = "作为独立项目打开", Filter = "LaTeX 文档 (*.tex)|*.tex", CheckFileExists = true };
+        if (dialog.ShowDialog(this) == true) await OpenSeparateProjectAsync(dialog.FileName);
+    }
     private async void New_Click(object sender, RoutedEventArgs e)
     {
         if (_transitioning || _closing) return;
@@ -677,7 +725,7 @@ public partial class MainWindow : Window
     private async void Build_Click(object sender, RoutedEventArgs e) => await BuildAsync();
     private void Cancel_Click(object sender, RoutedEventArgs e) { _buildEpoch++; _buildAgain = false; _buildAgainExplicit = false; _scheduledBuildExplicit = false; _liveTimer.Stop(); _compiler.Cancel(); Status("编译已取消"); }
     private async void Sync_Click(object sender, RoutedEventArgs e) => await ForwardAsync(true);
-    private async void Refresh_Click(object sender, RoutedEventArgs e) { if (_project != null) await OpenAsync(_project.MainPath); }
+    private async void Refresh_Click(object sender, RoutedEventArgs e) { if (_project != null) await SwitchProjectAsync(_project.MainPath, false); }
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
     private void Live_Click(object sender, RoutedEventArgs e)
     {

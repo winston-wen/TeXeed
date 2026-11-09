@@ -17,6 +17,8 @@ internal sealed record ProjectReadingState
     public TabSide FocusedSide { get; init; }
     public Dictionary<string, EditorReadingPosition> Editors { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public PdfReadingPosition? Preview { get; init; }
+    public Dictionary<string, PdfReadingPosition> PreviewPositions { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    public string[] MainEntries { get; init; } = [];
     public double LeftWidth { get; init; } = 1;
     public double RightWidth { get; init; } = 1;
     public bool SidebarExpanded { get; init; } = true;

@@ -1,0 +1,626 @@
+diff --git a/src/TeXeed.App/AI/AiAgentPrompt.cs b/src/TeXeed.App/AI/AiAgentPrompt.cs
+index 358cdb6..a6fe851 100644
+--- a/src/TeXeed.App/AI/AiAgentPrompt.cs
++++ b/src/TeXeed.App/AI/AiAgentPrompt.cs
+@@ -10,6 +10,7 @@ internal static class AiAgentPrompt
+ 
+         先认识项目，再修改
+         起始目录快照是项目资料，不是完整源码。按任务需要逐步辨认当前编译入口、README/构建说明、共享导言区、模板和本地样式；已有充分证据时不重复通读。目录包括未被主文件引用的文件；需要时用 list_directory 分页深入，search_source 搜索，read_source 读准确行段。不要因为当前打开的文件不完整，就认定项目没有模板或让用户自行寻找。文件叫 main 或 preamble 不能证明其用途，要读内容与依赖关系。未被当前入口引用不等于废弃或不能单独编译；没有核实各文件内容和构建约定时，不宣称“唯一入口”，也不把并存版本称为旧稿。
++        当用户要求参考项目已有文稿、样式或资料独立创作时，先检查具体内容及其实际依赖，区分内容参考、复用共享样式和引入其他 TeX 文件。按要求创建可独立编译的新入口，保留既有主文件和正文；不要仅因同属一个项目就把新稿加入原入口或将原稿包含进新稿。用户要求共同修改项目文件时，按具体指示读取并修改目标，保留无关内容和用户新编辑。
+         修编译时先看入口和现有模板/构建约定，并运行 compile_project 取得真实诊断。片段没有 documentclass/begin{document} 可能是正常设计：查找项目已有包装入口、模板脚本、共享 preamble、同类文件，优先接入既有结构，不另造通用导言区。查清本地 cls/sty、宏包路径、字体、引擎与资源路径后再修原因。源码中的 input、include、宏和自定义环境需要结合定义理解，不能只凭单行猜测。
+ 
+         命令与环境
+@@ -21,7 +22,7 @@ internal static class AiAgentPrompt
+         需要用户选择会实质影响结果的方案（如补装原字体还是替换字体、不同模板或改写范围）时，调用 ask_user，给出 2–4 个简洁可行选项、各自影响，推荐项置前并说明原因。用户可写自己的意见。已有授权且能独立完成的步骤直接推进，不把普通工具执行变成决策。Shell 的 intent 和 impact 用白话准确解释目的、读写范围与网络影响；执行前询问由宿主处理。收到其他意见后据此调整，拒绝不是换命令绕过的许可。
+ 
+         精确编辑
+-        编辑前 read_source 获取当前内容及 SHA256；用唯一匹配的上下文做 replace_source。同一文件多处修改需依次使用上次返回的新 SHA256，或合并为一次唯一替换。若内容改变或匹配失败，重新读取，调整定位，不重复提交同一失败参数。大改分成可验证的小步。复用已有宏、环境、字体与版式，不引入平行结构。需要参与当前构建的新增文件应接入正确入口。
++        编辑前 read_source 获取当前内容及 SHA256；用唯一匹配的上下文做 replace_source。同一文件多处修改需依次使用上次返回的新 SHA256，或合并为一次唯一替换。若内容改变或匹配失败，重新读取，调整定位，不重复提交同一失败参数。大改分成可验证的小步。复用已有宏、环境、字体与版式；新增文件是否由某个入口引用取决于用户要求和项目结构，独立文稿无需并入已有入口。
+         保留无关正文、公式、引用、注号、标签、来源页码和用户新编辑。修编译不等于改写内容：不得删除/注释正文或缺失文件引用、补写未知内容、伪造占位章节来换取成功。不把备份、生成目录或历史材料当作当前源码。找不到源文件时报告具体路径、已搜索范围和阻碍，不捏造。
+ 
+         验证与收尾
+diff --git a/src/TeXeed.App/AI/AiResponses.cs b/src/TeXeed.App/AI/AiResponses.cs
+index fdf6b75..732c6f2 100644
+--- a/src/TeXeed.App/AI/AiResponses.cs
++++ b/src/TeXeed.App/AI/AiResponses.cs
+@@ -61,7 +61,7 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
+         {"type":"function","name":"shell","description":"Execute real PowerShell code with current Windows user file and network access. Use for Git log/show/history, scripts, dependency/font checks, downloads, and file operations beyond the source tools. Not restricted to project directory. working_directory: empty for project root, or an absolute/relative directory. timeout_seconds: 1-600. Each call starts a fresh noninteractive process. Returns actual exit code and bounded stdout/stderr. Source buffers are saved before execution and refreshed afterwards. Ask mode uses host confirmation unless a matching session grant already exists.","parameters":{"type":"object","properties":{"intent":{"type":"string","description":"Short plain-language purpose, not code."},"impact":{"type":"string","description":"Plain-language read/write/network scope and affected paths."},"command":{"type":"string"},"working_directory":{"type":"string"},"timeout_seconds":{"type":"integer"}},"required":["intent","impact","command","working_directory","timeout_seconds"],"additionalProperties":false},"strict":true},
+         {"type":"function","name":"list_directory","description":"Inspect a project-relative directory, including unreferenced templates and assets. Use path '.' for root; depth 1-8; offset 0 for first page then the returned next offset. Hidden, generated and dependency directories are excluded.","parameters":{"type":"object","properties":{"path":{"type":"string"},"depth":{"type":"integer"},"offset":{"type":"integer"}},"required":["path","depth","offset"],"additionalProperties":false},"strict":true},
+         {"type":"function","name":"replace_source","description":"Apply one exact replacement to a project source buffer. Read the file first and supply its SHA256. The old text must match exactly once. Edits are undoable and backed up. Use the returned SHA256 for the next edit. Save or compile afterwards.","parameters":{"type":"object","properties":{"file":{"type":"string"},"expected_sha256":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["file","expected_sha256","old_text","new_text"],"additionalProperties":false},"strict":true},
+-        {"type":"function","name":"create_source","description":"Create a new UTF-8 .tex, .bib, .sty or .cls file inside the project. Never overwrites an existing file. Then reference it from the main document if necessary.","parameters":{"type":"object","properties":{"file":{"type":"string"},"content":{"type":"string"}},"required":["file","content"],"additionalProperties":false},"strict":true},
++        {"type":"function","name":"create_source","description":"Create a new UTF-8 .tex, .bib, .sty or .cls file inside the project. Never overwrites an existing file. A new file can be an independent entry, a shared resource, or a referenced fragment; connect it to another entry only when the task requires that relationship.","parameters":{"type":"object","properties":{"file":{"type":"string"},"content":{"type":"string"}},"required":["file","content"],"additionalProperties":false},"strict":true},
+         {"type":"function","name":"save_project","description":"Save current project edits with external-change conflict checks.","parameters":{"type":"object","properties":{},"required":[],"additionalProperties":false},"strict":true},
+         {"type":"function","name":"compile_project","description":"Save and compile using the configured TeX engine. Use entry_file='' for the current entry, or a project-relative existing .tex file to verify another entry/wrapper without changing the user's default entry. Returns actual target, success, diagnostics and log excerpts; updates the PDF preview. Only that target is verified.","parameters":{"type":"object","properties":{"entry_file":{"type":"string"}},"required":["entry_file"],"additionalProperties":false},"strict":true}
+         ]
+diff --git a/src/TeXeed.App/MainWindow.AiCompile.cs b/src/TeXeed.App/MainWindow.AiCompile.cs
+index 3f4e91a..e02d5d4 100644
+--- a/src/TeXeed.App/MainWindow.AiCompile.cs
++++ b/src/TeXeed.App/MainWindow.AiCompile.cs
+@@ -74,6 +74,8 @@ public partial class MainWindow
+         // the static graph. Retire both snapshots even when editable text matches.
+         _activeCompileInputs?.Invalidate();
+         if (!ReferenceEquals(_activeCompileInputs, _previewInputs)) _previewInputs?.Invalidate();
++        foreach (var entry in _entryPreviews.Values)
++            if (!ReferenceEquals(entry.Inputs, _activeCompileInputs) && !ReferenceEquals(entry.Inputs, _previewInputs)) entry.Inputs?.Invalidate();
+         _lastCompileDependenciesCurrent = false; _lastCompilePreviewPublished = false;
+         _pdfRevision = -1; CancelForwardSync(); _syncTimer.Stop();
+         _externalChangePending = true; _assetChangePending = true;
+@@ -112,6 +114,7 @@ public partial class MainWindow
+         if (!File.Exists(path)) throw new FileNotFoundException("找不到指定的编译入口，请先读取目录或创建包装文件。", entryFile);
+         // Preserve the workspace boundary when the alternate entry is in a
+         // subdirectory; its dependencies may legitimately reside at the root.
+-        return await Task.Run(() => _projects.LoadAsync(path, token, current.Root), token);
++        var result = await Task.Run(() => _projects.LoadAsync(path, token, current.Root), token);
++        return result with { IsolateEntryOutputs = current.IsolateEntryOutputs };
+     }
+ }
+diff --git a/src/TeXeed.App/MainWindow.AiTools.cs b/src/TeXeed.App/MainWindow.AiTools.cs
+index fa8afbf..3ee70d4 100644
+--- a/src/TeXeed.App/MainWindow.AiTools.cs
++++ b/src/TeXeed.App/MainWindow.AiTools.cs
+@@ -231,7 +231,7 @@ public partial class MainWindow
+                     _revision++; RefreshTabs(); RefreshIndex();
+                 }
+                 finally { _saveGate.Release(); }
+-                return $"已创建 {relative}，请按需在主文件中引用并编译。\nSHA256={AiStorage.Hash(content)}";
++                return $"已创建 {relative}。可按文稿用途单独编译，或在需要时从其他文件引用。\nSHA256={AiStorage.Hash(content)}";
+             }
+             if (name is "save_project" or "compile_project")
+             {
+diff --git a/src/TeXeed.App/MainWindow.AiWorkspace.cs b/src/TeXeed.App/MainWindow.AiWorkspace.cs
+index 8e98b2e..eed4c85 100644
+--- a/src/TeXeed.App/MainWindow.AiWorkspace.cs
++++ b/src/TeXeed.App/MainWindow.AiWorkspace.cs
+@@ -186,8 +186,8 @@ public partial class MainWindow
+         if (_aiHistory?.IsVisible==true) _aiHistory.RefreshExternal();
+     }
+     private void UpdateTabStrip(TabSide side) => GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(key=>new EditorTab(key,
+-        key==TabWorkspace.PreviewKey ? "预览" : TabWorkspace.IsSource(key) ? System.IO.Path.GetFileName(key) : AiTabTitle(key),
+-        _changes.ContainsKey(key),key==TabWorkspace.PreviewKey,key==TabWorkspace.PreviewKey&&_previewWarning,AiConversationForKey(key)?.Title)).ToArray(),_workspaceTabs.Active(side));
++        TabWorkspace.IsPreview(key) ? (PreviewEntryForKey(key) is { } entry && _entryPreviews.Count > 0 ? "预览 · " + System.IO.Path.GetFileName(entry) : "预览") : TabWorkspace.IsSource(key) ? System.IO.Path.GetFileName(key) : AiTabTitle(key),
++        _changes.ContainsKey(key),key==TabWorkspace.PreviewKey,TabWorkspace.IsPreview(key) && (string.Equals(PreviewEntryForKey(key), _activePreviewEntry, StringComparison.OrdinalIgnoreCase) ? _previewWarning : PreviewEntryForKey(key) is { } previewEntry && EntryState(previewEntry).Warning),TabWorkspace.IsPreview(key) ? PreviewEntryForKey(key) : AiConversationForKey(key)?.Title)).ToArray(),_workspaceTabs.Active(side));
+     private void AiSettings_Click(object sender,RoutedEventArgs e) { HideMainMenu(false); OpenAiSettings(); }
+     private void AiHistory_Click(object sender,RoutedEventArgs e) { HideMainMenu(false); OpenAiHistory(); }
+     private void AiRecent_Opened(object sender,RoutedEventArgs e)
+diff --git a/src/TeXeed.App/MainWindow.FilePriority.cs b/src/TeXeed.App/MainWindow.FilePriority.cs
+index 7d63c48..e95bcf2 100644
+--- a/src/TeXeed.App/MainWindow.FilePriority.cs
++++ b/src/TeXeed.App/MainWindow.FilePriority.cs
+@@ -20,6 +20,12 @@ public partial class MainWindow
+     private ContextMenu ExplorerFileMenu(string path)
+     {
+         var menu = new ContextMenu();
++        if (Path.GetExtension(path).Equals(".tex", StringComparison.OrdinalIgnoreCase))
++        {
++            var openEntry = new MenuItem { Header = "作为主文件打开" };
++            openEntry.Click += async (_, _) => await OpenProjectEntryAsync(path);
++            menu.Items.Add(openEntry);
++        }
+         var rename = new MenuItem { Header = "重命名" };
+         rename.Click += (_, _) => ShowExplorerRename(path);
+         var priority = new MenuItem();
+diff --git a/src/TeXeed.App/MainWindow.FileRename.cs b/src/TeXeed.App/MainWindow.FileRename.cs
+index cf98e66..6159c9d 100644
+--- a/src/TeXeed.App/MainWindow.FileRename.cs
++++ b/src/TeXeed.App/MainWindow.FileRename.cs
+@@ -74,6 +74,13 @@ public partial class MainWindow
+             };
+             if (_changes.Remove(previous, out var text)) _changes[next] = text;
+             _workspaceTabs.RenameSource(previous, next);
++            if (_entryPreviews.Remove(previous, out var entryPreview))
++            {
++                entryPreview.Revision = -1; entryPreview.Warning = true; entryPreview.Project = null; entryPreview.Inputs = null;
++                _entryPreviews[next] = entryPreview;
++            }
++            if (!isMain) _workspaceTabs.RenamePreviewEntry(previous, next);
++            if (string.Equals(_activePreviewEntry, previous, StringComparison.OrdinalIgnoreCase)) _activePreviewEntry = next;
+             foreach (var editor in Editors) editor.RenameFileSession(previous, next);
+             if (isMain)
+             {
+diff --git a/src/TeXeed.App/MainWindow.Outline.cs b/src/TeXeed.App/MainWindow.Outline.cs
+index dd00ed3..30e3bba 100644
+--- a/src/TeXeed.App/MainWindow.Outline.cs
++++ b/src/TeXeed.App/MainWindow.Outline.cs
+@@ -28,7 +28,8 @@ public partial class MainWindow
+             if (!IsCurrent() || inputVersion != inputs.ChangeVersion) return true;
+             if (point is null) return false;
+             Preview.ShowLocation(point, highlight: true, viewportFraction: .35);
+-            if (_workspaceTabs.Owner(TabWorkspace.PreviewKey) is { } side) _workspaceTabs.Focus(side);
++            var key = _activePreviewEntry is null ? TabWorkspace.PreviewKey : PreviewKeyForEntry(_activePreviewEntry);
++            if (_workspaceTabs.Owner(key) is { } side) _workspaceTabs.Focus(side);
+             return true;
+         }
+         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return true; }
+diff --git a/src/TeXeed.App/MainWindow.ReadingHistory.cs b/src/TeXeed.App/MainWindow.ReadingHistory.cs
+index d0ab553..db612b8 100644
+--- a/src/TeXeed.App/MainWindow.ReadingHistory.cs
++++ b/src/TeXeed.App/MainWindow.ReadingHistory.cs
+@@ -11,10 +11,12 @@ namespace TeXeed.App;
+ public partial class MainWindow
+ {
+     private PdfReadingPosition? _pendingPreviewPosition;
++    private string? _restoredPreviewEntry;
+ 
+     private void SaveReadingHistory()
+     {
+         if (_project is null) return;
++        CaptureEntryPreview();
+         var editorPositions = new Dictionary<string, EditorReadingPosition>(StringComparer.OrdinalIgnoreCase);
+         foreach (var editor in Editors)
+             foreach (var pair in editor.CaptureReadingPositions()) editorPositions[pair.Key] = pair.Value;
+@@ -25,7 +27,9 @@ public partial class MainWindow
+         {
+             LeftTabs = _workspaceTabs.Tabs(TabSide.Left).ToArray(), RightTabs = _workspaceTabs.Tabs(TabSide.Right).ToArray(),
+             LeftActive = _workspaceTabs.Active(TabSide.Left), RightActive = _workspaceTabs.Active(TabSide.Right), FocusedSide = _workspaceTabs.FocusedSide,
+-            Editors = editorPositions, Preview = Preview.CaptureReadingPosition() ?? _pendingPreviewPosition,
++            Editors = editorPositions, Preview = EntryState(_project.MainPath).Position,
++            PreviewPositions = _entryPreviews.Where(p => p.Value.Position is not null).ToDictionary(p => p.Key, p => p.Value.Position!, StringComparer.OrdinalIgnoreCase),
++            MainEntries = _entryPreviews.Keys.Append(_project.MainPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+             LeftWidth = leftWidth, RightWidth = rightWidth, SidebarExpanded = _workspaceExpanded,
+             SidebarWidth = _workspaceExpanded ? SidebarColumn.ActualWidth : _expandedWorkspaceWidth, Sidebar = _sidebar,
+             WindowLeft = bounds.Left, WindowTop = bounds.Top, WindowWidth = bounds.Width, WindowHeight = bounds.Height,
+@@ -39,6 +43,31 @@ public partial class MainWindow
+     private async Task<bool> RestoreReadingHistoryAsync(ProjectReadingState? state)
+     {
+         if (state is null || _project is null) return false;
++        var root = _project.Root;
++        foreach (var entry in (state.MainEntries ?? []).Where(p => !string.IsNullOrWhiteSpace(p)).Take(100))
++        {
++            try
++            {
++                var relative = Path.GetRelativePath(root, entry);
++                var project = await LoadCompileEntryAsync(_project, relative, CancellationToken.None);
++                if (project.MainPath.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase)) continue;
++                foreach (var file in project.Files.Where(f => f.IsEditable))
++                    if (!_project.Files.Any(f => f.Path.Equals(file.Path, StringComparison.OrdinalIgnoreCase))) _project = _project with { Files = [.. _project.Files, file] };
++                var preview = EntryState(project.MainPath);
++                state.PreviewPositions?.TryGetValue(project.MainPath, out preview.Position);
++                project = project with { IsolateEntryOutputs = true };
++                var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
++                if (cached is not null)
++                {
++                    var inputs = new CompileInputSnapshot(project);
++                    preview.Pdf = cached.PdfPath; preview.Project = project; preview.Inputs = inputs;
++                    preview.Revision = cached.IsCurrent && await inputs.IsCurrentAsync(_projects) ? _revision : -1;
++                    preview.Warning = preview.Revision < 0;
++                }
++            }
++            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) { }
++        }
++        if (_entryPreviews.Count > 0) _project = _project with { IsolateEntryOutputs = true };
+         var requested = (state.LeftTabs ?? []).Concat(state.RightTabs ?? []).Where(item => !string.IsNullOrWhiteSpace(item)).Take(200).ToArray();
+         foreach (var path in requested.Where(TabWorkspace.IsSource))
+         {
+@@ -54,6 +83,7 @@ public partial class MainWindow
+         bool Valid(string key)
+         {
+             if (key == TabWorkspace.PreviewKey || key == TabWorkspace.AiSettingsKey || key == TabWorkspace.AiHistoryKey) return true;
++            if (TabWorkspace.IsPreview(key)) return PreviewEntryForKey(key) is { } entry && _entryPreviews.ContainsKey(entry);
+             if (TabWorkspace.IsAiConversation(key))
+             {
+                 var id = key.StartsWith(TabWorkspace.AiKey + ":", StringComparison.Ordinal) ? key[(TabWorkspace.AiKey.Length + 1)..] : "";
+@@ -64,6 +94,11 @@ public partial class MainWindow
+         }
+         var left = (state.LeftTabs ?? []).Where(key => key is not null && Valid(key)).Take(200).ToArray();
+         var right = (state.RightTabs ?? []).Where(key => key is not null && Valid(key)).Take(200).ToArray();
++        if (left.Any(TabWorkspace.IsPreview) && right.Any(TabWorkspace.IsPreview))
++        {
++            right = right.Concat(left.Where(TabWorkspace.IsPreview)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
++            left = left.Where(key => !TabWorkspace.IsPreview(key)).ToArray();
++        }
+         if (left.Concat(right).Contains(TabWorkspace.AiHistoryKey)) OpenAiHistory();
+         foreach (var (path, position) in state.Editors ?? [])
+         {
+@@ -82,8 +117,10 @@ public partial class MainWindow
+         _expandedWorkspaceWidth = sidebarWidth;
+         if (_workspaceExpanded) SidebarColumn.Width = new GridLength(_expandedWorkspaceWidth);
+         RestoreWindowBounds(state);
+-        _pendingPreviewPosition = state.Preview;
+-        _followAwaitingSourceInteraction = state.Preview is not null;
++        _pendingPreviewPosition = state.PreviewPositions is not null && state.PreviewPositions.TryGetValue(_project.MainPath, out var mainPosition) ? mainPosition : state.Preview;
++        _restoredPreviewEntry = new[] { state.LeftActive, state.RightActive }.Where(key => key is not null && TabWorkspace.IsPreview(key))
++            .Select(key => PreviewEntryForKey(key!)).FirstOrDefault(path => path is not null && !path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase));
++        _followAwaitingSourceInteraction = _pendingPreviewPosition is not null;
+         RefreshWorkspaceViews(); RefreshIndex();
+         return true;
+     }
+diff --git a/src/TeXeed.App/MainWindow.Tabs.cs b/src/TeXeed.App/MainWindow.Tabs.cs
+index ae11aae..644e2a7 100644
+--- a/src/TeXeed.App/MainWindow.Tabs.cs
++++ b/src/TeXeed.App/MainWindow.Tabs.cs
+@@ -76,9 +76,11 @@ public partial class MainWindow
+         if (LogExpander.Parent is Panel parent && parent != source) { parent.Children.Remove(LogExpander); source.Children.Add(LogExpander); Grid.SetRow(LogExpander, 1); }
+     }
+     private void RightLog_Click(object sender, RoutedEventArgs e) => MoveLogTo(TabSide.Right);
+-    private void SelectWorkspaceTab(TabSide side, string key)
++    private async void SelectWorkspaceTab(TabSide side, string key)
+     {
+         if (_transitioning || _closing) return;
++        if (_switchingEntryPreview) { Status("正在切换预览，请稍候。"); return; }
++        if (TabWorkspace.IsPreview(key) && PreviewEntryForKey(key) is { } entry && !await SelectEntryPreviewAsync(entry)) return;
+         _workspaceTabs.Select(side, key);
+         if (AiConversationForKey(key) is { } selectedAi && _aiPanels.TryGetValue(selectedAi.Id,out var selectedPanel)) SetAiTarget(selectedPanel);
+         RefreshWorkspaceViews();
+@@ -87,8 +89,22 @@ public partial class MainWindow
+     private async void CloseTabs(string path, TabCloseScope scope)
+     {
+         if (_transitioning || _closing || _allowClose) return;
++        if (_switchingEntryPreview || (_building && _entryPreviews.Count > 0)) { Status("请等待编译或预览切换完成。"); return; }
+         var range = scope switch { TabCloseScope.All => TabCloseRange.All, TabCloseScope.Others => TabCloseRange.Others,
+             TabCloseScope.Left => TabCloseRange.Before, TabCloseScope.Right => TabCloseRange.After, _ => TabCloseRange.This };
++        if (_project is not null && _activePreviewEntry is { } activeEntry && !activeEntry.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase)
++            && _workspaceTabs.Owner(path) is { } side)
++        {
++            var tabs = _workspaceTabs.Tabs(side); var index = tabs.ToList().FindIndex(item => item.Equals(path, StringComparison.OrdinalIgnoreCase));
++            var activeKey = PreviewKeyForEntry(activeEntry);
++            var selected = range switch { TabCloseRange.All => tabs, TabCloseRange.Others => tabs.Where(item => !item.Equals(path, StringComparison.OrdinalIgnoreCase)),
++                TabCloseRange.Before => tabs.Take(index), TabCloseRange.After => tabs.Skip(index + 1), _ => new[] { path } };
++            if (selected.Contains(activeKey, StringComparer.OrdinalIgnoreCase))
++            {
++                if (!await SelectEntryPreviewAsync(_project.MainPath)) return;
++                if (_workspaceTabs.Owner(TabWorkspace.PreviewKey) is { } previewSide) _workspaceTabs.Select(previewSide, TabWorkspace.PreviewKey);
++            }
++        }
+         var closed = _workspaceTabs.Close(path, range);
+         foreach (var editor in Editors)
+             if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
+@@ -116,14 +132,20 @@ public partial class MainWindow
+     {
+         if (_transitioning || _closing || _workspaceTabs.Owner(key) is null) return;
+         CancelPendingNavigation();
+-        if (split && key == TabWorkspace.PreviewKey && (!_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right))
+-            && _workspaceTabs.FocusedTab == TabWorkspace.PreviewKey)
++        if (split && TabWorkspace.IsPreview(key) && (!_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right))
++            && TabWorkspace.IsPreview(_workspaceTabs.FocusedTab ?? ""))
+             _followAwaitingSourceInteraction = true;
+         var before = _workspaceTabs.Sources.ToDictionary(path => path, path => _workspaceTabs.Owner(path)!.Value, StringComparer.OrdinalIgnoreCase);
+         _updatingWorkspace = true;
+         try
+         {
+             if (split) _workspaceTabs.Split(key, side); else _workspaceTabs.Move(key, side, index);
++            if (TabWorkspace.IsPreview(key))
++            {
++                var previews = _workspaceTabs.Tabs(TabSide.Left).Concat(_workspaceTabs.Tabs(TabSide.Right)).Where(TabWorkspace.IsPreview).ToArray();
++                foreach (var preview in previews.Where(item => _workspaceTabs.Owner(item) != side)) _workspaceTabs.Move(preview, side);
++                _workspaceTabs.Select(side, key);
++            }
+             foreach (var (path, oldSide) in before)
+                 if (_workspaceTabs.Owner(path) is { } newSide && oldSide != newSide) SourceEditor(oldSide).TransferSessionTo(SourceEditor(newSide), path);
+         }
+@@ -178,7 +200,7 @@ public partial class MainWindow
+                     if (_aiPanel.Settings.Parent is Panel oldSettings && oldSettings != GroupBody(side)) oldSettings.Children.Remove(_aiPanel.Settings);
+                     if (_aiPanel.Settings.Parent is null) GroupBody(side).Children.Add(_aiPanel.Settings);
+                 }
+-                if (active == TabWorkspace.PreviewKey)
++                if (active is not null && TabWorkspace.IsPreview(active) && string.Equals(PreviewEntryForKey(active), _activePreviewEntry, StringComparison.OrdinalIgnoreCase))
+                 {
+                     if (PreviewContent.Parent is Panel old && old != GroupBody(side)) { old.Children.Remove(PreviewContent); GroupBody(side).Children.Add(PreviewContent); }
+                     PreviewContent.Visibility = Visibility.Visible;
+@@ -197,8 +219,9 @@ public partial class MainWindow
+             }
+             _aiSettings.Visibility = _workspaceTabs.Owner(TabWorkspace.AiSettingsKey) is { } settingsSide && _workspaceTabs.Active(settingsSide)==TabWorkspace.AiSettingsKey ? Visibility.Visible : Visibility.Collapsed;
+             if(_aiHistory is not null) _aiHistory.Visibility=_workspaceTabs.Owner(TabWorkspace.AiHistoryKey) is { } historySide && _workspaceTabs.Active(historySide)==TabWorkspace.AiHistoryKey ? Visibility.Visible : Visibility.Collapsed;
+-            var previewSide = _workspaceTabs.Owner(TabWorkspace.PreviewKey)!.Value;
+-            PreviewContent.Visibility = _workspaceTabs.Active(previewSide) == TabWorkspace.PreviewKey ? Visibility.Visible : Visibility.Collapsed;
++            var activePreviewKey = _activePreviewEntry is null ? TabWorkspace.PreviewKey : PreviewKeyForEntry(_activePreviewEntry);
++            var previewSide = _workspaceTabs.Owner(activePreviewKey);
++            PreviewContent.Visibility = previewSide is { } ps && _workspaceTabs.Active(ps) == activePreviewKey ? Visibility.Visible : Visibility.Collapsed;
+             _wasSplit = split;
+             PreviewSplitter.Visibility = split ? Visibility.Visible : Visibility.Collapsed;
+             Workspace.ColumnDefinitions[3].Width = new GridLength(split ? 2 : 0);
+diff --git a/src/TeXeed.App/MainWindow.xaml.cs b/src/TeXeed.App/MainWindow.xaml.cs
+index cbb5119..914d1f1 100644
+--- a/src/TeXeed.App/MainWindow.xaml.cs
++++ b/src/TeXeed.App/MainWindow.xaml.cs
+@@ -132,10 +132,19 @@ public partial class MainWindow : Window
+         var answer = MessageBox.Show(this, "保存当前项目中的修改？", "未保存的修改", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+         return answer == MessageBoxResult.No || answer == MessageBoxResult.Yes && await SaveAsync(true) && _changes.Count == 0;
+     }
+-    private Task OpenAsync(string path) => SwitchProjectAsync(path, false);
++    private Task OpenAsync(string path)
++    {
++        if (_project is not null)
++        {
++            var relative = Path.GetRelativePath(_project.Root, Path.GetFullPath(path));
++            if (!Path.IsPathRooted(relative) && relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
++                && Path.GetExtension(path).Equals(".tex", StringComparison.OrdinalIgnoreCase)) return OpenProjectEntryAsync(path);
++        }
++        return SwitchProjectAsync(path, false);
++    }
+     private async Task SwitchProjectAsync(string path, bool createNew)
+     {
+-        if (_transitioning || _closing) return;
++        if (_transitioning || _closing || _switchingEntryPreview) return;
+         _transitioning = true; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = false;
+         try
+         {
+@@ -151,7 +160,7 @@ public partial class MainWindow : Window
+             _externalChangePending = false; _assetChangePending = false;
+             await InitializeAiProjectAsync(project.MainPath);
+             SetAiMarking(false);
+-            _previewWarning = false; _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
++            _previewWarning = false; _project = project; _entryPreviews.Clear(); _restoredPreviewEntry = null; _activePreviewEntry = project.MainPath; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
+             ResetDirectoryCatalog();
+             _sidebarIndex = preparedIndex; _outlineIndex = null;
+             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
+@@ -164,12 +173,15 @@ public partial class MainWindow : Window
+             _pendingPreviewPosition = null;
+             if (!await RestoreReadingHistoryAsync(ProjectReadingStore.Load(project.MainPath)))
+             { ActivateFile(main.Path); RefreshIndex(); }
+-            var initialInputs = new CompileInputSnapshot(project); _previewInputs = initialInputs;
++            project = _project!;
++            var previewProject = project.IsolateEntryOutputs
++                ? await LoadCompileEntryAsync(project, Path.GetRelativePath(project.Root, project.MainPath), CancellationToken.None) : project;
++            var initialInputs = new CompileInputSnapshot(previewProject); _previewInputs = initialInputs;
+             SetupWatcher();
+             _settings = _settings with { RecentProjects = new[] { project.MainPath }.Concat(_settings.RecentProjects.Where(p => !p.Equals(project.MainPath, StringComparison.OrdinalIgnoreCase))).Take(10).ToArray() };
+             PersistSettings(); UpdateRecent();
+             Status(project.Warnings.Count > 0 ? string.Join("；", project.Warnings) : $"已打开 {project.Name} · {project.Files.Count} 个文件");
+-            var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
++            var cached = await _compiler.GetCachedPreviewAsync(previewProject, _settings);
+             if (cached is not null)
+             {
+                 try
+@@ -180,7 +192,7 @@ public partial class MainWindow : Window
+                     await Preview.LoadAsync(cached.PdfPath);
+                     RestorePendingPreviewPosition();
+                     _pdfPath = cached.PdfPath;
+-                    _previewProject = project;
++                    _previewProject = previewProject;
+                     cacheCurrent &= dependencyVersion == initialInputs.ChangeVersion;
+                     _pdfRevision = cacheCurrent ? _revision : -1;
+                     Status(cacheCurrent ? "已加载本地编译缓存 · 无需重新编译"
+@@ -194,6 +206,13 @@ public partial class MainWindow : Window
+         finally
+         {
+             _transitioning = false; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = true;
++            if (_restoredPreviewEntry is { } restored)
++            {
++                _restoredPreviewEntry = null;
++                if (!await SelectEntryPreviewAsync(restored) && _workspaceTabs.Owner(TabWorkspace.PreviewKey) is { } previewSide)
++                    _workspaceTabs.Select(previewSide, TabWorkspace.PreviewKey);
++                RefreshTabs();
++            }
+             QueueExternalRefresh();
+             if (_settings.LivePreview && _project != null && (_changes.Count > 0 || _pdfRevision != _revision)) ScheduleLiveBuild();
+             else if (_pdfRevision == _revision && _pdfPath is not null) QueueFollowSync();
+@@ -270,6 +289,12 @@ public partial class MainWindow : Window
+             }
+             var updated = await _projects.SaveAsync(original, snapshot);
+             if (session != _session) return false;
++            foreach (var path in snapshot.Keys)
++            {
++                _previewInputs?.Observe(path);
++                foreach (var entry in _entryPreviews.Values)
++                    if (!ReferenceEquals(entry.Inputs, _previewInputs)) entry.Inputs?.Observe(path);
++            }
+             // The user may type, or undo back to the old baseline, while the disk write is awaited.
+             var liveEdits = CurrentFiles().Where(f => snapshot.ContainsKey(f.Path) || _changes.ContainsKey(f.Path))
+                 .ToDictionary(f => f.Path, f => f.Content, StringComparer.OrdinalIgnoreCase);
+@@ -287,7 +312,7 @@ public partial class MainWindow : Window
+             var retained = original.Files.Where(f => !updated.Files.Any(next => next.Path.Equals(f.Path, StringComparison.OrdinalIgnoreCase)) &&
+                 (_tabs.Contains(f.Path, StringComparer.OrdinalIgnoreCase) || liveEdits.ContainsKey(f.Path)))
+                 .Select(f => snapshot.TryGetValue(f.Path, out var saved) ? f with { Content = saved } : f);
+-            _project = updated with { Files = baselines.Concat(retained).ToArray() };
++            _project = updated with { Files = baselines.Concat(retained).ToArray(), IsolateEntryOutputs = original.IsolateEntryOutputs };
+             _changes.Clear();
+             foreach (var file in _project.Files)
+             {
+@@ -321,13 +346,22 @@ public partial class MainWindow : Window
+     private async Task BuildAsync(bool explicitRequest = true, CancellationToken cancellationToken = default, bool reportErrors = true, string? entryFile = null)
+     {
+         if (_aiShellRunning) { Status("AI 命令正在执行，结束后可编译。"); return; }
+-        if (_project == null || _transitioning || _closing) return;
++        if (_project == null || _transitioning || _closing || _switchingEntryPreview) return;
+         if (!explicitRequest && !_settings.LivePreview) return;
+         if (_building)
+         {
+             if (ActiveBuildNeedsReplacement) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; }
+             return;
+         }
++        if (entryFile is not null)
++        {
++            var requested = string.IsNullOrWhiteSpace(entryFile) ? _project.MainPath : ValidateAiPath(_project.Root, entryFile);
++            if (!string.Equals(requested, _activePreviewEntry, StringComparison.OrdinalIgnoreCase))
++            {
++                await OpenProjectEntryAsync(requested, false, true, true);
++                if (_project is null || !string.Equals(requested, _activePreviewEntry, StringComparison.OrdinalIgnoreCase)) return;
++            }
++        }
+         _building = true; _buildAgain = false; var session = _session; var epoch = _buildEpoch;
+         _buildAgainExplicit = false; _scheduledBuildExplicit = false;
+         _activeBuildRevision = _revision; _activeBuildEpoch = epoch; _activeBuildSettings = _settings;
+@@ -339,7 +373,11 @@ public partial class MainWindow : Window
+             cancellationToken.ThrowIfCancellationRequested();
+             if (_changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
+             var revision = _revision; var project = _project;
+-            project = await LoadCompileEntryAsync(project, entryFile, cancellationToken);
++            var chosenEntry = entryFile ?? (_activePreviewEntry is not null && !string.Equals(_activePreviewEntry, project.MainPath, StringComparison.OrdinalIgnoreCase)
++                ? Path.GetRelativePath(project.Root, _activePreviewEntry) : null);
++            if (project.IsolateEntryOutputs && string.IsNullOrWhiteSpace(chosenEntry)) chosenEntry = Path.GetRelativePath(project.Root, project.MainPath);
++            project = await LoadCompileEntryAsync(project, chosenEntry, cancellationToken);
++            if (_project.IsolateEntryOutputs) project = project with { IsolateEntryOutputs = true };
+             if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
+             if (revision != _revision || _changes.Count > 0) { _buildAgain = true; _buildAgainExplicit |= explicitRequest; return; }
+             _lastCompileEntryPath = project.MainPath; _lastCompileRevision = revision; _lastCompileBuildEpoch = epoch;
+@@ -585,9 +623,12 @@ public partial class MainWindow : Window
+                 // A checked-in .bbl or other normally generated suffix can be an
+                 // explicit source dependency. Inspect UI-owned snapshots here.
+                 if (!potentialInput && _activeCompileInputs?.Contains(path) != true && _previewInputs?.Contains(path) != true &&
++                    !_entryPreviews.Values.Any(entry => entry.Inputs?.Contains(path) == true) &&
+                     _project?.Files.Any(f => f.Path.Equals(path, StringComparison.OrdinalIgnoreCase)) != true) return;
+                 _activeCompileInputs?.Observe(path);
+                 if (!ReferenceEquals(_activeCompileInputs, _previewInputs)) _previewInputs?.Observe(path);
++                foreach (var entry in _entryPreviews.Values)
++                    if (!ReferenceEquals(entry.Inputs, _activeCompileInputs) && !ReferenceEquals(entry.Inputs, _previewInputs)) entry.Inputs?.Observe(path);
+                 _externalChangePending = true; _assetChangePending |= !source;
+                 QueueExternalRefresh();
+             });
+@@ -638,7 +679,7 @@ public partial class MainWindow : Window
+             }
+             if (session != _session || _transitioning || _closing || _changes.Count > 0)
+             { if (session == _session) _externalChangePending = true; return; }
+-            updated = updated with { Files = updated.Files.Concat(detached).ToArray() };
++            updated = updated with { Files = updated.Files.Concat(detached).ToArray(), IsolateEntryOutputs = _project.IsolateEntryOutputs };
+             var changed = assetChanged || updated.Files.Count != _project.Files.Count || updated.Files.Any(f => !_project.Files.Any(old => old.Path == f.Path && old.Content == f.Content));
+             _project = updated;
+             if (!previewCurrent)
+@@ -677,7 +718,7 @@ public partial class MainWindow : Window
+     private async void Build_Click(object sender, RoutedEventArgs e) => await BuildAsync();
+     private void Cancel_Click(object sender, RoutedEventArgs e) { _buildEpoch++; _buildAgain = false; _buildAgainExplicit = false; _scheduledBuildExplicit = false; _liveTimer.Stop(); _compiler.Cancel(); Status("编译已取消"); }
+     private async void Sync_Click(object sender, RoutedEventArgs e) => await ForwardAsync(true);
+-    private async void Refresh_Click(object sender, RoutedEventArgs e) { if (_project != null) await OpenAsync(_project.MainPath); }
++    private async void Refresh_Click(object sender, RoutedEventArgs e) { if (_project != null) await SwitchProjectAsync(_project.MainPath, false); }
+     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
+     private void Live_Click(object sender, RoutedEventArgs e)
+     {
+diff --git a/src/TeXeed.App/Services/ProjectReadingStore.cs b/src/TeXeed.App/Services/ProjectReadingStore.cs
+index 2456193..b4ec12c 100644
+--- a/src/TeXeed.App/Services/ProjectReadingStore.cs
++++ b/src/TeXeed.App/Services/ProjectReadingStore.cs
+@@ -17,6 +17,8 @@ internal sealed record ProjectReadingState
+     public TabSide FocusedSide { get; init; }
+     public Dictionary<string, EditorReadingPosition> Editors { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+     public PdfReadingPosition? Preview { get; init; }
++    public Dictionary<string, PdfReadingPosition> PreviewPositions { get; init; } = new(StringComparer.OrdinalIgnoreCase);
++    public string[] MainEntries { get; init; } = [];
+     public double LeftWidth { get; init; } = 1;
+     public double RightWidth { get; init; } = 1;
+     public bool SidebarExpanded { get; init; } = true;
+diff --git a/src/TeXeed.App/TeXeed.App.csproj b/src/TeXeed.App/TeXeed.App.csproj
+index 032069e..bf74f8f 100644
+--- a/src/TeXeed.App/TeXeed.App.csproj
++++ b/src/TeXeed.App/TeXeed.App.csproj
+@@ -8,7 +8,7 @@
+     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+     <PlatformTarget>x64</PlatformTarget>
+     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+-    <Version>0.4.0</Version>
++    <Version>0.4.1</Version>
+     <ApplicationIcon>Assets/TeXeed.ico</ApplicationIcon>
+     <Description>A native Windows LaTeX workspace</Description>
+   </PropertyGroup>
+diff --git a/src/TeXeed.Core/CompileService.Cache.cs b/src/TeXeed.Core/CompileService.Cache.cs
+index 68a29d4..4852f90 100644
+--- a/src/TeXeed.Core/CompileService.Cache.cs
++++ b/src/TeXeed.Core/CompileService.Cache.cs
+@@ -15,7 +15,7 @@ public sealed partial class CompileService
+     {
+         var directory = Path.Combine(project.Root, ".texeed", kind);
+         var relative = Path.GetRelativePath(project.Root, project.MainPath);
+-        if (string.IsNullOrEmpty(Path.GetDirectoryName(relative))) return directory;
++        if (!project.IsolateEntryOutputs && string.IsNullOrEmpty(Path.GetDirectoryName(relative))) return directory;
+         // Distinct nested entries may have the same filename as the default main.
+         // Keep the engine's job name but isolate every output and cache manifest.
+         var identity = relative.Replace(Path.DirectorySeparatorChar, '/');
+@@ -43,6 +43,26 @@ public sealed partial class CompileService
+         {
+             if (!File.Exists(pdf) || !IsOrdinaryInput(project.Root, pdf))
+             {
++                if (project.IsolateEntryOutputs && string.IsNullOrEmpty(Path.GetDirectoryName(Path.GetRelativePath(project.Root, project.MainPath))))
++                {
++                    // An older default build belongs to this entry only if its manifest identifies it.
++                    // Reuse it as a stale preview; subsequent builds go to the isolated directory.
++                    var legacyManifest = CachePath(project with { IsolateEntryOutputs = false });
++                    try
++                    {
++                        if (File.Exists(legacyManifest) && IsOrdinaryInput(project.Root, legacyManifest) && new FileInfo(legacyManifest).Length <= 4 * 1024 * 1024)
++                        {
++                            var legacyInfo = JsonSerializer.Deserialize<PreviewCache>(await File.ReadAllTextAsync(legacyManifest, ct));
++                            if (legacyInfo is not null && string.Equals(legacyInfo.Root, project.Root, StringComparison.OrdinalIgnoreCase)
++                                && string.Equals(legacyInfo.Main, project.MainPath, StringComparison.OrdinalIgnoreCase))
++                            {
++                                var legacy = await GetCachedPreviewAsync(project with { IsolateEntryOutputs = false }, settings, ct);
++                                if (legacy is not null) return legacy with { IsCurrent = false };
++                            }
++                        }
++                    }
++                    catch (JsonException) { }
++                }
+                 // Also show output produced by another editor/build script;
+                 // without a manifest it remains a last-known preview, not current.
+                 var entryDirectory = Path.GetDirectoryName(project.MainPath)!;
+diff --git a/src/TeXeed.Core/Models.cs b/src/TeXeed.Core/Models.cs
+index 4af6b3f..bfa06a5 100644
+--- a/src/TeXeed.Core/Models.cs
++++ b/src/TeXeed.Core/Models.cs
+@@ -8,6 +8,7 @@ public sealed record ProjectFile(string Path, string RelativePath, ProjectFileKi
+ }
+ public sealed record TexProject(string Root, string MainPath, IReadOnlyList<ProjectFile> Files, IReadOnlyList<string> Warnings)
+ {
++    public bool IsolateEntryOutputs { get; init; }
+     public string? ConfiguredName { get; init; }
+     public string Name => string.IsNullOrWhiteSpace(ConfiguredName) ? new System.IO.DirectoryInfo(Root).Name : ConfiguredName;
+     public string DocumentTitle => LatexTitle.PlainText(LatexSyntax.Commands(LatexSyntax.Analyze(
+diff --git a/src/TeXeed.Core/ProjectService.cs b/src/TeXeed.Core/ProjectService.cs
+index 74788a4..3104940 100644
+--- a/src/TeXeed.Core/ProjectService.cs
++++ b/src/TeXeed.Core/ProjectService.cs
+@@ -237,7 +237,7 @@ public sealed class ProjectService
+                 catch (IOException) { }
+                 catch (UnauthorizedAccessException) { }
+         }
+-        return await LoadAsync(project.MainPath, ct, project.Root);
++        return (await LoadAsync(project.MainPath, ct, project.Root)) with { IsolateEntryOutputs = project.IsolateEntryOutputs };
+     }
+ 
+     private static IEnumerable<Dependency> Dependencies(LatexCommand command)
+diff --git a/src/TeXeed.Core/TabWorkspace.cs b/src/TeXeed.Core/TabWorkspace.cs
+index 0ae7dc5..ab2c672 100644
+--- a/src/TeXeed.Core/TabWorkspace.cs
++++ b/src/TeXeed.Core/TabWorkspace.cs
+@@ -3,7 +3,7 @@ namespace TeXeed.Core;
+ public enum TabSide { Left, Right }
+ public enum TabCloseRange { This, All, Others, Before, After }
+ 
+-/// <summary>Two optional tab groups. The singleton preview can move but never close.</summary>
++/// <summary>Two optional tab groups with a protected primary preview.</summary>
+ public sealed class TabWorkspace
+ {
+     public const string AiSettingsKey = "@texeed:ai-settings";
+@@ -11,8 +11,12 @@ public sealed class TabWorkspace
+     public const string AiHistoryKey = "@texeed:ai-history";
+     public static string AiConversationKey(string id) => AiKey + ":" + id;
+     public static bool IsAiConversation(string key) => key == AiKey || key.StartsWith(AiKey + ":", StringComparison.Ordinal);
+-    public static bool IsSource(string key) => key != PreviewKey && !IsAiConversation(key) && key != AiSettingsKey && key != AiHistoryKey;
+     public const string PreviewKey = "@texeed:preview";
++    private const string EntryPreviewPrefix = "@texeed:preview:";
++    public static string PreviewKeyFor(string entryPath) => EntryPreviewPrefix + Path.GetFullPath(entryPath);
++    public static bool IsPreview(string key) => key == PreviewKey || key.StartsWith(EntryPreviewPrefix, StringComparison.OrdinalIgnoreCase);
++    public static string? PreviewEntry(string key) => key.StartsWith(EntryPreviewPrefix, StringComparison.OrdinalIgnoreCase) ? key[EntryPreviewPrefix.Length..] : null;
++    public static bool IsSource(string key) => !IsPreview(key) && !IsAiConversation(key) && key != AiSettingsKey && key != AiHistoryKey;
+     private List<string> _left = [], _right = [PreviewKey];
+     private string? _leftActive, _rightActive = PreviewKey;
+     public TabSide FocusedSide { get; private set; } = TabSide.Left;
+@@ -54,6 +58,17 @@ public sealed class TabWorkspace
+             if (string.Equals(Active(side), previous, StringComparison.OrdinalIgnoreCase)) SetActive(side, next);
+         }
+     }
++    public void RenamePreviewEntry(string previous, string next)
++    {
++        var oldKey = PreviewKeyFor(previous); var newKey = PreviewKeyFor(next);
++        if (Owner(oldKey) is null || Owner(newKey) is not null && !oldKey.Equals(newKey, StringComparison.OrdinalIgnoreCase)) return;
++        foreach (var side in new[] { TabSide.Left, TabSide.Right })
++        {
++            var tabs = List(side);
++            for (var i = 0; i < tabs.Count; i++) if (tabs[i].Equals(oldKey, StringComparison.OrdinalIgnoreCase)) tabs[i] = newKey;
++            if (string.Equals(Active(side), oldKey, StringComparison.OrdinalIgnoreCase)) SetActive(side, newKey);
++        }
++    }
+     public void Select(TabSide side, string key)
+     { if (List(side).Contains(key, StringComparer.OrdinalIgnoreCase)) { SetActive(side, key); FocusedSide = side; } }
+     public void Move(string key, TabSide side, int index = int.MaxValue)
+diff --git a/src/TeXeed.Core/packages.lock.json b/src/TeXeed.Core/packages.lock.json
+index a3ee848..4a91a8c 100644
+--- a/src/TeXeed.Core/packages.lock.json
++++ b/src/TeXeed.Core/packages.lock.json
+@@ -1,7 +1,6 @@
+ {
+   "version": 1,
+   "dependencies": {
+-    "net10.0": {},
+-    "net10.0/win-x64": {}
++    "net10.0": {}
+   }
+ }
+\ No newline at end of file

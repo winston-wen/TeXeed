@@ -28,7 +28,8 @@ public partial class MainWindow
             if (!IsCurrent() || inputVersion != inputs.ChangeVersion) return true;
             if (point is null) return false;
             Preview.ShowLocation(point, highlight: true, viewportFraction: .35);
-            if (_workspaceTabs.Owner(TabWorkspace.PreviewKey) is { } side) _workspaceTabs.Focus(side);
+            var key = _activePreviewEntry is null ? TabWorkspace.PreviewKey : PreviewKeyForEntry(_activePreviewEntry);
+            if (_workspaceTabs.Owner(key) is { } side) _workspaceTabs.Focus(side);
             return true;
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return true; }

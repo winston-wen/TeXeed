@@ -15,7 +15,7 @@ public sealed partial class CompileService
     {
         var directory = Path.Combine(project.Root, ".texeed", kind);
         var relative = Path.GetRelativePath(project.Root, project.MainPath);
-        if (string.IsNullOrEmpty(Path.GetDirectoryName(relative))) return directory;
+        if (!project.IsolateEntryOutputs && string.IsNullOrEmpty(Path.GetDirectoryName(relative))) return directory;
         // Distinct nested entries may have the same filename as the default main.
         // Keep the engine's job name but isolate every output and cache manifest.
         var identity = relative.Replace(Path.DirectorySeparatorChar, '/');
@@ -43,6 +43,26 @@ public sealed partial class CompileService
         {
             if (!File.Exists(pdf) || !IsOrdinaryInput(project.Root, pdf))
             {
+                if (project.IsolateEntryOutputs && string.IsNullOrEmpty(Path.GetDirectoryName(Path.GetRelativePath(project.Root, project.MainPath))))
+                {
+                    // An older default build belongs to this entry only if its manifest identifies it.
+                    // Reuse it as a stale preview; subsequent builds go to the isolated directory.
+                    var legacyManifest = CachePath(project with { IsolateEntryOutputs = false });
+                    try
+                    {
+                        if (File.Exists(legacyManifest) && IsOrdinaryInput(project.Root, legacyManifest) && new FileInfo(legacyManifest).Length <= 4 * 1024 * 1024)
+                        {
+                            var legacyInfo = JsonSerializer.Deserialize<PreviewCache>(await File.ReadAllTextAsync(legacyManifest, ct));
+                            if (legacyInfo is not null && string.Equals(legacyInfo.Root, project.Root, StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(legacyInfo.Main, project.MainPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                var legacy = await GetCachedPreviewAsync(project with { IsolateEntryOutputs = false }, settings, ct);
+                                if (legacy is not null) return legacy with { IsCurrent = false };
+                            }
+                        }
+                    }
+                    catch (JsonException) { }
+                }
                 // Also show output produced by another editor/build script;
                 // without a manifest it remains a last-known preview, not current.
                 var entryDirectory = Path.GetDirectoryName(project.MainPath)!;

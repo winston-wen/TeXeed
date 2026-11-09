@@ -40,6 +40,15 @@ public static class TabWorkspaceTests
         renamed.RenameSource("old.tex", "new.tex");
         Check.True(renamed.Owner("old.tex") is null && renamed.Owner("new.tex") == TabSide.Right && renamed.Active(TabSide.Right) == "new.tex" && renamed.FocusedSide == focus);
         Check.True(renamed.Tabs(TabSide.Right).SequenceEqual(order.Select(path => path == "old.tex" ? "new.tex" : path)));
+        var extra = TabWorkspace.PreviewKeyFor("other.tex");
+        Check.True(TabWorkspace.IsPreview(extra) && !TabWorkspace.IsSource(extra));
+        Check.Equal(Path.GetFullPath("other.tex"), TabWorkspace.PreviewEntry(extra)!);
+        tabs.Open(extra); Check.True(!tabs.Sources.Contains(extra) && tabs.Owner(extra) == TabSide.Right);
+        tabs.RenamePreviewEntry("other.tex", "renamed.tex");
+        var movedPreview = TabWorkspace.PreviewKeyFor("renamed.tex");
+        Check.True(tabs.Owner(extra) is null && tabs.Owner(movedPreview) == TabSide.Right);
+        tabs.Close(movedPreview, TabCloseRange.This);
+        Check.True(tabs.Owner(movedPreview) is null && tabs.Owner(TabWorkspace.PreviewKey) is not null);
         Console.WriteLine("PASS: source-left defaults, protected singleton preview, reorder/move/rename, edge splitting, empty-pane collapse and scoped bulk close");
     }
 }

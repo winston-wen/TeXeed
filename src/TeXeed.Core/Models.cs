@@ -8,6 +8,7 @@ public sealed record ProjectFile(string Path, string RelativePath, ProjectFileKi
 }
 public sealed record TexProject(string Root, string MainPath, IReadOnlyList<ProjectFile> Files, IReadOnlyList<string> Warnings)
 {
+    public bool IsolateEntryOutputs { get; init; }
     public string? ConfiguredName { get; init; }
     public string Name => string.IsNullOrWhiteSpace(ConfiguredName) ? new System.IO.DirectoryInfo(Root).Name : ConfiguredName;
     public string DocumentTitle => LatexTitle.PlainText(LatexSyntax.Commands(LatexSyntax.Analyze(

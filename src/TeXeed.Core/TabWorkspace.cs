@@ -3,7 +3,7 @@ namespace TeXeed.Core;
 public enum TabSide { Left, Right }
 public enum TabCloseRange { This, All, Others, Before, After }
 
-/// <summary>Two optional tab groups. The singleton preview can move but never close.</summary>
+/// <summary>Two optional tab groups with a protected primary preview.</summary>
 public sealed class TabWorkspace
 {
     public const string AiSettingsKey = "@texeed:ai-settings";
@@ -11,8 +11,12 @@ public sealed class TabWorkspace
     public const string AiHistoryKey = "@texeed:ai-history";
     public static string AiConversationKey(string id) => AiKey + ":" + id;
     public static bool IsAiConversation(string key) => key == AiKey || key.StartsWith(AiKey + ":", StringComparison.Ordinal);
-    public static bool IsSource(string key) => key != PreviewKey && !IsAiConversation(key) && key != AiSettingsKey && key != AiHistoryKey;
     public const string PreviewKey = "@texeed:preview";
+    private const string EntryPreviewPrefix = "@texeed:preview:";
+    public static string PreviewKeyFor(string entryPath) => EntryPreviewPrefix + Path.GetFullPath(entryPath);
+    public static bool IsPreview(string key) => key == PreviewKey || key.StartsWith(EntryPreviewPrefix, StringComparison.OrdinalIgnoreCase);
+    public static string? PreviewEntry(string key) => key.StartsWith(EntryPreviewPrefix, StringComparison.OrdinalIgnoreCase) ? key[EntryPreviewPrefix.Length..] : null;
+    public static bool IsSource(string key) => !IsPreview(key) && !IsAiConversation(key) && key != AiSettingsKey && key != AiHistoryKey;
     private List<string> _left = [], _right = [PreviewKey];
     private string? _leftActive, _rightActive = PreviewKey;
     public TabSide FocusedSide { get; private set; } = TabSide.Left;
@@ -52,6 +56,17 @@ public sealed class TabWorkspace
             var tabs = List(side);
             for (var i = 0; i < tabs.Count; i++) if (tabs[i].Equals(previous, StringComparison.OrdinalIgnoreCase)) tabs[i] = next;
             if (string.Equals(Active(side), previous, StringComparison.OrdinalIgnoreCase)) SetActive(side, next);
+        }
+    }
+    public void RenamePreviewEntry(string previous, string next)
+    {
+        var oldKey = PreviewKeyFor(previous); var newKey = PreviewKeyFor(next);
+        if (Owner(oldKey) is null || Owner(newKey) is not null && !oldKey.Equals(newKey, StringComparison.OrdinalIgnoreCase)) return;
+        foreach (var side in new[] { TabSide.Left, TabSide.Right })
+        {
+            var tabs = List(side);
+            for (var i = 0; i < tabs.Count; i++) if (tabs[i].Equals(oldKey, StringComparison.OrdinalIgnoreCase)) tabs[i] = newKey;
+            if (string.Equals(Active(side), oldKey, StringComparison.OrdinalIgnoreCase)) SetActive(side, newKey);
         }
     }
     public void Select(TabSide side, string key)

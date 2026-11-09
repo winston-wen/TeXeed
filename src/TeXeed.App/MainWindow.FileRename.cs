@@ -74,6 +74,13 @@ public partial class MainWindow
             };
             if (_changes.Remove(previous, out var text)) _changes[next] = text;
             _workspaceTabs.RenameSource(previous, next);
+            if (_entryPreviews.Remove(previous, out var entryPreview))
+            {
+                entryPreview.Revision = -1; entryPreview.Warning = true; entryPreview.Project = null; entryPreview.Inputs = null;
+                _entryPreviews[next] = entryPreview;
+            }
+            if (!isMain) _workspaceTabs.RenamePreviewEntry(previous, next);
+            if (string.Equals(_activePreviewEntry, previous, StringComparison.OrdinalIgnoreCase)) _activePreviewEntry = next;
             foreach (var editor in Editors) editor.RenameFileSession(previous, next);
             if (isMain)
             {

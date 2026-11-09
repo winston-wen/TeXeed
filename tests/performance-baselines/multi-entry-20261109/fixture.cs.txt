@@ -1,0 +1,63 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App;
+using TeXeed.App.Controls;
+using TeXeed.Core;
+
+class Perf
+{
+    static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    static object? Field(object target, string name) => target.GetType().GetField(name, Private)!.GetValue(target);
+    static object? Call(object target, string name, params object?[] args) => target.GetType().GetMethod(name, Private)!.Invoke(target, args);
+    static async Task Run(object target, string name, params object?[] args) { await (Task)Call(target,name,args)!; }
+    static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); w.UpdateLayout(); }
+    static int Visible(DependencyObject root, Window window)
+    {
+        int count=0; for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++) { var child=VisualTreeHelper.GetChild(root,i); if(child is Control c && c.IsVisible && c.ActualWidth>0 && c.ActualHeight>0) { try { var r=c.TransformToAncestor(window).TransformBounds(new Rect(0,0,c.ActualWidth,c.ActualHeight)); if(r.IntersectsWith(new Rect(0,0,window.ActualWidth,window.ActualHeight))) count++; } catch(InvalidOperationException) { } } count+=Visible(child,window); } return count;
+    }
+    [STAThread] static int Main(string[] args)
+    {
+        var output=Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output,"profile"));
+        var fixture=Path.GetFullPath(args[1]); Directory.CreateDirectory(fixture);
+        var root=Path.GetFullPath(args[2]);
+        var a=Path.Combine(fixture,"alpha.tex"); var b=Path.Combine(fixture,"beta.tex");
+        var body="\\documentclass{article}\n\\begin{document}\n"+string.Concat(Enumerable.Range(0,120).Select(i=>$"Paragraph {i}: TeXeed benchmark.\\par\n"))+"\\end{document}\n";
+        File.WriteAllText(a,body); File.WriteAllText(b,body.Replace("benchmark","second benchmark"));
+        var app=new Application { ShutdownMode=ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source=new Uri("/TeXeed;component/Theme.xaml",UriKind.Relative) });
+        var w=new MainWindow { Width=1200, Height=800, Left=20, Top=20, WindowStartupLocation=WindowStartupLocation.Manual };
+        int status=1;
+        app.DispatcherUnhandledException += (_,e)=> { Console.Error.WriteLine(e.Exception); e.Handled=true; app.Shutdown(1); };
+        w.Loaded+=async (_,_)=> { try {
+            var tectonic=Path.Combine(root,".tools","tectonic","tectonic.exe");
+            Environment.SetEnvironmentVariable("TECTONIC_CACHE_DIR",Path.Combine(root,".tools","tectonic","cache"));
+            w.GetType().GetField("_settings",Private)!.SetValue(w,new AppSettings { LivePreview=false, FollowMode=PreviewFollowMode.None, Engine=TexEngine.Tectonic, EnginePath=tectonic });
+            await Run(w,"OpenAsync",a); await Run(w,"BuildAsync",true,CancellationToken.None,true,null);
+            Call(w,"OpenExplorerFile",b); var tabs=(TabWorkspace)Field(w,"_workspaceTabs")!;
+            for(int i=0; tabs.Owner(b) is null && i<200;i++) await Task.Delay(10);
+            if(tabs.Owner(b) is null) throw new Exception("Second source did not open");
+            var hasMulti=w.GetType().GetMethod("OpenProjectEntryAsync",Private)!=null;
+            if(hasMulti) await Run(w,"OpenProjectEntryAsync",b,true,false,false);
+            var samples=new List<object>();
+            async Task Measure(string label, Func<int,Task> action) {
+              for(int i=0;i<9;i++) {
+                var qbytes=GC.GetAllocatedBytesForCurrentThread(); var qwatch=Stopwatch.StartNew(); await Idle(w); qwatch.Stop(); qbytes=GC.GetAllocatedBytesForCurrentThread()-qbytes;
+                var bytes=GC.GetAllocatedBytesForCurrentThread(); var watch=Stopwatch.StartNew(); await action(i); await Idle(w); watch.Stop(); bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                if(i>=2) samples.Add(new { label, rawMs=watch.Elapsed.TotalMilliseconds, idleMs=qwatch.Elapsed.TotalMilliseconds, correctedMs=watch.Elapsed.TotalMilliseconds-qwatch.Elapsed.TotalMilliseconds, rawBytes=bytes, idleBytes=qbytes, correctedBytes=bytes-qbytes, visibleControls=Visible(w,w) });
+              }
+            }
+            await Measure("source-switch",i=> { Call(w,"ActivateFile",i%2==0?a:b); return Task.CompletedTask; });
+            if(hasMulti) await Measure("preview-switch",async i=> { var entry=i%2==0?a:b; var ok=await (Task<bool>)Call(w,"SelectEntryPreviewAsync",entry)!; if(!ok) throw new Exception("Preview switch failed"); var key=entry==a?TabWorkspace.PreviewKey:"@texeed:preview:"+entry; var side=tabs.Owner(key)!.Value; tabs.Select(side,key); Call(w,"RefreshWorkspaceViews"); });
+            File.WriteAllText(Path.Combine(output,"results.json"),JsonSerializer.Serialize(new { hasMulti, fixture="120 paragraphs, 1200x800 WPF, two warmups, seven samples, paired empty ApplicationIdle; preview excludes asynchronous raster completion", samples },new JsonSerializerOptions{WriteIndented=true}));
+            Console.WriteLine(JsonSerializer.Serialize(new {hasMulti,samples})); status=0;
+        } catch(Exception e) { Console.Error.WriteLine(e); } finally { w.Close(); app.Shutdown(status); } };
+        w.Show(); app.Run(); return status;
+    }
+}

@@ -11,10 +11,12 @@ namespace TeXeed.App;
 public partial class MainWindow
 {
     private PdfReadingPosition? _pendingPreviewPosition;
+    private string? _restoredPreviewEntry;
 
     private void SaveReadingHistory()
     {
         if (_project is null) return;
+        CaptureEntryPreview();
         var editorPositions = new Dictionary<string, EditorReadingPosition>(StringComparer.OrdinalIgnoreCase);
         foreach (var editor in Editors)
             foreach (var pair in editor.CaptureReadingPositions()) editorPositions[pair.Key] = pair.Value;
@@ -25,7 +27,9 @@ public partial class MainWindow
         {
             LeftTabs = _workspaceTabs.Tabs(TabSide.Left).ToArray(), RightTabs = _workspaceTabs.Tabs(TabSide.Right).ToArray(),
             LeftActive = _workspaceTabs.Active(TabSide.Left), RightActive = _workspaceTabs.Active(TabSide.Right), FocusedSide = _workspaceTabs.FocusedSide,
-            Editors = editorPositions, Preview = Preview.CaptureReadingPosition() ?? _pendingPreviewPosition,
+            Editors = editorPositions, Preview = EntryState(_project.MainPath).Position,
+            PreviewPositions = _entryPreviews.Where(p => p.Value.Position is not null).ToDictionary(p => p.Key, p => p.Value.Position!, StringComparer.OrdinalIgnoreCase),
+            MainEntries = _entryPreviews.Keys.Append(_project.MainPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
             LeftWidth = leftWidth, RightWidth = rightWidth, SidebarExpanded = _workspaceExpanded,
             SidebarWidth = _workspaceExpanded ? SidebarColumn.ActualWidth : _expandedWorkspaceWidth, Sidebar = _sidebar,
             WindowLeft = bounds.Left, WindowTop = bounds.Top, WindowWidth = bounds.Width, WindowHeight = bounds.Height,
@@ -39,6 +43,31 @@ public partial class MainWindow
     private async Task<bool> RestoreReadingHistoryAsync(ProjectReadingState? state)
     {
         if (state is null || _project is null) return false;
+        var root = _project.Root;
+        foreach (var entry in (state.MainEntries ?? []).Where(p => !string.IsNullOrWhiteSpace(p)).Take(100))
+        {
+            try
+            {
+                var relative = Path.GetRelativePath(root, entry);
+                var project = await LoadCompileEntryAsync(_project, relative, CancellationToken.None);
+                if (project.MainPath.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase)) continue;
+                foreach (var file in project.Files.Where(f => f.IsEditable))
+                    if (!_project.Files.Any(f => f.Path.Equals(file.Path, StringComparison.OrdinalIgnoreCase))) _project = _project with { Files = [.. _project.Files, file] };
+                var preview = EntryState(project.MainPath);
+                state.PreviewPositions?.TryGetValue(project.MainPath, out preview.Position);
+                project = project with { IsolateEntryOutputs = true };
+                var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
+                if (cached is not null)
+                {
+                    var inputs = new CompileInputSnapshot(project);
+                    preview.Pdf = cached.PdfPath; preview.Project = project; preview.Inputs = inputs;
+                    preview.Revision = cached.IsCurrent && await inputs.IsCurrentAsync(_projects) ? _revision : -1;
+                    preview.Warning = preview.Revision < 0;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) { }
+        }
+        if (_entryPreviews.Count > 0) _project = _project with { IsolateEntryOutputs = true };
         var requested = (state.LeftTabs ?? []).Concat(state.RightTabs ?? []).Where(item => !string.IsNullOrWhiteSpace(item)).Take(200).ToArray();
         foreach (var path in requested.Where(TabWorkspace.IsSource))
         {
@@ -54,6 +83,7 @@ public partial class MainWindow
         bool Valid(string key)
         {
             if (key == TabWorkspace.PreviewKey || key == TabWorkspace.AiSettingsKey || key == TabWorkspace.AiHistoryKey) return true;
+            if (TabWorkspace.IsPreview(key)) return PreviewEntryForKey(key) is { } entry && _entryPreviews.ContainsKey(entry);
             if (TabWorkspace.IsAiConversation(key))
             {
                 var id = key.StartsWith(TabWorkspace.AiKey + ":", StringComparison.Ordinal) ? key[(TabWorkspace.AiKey.Length + 1)..] : "";
@@ -64,6 +94,11 @@ public partial class MainWindow
         }
         var left = (state.LeftTabs ?? []).Where(key => key is not null && Valid(key)).Take(200).ToArray();
         var right = (state.RightTabs ?? []).Where(key => key is not null && Valid(key)).Take(200).ToArray();
+        if (left.Any(TabWorkspace.IsPreview) && right.Any(TabWorkspace.IsPreview))
+        {
+            right = right.Concat(left.Where(TabWorkspace.IsPreview)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            left = left.Where(key => !TabWorkspace.IsPreview(key)).ToArray();
+        }
         if (left.Concat(right).Contains(TabWorkspace.AiHistoryKey)) OpenAiHistory();
         foreach (var (path, position) in state.Editors ?? [])
         {
@@ -82,8 +117,10 @@ public partial class MainWindow
         _expandedWorkspaceWidth = sidebarWidth;
         if (_workspaceExpanded) SidebarColumn.Width = new GridLength(_expandedWorkspaceWidth);
         RestoreWindowBounds(state);
-        _pendingPreviewPosition = state.Preview;
-        _followAwaitingSourceInteraction = state.Preview is not null;
+        _pendingPreviewPosition = state.PreviewPositions is not null && state.PreviewPositions.TryGetValue(_project.MainPath, out var mainPosition) ? mainPosition : state.Preview;
+        _restoredPreviewEntry = new[] { state.LeftActive, state.RightActive }.Where(key => key is not null && TabWorkspace.IsPreview(key))
+            .Select(key => PreviewEntryForKey(key!)).FirstOrDefault(path => path is not null && !path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase));
+        _followAwaitingSourceInteraction = _pendingPreviewPosition is not null;
         RefreshWorkspaceViews(); RefreshIndex();
         return true;
     }

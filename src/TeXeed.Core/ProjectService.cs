@@ -237,7 +237,7 @@ public sealed class ProjectService
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
         }
-        return await LoadAsync(project.MainPath, ct, project.Root);
+        return (await LoadAsync(project.MainPath, ct, project.Root)) with { IsolateEntryOutputs = project.IsolateEntryOutputs };
     }
 
     private static IEnumerable<Dependency> Dependencies(LatexCommand command)

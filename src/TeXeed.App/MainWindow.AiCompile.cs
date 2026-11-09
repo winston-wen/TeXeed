@@ -74,6 +74,8 @@ public partial class MainWindow
         // the static graph. Retire both snapshots even when editable text matches.
         _activeCompileInputs?.Invalidate();
         if (!ReferenceEquals(_activeCompileInputs, _previewInputs)) _previewInputs?.Invalidate();
+        foreach (var entry in _entryPreviews.Values)
+            if (!ReferenceEquals(entry.Inputs, _activeCompileInputs) && !ReferenceEquals(entry.Inputs, _previewInputs)) entry.Inputs?.Invalidate();
         _lastCompileDependenciesCurrent = false; _lastCompilePreviewPublished = false;
         _pdfRevision = -1; CancelForwardSync(); _syncTimer.Stop();
         _externalChangePending = true; _assetChangePending = true;
@@ -112,6 +114,7 @@ public partial class MainWindow
         if (!File.Exists(path)) throw new FileNotFoundException("找不到指定的编译入口，请先读取目录或创建包装文件。", entryFile);
         // Preserve the workspace boundary when the alternate entry is in a
         // subdirectory; its dependencies may legitimately reside at the root.
-        return await Task.Run(() => _projects.LoadAsync(path, token, current.Root), token);
+        var result = await Task.Run(() => _projects.LoadAsync(path, token, current.Root), token);
+        return result with { IsolateEntryOutputs = current.IsolateEntryOutputs };
     }
 }

@@ -37,12 +37,13 @@ internal static partial class Program
         var read = await runner("read_source", "{\"file\":\"fragment.tex\",\"start_line\":1,\"line_count\":30}", CancellationToken.None);
         var hash = Regex.Match(read, "SHA256=([A-F0-9]+)").Groups[1].Value;
         await runner("replace_source", JsonSerializer.Serialize(new { file = "fragment.tex", expected_sha256 = hash, old_text = "Draft body.", new_text = "Updated body." }), CancellationToken.None);
+        var chatKey = ((TabWorkspace)Field(window, "_workspaceTabs")!).FocusedTab;
         var result = await runner("compile_project", "{\"entry_file\":\"main.tex\"}", CancellationToken.None);
         Check(result.StartsWith("编译成功") && result.Contains("入口：main.tex"), "Alternate wrapper did not compile successfully");
         Check(result.Contains("当前默认入口仍为 fragment.tex") && result.Contains("不能证明默认入口"), "Alternate compile success claimed to repair the default entry");
         Check(File.ReadAllText(fragment).Contains("Updated body."), "Alternate compile did not first save the current buffer");
         Check(((TexProject)Field(window, "_project")!).MainPath == fragment, "Alternate compilation changed the workspace's default main file");
-        Check(((TabWorkspace)Field(window, "_workspaceTabs")!).FocusedTab == TabWorkspace.AiKey, "Alternate compilation changed the selected chat tab");
+        Check(TabWorkspace.IsAiConversation(chatKey ?? "") && ((TabWorkspace)Field(window, "_workspaceTabs")!).FocusedTab == chatKey, "Alternate compilation changed the selected chat tab");
         Check(((TexProject)Field(window, "_previewProject")!).MainPath == wrapper, "PDF source mapping still points at the default fragment");
         var wrapperPdf = (string)Field(window, "_pdfPath")!;
         Check(File.Exists(wrapperPdf) && result.Contains(Path.GetRelativePath(folder, wrapperPdf)), "Compile result omitted the actual published PDF path");
@@ -59,9 +60,10 @@ internal static partial class Program
         Invoke(window, "OpenAiTab");
         result = await runner("compile_project", "{}", CancellationToken.None);
         Check(result.StartsWith("编译失败") && result.Contains("入口：fragment.tex"), "Missing entry_file did not retain the default entry");
-        Check((string)Field(window, "_pdfPath")! == wrapperPdf && ((TexProject)Field(window, "_previewProject")!).MainPath == wrapper, "Failed default build discarded the last alternate preview mapping");
+        Check(Field(window, "_pdfPath") is null, "A failed default build displayed a different entry's PDF");
+        Check(await (Task<bool>)Invoke(window, "SelectEntryPreviewAsync", wrapper)! && (string)Field(window, "_pdfPath")! == wrapperPdf && ((TexProject)Field(window, "_previewProject")!).MainPath == wrapper, "Failed default build discarded the alternate preview mapping");
         result = await runner("compile_project", "{\"entry_file\":\"broken.tex\"}", CancellationToken.None);
-        Check(result.StartsWith("编译失败") && result.Contains("入口：broken.tex") && result.Contains("对应入口：main.tex"), "Alternate failure did not distinguish attempted target from retained PDF");
+        Check(result.StartsWith("编译失败") && result.Contains("入口：broken.tex") && result.Contains("当前尚无 PDF 预览"), "Failed entry displayed another entry's PDF");
         Check(((TexProject)Field(window, "_project")!).MainPath == fragment, "Failed alternate compilation changed the default entry");
         var rejected = false;
         try { await runner("compile_project", "{\"entry_file\":\"../outside.tex\"}", CancellationToken.None); } catch (UnauthorizedAccessException) { rejected = true; }
@@ -73,7 +75,7 @@ internal static partial class Program
         try { await runner("compile_project", "{\"entry_file\":\"missing.tex\"}", CancellationToken.None); } catch (FileNotFoundException) { rejected = true; }
         Check(rejected, "Alternate compile fabricated a missing entry");
         var rootPdfBytes = File.ReadAllBytes(wrapperPdf);
-        var rootManifest = Path.Combine(folder, ".texeed", "preview", "main.texeed-cache.json");
+        var rootManifest = Path.Combine(Path.GetDirectoryName(wrapperPdf)!, "main.texeed-cache.json");
         var rootManifestBytes = File.ReadAllBytes(rootManifest);
         result = await runner("compile_project", "{\"entry_file\":\"validation/main.tex\"}", CancellationToken.None);
         var sameNamePdf = (string)Field(window, "_pdfPath")!;
@@ -104,10 +106,11 @@ internal static partial class Program
                 cancel.Cancel(); rejected = false;
                 try { await pending.WaitAsync(TimeSpan.FromSeconds(5)); } catch (OperationCanceledException) { rejected = true; }
                 Check(rejected && !(bool)Field(window, "_building")!, "Cancelled alternate compiler remained active");
-                Check((string)Field(window, "_pdfPath")! == nestedPdf, "Cancelled alternate compile replaced the preview");
+                Check(Field(window, "_pdfPath") is null, "Cancelled alternate compile displayed a different entry's preview");
             }
             finally { gate.Release(); }
         }
+        Check(await (Task<bool>)Invoke(window, "SelectEntryPreviewAsync", nested)! && (string)Field(window, "_pdfPath")! == nestedPdf, "Cancelled alternate compile lost the other preview");
         await gate.WaitAsync();
         Task<string> stale;
         try
@@ -120,7 +123,8 @@ internal static partial class Program
         finally { gate.Release(); }
         result = await stale.WaitAsync(TimeSpan.FromSeconds(60));
         Check(!result.StartsWith("编译成功") && result.Contains("过期"), "Compile success was claimed after the user changed a buffer during validation");
-        Check((string)Field(window, "_pdfPath")! == nestedPdf && ((TexProject)Field(window, "_previewProject")!).MainPath == nested, "Stale alternate result replaced the displayed preview");
+        Check(Field(window, "_pdfPath") is null, "Stale alternate result displayed another entry's preview");
+        Check(await (Task<bool>)Invoke(window, "SelectEntryPreviewAsync", nested)! && (string)Field(window, "_pdfPath")! == nestedPdf && ((TexProject)Field(window, "_previewProject")!).MainPath == nested, "Stale alternate result discarded the previous entry's preview");
         await runner("save_project", "{}", CancellationToken.None);
         Check(((TexProject)Field(window, "_project")!).MainPath == fragment, "Temporary verification target persisted as the user's project entry");
         result = await runner("compile_project", "{\"entry_file\":\"main.tex\"}", CancellationToken.None);
@@ -142,6 +146,13 @@ internal static partial class Program
         result = await externalStale.WaitAsync(TimeSpan.FromSeconds(60));
         Check(!result.StartsWith("编译成功") && result.Contains("过期"), "Compile success was claimed after an alternate-only dependency changed during validation");
         File.WriteAllText(preamble, preambleText);
+        var originalWrapper = File.ReadAllText(wrapper);
+        var independent = "\\documentclass{article}\n\\input{preamble}\n\\begin{document}Independent \\projectword{} document.\\end{document}";
+        await runner("create_source", JsonSerializer.Serialize(new { file = "independent.tex", content = independent }), CancellationToken.None);
+        result = await runner("compile_project", "{\"entry_file\":\"independent.tex\"}", CancellationToken.None);
+        Check(result.StartsWith("编译成功") && result.Contains("入口：independent.tex"), "New independent entry using shared project style did not compile");
+        Check(File.ReadAllText(wrapper) == originalWrapper && !File.ReadAllText(wrapper).Contains("independent"), "Independent creation must not modify or insert into the original entry");
+        Check(((TexProject)Field(window, "_project")!).MainPath == fragment, "Compiling an independent entry must not change the default entry");
         Console.WriteLine($"AI compile entries: {checks} checks passed for real wrapper/nested compilation, default-entry preservation, saved edits, actual preview association, failure/cancellation/staleness and path bounds.");
     }
 }

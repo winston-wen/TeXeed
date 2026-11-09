@@ -70,7 +70,7 @@ public partial class MainWindow
         foreach (var path in _settings.RecentProjects)
         {
             var item = new MenuItem { Header = path, ToolTip = path };
-            item.Click += async (_, _) => await OpenAsync(path);
+            item.Click += async (_, _) => await OpenSeparateProjectAsync(path);
             RecentMenu.Items.Add(item);
 
             var row = new Grid();
@@ -101,7 +101,7 @@ public partial class MainWindow
             // explicitly so long paths are constrained and ellipsized inside the row.
             button.SetResourceReference(StyleProperty, "WelcomePathButton");
             System.Windows.Automation.AutomationProperties.SetName(button, "打开项目：" + path);
-            button.Click += async (_, _) => await OpenAsync(path);
+            button.Click += async (_, _) => await OpenSeparateProjectAsync(path);
             Grid.SetColumn(button, 1);
             row.Children.Add(button);
             RecentList.Children.Add(row);

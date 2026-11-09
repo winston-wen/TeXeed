@@ -21,7 +21,8 @@ internal static partial class Program
         }
         rows.Add("\\end{document}"); File.WriteAllText(main, string.Join('\n', rows));
         File.WriteAllText(extra, string.Join('\n', Enumerable.Range(1, 100).Select(i => $"Extra line {i}")));
-        var other = Path.Combine(output, "other.tex"); File.WriteAllText(other, "\\documentclass{article}\n\\begin{document}Other\\end{document}");
+        var otherDirectory = Path.Combine(output, "other-project"); Directory.CreateDirectory(otherDirectory);
+        var other = Path.Combine(otherDirectory, "other.tex"); File.WriteAllText(other, "\\documentclass{article}\n\\begin{document}Other\\end{document}");
         var engine = Path.Combine(root, ".tools", "tectonic", "tectonic.exe");
         Environment.SetEnvironmentVariable("TECTONIC_CACHE_DIR", Path.Combine(root, ".tools", "tectonic", "cache"));
         var settings = new AppSettings { LivePreview = false, Engine = TexEngine.Tectonic, EnginePath = engine, SynctexPath = Path.Combine(directory, "missing.exe") };
@@ -154,6 +155,22 @@ internal static partial class Program
             throw new Exception("Explicit forward navigation did not cancel deferred PDF position");
         await CallAsync(reopened, "BuildAsync");
         await WaitUntilAsync(() => reopenedPreview.PageCount == 5 && reopenedPreview.VisiblePage == 1, "First build overrode explicit source navigation");
+        var nestedDirectory = Path.Combine(directory, "independent"); Directory.CreateDirectory(nestedDirectory);
+        var nested = Path.Combine(nestedDirectory, "nested.tex");
+        File.WriteAllText(nested, "\\documentclass{article}\n\\begin{document}Nested\\end{document}");
+        await CallAsync(reopened, "OpenAsync", nested);
+        if (((TexProject)Field(reopened, "_project")!).Root != directory || reopenedModel.Owner(TabWorkspace.PreviewKeyFor(nested)) is null)
+            throw new Exception("The default open command did not add a nested entry to the current project");
+        if (reopened.FindName("OpenSeparateProjectMenuItem") is not MenuItem)
+            throw new Exception("The independent-project menu entry is unavailable");
+        await CallAsync(reopened, "OpenSeparateProjectAsync", nested);
+        if (((TexProject)Field(reopened, "_project")!).Root != nestedDirectory || ((TexProject)Field(reopened, "_project")!).MainPath != nested)
+            throw new Exception("Opening a nested file as an independent project kept the parent project");
+        await CallAsync(reopened, "OpenSeparateProjectAsync", main);
+        var recent = (MenuItem)reopened.FindName("RecentMenu");
+        var nestedRecent = recent.Items.OfType<MenuItem>().First(item => Equals(item.Header, nested));
+        nestedRecent.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        await WaitUntilAsync(() => Field(reopened, "_project") is TexProject current && current.Root == nestedDirectory && !(bool)Field(reopened, "_transitioning")!, "Recent-project selection did not open the nested project independently");
         await CloseAndObserveAsync(reopened, "reading history reopened window");
         Console.WriteLine("PASS: per-project layout and positions, restart, hidden preview, missing cache/source, and pending PDF cancellation after user source or outline navigation");
     }

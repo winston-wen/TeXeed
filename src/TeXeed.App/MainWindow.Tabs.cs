@@ -76,9 +76,11 @@ public partial class MainWindow
         if (LogExpander.Parent is Panel parent && parent != source) { parent.Children.Remove(LogExpander); source.Children.Add(LogExpander); Grid.SetRow(LogExpander, 1); }
     }
     private void RightLog_Click(object sender, RoutedEventArgs e) => MoveLogTo(TabSide.Right);
-    private void SelectWorkspaceTab(TabSide side, string key)
+    private async void SelectWorkspaceTab(TabSide side, string key)
     {
         if (_transitioning || _closing) return;
+        if (_switchingEntryPreview) { Status("正在切换预览，请稍候。"); return; }
+        if (TabWorkspace.IsPreview(key) && PreviewEntryForKey(key) is { } entry && !await SelectEntryPreviewAsync(entry)) return;
         _workspaceTabs.Select(side, key);
         if (AiConversationForKey(key) is { } selectedAi && _aiPanels.TryGetValue(selectedAi.Id,out var selectedPanel)) SetAiTarget(selectedPanel);
         RefreshWorkspaceViews();
@@ -87,8 +89,22 @@ public partial class MainWindow
     private async void CloseTabs(string path, TabCloseScope scope)
     {
         if (_transitioning || _closing || _allowClose) return;
+        if (_switchingEntryPreview || (_building && _entryPreviews.Count > 0)) { Status("请等待编译或预览切换完成。"); return; }
         var range = scope switch { TabCloseScope.All => TabCloseRange.All, TabCloseScope.Others => TabCloseRange.Others,
             TabCloseScope.Left => TabCloseRange.Before, TabCloseScope.Right => TabCloseRange.After, _ => TabCloseRange.This };
+        if (_project is not null && _activePreviewEntry is { } activeEntry && !activeEntry.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase)
+            && _workspaceTabs.Owner(path) is { } side)
+        {
+            var tabs = _workspaceTabs.Tabs(side); var index = tabs.ToList().FindIndex(item => item.Equals(path, StringComparison.OrdinalIgnoreCase));
+            var activeKey = PreviewKeyForEntry(activeEntry);
+            var selected = range switch { TabCloseRange.All => tabs, TabCloseRange.Others => tabs.Where(item => !item.Equals(path, StringComparison.OrdinalIgnoreCase)),
+                TabCloseRange.Before => tabs.Take(index), TabCloseRange.After => tabs.Skip(index + 1), _ => new[] { path } };
+            if (selected.Contains(activeKey, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!await SelectEntryPreviewAsync(_project.MainPath)) return;
+                if (_workspaceTabs.Owner(TabWorkspace.PreviewKey) is { } previewSide) _workspaceTabs.Select(previewSide, TabWorkspace.PreviewKey);
+            }
+        }
         var closed = _workspaceTabs.Close(path, range);
         foreach (var editor in Editors)
             if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
@@ -116,14 +132,20 @@ public partial class MainWindow
     {
         if (_transitioning || _closing || _workspaceTabs.Owner(key) is null) return;
         CancelPendingNavigation();
-        if (split && key == TabWorkspace.PreviewKey && (!_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right))
-            && _workspaceTabs.FocusedTab == TabWorkspace.PreviewKey)
+        if (split && TabWorkspace.IsPreview(key) && (!_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right))
+            && TabWorkspace.IsPreview(_workspaceTabs.FocusedTab ?? ""))
             _followAwaitingSourceInteraction = true;
         var before = _workspaceTabs.Sources.ToDictionary(path => path, path => _workspaceTabs.Owner(path)!.Value, StringComparer.OrdinalIgnoreCase);
         _updatingWorkspace = true;
         try
         {
             if (split) _workspaceTabs.Split(key, side); else _workspaceTabs.Move(key, side, index);
+            if (TabWorkspace.IsPreview(key))
+            {
+                var previews = _workspaceTabs.Tabs(TabSide.Left).Concat(_workspaceTabs.Tabs(TabSide.Right)).Where(TabWorkspace.IsPreview).ToArray();
+                foreach (var preview in previews.Where(item => _workspaceTabs.Owner(item) != side)) _workspaceTabs.Move(preview, side);
+                _workspaceTabs.Select(side, key);
+            }
             foreach (var (path, oldSide) in before)
                 if (_workspaceTabs.Owner(path) is { } newSide && oldSide != newSide) SourceEditor(oldSide).TransferSessionTo(SourceEditor(newSide), path);
         }
@@ -178,7 +200,7 @@ public partial class MainWindow
                     if (_aiPanel.Settings.Parent is Panel oldSettings && oldSettings != GroupBody(side)) oldSettings.Children.Remove(_aiPanel.Settings);
                     if (_aiPanel.Settings.Parent is null) GroupBody(side).Children.Add(_aiPanel.Settings);
                 }
-                if (active == TabWorkspace.PreviewKey)
+                if (active is not null && TabWorkspace.IsPreview(active) && string.Equals(PreviewEntryForKey(active), _activePreviewEntry, StringComparison.OrdinalIgnoreCase))
                 {
                     if (PreviewContent.Parent is Panel old && old != GroupBody(side)) { old.Children.Remove(PreviewContent); GroupBody(side).Children.Add(PreviewContent); }
                     PreviewContent.Visibility = Visibility.Visible;
@@ -197,8 +219,9 @@ public partial class MainWindow
             }
             _aiSettings.Visibility = _workspaceTabs.Owner(TabWorkspace.AiSettingsKey) is { } settingsSide && _workspaceTabs.Active(settingsSide)==TabWorkspace.AiSettingsKey ? Visibility.Visible : Visibility.Collapsed;
             if(_aiHistory is not null) _aiHistory.Visibility=_workspaceTabs.Owner(TabWorkspace.AiHistoryKey) is { } historySide && _workspaceTabs.Active(historySide)==TabWorkspace.AiHistoryKey ? Visibility.Visible : Visibility.Collapsed;
-            var previewSide = _workspaceTabs.Owner(TabWorkspace.PreviewKey)!.Value;
-            PreviewContent.Visibility = _workspaceTabs.Active(previewSide) == TabWorkspace.PreviewKey ? Visibility.Visible : Visibility.Collapsed;
+            var activePreviewKey = _activePreviewEntry is null ? TabWorkspace.PreviewKey : PreviewKeyForEntry(_activePreviewEntry);
+            var previewSide = _workspaceTabs.Owner(activePreviewKey);
+            PreviewContent.Visibility = previewSide is { } ps && _workspaceTabs.Active(ps) == activePreviewKey ? Visibility.Visible : Visibility.Collapsed;
             _wasSplit = split;
             PreviewSplitter.Visibility = split ? Visibility.Visible : Visibility.Collapsed;
             Workspace.ColumnDefinitions[3].Width = new GridLength(split ? 2 : 0);
