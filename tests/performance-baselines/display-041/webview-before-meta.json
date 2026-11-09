@@ -1,0 +1,32 @@
+{
+  "baseline": "0be9eb74bc12582bc4c2736f30f27c171a980d74",
+  "environment": {
+    "os": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "webview2": "156.0.4314.58",
+    "dotnet": "10.0",
+    "display": "offscreen 1000x800 WPF host"
+  },
+  "fixture": "tests/TeXeed.AppTests/AiMentorIntegrationTests.cs::MeasureMentorWebViewPerformanceAsync",
+  "limitations": [
+    "This uses the existing 120 paragraph and 0/60 comment fixture; it is not the whole TeX fixture.",
+    "CDP allocation is sampled JavaScript allocation and does not include WPF or WebView process allocations.",
+    "Offscreen automated selection is not OS IME input."
+  ],
+  "files": {
+    "AiDocumentView.cs": "87825655dcd44bbc288780d15007ba8423bed4d4ef4c59088a70dab8d86cacfe",
+    "AiMentorIntegrationTests.cs": "c45112e1a022dcebba7b294c7f68795dd13878fe01df1c1c2cb9a64cb7506585",
+    "bookmarks.css": "56c00a0a981c30c3a76c2e48da910ad7f7c7b14e5ac063821d4f3ebe3bfd19ca",
+    "bookmarks.js": "caf129206190d0f5e3755116044fd0487db962c90619a441e763b66450c2ae1f",
+    "document.css": "67393c509ae009cb7b9c88e9b0835090851d24b9c0de0e9a798467b3aec87745",
+    "document.html": "97b966ad7e25fa4dc25313d7b68125709d529cb3f77ce233a4c054e4ff1b2056",
+    "document.js": "95c4f53ac592fc0a178302ea89a611a5c80b5d1b0bca04b7ebe3654398495f6b",
+    "mentor.css": "24eb16a25f5578b7469ee9b5b37119d4267f246277a649589bb4992764a266b8"
+  },
+  "binaryHashesAtCapture": {
+    "app": "4dba66df678ceb7abfd3de1706b72d0f7404fb6ff6cee4e577e0f8d0868f9019",
+    "tests": "69a60e4f8f423d865961b64f7702e52594d28e6dd7d5c35c22fe677dd81df308"
+  },
+  "resultSha256": "e7d35dc019a35ecf6bf19eaecc0e45d2591c8f0f1b630b8087847d7f5d53d48e"
+}

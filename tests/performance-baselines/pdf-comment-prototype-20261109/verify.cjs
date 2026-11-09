@@ -1,0 +1,12 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const dir=__dirname,result=JSON.parse(fs.readFileSync(path.join(dir,'results.json'),'utf8'));
+const sha=data=>crypto.createHash('sha256').update(data).digest('hex');
+if(sha(fs.readFileSync(path.join(dir,'measure.cjs')))!==result.fixtureSha256)throw Error('fixture mismatch');
+for(const [file,expected] of Object.entries(result.resources))if(sha(fs.readFileSync(path.join(dir,'resources',file)))!==expected)throw Error('resource mismatch: '+file);
+const profile=JSON.parse(fs.readFileSync(path.join(dir,'profile-results.json'),'utf8'));
+if(profile.fixtureSha256!==sha(fs.readFileSync(path.join(dir,'profile.cjs'))))throw Error('profile fixture mismatch');
+for(const [file,expected] of Object.entries(profile.resources))if(sha(fs.readFileSync(path.join(dir,'resources',file)))!==expected)throw Error('profile resource mismatch: '+file);
+for(const [file,expected] of Object.entries(JSON.parse(fs.readFileSync(path.join(dir,'profile-hashes.json'),'utf8'))))if(sha(fs.readFileSync(path.join(dir,file)))!==expected)throw Error('profile sample mismatch: '+file);
+if(result.measurements.length!==6||result.measurements.some(m=>m.samples.length!==7))throw Error('incomplete samples');
+console.log('PASS PDF comment prototype samples and resource fingerprints');

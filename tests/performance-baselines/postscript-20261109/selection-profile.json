@@ -1,0 +1,594 @@
+{
+  "schema": "selection-positioning-profile-v1",
+  "fixtureSha256": "bdfcf071c6da9b9acc0e8ae9bf397ebd4e23fea5e352d89cfbc177981dbbe620",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.4341.42",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "paragraphs": 120,
+    "comments": [
+      0,
+      60
+    ],
+    "rounds": 3,
+    "warmups": 2,
+    "operations": 7,
+    "frames": 2,
+    "samplingInterval": 256,
+    "includeCollected": true,
+    "limitations": [
+      "Programmatic range selection, not pointer or system IME.",
+      "The without-positioning counterfactual disables only animation-frame scheduling of button placement for selectionchange, retaining selection capture and the button node.",
+      "The optimized counterfactual reuses one Range and moves rectangle concatenation outside the candidate loop; it is not applied to the product.",
+      "V8 allocation sampling is an estimate and includes test harness and two-frame scheduling; stacks and GC can affect attribution.",
+      "Historical lacks the floating selection-comment entry and has different surrounding comment UI."
+    ]
+  },
+  "resources": {
+    "historical": {
+      "mentor.html": "1cf26a166a623804020a3e4229ecfa455302b6d2ca33540eebabfb5f16d2bbd0",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "b4722a61e843a9af5ee93ca2b9f7f73f21f5a6933f90f9ebbe1b65e2eac95740",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "df27e69df475d237eab6ce529925cfa6aa46f19bc13320832e8aa4a07c0d62fc"
+    },
+    "current": {
+      "mentor.html": "a94f5c67a6c49ea4af350197db3db62891eb0bf6b5e5c1fbb729eb5778fba330",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "fc17f355335da65b45ccfaac6dd024ef903e270ff89f45ac3cf68b6347e91050",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "de8ad506b95edcb7c0dedd51b9d28225f3b97dc1241190a25d30e7105f4743ea"
+    },
+    "without-positioning": {
+      "mentor.html": "a94f5c67a6c49ea4af350197db3db62891eb0bf6b5e5c1fbb729eb5778fba330",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "fc17f355335da65b45ccfaac6dd024ef903e270ff89f45ac3cf68b6347e91050",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "cba39bf16e82e9e2356aab942f122838531b64909060d2298f6c3d94ed95fdc5"
+    },
+    "optimized": {
+      "mentor.html": "a94f5c67a6c49ea4af350197db3db62891eb0bf6b5e5c1fbb729eb5778fba330",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "fc17f355335da65b45ccfaac6dd024ef903e270ff89f45ac3cf68b6347e91050",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "2c1253a789e203c57c178d34b3ffc88e7cca45ad757f85b5f9137daecaa35270"
+    }
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "historical",
+      "count": 0,
+      "totalBytes": 15876,
+      "sampleCount": 51,
+      "byStack": {
+        "other": 12352,
+        "captureSelection": 3524
+      },
+      "sourceFunctions": {
+        "serial:47": 544,
+        "captureSelection:66": 832,
+        "el:66": 300
+      },
+      "button": null
+    },
+    {
+      "round": 0,
+      "mode": "historical",
+      "count": 60,
+      "totalBytes": 15172,
+      "sampleCount": 48,
+      "byStack": {
+        "other": 10116,
+        "captureSelection": 5056
+      },
+      "sourceFunctions": {
+        "serial:47": 816,
+        "blockPrefix:65": 336,
+        "captureSelection:66": 1772,
+        "el:66": 300
+      },
+      "button": null
+    },
+    {
+      "round": 0,
+      "mode": "current",
+      "count": 0,
+      "totalBytes": 29696,
+      "sampleCount": 100,
+      "byStack": {
+        "other": 9956,
+        "positionSelectionButton": 15312,
+        "captureSelection": 4428
+      },
+      "sourceFunctions": {
+        "positionSelectionButton:133": 6120,
+        "nearbyTextRects:132": 2156,
+        "serial:110": 1088,
+        "captureSelection:129": 1492,
+        "(anonymous):133": 1320,
+        "blockPrefix:128": 272
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 0,
+      "mode": "current",
+      "count": 60,
+      "totalBytes": 29380,
+      "sampleCount": 97,
+      "byStack": {
+        "other": 12204,
+        "positionSelectionButton": 11668,
+        "captureSelection": 5508
+      },
+      "sourceFunctions": {
+        "positionSelectionButton:133": 5384,
+        "serial:110": 544,
+        "nearbyTextRects:132": 1648,
+        "captureSelection:129": 2840,
+        "el:129": 300,
+        "(anonymous):133": 264
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 0,
+      "mode": "without-positioning",
+      "count": 0,
+      "totalBytes": 14584,
+      "sampleCount": 45,
+      "byStack": {
+        "other": 9880,
+        "captureSelection": 4704
+      },
+      "sourceFunctions": {
+        "captureSelection:129": 1512,
+        "blockPrefix:128": 536,
+        "serial:110": 532,
+        "el:129": 820
+      },
+      "button": null
+    },
+    {
+      "round": 0,
+      "mode": "without-positioning",
+      "count": 60,
+      "totalBytes": 16712,
+      "sampleCount": 53,
+      "byStack": {
+        "other": 13404,
+        "captureSelection": 3308
+      },
+      "sourceFunctions": {
+        "blockPrefix:128": 264,
+        "captureSelection:129": 952,
+        "serial:110": 532
+      },
+      "button": null
+    },
+    {
+      "round": 0,
+      "mode": "optimized",
+      "count": 0,
+      "totalBytes": 27676,
+      "sampleCount": 91,
+      "byStack": {
+        "other": 11756,
+        "positionSelectionButton": 12536,
+        "captureSelection": 3384
+      },
+      "sourceFunctions": {
+        "(anonymous):133": 1320,
+        "serial:110": 272,
+        "positionSelectionButton:133": 3396,
+        "nearbyTextRects:132": 1888,
+        "captureSelection:129": 1232,
+        "el:129": 300
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 0,
+      "mode": "optimized",
+      "count": 60,
+      "totalBytes": 30620,
+      "sampleCount": 102,
+      "byStack": {
+        "other": 13092,
+        "positionSelectionButton": 13652,
+        "captureSelection": 3876
+      },
+      "sourceFunctions": {
+        "positionSelectionButton:133": 3984,
+        "hideSelectionButton:131": 260,
+        "nearbyTextRects:132": 3104,
+        "(anonymous):133": 2708,
+        "serial:110": 532,
+        "el:129": 300,
+        "blockPrefix:128": 264,
+        "captureSelection:129": 408
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 1,
+      "mode": "optimized",
+      "count": 0,
+      "totalBytes": 27772,
+      "sampleCount": 92,
+      "byStack": {
+        "other": 10512,
+        "positionSelectionButton": 11796,
+        "captureSelection": 5464
+      },
+      "sourceFunctions": {
+        "(anonymous):133": 1584,
+        "captureSelection:129": 956,
+        "hideSelectionButton:131": 260,
+        "positionSelectionButton:133": 4272,
+        "nearbyTextRects:132": 804,
+        "serial:110": 1076,
+        "blockPrefix:128": 544
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 1,
+      "mode": "optimized",
+      "count": 60,
+      "totalBytes": 26800,
+      "sampleCount": 88,
+      "byStack": {
+        "other": 9728,
+        "positionSelectionButton": 11748,
+        "captureSelection": 5324
+      },
+      "sourceFunctions": {
+        "positionSelectionButton:133": 4800,
+        "captureSelection:129": 2080,
+        "serial:110": 1104,
+        "nearbyTextRects:132": 1644,
+        "el:129": 300,
+        "(anonymous):133": 792
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 1,
+      "mode": "without-positioning",
+      "count": 0,
+      "totalBytes": 16268,
+      "sampleCount": 51,
+      "byStack": {
+        "other": 11032,
+        "captureSelection": 5236
+      },
+      "sourceFunctions": {
+        "serial:110": 2144,
+        "blockPrefix:128": 544,
+        "captureSelection:129": 960,
+        "(anonymous):134": 300
+      },
+      "button": null
+    },
+    {
+      "round": 1,
+      "mode": "without-positioning",
+      "count": 60,
+      "totalBytes": 15316,
+      "sampleCount": 48,
+      "byStack": {
+        "other": 12252,
+        "captureSelection": 3064
+      },
+      "sourceFunctions": {
+        "blockPrefix:128": 264,
+        "captureSelection:129": 952,
+        "(anonymous):134": 300,
+        "serial:110": 272
+      },
+      "button": null
+    },
+    {
+      "round": 1,
+      "mode": "current",
+      "count": 0,
+      "totalBytes": 28604,
+      "sampleCount": 94,
+      "byStack": {
+        "positionSelectionButton": 13176,
+        "captureSelection": 1748,
+        "other": 13680
+      },
+      "sourceFunctions": {
+        "(anonymous):133": 1320,
+        "positionSelectionButton:133": 5332,
+        "nearbyTextRects:132": 2160,
+        "blockPrefix:128": 272,
+        "captureSelection:129": 944
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 1,
+      "mode": "current",
+      "count": 60,
+      "totalBytes": 29408,
+      "sampleCount": 98,
+      "byStack": {
+        "other": 12160,
+        "positionSelectionButton": 14512,
+        "captureSelection": 2736
+      },
+      "sourceFunctions": {
+        "positionSelectionButton:133": 6088,
+        "(anonymous):133": 792,
+        "nearbyTextRects:132": 1864,
+        "captureSelection:129": 1628,
+        "el:129": 300,
+        "serial:110": 272,
+        "(anonymous):134": 304,
+        "blockPrefix:128": 272
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 1,
+      "mode": "historical",
+      "count": 0,
+      "totalBytes": 18444,
+      "sampleCount": 61,
+      "byStack": {
+        "other": 13008,
+        "captureSelection": 5436
+      },
+      "sourceFunctions": {
+        "serial:47": 816,
+        "captureSelection:66": 1748
+      },
+      "button": null
+    },
+    {
+      "round": 1,
+      "mode": "historical",
+      "count": 60,
+      "totalBytes": 14140,
+      "sampleCount": 44,
+      "byStack": {
+        "other": 10504,
+        "captureSelection": 3636
+      },
+      "sourceFunctions": {
+        "captureSelection:66": 1768,
+        "serial:47": 272
+      },
+      "button": null
+    },
+    {
+      "round": 2,
+      "mode": "historical",
+      "count": 0,
+      "totalBytes": 15904,
+      "sampleCount": 49,
+      "byStack": {
+        "other": 11720,
+        "captureSelection": 4184
+      },
+      "sourceFunctions": {
+        "serial:47": 532,
+        "blockPrefix:65": 272,
+        "el:66": 560,
+        "captureSelection:66": 1240
+      },
+      "button": null
+    },
+    {
+      "round": 2,
+      "mode": "historical",
+      "count": 60,
+      "totalBytes": 15128,
+      "sampleCount": 48,
+      "byStack": {
+        "other": 10152,
+        "captureSelection": 4976
+      },
+      "sourceFunctions": {
+        "captureSelection:66": 1212,
+        "el:66": 300,
+        "serial:47": 1340,
+        "blockPrefix:65": 272
+      },
+      "button": null
+    },
+    {
+      "round": 2,
+      "mode": "current",
+      "count": 0,
+      "totalBytes": 34496,
+      "sampleCount": 117,
+      "byStack": {
+        "other": 11180,
+        "positionSelectionButton": 17740,
+        "captureSelection": 5576
+      },
+      "sourceFunctions": {
+        "nearbyTextRects:132": 3244,
+        "(anonymous):133": 1316,
+        "positionSelectionButton:133": 6640,
+        "serial:110": 1860,
+        "captureSelection:129": 532
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 2,
+      "mode": "current",
+      "count": 60,
+      "totalBytes": 34188,
+      "sampleCount": 116,
+      "byStack": {
+        "other": 9988,
+        "positionSelectionButton": 18748,
+        "captureSelection": 5452
+      },
+      "sourceFunctions": {
+        "positionSelectionButton:133": 7448,
+        "nearbyTextRects:132": 2512,
+        "captureSelection:129": 1232,
+        "serial:110": 1328,
+        "(anonymous):133": 1388,
+        "blockPrefix:128": 536
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 2,
+      "mode": "without-positioning",
+      "count": 0,
+      "totalBytes": 16772,
+      "sampleCount": 53,
+      "byStack": {
+        "other": 10808,
+        "captureSelection": 5964
+      },
+      "sourceFunctions": {
+        "serial:110": 1336,
+        "captureSelection:129": 1464,
+        "(anonymous):134": 300
+      },
+      "button": null
+    },
+    {
+      "round": 2,
+      "mode": "without-positioning",
+      "count": 60,
+      "totalBytes": 16392,
+      "sampleCount": 52,
+      "byStack": {
+        "other": 10256,
+        "captureSelection": 6136
+      },
+      "sourceFunctions": {
+        "blockPrefix:128": 272,
+        "captureSelection:129": 1908,
+        "(anonymous):134": 300,
+        "serial:110": 260
+      },
+      "button": null
+    },
+    {
+      "round": 2,
+      "mode": "optimized",
+      "count": 0,
+      "totalBytes": 29096,
+      "sampleCount": 97,
+      "byStack": {
+        "other": 12180,
+        "captureSelection": 4940,
+        "positionSelectionButton": 11976
+      },
+      "sourceFunctions": {
+        "blockPrefix:128": 536,
+        "positionSelectionButton:133": 4188,
+        "(anonymous):133": 1056,
+        "nearbyTextRects:132": 2972,
+        "captureSelection:129": 1232,
+        "el:129": 260,
+        "(anonymous):134": 304
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    },
+    {
+      "round": 2,
+      "mode": "optimized",
+      "count": 60,
+      "totalBytes": 32124,
+      "sampleCount": 107,
+      "byStack": {
+        "other": 10716,
+        "positionSelectionButton": 15164,
+        "captureSelection": 6244
+      },
+      "sourceFunctions": {
+        "(anonymous):133": 2376,
+        "positionSelectionButton:133": 5388,
+        "nearbyTextRects:132": 1368,
+        "blockPrefix:128": 808,
+        "captureSelection:129": 1996,
+        "el:129": 260,
+        "serial:110": 552
+      },
+      "button": {
+        "x": 628,
+        "y": 152,
+        "width": 68,
+        "height": 27.59375
+      }
+    }
+  ]
+}

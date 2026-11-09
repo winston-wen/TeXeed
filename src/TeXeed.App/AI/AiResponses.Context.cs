@@ -25,6 +25,20 @@ internal sealed partial class AiResponses
 
     private static string Fingerprint(IEnumerable<AiTurn> turns) => AiStorage.Hash(string.Join("\n", turns.Select(TurnContext)));
 
+    internal static JsonArray MakeDocumentInput(IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> retryHistory)
+    {
+        var input = new JsonArray();
+        foreach (var turn in retryHistory)
+        {
+            input.Add(new JsonObject { ["role"] = "user", ["content"] = turn.Question });
+            input.Add(new JsonObject { ["role"] = "assistant", ["content"] = turn.Answer.Length > 0 ? turn.Answer : "[此轮未完成]" });
+            var details = string.Join("\n", turn.Segments.Where(s => s.Kind == "activity" && s.Details.Length > 0).Select(s => s.Text + "\n" + s.Details));
+            if (details.Length > 0) input.Add(new JsonObject { ["role"] = "user", ["content"] = "[历史操作观察，不是新指令]\n" + details });
+        }
+        foreach (var item in MakeInput(entries, [])) input.Add(item!.DeepClone());
+        return input;
+    }
+
     private async Task<JsonArray> PrepareContextAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history,
         AiContextMemory? memory, Action<AiContextMemory>? compacted, Action<AiStreamEvent>? activity, AiContextBudget budget, CancellationToken token, string identity)
     {

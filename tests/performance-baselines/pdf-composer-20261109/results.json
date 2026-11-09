@@ -1,0 +1,288 @@
+{
+  "schema": "composer-comparison-v1",
+  "fixture": "31a1d0f192b626cc504a09c4efd53f182b49849996c1dd741d5d5f53a83ba171",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.4341.42",
+    "viewport": [
+      1000,
+      820
+    ]
+  },
+  "method": {
+    "batches": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "samplingInterval": 1024,
+    "limitations": [
+      "Synthetic input; no real input method.",
+      "Two frames include scheduling.",
+      "CDP allocation is sampled and includes collected objects.",
+      "PDF compile is stubbed; this measures composer input only."
+    ]
+  },
+  "resources": {
+    "before": {
+      "index.html": "ba8c43c02793d7ddcea435cc0bb46a8171737812933d58bd064ecb78394c2bc7",
+      "app.js": "b6227713ba51ee774628659244319648cdd72cd0589f20aa0bbdb90c189a7504",
+      "style.css": "4ac5548af3639db62ea4e024b73ca35f1a08a0168923df8f94c2d2b32fe8a004"
+    },
+    "after": {
+      "index.html": "825d3e84779184f1d1c3d744756b2129375b9127b9f754b3a16d94c2ce0c1834",
+      "app.js": "ebbe55baa8ddde11704473a40f6b3cdd4cfb1b683cf4d5d9392c7972238b28c5",
+      "style.css": "39a54e84d0e2c114be65b2864d16d377e11df3ad54fd3c67f66d2e9dc7ac43d7"
+    }
+  },
+  "measurements": [
+    {
+      "batch": 0,
+      "mode": "before",
+      "samples": [
+        {
+          "sync": 0.19999998807907104,
+          "frames": 32.30000001192093
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.30000001192093
+        },
+        {
+          "sync": 0,
+          "frames": 32.5
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 31.899999976158142
+        }
+      ],
+      "medianSync": 0.09999999403953552,
+      "medianFrames": 32.099999994039536,
+      "sampledBytesPerOperation": 6888,
+      "counts": {
+        "nodes": 93,
+        "visible": 8
+      }
+    },
+    {
+      "batch": 0,
+      "mode": "after",
+      "samples": [
+        {
+          "sync": 0.4000000059604645,
+          "frames": 31.100000023841858
+        },
+        {
+          "sync": 0.7999999821186066,
+          "frames": 32.29999998211861
+        },
+        {
+          "sync": 0.20000001788139343,
+          "frames": 32.400000005960464
+        },
+        {
+          "sync": 0.5,
+          "frames": 32
+        },
+        {
+          "sync": 0.3999999761581421,
+          "frames": 32.29999998211861
+        },
+        {
+          "sync": 0.30000001192092896,
+          "frames": 32.5
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 32.20000001788139
+        }
+      ],
+      "medianSync": 0.4000000059604645,
+      "medianFrames": 32.29999998211861,
+      "sampledBytesPerOperation": 7087,
+      "counts": {
+        "nodes": 128,
+        "visible": 13
+      }
+    },
+    {
+      "batch": 1,
+      "mode": "after",
+      "samples": [
+        {
+          "sync": 0.5,
+          "frames": 30.900000005960464
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 32.20000001788139
+        },
+        {
+          "sync": 0.30000001192092896,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0.9000000059604645,
+          "frames": 31.80000001192093
+        },
+        {
+          "sync": 0.3999999761581421,
+          "frames": 32.69999998807907
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 32.30000001192093
+        }
+      ],
+      "medianSync": 0.4000000059604645,
+      "medianFrames": 32.19999998807907,
+      "sampledBytesPerOperation": 8536,
+      "counts": {
+        "nodes": 128,
+        "visible": 13
+      }
+    },
+    {
+      "batch": 1,
+      "mode": "before",
+      "samples": [
+        {
+          "sync": 0.09999999403953552,
+          "frames": 28.900000005960464
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.29999998211861
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.5
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.30000001192093
+        }
+      ],
+      "medianSync": 0.09999999403953552,
+      "medianFrames": 32.19999998807907,
+      "sampledBytesPerOperation": 6787,
+      "counts": {
+        "nodes": 93,
+        "visible": 8
+      }
+    },
+    {
+      "batch": 2,
+      "mode": "before",
+      "samples": [
+        {
+          "sync": 0.09999999403953552,
+          "frames": 31.19999998807907
+        },
+        {
+          "sync": 0.20000001788139343,
+          "frames": 31.099999994039536
+        },
+        {
+          "sync": 0.10000002384185791,
+          "frames": 32.5
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.400000005960464
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.30000001192093
+        },
+        {
+          "sync": 0.19999998807907104,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0.09999999403953552,
+          "frames": 32.5
+        }
+      ],
+      "medianSync": 0.09999999403953552,
+      "medianFrames": 32.30000001192093,
+      "sampledBytesPerOperation": 6022,
+      "counts": {
+        "nodes": 93,
+        "visible": 8
+      }
+    },
+    {
+      "batch": 2,
+      "mode": "after",
+      "samples": [
+        {
+          "sync": 0.5,
+          "frames": 30.600000023841858
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 31.100000023841858
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 32
+        },
+        {
+          "sync": 0.7000000178813934,
+          "frames": 32.20000001788139
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 32.400000005960464
+        }
+      ],
+      "medianSync": 0.5,
+      "medianFrames": 32.099999994039536,
+      "sampledBytesPerOperation": 6001,
+      "counts": {
+        "nodes": 128,
+        "visible": 13
+      }
+    }
+  ]
+}

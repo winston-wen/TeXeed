@@ -1,0 +1,265 @@
+{
+  "schema": "composer-long-comparison-v1",
+  "fixture": "f89806abd66ed7276847bbab23f059f511dcad1c2ab3376509368bfe73ae8f42",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.4341.42",
+    "viewport": [
+      1000,
+      820
+    ]
+  },
+  "method": {
+    "logicalLines": 300,
+    "batches": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "samplingInterval": 1024,
+    "limitations": [
+      "The unoptimized variant is reconstructed, not a frozen historical release.",
+      "Synthetic input, not IME.",
+      "Timing includes two-frame scheduling.",
+      "CDP allocation is sampled."
+    ]
+  },
+  "resources": {
+    "reconstructed": {
+      "index.html": "825d3e84779184f1d1c3d744756b2129375b9127b9f754b3a16d94c2ce0c1834",
+      "style.css": "39a54e84d0e2c114be65b2864d16d377e11df3ad54fd3c67f66d2e9dc7ac43d7",
+      "app.js": "7102a96cef8a70d8347e7eab5007d54e4cc6c95106bfbd2bd81eb388d0f5ecd6"
+    },
+    "after": {
+      "index.html": "825d3e84779184f1d1c3d744756b2129375b9127b9f754b3a16d94c2ce0c1834",
+      "style.css": "39a54e84d0e2c114be65b2864d16d377e11df3ad54fd3c67f66d2e9dc7ac43d7",
+      "app.js": "ebbe55baa8ddde11704473a40f6b3cdd4cfb1b683cf4d5d9392c7972238b28c5"
+    }
+  },
+  "measurements": [
+    {
+      "batch": 0,
+      "mode": "reconstructed",
+      "samples": [
+        {
+          "sync": 12.699999988079071,
+          "frames": 31.80000001192093
+        },
+        {
+          "sync": 9.299999982118607,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 11.599999994039536,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 11.900000005960464,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 9.599999994039536,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 10.300000011920929,
+          "frames": 32.30000001192093
+        },
+        {
+          "sync": 10.400000005960464,
+          "frames": 32.10000002384186
+        }
+      ],
+      "medianSync": 10.400000005960464,
+      "medianFrames": 32.10000002384186,
+      "sampledBytesPerOperation": 30560
+    },
+    {
+      "batch": 0,
+      "mode": "after",
+      "samples": [
+        {
+          "sync": 3.4000000059604645,
+          "frames": 32.400000005960464
+        },
+        {
+          "sync": 3.199999988079071,
+          "frames": 32.5
+        },
+        {
+          "sync": 3,
+          "frames": 31.900000005960464
+        },
+        {
+          "sync": 3,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 3,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 3,
+          "frames": 32.10000002384186
+        },
+        {
+          "sync": 3.0999999940395355,
+          "frames": 32.29999998211861
+        }
+      ],
+      "medianSync": 3,
+      "medianFrames": 32.19999998807907,
+      "sampledBytesPerOperation": 16816
+    },
+    {
+      "batch": 1,
+      "mode": "after",
+      "samples": [
+        {
+          "sync": 3.2000000178813934,
+          "frames": 32.400000005960464
+        },
+        {
+          "sync": 3,
+          "frames": 32.5
+        },
+        {
+          "sync": 4.5999999940395355,
+          "frames": 31.900000005960464
+        },
+        {
+          "sync": 3.600000023841858,
+          "frames": 32
+        },
+        {
+          "sync": 2.7999999821186066,
+          "frames": 32.19999998807907
+        },
+        {
+          "sync": 4.5,
+          "frames": 32
+        },
+        {
+          "sync": 4.199999988079071,
+          "frames": 31.69999998807907
+        }
+      ],
+      "medianSync": 3.600000023841858,
+      "medianFrames": 32,
+      "sampledBytesPerOperation": 15224
+    },
+    {
+      "batch": 1,
+      "mode": "reconstructed",
+      "samples": [
+        {
+          "sync": 10,
+          "frames": 35.099999994039536
+        },
+        {
+          "sync": 9.400000005960464,
+          "frames": 34.599999994039536
+        },
+        {
+          "sync": 11.100000023841858,
+          "frames": 34.80000001192093
+        },
+        {
+          "sync": 9.400000005960464,
+          "frames": 33.70000001788139
+        },
+        {
+          "sync": 11.400000005960464,
+          "frames": 33.099999994039536
+        },
+        {
+          "sync": 12.299999982118607,
+          "frames": 34.19999998807907
+        },
+        {
+          "sync": 9.200000017881393,
+          "frames": 35.099999994039536
+        }
+      ],
+      "medianSync": 10,
+      "medianFrames": 34.599999994039536,
+      "sampledBytesPerOperation": 35258
+    },
+    {
+      "batch": 2,
+      "mode": "reconstructed",
+      "samples": [
+        {
+          "sync": 10.299999982118607,
+          "frames": 33.900000005960464
+        },
+        {
+          "sync": 9.799999982118607,
+          "frames": 34.5
+        },
+        {
+          "sync": 11.899999976158142,
+          "frames": 33.5
+        },
+        {
+          "sync": 11.099999994039536,
+          "frames": 33.30000001192093
+        },
+        {
+          "sync": 10,
+          "frames": 34.19999998807907
+        },
+        {
+          "sync": 11.199999988079071,
+          "frames": 33.69999998807907
+        },
+        {
+          "sync": 10.700000017881393,
+          "frames": 34.80000001192093
+        }
+      ],
+      "medianSync": 10.700000017881393,
+      "medianFrames": 33.900000005960464,
+      "sampledBytesPerOperation": 37331
+    },
+    {
+      "batch": 2,
+      "mode": "after",
+      "samples": [
+        {
+          "sync": 3.300000011920929,
+          "frames": 35.10000002384186
+        },
+        {
+          "sync": 3.2000000178813934,
+          "frames": 35.10000002384186
+        },
+        {
+          "sync": 3.4000000059604645,
+          "frames": 35.30000001192093
+        },
+        {
+          "sync": 2.9000000059604645,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 2.7999999821186066,
+          "frames": 34.5
+        },
+        {
+          "sync": 3,
+          "frames": 34.099999994039536
+        },
+        {
+          "sync": 3.0999999940395355,
+          "frames": 33.400000005960464
+        }
+      ],
+      "medianSync": 3.0999999940395355,
+      "medianFrames": 34.900000005960464,
+      "sampledBytesPerOperation": 15251
+    }
+  ]
+}

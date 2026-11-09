@@ -1,0 +1,281 @@
+{
+  "fixtureSha256": "f341ee409e091af08b2a15f9c6dfebc6ed0adb9d3669e40733a0522c266fcc4b",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.4341.42",
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  "method": {
+    "lines": 120,
+    "comments": [
+      0,
+      60
+    ],
+    "batches": 3,
+    "warmup": 2,
+    "samples": 7,
+    "frames": 2,
+    "samplingInterval": 1024,
+    "limits": "程序派发 input，内含编辑器及评论 DOM 更新。两帧包含调度；V8 分配为采样估计。无同场景历史基准。"
+  },
+  "resources": {
+    "index.html": "83553bb8f39ab49748cc5ca6342158721183207d13cddb6971cc33e79e4adb7f",
+    "style.css": "8ce71b1d91fccdf075917dc6079f4fbee01a9ef408a841b25d1fc9769d57ebeb",
+    "app.js": "07d1ea58e598c9d8f5dbfbd336c910cbb49467092d7becbcb5ae8e377609719b",
+    "server.cjs": "6a698c040cbed3c889206e174977c7a5f96fda1365cb66e7855672d6efb90995"
+  },
+  "measurements": [
+    {
+      "batch": 0,
+      "count": 0,
+      "samples": [
+        {
+          "sync": 0.30000001192092896,
+          "frames": 31.80000001192093
+        },
+        {
+          "sync": 0.3999999761581421,
+          "frames": 31.899999976158142
+        },
+        {
+          "sync": 0.7000000178813934,
+          "frames": 31.900000005960464
+        },
+        {
+          "sync": 0.5,
+          "frames": 31.799999982118607
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 32.099999994039536
+        },
+        {
+          "sync": 0.5,
+          "frames": 32
+        },
+        {
+          "sync": 0.3999999761581421,
+          "frames": 31.899999976158142
+        }
+      ],
+      "medianSync": 0.4000000059604645,
+      "medianFrames": 31.899999976158142,
+      "sampledBytesPerOperation": 75667,
+      "counts": {
+        "nodes": 73,
+        "visible": 10
+      }
+    },
+    {
+      "batch": 0,
+      "count": 60,
+      "samples": [
+        {
+          "sync": 1,
+          "frames": 34.39999997615814
+        },
+        {
+          "sync": 0.699999988079071,
+          "frames": 34.80000001192093
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 32.5
+        },
+        {
+          "sync": 0.8999999761581421,
+          "frames": 32.39999997615814
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 34
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 33.20000001788139
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 34.79999998211861
+        }
+      ],
+      "medianSync": 0.5999999940395355,
+      "medianFrames": 34,
+      "sampledBytesPerOperation": 97135,
+      "counts": {
+        "nodes": 911,
+        "visible": 19
+      }
+    },
+    {
+      "batch": 1,
+      "count": 0,
+      "samples": [
+        {
+          "sync": 0.4000000059604645,
+          "frames": 35
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.5,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 35.099999994039536
+        },
+        {
+          "sync": 0.5,
+          "frames": 35
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.5,
+          "frames": 34.19999998807907
+        }
+      ],
+      "medianSync": 0.4000000059604645,
+      "medianFrames": 34.900000005960464,
+      "sampledBytesPerOperation": 76121,
+      "counts": {
+        "nodes": 73,
+        "visible": 10
+      }
+    },
+    {
+      "batch": 1,
+      "count": 60,
+      "samples": [
+        {
+          "sync": 0.800000011920929,
+          "frames": 34.5
+        },
+        {
+          "sync": 0.7000000178813934,
+          "frames": 35
+        },
+        {
+          "sync": 0.6000000238418579,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.5,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.5,
+          "frames": 35.19999998807907
+        },
+        {
+          "sync": 0.6000000238418579,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 35.099999994039536
+        }
+      ],
+      "medianSync": 0.6000000238418579,
+      "medianFrames": 34.900000005960464,
+      "sampledBytesPerOperation": 101153,
+      "counts": {
+        "nodes": 911,
+        "visible": 19
+      }
+    },
+    {
+      "batch": 2,
+      "count": 0,
+      "samples": [
+        {
+          "sync": 0.4000000059604645,
+          "frames": 34.69999998807907
+        },
+        {
+          "sync": 0.5,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.5,
+          "frames": 35.10000002384186
+        },
+        {
+          "sync": 0.3999999761581421,
+          "frames": 20.5
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 35
+        },
+        {
+          "sync": 0.4000000059604645,
+          "frames": 35.20000001788139
+        },
+        {
+          "sync": 0.3999999761581421,
+          "frames": 35
+        }
+      ],
+      "medianSync": 0.4000000059604645,
+      "medianFrames": 35,
+      "sampledBytesPerOperation": 74792,
+      "counts": {
+        "nodes": 73,
+        "visible": 10
+      }
+    },
+    {
+      "batch": 2,
+      "count": 60,
+      "samples": [
+        {
+          "sync": 0.7999999821186066,
+          "frames": 34.5
+        },
+        {
+          "sync": 0.6000000238418579,
+          "frames": 35
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 35.20000001788139
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 35.20000001788139
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 34.900000005960464
+        },
+        {
+          "sync": 0.5999999940395355,
+          "frames": 35
+        },
+        {
+          "sync": 0.5,
+          "frames": 35.10000002384186
+        }
+      ],
+      "medianSync": 0.5999999940395355,
+      "medianFrames": 35,
+      "sampledBytesPerOperation": 96732,
+      "counts": {
+        "nodes": 911,
+        "visible": 19
+      }
+    }
+  ]
+}

@@ -44,7 +44,7 @@ public partial class AiPanel : UserControl, IDisposable
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
     {
-        _connection = connection; InitializeComponent(); InitializeComposer(); InitializeBookmarkUi();
+        _connection = connection; InitializeComponent(); InitializeComposer(); InitializeBookmarkUi(); InitializeSharedDocument();
         LiveQuestion.Loaded += (_, _) => BookmarkQuestionLoaded(LiveQuestion);
         LiveQuestion.Unloaded += (_, _) => BookmarkQuestionUnloaded(LiveQuestion);
         LiveTurnNumber.FontFamily = LiveQuestion.FontFamily;
@@ -93,7 +93,7 @@ public partial class AiPanel : UserControl, IDisposable
             if (IsSendGesture(e.Key, Keyboard.Modifiers) && Composer.IsKeyboardFocusWithin)
                 Composer_KeyDown(this, e);
             else if (e.Key == Key.G && Keyboard.Modifiers == ModifierKeys.Control)
-            { OpenBookmarkUi(focusSearch: true); e.Handled = true; }
+            { OpenDocumentSearch(); e.Handled = true; }
             else if (e.Key == Key.Escape && _bookmarkSurface?.Visibility == Visibility.Visible)
             { CloseBookmarkUi(); _bookmarkBall.Focus(); e.Handled = true; }
             else if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
@@ -107,7 +107,7 @@ public partial class AiPanel : UserControl, IDisposable
         _operation?.Cancel(); if (_operationDone is { } pending) await pending.Task;
         _generation++; _saveTimer.Stop(); await SaveAsync();
         _store = null;
-        var loaded = await Task.Run(() => AiStorage.Load(project));
+        var loaded = await AiStorage.LoadAsync(project);
         _project = project; _book = loaded;
         _restoringReading = true;
         _updating = true; Composer.Text = _book.Draft; _updating = false;
@@ -146,15 +146,16 @@ public partial class AiPanel : UserControl, IDisposable
         EntriesButton.Content = $"圈点 · {_book.Entries.Count}";
     }
     private void Dirty() { if (_updating || _disposed) return; _saveTimer.Stop(); _saveTimer.Start(); }
-    public async Task SaveAsync()
+    public async Task SaveAsync(string? resourceRestoreToken = null)
     {
         if (_project is null) return;
         var project = _project;
         _book.Draft = Composer.Text;
         if (!_restoringReading) _book.Active.ReadingOffset = MessagesScroll.VerticalOffset;
         CaptureReadingAnchor();
-        if (_store is not null) { await _store.SaveAsync(); return; }
-        await _saveGate.WaitAsync(); try { var snapshot = _book.Snapshot(); await Task.Run(() => AiStorage.Save(project, snapshot)); } finally { _saveGate.Release(); }
+        if (_store is not null) await _store.SaveAsync();
+        else { await _saveGate.WaitAsync(); try { var snapshot = _book.Snapshot(); await Task.Run(() => AiStorage.Save(project, snapshot)); } finally { _saveGate.Release(); } }
+        await FlushDocumentVersionAsync(resourceRestoreToken);
     }
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
@@ -190,6 +191,7 @@ public partial class AiPanel : UserControl, IDisposable
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         LiveContainer.Visibility = Visibility.Collapsed;
         _liveSegments.Clear();
+        UpdateRetryActions();
         MessageSearch_Changed(MessageSearchBox, null!);
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -202,6 +204,10 @@ public partial class AiPanel : UserControl, IDisposable
     }
     internal static bool IsSendGesture(Key key, ModifierKeys modifiers) => key == Key.Enter && modifiers == ModifierKeys.Control;
     private async void Submit_Click(object sender, RoutedEventArgs e) => await SubmitAsync();
+    private async void SharedRetry_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book.Turns.LastOrDefault() is { IsIncomplete: true } last) await SubmitAsync(last);
+    }
     internal async Task SubmitAsync(AiTurn? retry = null)
     {
         if (_project is null || _operation is not null) return;
@@ -212,24 +218,31 @@ public partial class AiPanel : UserControl, IDisposable
         var selected = retry is null ? _book.Entries.Where(e => e.Selected).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
         if (selected.Length == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
         if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
-        if (selected.Length > 20 || selected.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || selected.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
-        { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
+        if (selected.Length > 20 || selected.Sum(e => (long)e.PdfBlocks.Sum(p => (long)p.ImageBase64.Length)) > 24_000_000)
+        { StatusText.Text = "每批最多 20 个圈点和约 18 MB 截图，请分批提交。"; return; }
         var sentAnnotations = selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
+        if (retry is not null && retry.MentorRequest is null) { StatusText.Text = "此轮没有保存文稿请求快照，无法安全重试，请重新提问。"; return; }
         await RunOperationAsync(async token =>
         {
+            var request = retry?.MentorRequest?.Snapshot() ?? CaptureMentorRequest();
+            var frozen = new AiSharedDocument { Source = request.Source, InitialSource = request.InitialSource };
+            var isInitial = frozen.Source.Length == 0 && frozen.InitialSource.Length == 0;
+            var documentContext = AiMentorProtocol.MakeContextEntry(frozen, request.References);
             var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
+            batch.Add(documentContext);
             var generation = _generation; var book = _book;
             var sentAt = DateTimeOffset.Now;
             DateTimeOffset? answeredAt = null;
             var permission = book.Active.Permission;
-            var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.DisplayTitle}：{x.Question}"));
+            var question = string.Join("\n", batch.Where(x => x.Title != "共同文稿及评论").Select(x => x.Title == "统一问题" ? x.Question : $"{x.DisplayTitle}：{x.Question}"));
             // Name the conversation as soon as the first valid question is accepted. The
             // initial save below persists it before any model request can fail or stall.
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             var buffer = new AiStreamBuffer();
-            var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations };
+            var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations, MentorRequest = request };
+            SharedDocumentView.SetQuestion(book.Turns.FirstOrDefault()?.Question ?? question, Settings.SelectedModel?.Name ?? "AI");
             _readingRestoreVersion++; _restoringReading = false;
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
@@ -237,11 +250,13 @@ public partial class AiPanel : UserControl, IDisposable
             _liveBookmarkCheckpointReady = false; _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
             LiveSentTime.Text = pendingTurn.SentTime; LiveReplyStatus.IsCollapsed = false;
             LiveReplyStatus.PendingText = "等待 AI 响应";
+            SharedReplyStatus.PendingText = "等待 AI 响应"; SharedReplyStatus.Visibility = Visibility.Visible;
+            SharedSubmittedText.Text = SubmittedPreview(question); SharedSubmittedMessage.Visibility = Visibility.Visible;
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
             _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (_foldingLiveTurn == pendingTurn && !_disposed) RevealLiveTurn(); }));
             AiTurnCheckpoint checkpoint;
             try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
-            catch { LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            catch { SharedSubmittedMessage.Visibility = Visibility.Collapsed; SharedSubmittedText.Text = ""; SharedReplyStatus.Visibility = Visibility.Collapsed; LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
             book.Active.LastSentAt = sentAt;
             if (retry is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
             if (retry is null)
@@ -255,6 +270,7 @@ public partial class AiPanel : UserControl, IDisposable
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
             long renderedVersion = -1;
             long renderedStatusVersion = -1;
+            var previewEnabled = isInitial;
             void Flush()
             {
                 if (_generation != generation || _disposed) return;
@@ -263,12 +279,18 @@ public partial class AiPanel : UserControl, IDisposable
                 {
                     renderedStatusVersion = pendingStatus.Version;
                     LiveReplyStatus.PendingText = pendingStatus.Text;
+                    SharedReplyStatus.PendingText = pendingStatus.Text;
                 }
                 var version = buffer.Version;
                 if (version == renderedVersion) return;
                 renderedVersion = version;
                 var follow = MessagesScroll.ScrollableHeight - MessagesScroll.VerticalOffset < 40;
                 var snapshot = buffer.Snapshot();
+                if (previewEnabled && book.Active.SharedDocument.Revision == frozen.Revision)
+                {
+                    var partial = snapshot.LastOrDefault(s => s.Kind is "text" or "final")?.Text;
+                    if (!string.IsNullOrEmpty(partial)) SharedDocumentView.PreviewStreaming(partial);
+                }
                 foreach (var stale in _liveSegments.Where(s => snapshot.All(current => current.Id != s.Id)).ToArray()) _liveSegments.Remove(stale);
                 foreach (var segment in snapshot)
                 {
@@ -280,17 +302,18 @@ public partial class AiPanel : UserControl, IDisposable
                 if (follow) MessagesScroll.ScrollToEnd();
             }
             renderTimer.Tick += (_, _) => Flush(); Flush(); renderTimer.Start();
-            var modelId = ""; var effort = ""; string? endReason = null;
+            var modelId = ""; var modelName = ""; var effort = ""; string? endReason = null;
             try
             {
                 await SaveAsync();
                 if (Settings.SelectedModel is null) await Settings.LoadModelsAsync(token);
                 if (Settings.SelectedModel is not AiModel model) throw new InvalidOperationException("请选择可用模型。");
-                modelId = model.Id; effort = Settings.SelectedEffort;
+                modelId = model.Id; modelName = string.IsNullOrWhiteSpace(model.Name) ? model.Id : model.Name; effort = Settings.SelectedEffort;
+                SharedDocumentView.SetQuestion(book.Turns.FirstOrDefault()?.Question ?? question, modelName);
                 await Settings.SaveSelectionAsync(token);
                 var files = ProjectFiles?.Invoke().ToArray() ?? [];
                 var toolRunner = CreateToolRunner?.Invoke();
-                var history = book.Turns.ToArray();
+                var history = retry is null ? [] : new[] { retry };
                 await Task.Run(() => new AiResponses(_connection).RunAsync(model.Id, batch, history, files,
                     _ => { }, _ => { }, token, effort, toolRunner, evt =>
                     {
@@ -298,20 +321,40 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null), token);
+                    }), contextWindow: model.ContextWindow, instructionsOverride: AiMentorProtocol.Instructions(permission, toolRunner is not null, isInitial), resuming: retry is not null, classifyCommentary: true, preserveDocumentContext: true), token);
+                token.ThrowIfCancellationRequested();
+                previewEnabled = false;
+                var raw = buffer.Snapshot().LastOrDefault(s => s.Kind == "final")?.Text ?? "";
+                if (!AiMentorProtocol.TryPrepare(raw, frozen, request.References, out var plan, out var error)) throw new InvalidOperationException(error);
+                ApplyMentorPlan(book, frozen, request.References, plan!, modelName);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
+                SharedDocumentView.RefreshDocument();
+                try
+                {
+                    await SaveAsync();
+                    await SaveSharedVersionAsync(modelName, "AI 更新共同文稿");
+                }
+                catch (Exception ex) { StatusText.Text = "文稿已更新，但保存或版本记录失败：" + ex.Message; }
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }
             }
             catch (Exception ex)
             {
+                previewEnabled = false;
+                if (ex is AiContextLimitException && retry is null && Composer.Text.Length == 0) Composer.Text = submittedDraft;
                 endReason = token.IsCancellationRequested ? "user" : "program";
+                var unapplied = buffer.Snapshot().LastOrDefault(s => s.Kind is "final" or "text")?.Text;
+                SharedDocumentView.RefreshDocument();
+                if (!string.IsNullOrEmpty(unapplied)) SharedDocumentView.ShowUnapplied(unapplied, token.IsCancellationRequested ? "生成已中止，以下内容尚未应用。" : "以下 AI 内容未应用：" + ex.Message);
+                StatusText.Text = token.IsCancellationRequested ? "生成已中止，可重试。" : "本轮未完成：" + ex.Message;
                 foreach (var entry in selected) entry.State = "未完成，可重试";
                 buffer.Add(new("failure", "activity", token.IsCancellationRequested ? "已停止。已完成的修改保留；可继续提问。" : "本轮未完成：" + ex.Message));
             }
             finally
             {
                 var endedAt = answeredAt ?? DateTimeOffset.Now;
+                SharedReplyStatus.Visibility = Visibility.Collapsed;
+                SharedSubmittedMessage.Visibility = Visibility.Collapsed; SharedSubmittedText.Text = "";
                 renderTimer.Stop();
                 await checkpoint.StopAsync();
                 if (_generation == generation)
@@ -329,6 +372,65 @@ public partial class AiPanel : UserControl, IDisposable
             }
         });
     }
+    private AiMentorRequestSnapshot CaptureMentorRequest() => AiMentorProtocol.CaptureRequest(_book.Active);
+
+    internal static string SubmittedPreview(string text)
+    {
+        const int limit = 600;
+        if (text.Length <= limit) return text;
+        var length = char.IsHighSurrogate(text[limit - 1]) && char.IsLowSurrogate(text[limit]) ? limit - 1 : limit;
+        return text[..length] + "…（其余略）";
+    }
+
+    internal static void ApplyMentorPlan(AiNotebook book, AiSharedDocument frozen, IReadOnlyList<AiMentorReference> references, AiMentorPlan plan, string modelName)
+    {
+        var live = book.Active.SharedDocument;
+        var before = live.Snapshot();
+        var document = before.Snapshot();
+        foreach (var note in plan.Notes.Where(n => n.ReplyToCommentId.Length > 0))
+        {
+            var conversation = note.ConversationId == book.Active.Id ? book.Active : null;
+            var current = conversation?.SharedDocument.Comments.FirstOrDefault(c => c.Id == note.ReplyToCommentId);
+            var original = references.FirstOrDefault(r => r.ConversationId == note.ConversationId && r.Comment.Id == note.ReplyToCommentId)?.Comment;
+            if (current is null || original is null || !SameDiscussion(current, original))
+                throw new InvalidOperationException("回复所关联的评论已变化或删除，AI 内容未应用；请重新发送。");
+        }
+        var initial = frozen.Source.Length == 0 && frozen.InitialSource.Length == 0;
+        var applied = initial ? document.TryInitialize(plan.InitialSource, modelName, "ai") :
+            document.TryApplyEdits(frozen.Revision, plan.Edits.Select(item => item.Edit).ToArray(), modelName, "ai");
+        if (!applied) throw new InvalidOperationException("文稿在生成期间发生变化，AI 内容未应用；请重新发送。");
+        void AddComment(int start, int length, string quote, string text)
+        {
+            document.Comments.Add(new AiDocumentComment { Start = start, Length = length, Quote = quote, Text = text, Author = modelName, Role = "ai" });
+        }
+        var offset = 0;
+        foreach (var item in plan.Edits.OrderBy(item => item.Edit.Start))
+        {
+            var edit = item.Edit;
+            if (!string.IsNullOrWhiteSpace(item.Reason))
+                AddComment(edit.Text.Length == 0 ? 0 : edit.Start + offset, edit.Text.Length, edit.Text, item.Reason);
+            offset += edit.Text.Length - edit.Length;
+        }
+        foreach (var note in plan.Notes)
+        {
+            if (note.ReplyToCommentId.Length > 0)
+            {
+                var target = document.Comments.First(c => c.Id == note.ReplyToCommentId);
+                target.Replies.Add(new AiDocumentReply { Author = modelName, Role = "ai", Text = note.Text });
+            }
+            else AddComment(document.Source.IndexOf(note.Quote, StringComparison.Ordinal), note.Quote.Length, note.Quote, note.Text);
+        }
+        var editedNote = !AiDocumentPostscript.SameBlock(frozen.Source, document.Source);
+        if (!AiDocumentPostscript.TryUpdate(document, plan.Message, modelName, editedNote, out var noteError))
+            throw new InvalidOperationException(noteError);
+        if (!live.TryRestore(before, document))
+            throw new InvalidOperationException("文稿或评论在生成期间发生变化，AI 内容未应用；请重新发送。");
+    }
+    private static bool SameDiscussion(AiDocumentComment a, AiDocumentComment b) =>
+        a.Id == b.Id && a.Author == b.Author && a.Role == b.Role && a.Text == b.Text && a.Quote == b.Quote &&
+        a.Start == b.Start && a.Length == b.Length && a.Orphaned == b.Orphaned &&
+        a.Replies.Count == b.Replies.Count && a.Replies.Zip(b.Replies).All(pair =>
+            pair.First.Id == pair.Second.Id && pair.First.Author == pair.Second.Author && pair.First.Role == pair.Second.Role && pair.First.Text == pair.Second.Text);
     private void ToggleLiveTurn()
     {
         if (_foldingLiveTurn is not { } turn) return;
@@ -339,5 +441,5 @@ public partial class AiPanel : UserControl, IDisposable
         ScheduleReadingContext();
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+    public void Dispose() { _disposed = true; _documentSearchCancellation?.Cancel(); _documentSearchWindow?.Close(); ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }

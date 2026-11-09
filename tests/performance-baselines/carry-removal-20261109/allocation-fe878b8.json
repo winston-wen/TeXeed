@@ -1,0 +1,234 @@
+{
+  "schema": "mentor-comment-sampled-allocation-v1",
+  "baseline": "fe878b84bc4ccf5166b4a9f40401061ffaebee69",
+  "fixtureSha256": "8bc7b4f584bc15fef01702659037078b17528564d42f41c6daacdf46c95a78eb",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.4341.42",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "paragraphs": 120,
+    "commentCounts": [
+      0,
+      60
+    ],
+    "rounds": 3,
+    "warmups": 2,
+    "operations": 7,
+    "frames": 2,
+    "samplingInterval": 1024,
+    "includeCollected": true,
+    "limitations": [
+      "V8 sampled allocation includes objects collected during the sampling window but is an estimate, not exact total allocation.",
+      "Each batch includes scheduling and JavaScript test harness allocations; a per-interaction number is a batch estimate divided by seven.",
+      "Historical retained-heap samples use a different scope and cannot be compared as total allocation.",
+      "Programmatic selection does not simulate a system IME."
+    ]
+  },
+  "resources": {
+    "before": {
+      "mentor.html": "6cedc7efffa8b62015782736511491e697c1a6580ce78b69c7403a645e0db0b2",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "2a18c3c27164abebd9c4b52c6b3dd0f76cf28caeab9875293a6f879545f11f4d",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "f2ed63c8c7221db72dfcedac5d2a9caa9dbde18c306e6c58851110216d91ed71"
+    },
+    "after": {
+      "mentor.html": "eac3dacee650fc687770f7fa7b2b61785803105f832b1cff1bf4554c7e8fc84a",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "3fc45f3a75ece7ce16ec6e6e885fe6c6fdb32bcf90c03cc2274fcb26cb0a206a",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "8dc90181696a7726ab613e6284155e1fb64f915fa7f12cb1ff11d260fac82ae5"
+    }
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "before",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1544092,
+          "sampleCount": 1212
+        },
+        "selection": {
+          "sampledAllocatedBytes": 23104,
+          "sampleCount": 22
+        }
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2387948,
+          "sampleCount": 1467
+        },
+        "selection": {
+          "sampledAllocatedBytes": 26252,
+          "sampleCount": 25
+        }
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1439052,
+          "sampleCount": 1111
+        },
+        "selection": {
+          "sampledAllocatedBytes": 22932,
+          "sampleCount": 22
+        }
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2429984,
+          "sampleCount": 1508
+        },
+        "selection": {
+          "sampledAllocatedBytes": 17304,
+          "sampleCount": 16
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1490644,
+          "sampleCount": 1161
+        },
+        "selection": {
+          "sampledAllocatedBytes": 31220,
+          "sampleCount": 30
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2472636,
+          "sampleCount": 1549
+        },
+        "selection": {
+          "sampledAllocatedBytes": 35056,
+          "sampleCount": 33
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1467524,
+          "sampleCount": 1139
+        },
+        "selection": {
+          "sampledAllocatedBytes": 29588,
+          "sampleCount": 28
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2480352,
+          "sampleCount": 1555
+        },
+        "selection": {
+          "sampledAllocatedBytes": 23536,
+          "sampleCount": 22
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1490660,
+          "sampleCount": 1161
+        },
+        "selection": {
+          "sampledAllocatedBytes": 22060,
+          "sampleCount": 21
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2517116,
+          "sampleCount": 1591
+        },
+        "selection": {
+          "sampledAllocatedBytes": 24964,
+          "sampleCount": 24
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1517964,
+          "sampleCount": 1187
+        },
+        "selection": {
+          "sampledAllocatedBytes": 25696,
+          "sampleCount": 24
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2517584,
+          "sampleCount": 1591
+        },
+        "selection": {
+          "sampledAllocatedBytes": 22920,
+          "sampleCount": 22
+        }
+      }
+    }
+  ]
+}

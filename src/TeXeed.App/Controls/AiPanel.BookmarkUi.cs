@@ -31,7 +31,7 @@ public partial class AiPanel
 
     private void InitializeBookmarkUi()
     {
-        _bookmarkOverlay = new Canvas { ClipToBounds = true };
+        _bookmarkOverlay = new Canvas { ClipToBounds = true, Visibility = Visibility.Collapsed };
         Grid.SetRowSpan(_bookmarkOverlay, 4); Panel.SetZIndex(_bookmarkOverlay, 10);
         ChatRoot.Children.Add(_bookmarkOverlay);
         _bookmarkBall = new Button { Width = BookmarkBallSize, Height = BookmarkBallSize, Padding = new Thickness(9),

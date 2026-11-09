@@ -1,0 +1,11 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const roots=['../src/TeXeed.App/Assets/AiDocument/document.js','../prototypes/ai-chat-v02/mentor-core.js'];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const spansFor=(s,i)=>`<source at="${i}">${esc(s)}</source>`,mathMarkup=(s,d)=>`<math display="${d}">${esc(s)}</math>`,hiddenTex=s=>`<hidden>${esc(s)}</hidden>`,imageMarkup=(raw,options,p)=>`<image raw="${esc(raw)}" options="${esc(options)}" path="${esc(p)}">`;
+function balanced(text,open){if(text[open]!=='{')return -1;let depth=0;for(let i=open;i<text.length;i++){if(text[i]==='\\'){i++;continue}if(text[i]==='{')depth++;else if(text[i]==='}'&&!--depth)return i}return -1;}
+const tokens=['普通文字',' abc ','🙂','\n','<危险>','$x^2$','\\(a+b\\)','$$x+y$$','\\$5','\\%','%隐藏注释\n','\\textbf{重点}','\\emph{\\textit{嵌套}}','\\verb|x\\y|','\\cite{A,B}','\\includegraphics[width=0.5\\linewidth]{img/a.png}','\\unknown{原文}','{','}','\\','$$','$'];let seed=19;function rand(n){seed=(seed*16807)%2147483647;return seed%n;}
+for(const rel of roots){const code=fs.readFileSync(path.join(__dirname,rel),'utf8'),start=code.indexOf(' function inline('),end=code.indexOf(' function commentText(',start);assert(start>=0&&end>start);const current=code.slice(start,end),old=current.replace("const specials=/[$%\\\\]/g,flush=end=>",'const flush=end=>').replace('   specials.lastIndex=i;const match=specials.exec(source);if(!match)break;i=match.index;\n','');assert.notEqual(old,current,'baseline transformation must take effect');
+ const make=segment=>new Function('spansFor','mathMarkup','hiddenTex','imageMarkup','escape','balanced',segment+';return inline;')(spansFor,mathMarkup,hiddenTex,imageMarkup,esc,balanced),now=make(current),before=make(old);
+ for(let n=0;n<1500;n++){let input='';for(let i=0,k=1+rand(15);i<k;i++)input+=tokens[rand(tokens.length)];const x={unknown:false},y={unknown:false};assert.equal(now(input,17,x),before(input,17,y),`${rel}: render mismatch at sample ${n}: ${JSON.stringify(input)}`);assert.equal(x.unknown,y.unknown,`${rel}: unknown-command flag mismatch at sample ${n}`);}}
+console.log('PASS optimized scanning matches previous rendering and unknown flags across text, escapes, math, nested formatting and images');

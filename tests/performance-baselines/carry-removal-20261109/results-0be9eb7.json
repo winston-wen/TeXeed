@@ -1,0 +1,965 @@
+{
+  "schema": "mentor-comment-selection-performance-v1",
+  "baseline": "0be9eb74bc12582bc4c2736f30f27c171a980d74",
+  "fixtureSha256": "5df1d03c94efa6e7f191c8caae4ffa30f27ea6219114a7642c1c5ad174737788",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.19045",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.4341.42",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "paragraphs": 120,
+    "commentCounts": [
+      0,
+      60
+    ],
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "Sampled retained JavaScript heap is not total allocation.",
+      "Two-frame timings include scheduling and selectionchange dispatch.",
+      "Viewport intersection does not account for ancestor clipping.",
+      "Selection uses programmatic Range, not a mouse or operating-system IME."
+    ]
+  },
+  "resources": {
+    "before": {
+      "mentor.html": "d52b3891d78f43be8636f5c200e460b82119b1039c39ad17b4d2cd9bef067af6",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "24eb16a25f5578b7469ee9b5b37119d4267f246277a649589bb4992764a266b8",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "7cbf392177c27a0d653c76299682fda6a65f2489f0745c13a7bea10ee6808cc7"
+    },
+    "after": {
+      "mentor.html": "eac3dacee650fc687770f7fa7b2b61785803105f832b1cff1bf4554c7e8fc84a",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "mentor.css": "3fc45f3a75ece7ce16ec6e6e885fe6c6fdb32bcf90c03cc2274fcb26cb0a206a",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "mentor-core.js": "8dc90181696a7726ab613e6284155e1fb64f915fa7f12cb1ff11d260fac82ae5"
+    }
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "before",
+      "count": 0,
+      "samples": [
+        {
+          "render": 4,
+          "renderFrame": 31.599999994039536,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.39999997615814,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.699999988079071,
+          "renderFrame": 31.80000001192093,
+          "selection": 0.3999999761581421,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 4.0999999940395355,
+          "renderFrame": 29.900000005960464,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.2999999821186066,
+          "renderFrame": 31.899999976158142,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.2999999821186066,
+          "renderFrame": 31.899999976158142,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.4000000059604645,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 5.5,
+          "renderFrame": 32.19999998807907,
+          "selection": 0.699999988079071,
+          "selectionFrame": 33.19999998807907,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 3.699999988079071,
+      "medianRenderFrame": 31.899999976158142,
+      "medianSelection": 0.29999998211860657,
+      "medianSelectionFrame": 33.29999998211861,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 55864,
+      "counts": {
+        "elements": 332,
+        "paragraphs": 120,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "count": 60,
+      "samples": [
+        {
+          "render": 10,
+          "renderFrame": 32,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.799999982118607,
+          "renderFrame": 32.19999998807907,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.199999988079071,
+          "renderFrame": 31.69999998807907,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 14.200000017881393,
+          "renderFrame": 32,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 32.80000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 11.400000005960464,
+          "renderFrame": 32,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.300000011920929,
+          "renderFrame": 33.400000005960464,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 31.599999994039536,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 13.599999994039536,
+          "renderFrame": 34.5,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 30.69999998807907,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 10.300000011920929,
+      "medianRenderFrame": 32,
+      "medianSelection": 0.30000001192092896,
+      "medianSelectionFrame": 33.30000001192093,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 62036,
+      "counts": {
+        "elements": 1291,
+        "paragraphs": 120,
+        "comments": 60,
+        "visible": 29
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "count": 0,
+      "samples": [
+        {
+          "render": 3.0999999940395355,
+          "renderFrame": 31.799999982118607,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.800000011920929,
+          "renderFrame": 32,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.699999988079071,
+          "renderFrame": 32.19999998807907,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.899999976158142,
+          "renderFrame": 31.799999982118607,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.899999976158142,
+          "renderFrame": 31.899999976158142,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.800000011920929,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.9000000059604645,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 2.899999976158142,
+      "medianRenderFrame": 31.900000005960464,
+      "medianSelection": 0.4000000059604645,
+      "medianSelectionFrame": 33.30000001192093,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 75016,
+      "counts": {
+        "elements": 321,
+        "paragraphs": 120,
+        "comments": 0,
+        "visible": 11
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "count": 60,
+      "samples": [
+        {
+          "render": 9.399999976158142,
+          "renderFrame": 32,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.39999997615814,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.700000017881393,
+          "renderFrame": 32,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10,
+          "renderFrame": 32,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.200000017881393,
+          "renderFrame": 32.30000001192093,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.900000005960464,
+          "renderFrame": 32,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.299999982118607,
+          "renderFrame": 33.19999998807907,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 32.19999998807907,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 8.199999988079071,
+          "renderFrame": 31.5,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.39999997615814,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 9.399999976158142,
+      "medianRenderFrame": 32,
+      "medianSelection": 0.29999998211860657,
+      "medianSelectionFrame": 33.39999997615814,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 88356,
+      "counts": {
+        "elements": 1280,
+        "paragraphs": 120,
+        "comments": 60,
+        "visible": 27
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "count": 0,
+      "samples": [
+        {
+          "render": 3.199999988079071,
+          "renderFrame": 32,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.4000000059604645,
+          "renderFrame": 32,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.0999999940395355,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3,
+          "renderFrame": 32,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.7999999821186066,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.7999999821186066,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 3,
+      "medianRenderFrame": 32.099999994039536,
+      "medianSelection": 0.30000001192092896,
+      "medianSelectionFrame": 33.400000005960464,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 61328,
+      "counts": {
+        "elements": 321,
+        "paragraphs": 120,
+        "comments": 0,
+        "visible": 11
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "count": 60,
+      "samples": [
+        {
+          "render": 10,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 14.5,
+          "renderFrame": 31.19999998807907,
+          "selection": 0.10000002384185791,
+          "selectionFrame": 30.100000023841858,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.699999988079071,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.400000005960464,
+          "renderFrame": 32,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.100000023841858,
+          "renderFrame": 32.10000002384186,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 12.799999982118607,
+          "renderFrame": 35,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 30.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 8.300000011920929,
+          "renderFrame": 31.80000001192093,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 10,
+      "medianRenderFrame": 31.900000005960464,
+      "medianSelection": 0.19999998807907104,
+      "medianSelectionFrame": 33.29999998211861,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 63972,
+      "counts": {
+        "elements": 1280,
+        "paragraphs": 120,
+        "comments": 60,
+        "visible": 27
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "count": 0,
+      "samples": [
+        {
+          "render": 3.800000011920929,
+          "renderFrame": 32,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.199999988079071,
+          "renderFrame": 32,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 4.5999999940395355,
+          "renderFrame": 32.29999998211861,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.399999976158142,
+          "renderFrame": 31.799999982118607,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.800000011920929,
+          "renderFrame": 31.80000001192093,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.599999994039536,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.4000000059604645,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 4.200000017881393,
+          "renderFrame": 31.80000001192093,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 3.800000011920929,
+      "medianRenderFrame": 31.900000005960464,
+      "medianSelection": 0.30000001192092896,
+      "medianSelectionFrame": 33.400000005960464,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 78584,
+      "counts": {
+        "elements": 332,
+        "paragraphs": 120,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "count": 60,
+      "samples": [
+        {
+          "render": 9.900000005960464,
+          "renderFrame": 32.19999998807907,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.599999994039536,
+          "renderFrame": 31.599999994039536,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.700000017881393,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 33.19999998807907,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.699999988079071,
+          "renderFrame": 32.19999998807907,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 11.5,
+          "renderFrame": 31.799999982118607,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 15.199999988079071,
+          "renderFrame": 38.79999998211861,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 26.599999994039536,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 8.700000017881393,
+          "renderFrame": 31.700000017881393,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.19999998807907,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 9.900000005960464,
+      "medianRenderFrame": 32.099999994039536,
+      "medianSelection": 0.20000001788139343,
+      "medianSelectionFrame": 33.29999998211861,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 81640,
+      "counts": {
+        "elements": 1291,
+        "paragraphs": 120,
+        "comments": 60,
+        "visible": 29
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "count": 0,
+      "samples": [
+        {
+          "render": 4.700000017881393,
+          "renderFrame": 32,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.4000000059604645,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.3999999761581421,
+          "selectionFrame": 33.19999998807907,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.4000000059604645,
+          "renderFrame": 31.5,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.599999994039536,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.7000000178813934,
+          "renderFrame": 32,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.5,
+          "renderFrame": 31.69999998807907,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.7000000178813934,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.19999998807907104,
+          "selectionFrame": 33.19999998807907,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.0999999940395355,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 3.5,
+      "medianRenderFrame": 32,
+      "medianSelection": 0.3999999761581421,
+      "medianSelectionFrame": 33.400000005960464,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 69536,
+      "counts": {
+        "elements": 332,
+        "paragraphs": 120,
+        "comments": 0,
+        "visible": 13
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "count": 60,
+      "samples": [
+        {
+          "render": 10.5,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.900000005960464,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.3999999761581421,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 19.30000001192093,
+          "renderFrame": 41,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 23.700000017881393,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.099999994039536,
+          "renderFrame": 32,
+          "selection": 0.09999999403953552,
+          "selectionFrame": 33.39999997615814,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 11.699999988079071,
+          "renderFrame": 32,
+          "selection": 0.5999999940395355,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.699999988079071,
+          "renderFrame": 34.599999994039536,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 36.10000002384186,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.400000005960464,
+          "renderFrame": 32,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.39999997615814,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 10.099999994039536,
+      "medianRenderFrame": 32,
+      "medianSelection": 0.30000001192092896,
+      "medianSelectionFrame": 33.39999997615814,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 87660,
+      "counts": {
+        "elements": 1291,
+        "paragraphs": 120,
+        "comments": 60,
+        "visible": 29
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "count": 0,
+      "samples": [
+        {
+          "render": 3.7000000178813934,
+          "renderFrame": 32,
+          "selection": 0.3999999761581421,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.7999999821186066,
+          "renderFrame": 31.899999976158142,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 2.9000000059604645,
+          "renderFrame": 31.599999994039536,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.0999999940395355,
+          "renderFrame": 31.799999982118607,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.0999999940395355,
+          "renderFrame": 32,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.0999999940395355,
+          "renderFrame": 32.099999994039536,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 3.800000011920929,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.20000001788139343,
+          "selectionFrame": 33.30000001192093,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 3.0999999940395355,
+      "medianRenderFrame": 31.900000005960464,
+      "medianSelection": 0.30000001192092896,
+      "medianSelectionFrame": 33.30000001192093,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 70196,
+      "counts": {
+        "elements": 321,
+        "paragraphs": 120,
+        "comments": 0,
+        "visible": 11
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "count": 60,
+      "samples": [
+        {
+          "render": 10.800000011920929,
+          "renderFrame": 32.20000001788139,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.400000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.400000005960464,
+          "renderFrame": 32.10000002384186,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.29999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 13.099999994039536,
+          "renderFrame": 32.400000005960464,
+          "selection": 0.4000000059604645,
+          "selectionFrame": 32.79999998211861,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.700000017881393,
+          "renderFrame": 32.10000002384186,
+          "selection": 0.3999999761581421,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 14.099999994039536,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.599999994039536,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 9.399999976158142,
+          "renderFrame": 32.599999994039536,
+          "selection": 0.30000001192092896,
+          "selectionFrame": 32.900000005960464,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        },
+        {
+          "render": 10.400000005960464,
+          "renderFrame": 31.900000005960464,
+          "selection": 0.29999998211860657,
+          "selectionFrame": 33.5,
+          "selectedMutations": 1,
+          "selectedDocumentMutations": 0
+        }
+      ],
+      "medianRender": 10.700000017881393,
+      "medianRenderFrame": 32.10000002384186,
+      "medianSelection": 0.29999998211860657,
+      "medianSelectionFrame": 33.400000005960464,
+      "medianSelectionMutations": 1,
+      "medianSelectionDocumentMutations": 0,
+      "sampledRetainedJsBytes": 63648,
+      "counts": {
+        "elements": 1280,
+        "paragraphs": 120,
+        "comments": 60,
+        "visible": 27
+      }
+    }
+  ]
+}

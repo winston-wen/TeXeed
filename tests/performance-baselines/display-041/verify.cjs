@@ -1,0 +1,8 @@
+'use strict';
+const fs=require('fs'),path=require('path'),cp=require('child_process'),crypto=require('crypto');
+const root=path.resolve(__dirname,'../../..'),proto=path.join(root,'prototypes/ai-chat-v02'),frozen=path.join(root,'tests/performance-baselines/display-041/frozen-before'),baselineOnly=process.argv.includes('--baseline-only'),frozenBaseline=process.argv.includes('--frozen-baseline'),sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+for(const [file,fixture] of [['results.json','compare.cjs'],['allocation-results.json','allocation.cjs']]){const result=JSON.parse(fs.readFileSync(path.join(__dirname,file),'utf8'));
+if(result.fixtureSha256!==sha(fs.readFileSync(path.join(__dirname,fixture))))throw Error('fixture mismatch: '+fixture);
+for(const [mode,entries] of Object.entries(result.resources))for(const [name,expected] of Object.entries(entries)){if(mode==='after'&&baselineOnly)continue;let bytes;if(mode==='before'){if(frozenBaseline)bytes=fs.readFileSync(path.join(frozen,name));else try{bytes=cp.execFileSync('git',['show',result.baseline+':prototypes/ai-chat-v02/'+name],{cwd:root,maxBuffer:48*1024*1024,stdio:['ignore','pipe','ignore']})}catch{bytes=fs.readFileSync(path.join(frozen,name))}}else bytes=fs.readFileSync(path.join(proto,name));if(sha(bytes)!==expected)throw Error('resource differs: '+mode+'/'+name);}
+if(result.measurements.length!==12||(fixture==='compare.cjs'&&result.measurements.some(x=>x.samples.length!==7)))throw Error('incomplete measurement samples');}
+console.log(baselineOnly?'Baseline resources, fixture and sample counts verified; measured after resources were not checked.':'Mentor comment UI comparison fixture, historical resources and measured output verified.');

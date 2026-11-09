@@ -16,6 +16,21 @@ internal static partial class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Contains("--ai-document-context-only"))
+        {
+            try { CheckAiDocumentContext(); return 0; }
+            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+        }
+        if (args.Contains("--ai-mentor-protocol-only"))
+        {
+            try
+            {
+                CheckAiMentorProtocol((ok, message) => { if (!ok) throw new InvalidOperationException(message); });
+                Console.WriteLine("Mentor prompt, document patches and discussion anchors verified.");
+                return 0;
+            }
+            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+        }
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
         var outputArgument = Array.IndexOf(args, "--output");
         var output = outputArgument >= 0 && outputArgument + 1 < args.Length
@@ -29,7 +44,28 @@ internal static partial class Program
             || expectedAiHome.StartsWith(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TeXeed") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("UI tests require an isolated AI credentials directory.");
         Console.WriteLine("Isolated test AI home: " + expectedAiHome);
+        if (args.Contains("--ai-document-resource-versions-only"))
+        {
+            try { CheckAiDocumentResourceVersionsAsync(output).GetAwaiter().GetResult(); return 0; }
+            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+        }
+        if (args.Contains("--ai-document-assets-only"))
+        {
+            try { CheckAiDocumentAssets(output); return 0; }
+            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+        }
+        if (args.Contains("--ai-shared-document-only"))
+        {
+            try { CheckAiSharedDocumentAsync(output).GetAwaiter().GetResult(); return 0; }
+            catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+        }
         File.WriteAllText(Path.Combine(config, "settings.json"), JsonSerializer.Serialize(new AppSettings { LivePreview = false }));
+        if (args.Contains("--ai-document-assets-integration-only"))
+            return RunAiDocumentAssetsIntegration(output);
+        if (args.Contains("--ai-full-document-perf-only"))
+            return RunAiFullDocumentPerformance(output);
+        if (args.Contains("--ai-mentor-integration-only"))
+            return RunAiMentorIntegration(output);
         var result = 1;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });

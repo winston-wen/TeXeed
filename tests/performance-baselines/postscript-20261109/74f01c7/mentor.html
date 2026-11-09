@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TeXeed · 共同文稿</title>
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="mentor.css">
+</head>
+<body>
+<div class="app">
+  <header class="workspace-bar">
+    <span class="app-name">AI</span>
+    <select id="mentor-session-list" class="workspace-tab session-list" aria-label="选择会话"><option>与导师共同研究</option></select>
+    <button id="mentor-session-new" class="session-new" type="button" aria-label="新建会话" title="新建会话">＋</button>
+    <span class="workspace-spacer"></span>
+    <span id="mentor-demo" class="demo-badge">模拟演示 · 未连接 AI</span>
+  </header>
+  <main class="workspace">
+    <div class="document-toolbar" aria-label="文稿工具">
+      <span class="toolbar-label">共同文稿</span>
+      <button id="mentor-source-toggle" type="button" aria-pressed="false">LaTeX 源码</button>
+      <button id="mentor-history-toggle" type="button" aria-expanded="false">版本</button>
+      <button id="mentor-version-save" type="button">保存版本</button>
+      <span class="toolbar-spacer"></span>
+      <button id="mentor-search-open" type="button" title="搜索文稿 · Ctrl+G">搜索</button>
+      <button id="mentor-comment-add" type="button">评论选区</button>
+      <button id="mentor-comments-toggle" type="button" aria-expanded="true">评论</button>
+    </div>
+    <div class="work-area">
+      <section class="document-pane" aria-label="共同文稿">
+        <div class="document-scroll">
+          <div id="mentor-empty" class="document-empty">
+            <div class="empty-mark" aria-hidden="true">✳</div>
+            <h1>从一个问题开始</h1>
+            <p>写下你的问题，导师的初稿会出现在这里。<br>随后可以一起修改、讨论和补充。</p>
+            <button id="mentor-example" class="example-button" type="button">填入示例问题</button>
+          </div>
+          <div id="mentor-initial-question" class="initial-question" hidden></div>
+          <article id="mentor-document" class="mentor-document" aria-label="可编辑文稿"></article>
+          <textarea id="mentor-source-view" class="source-view" aria-label="LaTeX 源码" spellcheck="false" hidden></textarea>
+        </div>
+      </section>
+      <aside id="mentor-comments" class="comments-pane" aria-label="文稿评论">
+        <div class="comments-heading"><span>评论</span></div>
+        <div id="mentor-comment-list" class="comments-list"><p class="comments-empty">选中文稿中的文字，就可以开始讨论。</p></div>
+      </aside>
+      <section id="mentor-history-list" class="history-panel" aria-label="版本历史" hidden></section>
+    </div>
+    <div id="mentor-status" class="status-line" role="status" aria-live="polite"></div>
+    <section class="composer-pane" aria-label="提问与讨论">
+      <div class="composer-input">
+        <div class="line-numbers" aria-hidden="true">1<br>2<br>3</div>
+        <textarea id="mentor-prompt" rows="3" aria-label="输入问题" placeholder="提出一个问题，或者告诉导师你想讨论什么…"></textarea>
+      </div>
+      <div class="composer-controls">
+        <button class="tool-icon" type="button" aria-label="添加附件" disabled>＋</button>
+        <select id="mentor-last-mode" aria-label="末轮批注携带方式"><option value="none">末轮：不选</option><option value="long">末轮：长期</option><option value="temporary" selected>末轮：临时</option></select>
+        <button id="mentor-carry-open" class="carry-open" type="button">携带轮次</button>
+        <span class="composer-spacer"></span>
+        <span class="composer-hint">Ctrl + Enter 发送</span>
+        <button id="mentor-send" class="send-button" type="button" aria-label="发送问题" title="发送问题 · Ctrl+Enter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5 M6 11l6-6 6 6"/></svg></button>
+      </div>
+    </section>
+  </main>
+</div>
+<dialog id="mentor-comment-dialog" class="mentor-dialog" aria-labelledby="mentor-comment-title">
+  <div class="dialog-header"><h2 id="mentor-comment-title">评论所选文字</h2><button id="mentor-comment-cancel" class="dialog-close" type="button" aria-label="关闭">×</button></div>
+  <blockquote id="mentor-comment-quote"></blockquote>
+  <textarea id="mentor-comment-input" rows="4" placeholder="写下你的问题或想法" aria-label="评论内容"></textarea>
+  <div class="dialog-actions"><button id="mentor-comment-save" class="primary-action" type="button">保存评论</button></div>
+</dialog>
+<dialog id="mentor-carry-dialog" class="mentor-dialog carry-dialog" aria-labelledby="mentor-carry-title">
+  <div class="dialog-header"><h2 id="mentor-carry-title">选择携带的轮次</h2><button id="mentor-carry-close" class="dialog-close" type="button" aria-label="关闭">×</button></div>
+  <div id="mentor-carry-list" class="carry-list"></div>
+</dialog>
+<dialog id="mentor-search-dialog" class="mentor-dialog search-dialog" aria-labelledby="mentor-search-title">
+  <div class="dialog-header"><h2 id="mentor-search-title">搜索文稿</h2><button id="mentor-search-close" class="dialog-close" type="button" aria-label="关闭">×</button></div>
+  <div class="search-controls"><input id="mentor-search-input" type="search" aria-label="搜索文稿" placeholder="搜索当前文稿"><button id="mentor-search-enhanced" type="button" aria-pressed="false">增强搜索：关</button></div>
+  <p class="search-caption">增强搜索为本地模拟，未调用模型。</p>
+  <div id="mentor-search-results" class="search-results" aria-live="polite"></div>
+</dialog>
+<script src="vendor/katex/katex.min.js"></script>
+<script src="mentor-core.js"></script>
+</body>
+</html>
