@@ -1,0 +1,183 @@
+{
+  "fixture": "WPF 900x700; synthetic 1000-line compiler failure; alternating final character",
+  "version": "after",
+  "samples": [
+    {
+      "elapsedMs": 0.0579,
+      "allocatedBytes": 133192,
+      "idleMs": 0.0179,
+      "idleBytes": 1296,
+      "adjustedMs": 0.04,
+      "adjustedBytes": 131896
+    },
+    {
+      "elapsedMs": 0.063,
+      "allocatedBytes": 133192,
+      "idleMs": 0.0199,
+      "idleBytes": 1296,
+      "adjustedMs": 0.0431,
+      "adjustedBytes": 131896
+    },
+    {
+      "elapsedMs": 0.0579,
+      "allocatedBytes": 133192,
+      "idleMs": 0.0179,
+      "idleBytes": 1296,
+      "adjustedMs": 0.04,
+      "adjustedBytes": 131896
+    },
+    {
+      "elapsedMs": 0.0535,
+      "allocatedBytes": 133192,
+      "idleMs": 0.0182,
+      "idleBytes": 1296,
+      "adjustedMs": 0.0353,
+      "adjustedBytes": 131896
+    },
+    {
+      "elapsedMs": 0.0752,
+      "allocatedBytes": 133192,
+      "idleMs": 0.0282,
+      "idleBytes": 1296,
+      "adjustedMs": 0.047,
+      "adjustedBytes": 131896
+    },
+    {
+      "elapsedMs": 0.0684,
+      "allocatedBytes": 133192,
+      "idleMs": 0.023,
+      "idleBytes": 1296,
+      "adjustedMs": 0.0454,
+      "adjustedBytes": 131896
+    },
+    {
+      "elapsedMs": 0.0708,
+      "allocatedBytes": 133192,
+      "idleMs": 0.0293,
+      "idleBytes": 1296,
+      "adjustedMs": 0.0415,
+      "adjustedBytes": 131896
+    }
+  ],
+  "controls": 9,
+  "pdfHeight": 566.63,
+  "logLength": 65889,
+  "expandSamples": [
+    {
+      "elapsedMs": 70.0613,
+      "allocatedBytes": 4160912,
+      "idleMs": 0.0489,
+      "idleBytes": 1296,
+      "adjustedMs": 70.0124,
+      "adjustedBytes": 4159616
+    },
+    {
+      "elapsedMs": 69.0544,
+      "allocatedBytes": 4161120,
+      "idleMs": 0.0191,
+      "idleBytes": 1296,
+      "adjustedMs": 69.0353,
+      "adjustedBytes": 4159824
+    },
+    {
+      "elapsedMs": 78.8833,
+      "allocatedBytes": 4176088,
+      "idleMs": 0.0374,
+      "idleBytes": 1296,
+      "adjustedMs": 78.8459,
+      "adjustedBytes": 4174792
+    },
+    {
+      "elapsedMs": 71.3069,
+      "allocatedBytes": 4160272,
+      "idleMs": 0.0188,
+      "idleBytes": 1296,
+      "adjustedMs": 71.2881,
+      "adjustedBytes": 4158976
+    },
+    {
+      "elapsedMs": 64.2726,
+      "allocatedBytes": 4160856,
+      "idleMs": 0.0188,
+      "idleBytes": 1296,
+      "adjustedMs": 64.2538,
+      "adjustedBytes": 4159560
+    },
+    {
+      "elapsedMs": 67.8392,
+      "allocatedBytes": 4161336,
+      "idleMs": 0.0201,
+      "idleBytes": 1296,
+      "adjustedMs": 67.8191,
+      "adjustedBytes": 4160040
+    },
+    {
+      "elapsedMs": 102.7497,
+      "allocatedBytes": 4177760,
+      "idleMs": 0.0189,
+      "idleBytes": 1296,
+      "adjustedMs": 102.7308,
+      "adjustedBytes": 4176464
+    }
+  ],
+  "collapseSamples": [
+    {
+      "elapsedMs": 1.2427,
+      "allocatedBytes": 41536,
+      "idleMs": 0.0189,
+      "idleBytes": 1296,
+      "adjustedMs": 1.2238,
+      "adjustedBytes": 40240
+    },
+    {
+      "elapsedMs": 1.5327,
+      "allocatedBytes": 41544,
+      "idleMs": 0.0325,
+      "idleBytes": 1296,
+      "adjustedMs": 1.5002,
+      "adjustedBytes": 40248
+    },
+    {
+      "elapsedMs": 1.4227,
+      "allocatedBytes": 41528,
+      "idleMs": 0.0228,
+      "idleBytes": 1296,
+      "adjustedMs": 1.3999000000000001,
+      "adjustedBytes": 40232
+    },
+    {
+      "elapsedMs": 1.1986,
+      "allocatedBytes": 41536,
+      "idleMs": 0.0193,
+      "idleBytes": 1296,
+      "adjustedMs": 1.1793,
+      "adjustedBytes": 40240
+    },
+    {
+      "elapsedMs": 1.375,
+      "allocatedBytes": 41544,
+      "idleMs": 0.0188,
+      "idleBytes": 1296,
+      "adjustedMs": 1.3562,
+      "adjustedBytes": 40248
+    },
+    {
+      "elapsedMs": 1.4024,
+      "allocatedBytes": 41552,
+      "idleMs": 0.0188,
+      "idleBytes": 1296,
+      "adjustedMs": 1.3836000000000002,
+      "adjustedBytes": 40256
+    },
+    {
+      "elapsedMs": 2.8289,
+      "allocatedBytes": 41520,
+      "idleMs": 0.1327,
+      "idleBytes": 1296,
+      "adjustedMs": 2.6962,
+      "adjustedBytes": 40224
+    }
+  ],
+  "expandedControls": 15,
+  "expandedHeight": 394.34000000000003
+}

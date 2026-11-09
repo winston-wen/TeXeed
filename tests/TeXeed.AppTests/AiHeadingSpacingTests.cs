@@ -59,20 +59,6 @@ internal static partial class Program
             if (enforce && Math.Abs(gaps["activity_to_body"] - gaps["body_to_check"] - 17) > .5)
                 throw new Exception("The answer divider does not have the expected height and margins.");
             Capture(host, Path.Combine(output, "gray-spacing.png"));
-            var linked = turn with { Prompt = "", SentAnnotations = [new() { Number = 1, Question = "合成圈点说明" }] };
-            view.Turn = linked; host.UpdateLayout();
-            await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-            var linkedSent = Descendants<TextBlock>(view).Single(t => t.Text == linked.SentTime);
-            var lastQuestion = Descendants<MarkdownView>(view).Where(v => !v.ChatMode).SelectMany(Baselines).Max();
-            var linkedGap = Baselines(linkedSent).Min() - lastQuestion;
-            Console.WriteLine($"Annotation-only question to sent: {linkedGap:F3}");
-            if (enforce && Math.Abs(linkedGap - gaps["body_to_check"]) > .5) throw new Exception("Annotation-only question has different metadata spacing.");
-            var hanging = Descendants<TextBlock>(view).Single(t => t.Text == "[6]");
-            var questionInk = Descendants<MarkdownView>(view).Where(v => !v.ChatMode).SelectMany(v => GlyphInk(v, view)).ToArray();
-            var firstLine = questionInk.Where(i => Math.Abs(i.Baseline - questionInk.Min(g => g.Baseline)) < 1).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
-            var ordinalInk = GlyphInk(hanging, view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
-            if (enforce && Math.Abs(firstLine.Top + firstLine.Height / 2 - ordinalInk.Top - ordinalInk.Height / 2) > .5) throw new Exception("Annotation-only question ordinal ink axis differs from its first line.");
-            Capture(host, Path.Combine(output, "gray-annotation-spacing.png"));
         }
         finally { host.Close(); }
     }

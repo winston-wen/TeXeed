@@ -7,6 +7,12 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
+    private static IEnumerable<T> AnnotationVisuals<T>(System.Windows.DependencyObject root) where T : System.Windows.DependencyObject
+    {
+        if (root is T match) yield return match;
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+            foreach (var child in AnnotationVisuals<T>(System.Windows.Media.VisualTreeHelper.GetChild(root, i))) yield return child;
+    }
     private static async Task AwaitMathAsync(FrameworkElement root)
     {
         root.UpdateLayout();

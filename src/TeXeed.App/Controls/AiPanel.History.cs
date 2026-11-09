@@ -66,17 +66,14 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
-        ClearBookmarkMarkers();
-        _bookmarkCache.Clear();
         _autoScroll.Stop();
-        RestoreBookmarkBallPosition();
         _restoringReading = true;
         _updating = true;
         Composer.Text = _book.Draft;
         _updating = false;
         SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
-        Rebind(); RefreshTranscript(); RefreshBookmarkMarkers();
+        RefreshTranscript();
         BindSharedDocument();
         UpdateRecoveryWarning();
         StatusText.Text = "";

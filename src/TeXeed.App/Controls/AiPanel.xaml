@@ -38,7 +38,7 @@
     <ItemsControl.Template><ControlTemplate TargetType="ItemsControl"><ScrollViewer x:Name="MessagesScroll" CanContentScroll="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" PreviewMouseWheel="MessagesScroll_Wheel"><ItemsPresenter/></ScrollViewer></ControlTemplate></ItemsControl.Template>
     <ItemsControl.ItemsPanel><ItemsPanelTemplate><local:ChatVirtualizingPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
     <ItemsControl.Resources><DataTemplate DataType="{x:Type ai:AiTurn}"><local:AiTurnView Turn="{Binding}" Loaded="Turn_Loaded" Margin="12,0,0,30"/></DataTemplate></ItemsControl.Resources>
-    <StackPanel x:Name="EmptyConversation" Margin="24,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
+    <StackPanel x:Name="EmptyConversation" Margin="24,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/></StackPanel>
     <StackPanel x:Name="LiveContainer" Visibility="Collapsed" Margin="12,8,0,30">
      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock x:Name="LiveTurnNumber" FontSize="16" Foreground="{DynamicResource ChatHeading}" Margin="-40,8,10,0" HorizontalAlignment="Right" VerticalAlignment="Top"/><local:MarkdownView x:Name="LiveQuestion" Grid.Column="1" Margin="-5,8,12,0" Padding="0" UseWavyEmphasis="True"/></Grid>
      <TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontSize="13" TextWrapping="Wrap" LineHeight="26.5" LineStackingStrategy="BlockLineHeight" Margin="36,0,4,0"/>
@@ -64,12 +64,11 @@
     <Thumb x:Name="ComposerResize" Grid.Row="0" VerticalAlignment="Top" Height="4" Cursor="SizeNS" DragDelta="ComposerResize_DragDelta" AutomationProperties.Name="调整编辑栏高度"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template></Thumb>
     <Border Grid.Row="1" BorderThickness="0" Margin="0" Padding="11,4,11,11" x:Name="ComposerToolbar" TextElement.FontSize="13" TextElement.Foreground="{DynamicResource Muted}">
      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <Button x:Name="AddButton" Click="Options_Click" Style="{StaticResource ComposerIcon}" ToolTip="添加圈点与对话操作" Margin="0,0,8,0" AutomationProperties.Name="添加圈点与对话操作">
+      <Button x:Name="AddButton" Click="Options_Click" Style="{StaticResource ComposerIcon}" ToolTip="对话操作" Margin="0,0,8,0" AutomationProperties.Name="对话操作">
        <Path Data="M 8,1 V 15 M 1,8 H 15" Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-       <Button.ContextMenu><ContextMenu><MenuItem Header="添加圈点说明" Click="Add_Click"/><MenuItem Header="全选圈点" Click="SelectAll_Click"/><MenuItem Header="清理已完成圈点" Click="ClearDone_Click"/><Separator/><MenuItem Header="刷新模型" Click="RefreshModels_Click"/><MenuItem Header="AI 设置" Click="Settings_Click"/></ContextMenu></Button.ContextMenu>
+       <Button.ContextMenu><ContextMenu><MenuItem Header="刷新模型" Click="RefreshModels_Click"/><MenuItem Header="AI 设置" Click="Settings_Click"/></ContextMenu></Button.ContextMenu>
       </Button>
       <ComboBox x:Name="PermissionPicker" Style="{StaticResource ComposerChoice}" Grid.Column="1" SelectionChanged="Permission_Changed" AutomationProperties.Name="会话权限"/>
-      <Button x:Name="EntriesButton" Height="24" FontSize="13" Grid.Column="2" Content="圈点 · 0" Click="Entries_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,0" Padding="5,0" BorderThickness="0" Foreground="{DynamicResource Muted}"/>
       <Grid x:Name="ModelControls" Grid.Column="3" VerticalAlignment="Center"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBlock x:Name="ContextUsageText" Text="—" FontSize="11" Foreground="{DynamicResource Muted}" Margin="8,0,7,0" VerticalAlignment="Center" AutomationProperties.Name="上下文使用百分比"/>
        <ComboBox x:Name="ModelPicker" Style="{StaticResource ComposerChoice}" Grid.Column="1" SelectionChanged="ChatModel_Changed" ToolTip="选择模型" AutomationProperties.Name="AI 对话模型" MinWidth="90" MaxWidth="190"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
@@ -83,24 +82,6 @@
     </Border>
    </Grid>
   </Border>
-  <Popup x:Name="EntriesPopup" PlacementTarget="{Binding ElementName=EntriesButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True"><Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}" BorderThickness="1" CornerRadius="10" Padding="12" Width="430"><StackPanel><Button Content="完成" Click="CloseEntries_Click" HorizontalAlignment="Right"/>
-    <Expander x:Name="ContextExpander" Header="圈点与问题条目" IsExpanded="True" Visibility="Collapsed">
-     <ScrollViewer x:Name="ContextScroll" MaxHeight="170" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <ItemsControl x:Name="Entries"><ItemsControl.ItemTemplate><DataTemplate>
-       <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="2,4" Margin="0,0,0,4"><StackPanel>
-        <DockPanel><Button DockPanel.Dock="Right" Content="×" Padding="6,0" Click="Remove_Click" ToolTip="移除此条目"/><CheckBox IsChecked="{Binding Selected, Mode=TwoWay}" Click="Entry_Changed" VerticalAlignment="Center"/><TextBlock Text="{Binding DisplayTitle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Title}"/></DockPanel>
-        <Expander Header="查看上下文"><StackPanel>
-         <TextBlock Text="{Binding AnswerAnchor.Quote}" TextWrapping="Wrap" MaxHeight="140"/>
-         <ItemsControl ItemsSource="{Binding Sources}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding File}" TextWrapping="Wrap"/><TextBox Text="{Binding Text, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="140" VerticalScrollBarVisibility="Auto"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-         <ItemsControl ItemsSource="{Binding PdfBlocks}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Page, StringFormat=PDF 第 {0} 页}"/><Image Loaded="Thumbnail_Loaded" Stretch="Uniform" MaxHeight="140"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-         <TextBlock Text="{Binding State}" Foreground="{DynamicResource Muted}"/>
-        </StackPanel></Expander>
-        <TextBox Text="{Binding Question, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="Question_Changed" PreviewKeyDown="Entry_KeyDown" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" AcceptsTab="True" MaxHeight="140" ToolTip="对此处的单独说明（可留空，使用下方统一问题）"/>
-       </StackPanel></Border>
-      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-     </ScrollViewer>
-    </Expander>
-  </StackPanel></Border></Popup>
 
  </Grid>
 </UserControl>

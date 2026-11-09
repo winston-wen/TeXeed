@@ -34,8 +34,10 @@ internal static partial class Program
         Check(ReferenceEquals(((Menu)window.FindName("MainMenu")).Items.Cast<object>().Last(), menu), "AI must be the final main menu");
         Check(menu.Items.OfType<MenuItem>().Select(i=>i.Header.ToString()).SequenceEqual(new[]{"AI 对话","AI 设置","AI 历史"}), "AI submenu layout differs"); Invoke(window,"OpenAiTab"); window.UpdateLayout();
         var aiKey = TabWorkspace.AiConversationKey(ai.ConversationId);
-        Check(tabs.Owner(aiKey) == TabSide.Right && ai.IsVisible, "AI button did not open right AI tab");
-        Check(!tabs.Sources.Contains(aiKey), "AI tab treated as source file");
+        var sourceKey = TabWorkspace.AiSourceKey(ai.ConversationId);
+        var pdfKey = TabWorkspace.AiPreviewKey(ai.ConversationId);
+        Check(tabs.Owner(aiKey) == TabSide.Right && tabs.Owner(sourceKey) == TabSide.Left && tabs.Owner(pdfKey) == TabSide.Right && ai.IsVisible, "AI button did not open the session comments, source and PDF views");
+        Check(!tabs.Sources.Contains(aiKey) && !tabs.Sources.Contains(sourceKey) && !tabs.Sources.Contains(pdfKey), "AI session views treated as project source files");
         var composer = (TextBox)ai.FindName("Composer");
         composer.Focus(); window.UpdateLayout();
         Check(composer.VerticalContentAlignment == VerticalAlignment.Top && composer.GetRectFromCharacterIndex(0).Top < 18, "Composer caret must begin near the top padding");
@@ -55,15 +57,9 @@ internal static partial class Program
         Invoke(window, "MoveWorkspaceTab", aiKey, TabSide.Left, 0, false); window.UpdateLayout();
         Check(tabs.Owner(aiKey) == TabSide.Left && ai.IsVisible, "AI tab did not move left");
 
-        editor.Select(0, 14); var text = editor.SelectedText;
-        Invoke(window, "CollectSourceForAi", editor); window.UpdateLayout();
-        var book = (AiNotebook)Field(ai, "_book")!;
-        Check(book.Entries.Count == 1 && book.Entries[0].Sources.Single().Text == text, "Source snapshot differs from selected text");
-        Check(editor.ContextMenu.Items.OfType<MenuItem>().Count() >= 12, "Editor context menu missing edit commands");
-        book.Entries[0].Question = "解释这一行"; await ai.SaveAsync();
         var project = (TexProject)Field(window, "_project")!;
-        var restored = AiStorage.Load(project.MainPath); Check(restored.Entries.Single().Question == "解释这一行", "Project AI notebook did not persist");
-        Check(AiStorage.NotebookPath(project.MainPath) != AiStorage.NotebookPath(project.MainPath + "x"), "Project notebook isolation failed");
+        var restored = AiStorage.Load(project.MainPath);
+        var book = (AiNotebook)Field(ai, "_book")!;
         var credentials = new AiCredentials { ApiKey = "test-key-never-send", UseApiKey = true }; credentials.Save();
         Check(AiCredentials.Load().ApiKey == credentials.ApiKey && !Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(AiStorage.Home, "credentials.dpapi"))).Contains(credentials.ApiKey), "DPAPI secret storage failed");
         var identity = MakeTestIdentity();
@@ -101,7 +97,8 @@ internal static partial class Program
         var batchHandler = new AiFakeHandler();
         using (var batchPanel = new AiPanel(new AiConnection(batchHandler)))
         {
-            await batchPanel.SetProjectAsync(Path.Combine(output, "batch-fixture.tex")); batchPanel.ProjectFiles = () => files;
+            var batchProject = Path.Combine(output, "batch-fixture-" + Guid.NewGuid().ToString("N") + ".tex");
+            await batchPanel.SetProjectAsync(batchProject); batchPanel.ProjectFiles = () => files;
             var modelBox = (ComboBox)batchPanel.Settings.FindName("Models");
             var testModels = new[] { new AiModel("test-model", "测试模型") { ReasoningEfforts = ["low", "high"] }, new AiModel("second-model", "第二个模型") { ReasoningEfforts = ["low", "high"] } };
             modelBox.ItemsSource = testModels; modelBox.SelectedIndex = 0;
@@ -115,22 +112,17 @@ internal static partial class Program
             await batchPanel.Settings.SaveSelectionAsync(CancellationToken.None);
             Check(batchPanel.Settings.SelectedModel?.Id == "second-model" && batchPanel.Settings.SelectedEffort == "high", "Chat choices did not update settings");
             Check(AiCredentials.Load().Model == "second-model" && AiCredentials.Load().ReasoningEffort == "high", "Selected model/effort did not persist");
-            var first = new AiEntry { Question = "第一问" }; var second = new AiEntry { Question = "第二问" }; var skip = new AiEntry { Question = "不发送", Selected = false };
-            batchPanel.AddEntry(first); batchPanel.AddEntry(second); batchPanel.AddEntry(skip); await batchPanel.SubmitAsync();
-            Check(first.State == "已完成" && second.State == "已完成" && skip.State == "待提交", "Batch submission did not honor selected entries");
             var batchBook = (AiNotebook)Field(batchPanel, "_book")!;
-            Check(batchBook.Turns.Count == 1 && batchBook.Turns[0].Question.Contains("第一问") && batchBook.Turns[0].Question.Contains("第二问") && !batchBook.Turns[0].Question.Contains("不发送"), "Batch history mixed unselected questions");
-            Check(batchHandler.LastModel == "second-model" && batchHandler.LastEffort == "high", "Actual Responses request ignored model or reasoning selection");
             var firstId = batchBook.Active.Id;
+            batchBook.Turns.Add(new("第一问", "回答"));
             var firstTurnId = batchBook.Turns[0].Id;
             ((TextBox)batchPanel.FindName("Composer")).Text = "草稿 A";
             await batchPanel.NewConversationAsync();
             var secondId = batchBook.Active.Id;
             Check(secondId != firstId && batchBook.Turns.Count == 0 && batchBook.Entries.Count == 0, "New conversation inherited messages/context");
             ((TextBox)batchPanel.FindName("Composer")).Text = "草稿 B";
-            batchPanel.AddEntry(new AiEntry { Title = "B 的圈点" });
             await batchPanel.SelectConversationAsync(firstId);
-            Check(((TextBox)batchPanel.FindName("Composer")).Text == "草稿 A" && batchBook.Entries.Count == 1, "Switching conversation lost its draft/context");
+            Check(((TextBox)batchPanel.FindName("Composer")).Text == "草稿 A", "Switching conversation lost its draft/context");
             Check(AiHistoryPage.Search(batchBook, "第一问").Single().Id == firstId, "History search did not find question text");
             batchBook.Turns.Add(new("问题 C", "可搜索的回答关键词"));
             Check(AiHistoryPage.Search(batchBook, "回答关键词").Single().Id == firstId, "History search did not find answer text");
@@ -138,7 +130,7 @@ internal static partial class Program
             Check(!batchBook.Turns.Any(t => t.Id == firstTurnId) && batchBook.Turns.Count == 1, "Deleting a message removed the wrong turns");
             await batchPanel.DeleteConversationAsync(firstId);
             Check(batchBook.Active.Id == secondId && batchBook.Conversations.Count == 1 && ((TextBox)batchPanel.FindName("Composer")).Text == "草稿 B", "Deleting active conversation did not restore another conversation");
-            var savedHistory = AiStorage.Load(Path.Combine(output, "batch-fixture.tex"));
+            var savedHistory = AiStorage.Load(batchProject);
             Check(savedHistory.Conversations.Count == 1 && savedHistory.Active.Id == secondId && savedHistory.Draft == "草稿 B", "Conversation deletion did not persist");
             await batchPanel.DeleteConversationAsync(secondId);
             Check(batchBook.Conversations.Count == 1 && batchBook.Turns.Count == 0 && batchBook.Active.Id != secondId, "Deleting last conversation must yield a fresh empty chat");
@@ -147,7 +139,7 @@ internal static partial class Program
         var legacyPath = AiStorage.NotebookPath(legacyProject); Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);
         File.WriteAllText(legacyPath, JsonSerializer.Serialize(new { Entries = restored.Entries, Turns = new[] { new { Question = "[a6eb2178] 原来的问题", Answer = "原来的回答" } }, Draft = "原来的草稿" }));
         var migrated = AiStorage.Load(legacyProject);
-        Check(migrated.Conversations.Count == 1 && migrated.Turns.Single().Answer == "原来的回答" && migrated.Draft == "原来的草稿" && migrated.Entries.Count == 1, "Legacy conversation migration lost data");
+        Check(migrated.Conversations.Count == 1 && migrated.Turns.Single().Answer == "原来的回答" && migrated.Draft == "原来的草稿", "Legacy conversation migration lost data");
         Check(migrated.Turns.Single().DisplayQuestion == "原来的问题", "Legacy internal ID prefix leaked into displayed message");
         var emptyLegacy = new AiTurn("旧的空回答问题", "");
         Check(emptyLegacy.DisplayAnswer.Contains("未保存回答"), "Legacy empty answer is not explained to the user");
@@ -157,15 +149,6 @@ internal static partial class Program
         AiStorage.Save(legacyProject, migrated.Snapshot());
         using (var migratedJson = JsonDocument.Parse(File.ReadAllText(legacyPath)))
             Check(migratedJson.RootElement.TryGetProperty("Conversations", out _) && !migratedJson.RootElement.TryGetProperty("Entries", out _), "History schema duplicates media at notebook root");
-        using (var failedPanel = new AiPanel(new AiConnection(new AiFakeHandler { ProgramFailure = true })))
-        {
-            await failedPanel.SetProjectAsync(Path.Combine(output, "failure-fixture.tex")); failedPanel.ProjectFiles = () => files;
-            var models = (ComboBox)failedPanel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
-            var entry = new AiEntry { Question = "保留待重试" }; failedPanel.AddEntry(entry); await failedPanel.SubmitAsync();
-            Check(entry.Selected && entry.State == "未完成，可重试", "Failed batch lost selection or marked successful");
-            var failedBook = AiStorage.Load(Path.Combine(output, "failure-fixture.tex"));
-            Check(failedPanel.AnnotationEntries.Count == 0 && failedBook.Entries.Count == 0 && failedBook.Turns.Single().SentAnnotations.Single().Id == entry.Id, "Failed response left an already submitted circle in the composer or lost its snapshot");
-        }
         var switched = false;
         using (var changedConnection = new AiConnection(new AiFakeHandler { SwitchAccount = true }))
         {
@@ -178,40 +161,6 @@ internal static partial class Program
         Check(bands.Count == 2 && bands[0].Top == 70 && bands[0].Height == 30 && bands[1].Top == 300 && bands[1].Height == 30, "Compressed PDF gap incorrectly included in selection");
         var preview = (PdfPreview)window.FindName("Preview"); Invoke(window, "SelectWorkspaceTab", tabs.Owner(TabWorkspace.PreviewKey)!.Value, TabWorkspace.PreviewKey);
         var pdf = Path.Combine(output, "ai-preview.pdf"); WriteThemePdf(pdf); preview.SetCropOptions(false, false); await preview.LoadAsync(pdf); window.UpdateLayout();
-        preview.BeginAiSelection();
-        var layouts = ((System.Collections.IEnumerable)Field(preview, "_layouts")!).Cast<object>().ToArray();
-        var top0 = (double)layouts[0].GetType().GetProperty("Top")!.GetValue(layouts[0])!; var top1 = (double)layouts[1].GetType().GetProperty("Top")!.GetValue(layouts[1])!;
-        var left0 = (double)layouts[0].GetType().GetProperty("Left")!.GetValue(layouts[0])!;
-        var selection = new Rect(left0 + 30, top0 + 50, 150, top1 - top0 + 30);
-        typeof(PdfPreview).GetField("_aiSelection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(preview, selection);
-        await preview.ConfirmAiSelectionAsync(); window.UpdateLayout();
-        var pdfEntry = book.Entries.Last();
-        Check(pdfEntry.PdfBlocks.Select(b => b.Page).Distinct().SequenceEqual(new[] { 1, 2 }) && pdfEntry.PdfRevision.Length == 64, "Cross-page PDF capture did not preserve pages/revision");
-        Check(pdfEntry.PdfBlocks.All(b => b.Width > 0 && b.Height > 0 && Convert.FromBase64String(b.ImageBase64).Take(4).SequenceEqual(new byte[] { 137, 80, 78, 71 })), "PDF screenshots invalid");
-        Check(tabs.FocusedTab == TabWorkspace.PreviewKey, "PDF marking must keep the original preview visible");
-        Check(preview.IsAiSelecting && editor.IsAiMarking, "Confirming a mark must keep the toggle active");
-        var point = editor.CreateAiMark(0, 0, false);
-        Check(point.IsPoint && point.Offset == 0 && point.Length == 0, "Single click must create a source point");
-        var sentence = editor.CreateAiMark(editor.Text.IndexOf("Hello", StringComparison.Ordinal), editor.Text.IndexOf("Hello", StringComparison.Ordinal) + 3, true);
-        Check(!sentence.IsPoint && editor.Document.GetText(sentence.Offset, sentence.Length).Trim() == "Hello from TeXeed.", "Source hold/drag must select the complete sentence");
-        Invoke(window, "SetAiMarking", false);
-        Check(!editor.IsAiMarking && !preview.IsAiSelecting, "Marking toggle did not clear both views");
-        Invoke(window, "SetAiMarking", true);
-        var cursorEvent = new QueryCursorEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.QueryCursorEvent };
-        editor.TextArea.TextView.RaiseEvent(cursorEvent);
-        Check(cursorEvent.Cursor == Cursors.Help, "Circle mode must use help-select cursor over source text");
-        var rightDouble = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Right)
-        { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent };
-        typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(rightDouble, 2);
-        editor.RaiseEvent(rightDouble);
-        Check(!editor.IsAiMarking && rightDouble.Handled, "Right double-click did not leave circle mode");
-        Invoke(window, "SetAiMarking", true);
-        var escape = CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent);
-        Invoke(window, "Window_KeyDown", window, escape);
-        Check(!editor.IsAiMarking && escape.Handled, "Escape did not leave marking mode");
-        var beforePoint = book.Entries.Count;
-        Invoke(window, "CollectSourceMark", editor, point);
-        Check(book.Entries.Count == beforePoint + 1 && book.Entries.Last().IsPoint, "Source point was not immediately collected in chat composer");
         book.Active.Title = "群的单位元";
         book.Turns.Add(new("群的单位元为什么唯一？", "若 e 和 f 都是单位元，则 e = ef = f，因此单位元唯一。"));
         Invoke(ai, "RefreshTranscript");
@@ -219,8 +168,15 @@ internal static partial class Program
         mainModels.ItemsSource = new[] { new AiModel("gpt-6.1-sol", "GPT-6.1 Sol") { ReasoningEfforts = ["low", "medium", "high", "xhigh", "max"] } };
         mainModels.SelectedIndex = 0;
         await ai.Settings.SelectEffortAsync("high");
-        var search = (TextBox)ai.FindName("MessageSearchBox"); search.Text = "唯一";
-        Check(((TextBlock)ai.FindName("MessageMatchStatus")).Text == "1/1", "In-conversation search failed to find the answer");
+        var shared = book.Active.SharedDocument;
+        const string sharedSource = "\\documentclass{article}\n\\begin{document}\n单位元唯一。\n\\end{document}";
+        Check(shared.Source.Length == 0 ? shared.TryInitialize(sharedSource, "用户", "user") : shared.TryApply(shared.Revision, sharedSource, "用户"), "Could not prepare the shared-document search fixture");
+        Invoke(window, "SelectWorkspaceTab", tabs.Owner(aiKey)!.Value, aiKey);
+        ai.OpenDocumentSearch();
+        ((TextBox)Field(ai, "_documentSearchText")!).Text = "唯一";
+        await CallAsync(ai, "SearchDocumentAsync");
+        Check(((TextBlock)Field(ai, "_documentSearchStatus")!).Text == "1 / 1", "Shared-document search failed to find its source text");
+        ((Window)Field(ai, "_documentSearchWindow")!).Close();
         Capture(window, Path.Combine(output, "ai-tab.png"));
         Invoke(window,"OpenAiHistory"); window.UpdateLayout();
         var historyView = (AiHistoryView)Field(window,"_aiHistory")!;
@@ -228,8 +184,9 @@ internal static partial class Program
         Check(((ItemsControl)historyView.FindName("ConversationList")).Items.Count == 1,"History tab search failed");
         Capture(window,Path.Combine(output,"ai-history-tab.png"));
         Invoke(window, "OpenAiSettings"); window.UpdateLayout(); Capture(window, Path.Combine(output, "ai-settings.png")); Invoke(window, "OpenAiTab");
-        var context = editor.ContextMenu; context.IsOpen = true; window.UpdateLayout();
-        Check(((System.Windows.Media.SolidColorBrush)context.Background).Color != ((System.Windows.Media.SolidColorBrush)context.Foreground).Color, "Context menu foreground/background are indistinguishable"); context.IsOpen = false;
+        var context = editor.ContextMenu; context.ApplyTemplate();
+        Check(((System.Windows.Media.SolidColorBrush)context.Background).Color != ((System.Windows.Media.SolidColorBrush)context.Foreground).Color, "Context menu foreground/background are indistinguishable");
+        Invoke(window, "SelectWorkspaceTab", tabs.Owner(aiKey)!.Value, aiKey);
         await CallAsync(window, "HandleShortcutAsync", CreateKey(window, Key.F4, Keyboard.PreviewKeyDownEvent), ModifierKeys.Control);
         Check(tabs.Owner(aiKey) is null && tabs.Owner(TabWorkspace.PreviewKey) is not null, "Ctrl+F4 AI closing affected protected preview");
         Invoke(window, "OpenTitleSubmenu", menu); Check(menu.IsSubmenuOpen || menu.HasItems, "Alt+A failed to expose AI commands");

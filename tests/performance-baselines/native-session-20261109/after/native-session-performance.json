@@ -1,0 +1,1175 @@
+{
+  "fixture": "WPF 1000x800, 120 paragraphs, 0/60 comments each with one reply; PDF via xelatex",
+  "method": "two warmups and seven measurements; each action paired with an empty ApplicationIdle queue; UI-thread allocation only",
+  "limitations": "PDF zoom measures UI work through ApplicationIdle, not completion of asynchronous rasterization. Native fixture differs from historical WebView fixture.",
+  "results": [
+    {
+      "count": 0,
+      "action": "sidebar-refresh",
+      "samples": [
+        {
+          "Sync": 0.0022,
+          "Total": 0.0202,
+          "Bytes": 1744,
+          "idleMs": 0.0169,
+          "idleBytes": 1296,
+          "adjustedMs": 0.003300000000000001,
+          "adjustedBytes": 448
+        },
+        {
+          "Sync": 0.0037,
+          "Total": 0.0217,
+          "Bytes": 1744,
+          "idleMs": 0.0181,
+          "idleBytes": 1296,
+          "adjustedMs": 0.003599999999999999,
+          "adjustedBytes": 448
+        },
+        {
+          "Sync": 0.0019,
+          "Total": 0.0194,
+          "Bytes": 1744,
+          "idleMs": 0.0168,
+          "idleBytes": 1296,
+          "adjustedMs": 0.0026000000000000016,
+          "adjustedBytes": 448
+        },
+        {
+          "Sync": 0.0018,
+          "Total": 0.019,
+          "Bytes": 1744,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 0.0016000000000000007,
+          "adjustedBytes": 448
+        },
+        {
+          "Sync": 0.0017,
+          "Total": 0.0192,
+          "Bytes": 1744,
+          "idleMs": 0.0173,
+          "idleBytes": 1296,
+          "adjustedMs": 0.001899999999999999,
+          "adjustedBytes": 448
+        },
+        {
+          "Sync": 0.0016,
+          "Total": 0.0188,
+          "Bytes": 1744,
+          "idleMs": 0.0171,
+          "idleBytes": 1296,
+          "adjustedMs": 0.0017000000000000001,
+          "adjustedBytes": 448
+        },
+        {
+          "Sync": 0.0016,
+          "Total": 0.0191,
+          "Bytes": 1744,
+          "idleMs": 0.0166,
+          "idleBytes": 1296,
+          "adjustedMs": 0.0024999999999999988,
+          "adjustedBytes": 448
+        }
+      ],
+      "visibleControls": 20,
+      "clippedVisibleControls": 20,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 0,
+      "action": "source-input",
+      "samples": [
+        {
+          "Sync": 0.1494,
+          "Total": 3.5256,
+          "Bytes": 416600,
+          "idleMs": 0.0177,
+          "idleBytes": 1296,
+          "adjustedMs": 3.5079,
+          "adjustedBytes": 415304
+        },
+        {
+          "Sync": 0.1505,
+          "Total": 3.4694,
+          "Bytes": 415232,
+          "idleMs": 0.0172,
+          "idleBytes": 1296,
+          "adjustedMs": 3.4522,
+          "adjustedBytes": 413936
+        },
+        {
+          "Sync": 0.1374,
+          "Total": 3.4307,
+          "Bytes": 416600,
+          "idleMs": 0.0171,
+          "idleBytes": 1296,
+          "adjustedMs": 3.4135999999999997,
+          "adjustedBytes": 415304
+        },
+        {
+          "Sync": 0.1367,
+          "Total": 3.4476,
+          "Bytes": 415144,
+          "idleMs": 0.0172,
+          "idleBytes": 1296,
+          "adjustedMs": 3.4304,
+          "adjustedBytes": 413848
+        },
+        {
+          "Sync": 0.1372,
+          "Total": 3.377,
+          "Bytes": 416600,
+          "idleMs": 0.0182,
+          "idleBytes": 1296,
+          "adjustedMs": 3.3587999999999996,
+          "adjustedBytes": 415304
+        },
+        {
+          "Sync": 0.1446,
+          "Total": 3.3795,
+          "Bytes": 415296,
+          "idleMs": 0.0291,
+          "idleBytes": 1296,
+          "adjustedMs": 3.3504,
+          "adjustedBytes": 414000
+        },
+        {
+          "Sync": 0.1526,
+          "Total": 3.4181,
+          "Bytes": 416600,
+          "idleMs": 0.0171,
+          "idleBytes": 1296,
+          "adjustedMs": 3.401,
+          "adjustedBytes": 415304
+        }
+      ],
+      "visibleControls": 20,
+      "clippedVisibleControls": 20,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 0,
+      "action": "source-input-with-save-queue",
+      "samples": [
+        {
+          "Sync": 0.1545,
+          "Total": 3.4083,
+          "Bytes": 415736,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 3.3909000000000002,
+          "adjustedBytes": 414440
+        },
+        {
+          "Sync": 0.1543,
+          "Total": 3.489,
+          "Bytes": 417192,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 3.4716,
+          "adjustedBytes": 415896
+        },
+        {
+          "Sync": 0.1755,
+          "Total": 4.1287,
+          "Bytes": 415736,
+          "idleMs": 0.0222,
+          "idleBytes": 1296,
+          "adjustedMs": 4.1065000000000005,
+          "adjustedBytes": 414440
+        },
+        {
+          "Sync": 0.1682,
+          "Total": 4.1769,
+          "Bytes": 417192,
+          "idleMs": 0.0176,
+          "idleBytes": 1296,
+          "adjustedMs": 4.1593,
+          "adjustedBytes": 415896
+        },
+        {
+          "Sync": 0.1848,
+          "Total": 3.7033,
+          "Bytes": 416016,
+          "idleMs": 0.0177,
+          "idleBytes": 1296,
+          "adjustedMs": 3.6856,
+          "adjustedBytes": 414720
+        },
+        {
+          "Sync": 0.1812,
+          "Total": 4.6072,
+          "Bytes": 417192,
+          "idleMs": 0.0231,
+          "idleBytes": 1296,
+          "adjustedMs": 4.584099999999999,
+          "adjustedBytes": 415896
+        },
+        {
+          "Sync": 0.1638,
+          "Total": 3.9825,
+          "Bytes": 415736,
+          "idleMs": 0.0175,
+          "idleBytes": 1296,
+          "adjustedMs": 3.965,
+          "adjustedBytes": 414440
+        }
+      ],
+      "visibleControls": 20,
+      "clippedVisibleControls": 20,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 0,
+      "action": "source-selection",
+      "samples": [
+        {
+          "Sync": 0.0306,
+          "Total": 3.6987,
+          "Bytes": 371312,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 3.6813000000000002,
+          "adjustedBytes": 370016
+        },
+        {
+          "Sync": 0.0345,
+          "Total": 3.6839,
+          "Bytes": 371312,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 3.6665,
+          "adjustedBytes": 370016
+        },
+        {
+          "Sync": 0.0303,
+          "Total": 3.6502,
+          "Bytes": 371312,
+          "idleMs": 0.0176,
+          "idleBytes": 1296,
+          "adjustedMs": 3.6326,
+          "adjustedBytes": 370016
+        },
+        {
+          "Sync": 0.03,
+          "Total": 7.6792,
+          "Bytes": 371312,
+          "idleMs": 0.0175,
+          "idleBytes": 1296,
+          "adjustedMs": 7.6617,
+          "adjustedBytes": 370016
+        },
+        {
+          "Sync": 0.0316,
+          "Total": 3.8351,
+          "Bytes": 371312,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 3.8177000000000003,
+          "adjustedBytes": 370016
+        },
+        {
+          "Sync": 0.0305,
+          "Total": 3.4557,
+          "Bytes": 371312,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 3.4383000000000004,
+          "adjustedBytes": 370016
+        },
+        {
+          "Sync": 0.03,
+          "Total": 3.4171,
+          "Bytes": 371312,
+          "idleMs": 0.018,
+          "idleBytes": 1296,
+          "adjustedMs": 3.3991000000000002,
+          "adjustedBytes": 370016
+        }
+      ],
+      "visibleControls": 20,
+      "clippedVisibleControls": 20,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 0,
+      "action": "sidebar-switch",
+      "samples": [
+        {
+          "Sync": 0.2472,
+          "Total": 1.6388,
+          "Bytes": 109904,
+          "idleMs": 0.0327,
+          "idleBytes": 1296,
+          "adjustedMs": 1.6061,
+          "adjustedBytes": 108608
+        },
+        {
+          "Sync": 0.1997,
+          "Total": 1.1979,
+          "Bytes": 111024,
+          "idleMs": 0.0176,
+          "idleBytes": 1296,
+          "adjustedMs": 1.1803,
+          "adjustedBytes": 109728
+        },
+        {
+          "Sync": 0.1886,
+          "Total": 1.7458,
+          "Bytes": 110008,
+          "idleMs": 0.0175,
+          "idleBytes": 1296,
+          "adjustedMs": 1.7283,
+          "adjustedBytes": 108712
+        },
+        {
+          "Sync": 0.2398,
+          "Total": 1.3859,
+          "Bytes": 110416,
+          "idleMs": 0.0221,
+          "idleBytes": 1296,
+          "adjustedMs": 1.3638,
+          "adjustedBytes": 109120
+        },
+        {
+          "Sync": 0.203,
+          "Total": 1.1877,
+          "Bytes": 110280,
+          "idleMs": 0.0178,
+          "idleBytes": 1296,
+          "adjustedMs": 1.1699,
+          "adjustedBytes": 108984
+        },
+        {
+          "Sync": 0.2299,
+          "Total": 1.1828,
+          "Bytes": 110416,
+          "idleMs": 0.0175,
+          "idleBytes": 1296,
+          "adjustedMs": 1.1653,
+          "adjustedBytes": 109120
+        },
+        {
+          "Sync": 0.1915,
+          "Total": 1.1533,
+          "Bytes": 110864,
+          "idleMs": 0.0176,
+          "idleBytes": 1296,
+          "adjustedMs": 1.1357,
+          "adjustedBytes": 109568
+        }
+      ],
+      "visibleControls": 20,
+      "clippedVisibleControls": 20,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 0,
+      "action": "pdf-zoom-layout",
+      "samples": [
+        {
+          "Sync": 0.6784,
+          "Total": 0.946,
+          "Bytes": 16792,
+          "idleMs": 0.0294,
+          "idleBytes": 1296,
+          "adjustedMs": 0.9166,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.6164,
+          "Total": 0.7359,
+          "Bytes": 16792,
+          "idleMs": 0.0229,
+          "idleBytes": 1296,
+          "adjustedMs": 0.713,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.4058,
+          "Total": 0.5201,
+          "Bytes": 16792,
+          "idleMs": 0.0171,
+          "idleBytes": 1296,
+          "adjustedMs": 0.503,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.3932,
+          "Total": 0.5009,
+          "Bytes": 16792,
+          "idleMs": 0.0178,
+          "idleBytes": 1296,
+          "adjustedMs": 0.48310000000000003,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.3541,
+          "Total": 0.4524,
+          "Bytes": 16792,
+          "idleMs": 0.0194,
+          "idleBytes": 1296,
+          "adjustedMs": 0.43300000000000005,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.3345,
+          "Total": 0.4247,
+          "Bytes": 16792,
+          "idleMs": 0.0165,
+          "idleBytes": 1296,
+          "adjustedMs": 0.4082,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.3303,
+          "Total": 0.4318,
+          "Bytes": 16792,
+          "idleMs": 0.0148,
+          "idleBytes": 1296,
+          "adjustedMs": 0.41700000000000004,
+          "adjustedBytes": 15496
+        }
+      ],
+      "visibleControls": 22,
+      "clippedVisibleControls": 22,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 0,
+      "action": "session-panel-switch",
+      "samples": [
+        {
+          "Sync": 0.1371,
+          "Total": 0.5237,
+          "Bytes": 6520,
+          "idleMs": 0.0307,
+          "idleBytes": 1296,
+          "adjustedMs": 0.49300000000000005,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1361,
+          "Total": 0.5166,
+          "Bytes": 6520,
+          "idleMs": 0.0302,
+          "idleBytes": 1296,
+          "adjustedMs": 0.48639999999999994,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1353,
+          "Total": 0.481,
+          "Bytes": 6520,
+          "idleMs": 0.031,
+          "idleBytes": 1296,
+          "adjustedMs": 0.44999999999999996,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1321,
+          "Total": 0.4828,
+          "Bytes": 6520,
+          "idleMs": 0.0296,
+          "idleBytes": 1296,
+          "adjustedMs": 0.4532,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1329,
+          "Total": 0.4733,
+          "Bytes": 6520,
+          "idleMs": 0.0322,
+          "idleBytes": 1296,
+          "adjustedMs": 0.4411,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.111,
+          "Total": 0.4516,
+          "Bytes": 6520,
+          "idleMs": 0.0295,
+          "idleBytes": 1296,
+          "adjustedMs": 0.42210000000000003,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1343,
+          "Total": 0.4757,
+          "Bytes": 6520,
+          "idleMs": 0.0322,
+          "idleBytes": 1296,
+          "adjustedMs": 0.4435,
+          "adjustedBytes": 5224
+        }
+      ],
+      "visibleControls": 33,
+      "clippedVisibleControls": 33,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 1
+    },
+    {
+      "count": 0,
+      "action": "source-input-workspace",
+      "samples": [
+        {
+          "Sync": 0.2296,
+          "Total": 4.3941,
+          "Bytes": 441920,
+          "idleMs": 0.014,
+          "idleBytes": 1296,
+          "adjustedMs": 4.3801,
+          "adjustedBytes": 440624
+        },
+        {
+          "Sync": 0.2094,
+          "Total": 4.6908,
+          "Bytes": 440456,
+          "idleMs": 0.0146,
+          "idleBytes": 1296,
+          "adjustedMs": 4.676200000000001,
+          "adjustedBytes": 439160
+        },
+        {
+          "Sync": 0.3205,
+          "Total": 4.732,
+          "Bytes": 441920,
+          "idleMs": 0.0172,
+          "idleBytes": 1296,
+          "adjustedMs": 4.7148,
+          "adjustedBytes": 440624
+        },
+        {
+          "Sync": 0.2132,
+          "Total": 4.6411,
+          "Bytes": 440456,
+          "idleMs": 0.0136,
+          "idleBytes": 1296,
+          "adjustedMs": 4.6274999999999995,
+          "adjustedBytes": 439160
+        },
+        {
+          "Sync": 0.2301,
+          "Total": 4.342,
+          "Bytes": 441920,
+          "idleMs": 0.0147,
+          "idleBytes": 1296,
+          "adjustedMs": 4.327299999999999,
+          "adjustedBytes": 440624
+        },
+        {
+          "Sync": 0.3356,
+          "Total": 4.9464,
+          "Bytes": 440456,
+          "idleMs": 0.0137,
+          "idleBytes": 1296,
+          "adjustedMs": 4.9327,
+          "adjustedBytes": 439160
+        },
+        {
+          "Sync": 0.2273,
+          "Total": 4.7104,
+          "Bytes": 441920,
+          "idleMs": 0.0137,
+          "idleBytes": 1296,
+          "adjustedMs": 4.6967,
+          "adjustedBytes": 440624
+        }
+      ],
+      "visibleControls": 33,
+      "clippedVisibleControls": 33,
+      "realizedCommentRows": 1,
+      "realizedSessionRows": 1
+    },
+    {
+      "count": 60,
+      "action": "sidebar-refresh",
+      "samples": [
+        {
+          "Sync": 0.0177,
+          "Total": 0.1818,
+          "Bytes": 18168,
+          "idleMs": 0.1326,
+          "idleBytes": 1296,
+          "adjustedMs": 0.049199999999999994,
+          "adjustedBytes": 16872
+        },
+        {
+          "Sync": 0.0191,
+          "Total": 0.0515,
+          "Bytes": 18168,
+          "idleMs": 0.0409,
+          "idleBytes": 1296,
+          "adjustedMs": 0.010599999999999998,
+          "adjustedBytes": 16872
+        },
+        {
+          "Sync": 0.0167,
+          "Total": 0.1705,
+          "Bytes": 18168,
+          "idleMs": 0.1962,
+          "idleBytes": 1296,
+          "adjustedMs": 0,
+          "adjustedBytes": 16872
+        },
+        {
+          "Sync": 0.0184,
+          "Total": 0.0525,
+          "Bytes": 18168,
+          "idleMs": 0.1167,
+          "idleBytes": 1296,
+          "adjustedMs": 0,
+          "adjustedBytes": 16872
+        },
+        {
+          "Sync": 0.0181,
+          "Total": 0.4228,
+          "Bytes": 18168,
+          "idleMs": 0.0252,
+          "idleBytes": 1296,
+          "adjustedMs": 0.3976,
+          "adjustedBytes": 16872
+        },
+        {
+          "Sync": 0.0201,
+          "Total": 0.1703,
+          "Bytes": 18168,
+          "idleMs": 0.1596,
+          "idleBytes": 1296,
+          "adjustedMs": 0.010700000000000015,
+          "adjustedBytes": 16872
+        },
+        {
+          "Sync": 0.0175,
+          "Total": 0.0478,
+          "Bytes": 18168,
+          "idleMs": 0.2153,
+          "idleBytes": 1296,
+          "adjustedMs": 0,
+          "adjustedBytes": 16872
+        }
+      ],
+      "visibleControls": 69,
+      "clippedVisibleControls": 69,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 60,
+      "action": "source-input",
+      "samples": [
+        {
+          "Sync": 0.3985,
+          "Total": 6.8046,
+          "Bytes": 416696,
+          "idleMs": 0.0266,
+          "idleBytes": 1296,
+          "adjustedMs": 6.778,
+          "adjustedBytes": 415400
+        },
+        {
+          "Sync": 0.273,
+          "Total": 5.4564,
+          "Bytes": 415328,
+          "idleMs": 0.0212,
+          "idleBytes": 1296,
+          "adjustedMs": 5.4352,
+          "adjustedBytes": 414032
+        },
+        {
+          "Sync": 0.1815,
+          "Total": 4.0903,
+          "Bytes": 416696,
+          "idleMs": 0.0137,
+          "idleBytes": 1296,
+          "adjustedMs": 4.0766,
+          "adjustedBytes": 415400
+        },
+        {
+          "Sync": 0.1717,
+          "Total": 4.04,
+          "Bytes": 415240,
+          "idleMs": 0.0136,
+          "idleBytes": 1296,
+          "adjustedMs": 4.0264,
+          "adjustedBytes": 413944
+        },
+        {
+          "Sync": 0.2236,
+          "Total": 5.2508,
+          "Bytes": 416696,
+          "idleMs": 0.0135,
+          "idleBytes": 1296,
+          "adjustedMs": 5.2373,
+          "adjustedBytes": 415400
+        },
+        {
+          "Sync": 0.1682,
+          "Total": 4.066,
+          "Bytes": 415392,
+          "idleMs": 0.0136,
+          "idleBytes": 1296,
+          "adjustedMs": 4.0524,
+          "adjustedBytes": 414096
+        },
+        {
+          "Sync": 0.1764,
+          "Total": 4.1087,
+          "Bytes": 416696,
+          "idleMs": 0.0138,
+          "idleBytes": 1296,
+          "adjustedMs": 4.0949,
+          "adjustedBytes": 415400
+        }
+      ],
+      "visibleControls": 69,
+      "clippedVisibleControls": 69,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 60,
+      "action": "source-input-with-save-queue",
+      "samples": [
+        {
+          "Sync": 0.1846,
+          "Total": 4.0816,
+          "Bytes": 415832,
+          "idleMs": 0.0146,
+          "idleBytes": 1296,
+          "adjustedMs": 4.067,
+          "adjustedBytes": 414536
+        },
+        {
+          "Sync": 0.1946,
+          "Total": 4.2445,
+          "Bytes": 417288,
+          "idleMs": 0.0136,
+          "idleBytes": 1296,
+          "adjustedMs": 4.2309,
+          "adjustedBytes": 415992
+        },
+        {
+          "Sync": 0.2183,
+          "Total": 4.1765,
+          "Bytes": 415832,
+          "idleMs": 0.0134,
+          "idleBytes": 1296,
+          "adjustedMs": 4.1631,
+          "adjustedBytes": 414536
+        },
+        {
+          "Sync": 0.1983,
+          "Total": 4.5715,
+          "Bytes": 417288,
+          "idleMs": 0.0144,
+          "idleBytes": 1296,
+          "adjustedMs": 4.5571,
+          "adjustedBytes": 415992
+        },
+        {
+          "Sync": 0.1829,
+          "Total": 4.1152,
+          "Bytes": 416112,
+          "idleMs": 0.0137,
+          "idleBytes": 1296,
+          "adjustedMs": 4.1015,
+          "adjustedBytes": 414816
+        },
+        {
+          "Sync": 0.194,
+          "Total": 4.1665,
+          "Bytes": 417288,
+          "idleMs": 0.0136,
+          "idleBytes": 1296,
+          "adjustedMs": 4.1529,
+          "adjustedBytes": 415992
+        },
+        {
+          "Sync": 0.1818,
+          "Total": 4.4527,
+          "Bytes": 415832,
+          "idleMs": 0.0139,
+          "idleBytes": 1296,
+          "adjustedMs": 4.4388000000000005,
+          "adjustedBytes": 414536
+        }
+      ],
+      "visibleControls": 69,
+      "clippedVisibleControls": 69,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 60,
+      "action": "source-selection",
+      "samples": [
+        {
+          "Sync": 0.0436,
+          "Total": 6.9327,
+          "Bytes": 371984,
+          "idleMs": 0.0242,
+          "idleBytes": 1296,
+          "adjustedMs": 6.9085,
+          "adjustedBytes": 370688
+        },
+        {
+          "Sync": 0.0508,
+          "Total": 6.8105,
+          "Bytes": 371984,
+          "idleMs": 0.0174,
+          "idleBytes": 1296,
+          "adjustedMs": 6.7931,
+          "adjustedBytes": 370688
+        },
+        {
+          "Sync": 0.0427,
+          "Total": 6.6395,
+          "Bytes": 371984,
+          "idleMs": 0.0296,
+          "idleBytes": 1296,
+          "adjustedMs": 6.6099,
+          "adjustedBytes": 370688
+        },
+        {
+          "Sync": 0.055,
+          "Total": 5.2035,
+          "Bytes": 371984,
+          "idleMs": 0.6105,
+          "idleBytes": 1296,
+          "adjustedMs": 4.593,
+          "adjustedBytes": 370688
+        },
+        {
+          "Sync": 0.0303,
+          "Total": 3.923,
+          "Bytes": 371984,
+          "idleMs": 0.0138,
+          "idleBytes": 1296,
+          "adjustedMs": 3.9092000000000002,
+          "adjustedBytes": 370688
+        },
+        {
+          "Sync": 0.0307,
+          "Total": 3.7764,
+          "Bytes": 371984,
+          "idleMs": 0.0135,
+          "idleBytes": 1296,
+          "adjustedMs": 3.7629,
+          "adjustedBytes": 370688
+        },
+        {
+          "Sync": 0.0286,
+          "Total": 4.1552,
+          "Bytes": 371984,
+          "idleMs": 0.0136,
+          "idleBytes": 1296,
+          "adjustedMs": 4.1415999999999995,
+          "adjustedBytes": 370688
+        }
+      ],
+      "visibleControls": 69,
+      "clippedVisibleControls": 69,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 60,
+      "action": "sidebar-switch",
+      "samples": [
+        {
+          "Sync": 3.055,
+          "Total": 22.0519,
+          "Bytes": 1135928,
+          "idleMs": 0.024,
+          "idleBytes": 1296,
+          "adjustedMs": 22.0279,
+          "adjustedBytes": 1134632
+        },
+        {
+          "Sync": 1.9748,
+          "Total": 14.9909,
+          "Bytes": 1134984,
+          "idleMs": 0.0182,
+          "idleBytes": 1296,
+          "adjustedMs": 14.9727,
+          "adjustedBytes": 1133688
+        },
+        {
+          "Sync": 2.9416,
+          "Total": 20.0477,
+          "Bytes": 1135696,
+          "idleMs": 0.0179,
+          "idleBytes": 1296,
+          "adjustedMs": 20.029799999999998,
+          "adjustedBytes": 1134400
+        },
+        {
+          "Sync": 2.4863,
+          "Total": 17.7745,
+          "Bytes": 1132904,
+          "idleMs": 0.0248,
+          "idleBytes": 1296,
+          "adjustedMs": 17.7497,
+          "adjustedBytes": 1131608
+        },
+        {
+          "Sync": 3.0476,
+          "Total": 20.7198,
+          "Bytes": 1136688,
+          "idleMs": 0.0203,
+          "idleBytes": 1296,
+          "adjustedMs": 20.6995,
+          "adjustedBytes": 1135392
+        },
+        {
+          "Sync": 2.4836,
+          "Total": 19.6297,
+          "Bytes": 1140304,
+          "idleMs": 0.0227,
+          "idleBytes": 1296,
+          "adjustedMs": 19.607,
+          "adjustedBytes": 1139008
+        },
+        {
+          "Sync": 2.7984,
+          "Total": 20.2124,
+          "Bytes": 1133312,
+          "idleMs": 0.0251,
+          "idleBytes": 1296,
+          "adjustedMs": 20.1873,
+          "adjustedBytes": 1132016
+        }
+      ],
+      "visibleControls": 69,
+      "clippedVisibleControls": 69,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 60,
+      "action": "pdf-zoom-layout",
+      "samples": [
+        {
+          "Sync": 0.5391,
+          "Total": 0.6516,
+          "Bytes": 16792,
+          "idleMs": 0.0282,
+          "idleBytes": 1296,
+          "adjustedMs": 0.6234,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.4915,
+          "Total": 0.6043,
+          "Bytes": 16792,
+          "idleMs": 0.0287,
+          "idleBytes": 1296,
+          "adjustedMs": 0.5756,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.5123,
+          "Total": 0.6301,
+          "Bytes": 16792,
+          "idleMs": 0.0285,
+          "idleBytes": 1296,
+          "adjustedMs": 0.6016,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.5079,
+          "Total": 0.6266,
+          "Bytes": 16792,
+          "idleMs": 0.0299,
+          "idleBytes": 1296,
+          "adjustedMs": 0.5967,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.4581,
+          "Total": 0.5635,
+          "Bytes": 16792,
+          "idleMs": 0.028,
+          "idleBytes": 1296,
+          "adjustedMs": 0.5355,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.3408,
+          "Total": 0.4384,
+          "Bytes": 16792,
+          "idleMs": 0.0202,
+          "idleBytes": 1296,
+          "adjustedMs": 0.4182,
+          "adjustedBytes": 15496
+        },
+        {
+          "Sync": 0.3546,
+          "Total": 0.5038,
+          "Bytes": 16792,
+          "idleMs": 0.0179,
+          "idleBytes": 1296,
+          "adjustedMs": 0.4859,
+          "adjustedBytes": 15496
+        }
+      ],
+      "visibleControls": 71,
+      "clippedVisibleControls": 71,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 0
+    },
+    {
+      "count": 60,
+      "action": "session-panel-switch",
+      "samples": [
+        {
+          "Sync": 0.2783,
+          "Total": 0.6315,
+          "Bytes": 6520,
+          "idleMs": 0.0216,
+          "idleBytes": 1296,
+          "adjustedMs": 0.6099,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.2681,
+          "Total": 0.6031,
+          "Bytes": 6520,
+          "idleMs": 0.0248,
+          "idleBytes": 1296,
+          "adjustedMs": 0.5782999999999999,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.2587,
+          "Total": 0.6049,
+          "Bytes": 6520,
+          "idleMs": 0.028,
+          "idleBytes": 1296,
+          "adjustedMs": 0.5769,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1958,
+          "Total": 0.4056,
+          "Bytes": 6520,
+          "idleMs": 0.0156,
+          "idleBytes": 1296,
+          "adjustedMs": 0.39,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1798,
+          "Total": 0.3772,
+          "Bytes": 6520,
+          "idleMs": 0.0136,
+          "idleBytes": 1296,
+          "adjustedMs": 0.3636,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.1763,
+          "Total": 0.7397,
+          "Bytes": 6520,
+          "idleMs": 0.0134,
+          "idleBytes": 1296,
+          "adjustedMs": 0.7263000000000001,
+          "adjustedBytes": 5224
+        },
+        {
+          "Sync": 0.181,
+          "Total": 0.4159,
+          "Bytes": 6520,
+          "idleMs": 0.0135,
+          "idleBytes": 1296,
+          "adjustedMs": 0.4024,
+          "adjustedBytes": 5224
+        }
+      ],
+      "visibleControls": 73,
+      "clippedVisibleControls": 70,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 13
+    },
+    {
+      "count": 60,
+      "action": "source-input-workspace",
+      "samples": [
+        {
+          "Sync": 0.2636,
+          "Total": 3.7935,
+          "Bytes": 470688,
+          "idleMs": 0.0135,
+          "idleBytes": 1296,
+          "adjustedMs": 3.78,
+          "adjustedBytes": 469392
+        },
+        {
+          "Sync": 0.2459,
+          "Total": 3.7727,
+          "Bytes": 469224,
+          "idleMs": 0.0139,
+          "idleBytes": 1296,
+          "adjustedMs": 3.7588,
+          "adjustedBytes": 467928
+        },
+        {
+          "Sync": 0.2359,
+          "Total": 3.765,
+          "Bytes": 470688,
+          "idleMs": 0.0137,
+          "idleBytes": 1296,
+          "adjustedMs": 3.7513,
+          "adjustedBytes": 469392
+        },
+        {
+          "Sync": 0.261,
+          "Total": 5.9002,
+          "Bytes": 469224,
+          "idleMs": 0.0316,
+          "idleBytes": 1296,
+          "adjustedMs": 5.8686,
+          "adjustedBytes": 467928
+        },
+        {
+          "Sync": 0.3704,
+          "Total": 5.7416,
+          "Bytes": 470688,
+          "idleMs": 0.025,
+          "idleBytes": 1296,
+          "adjustedMs": 5.7166,
+          "adjustedBytes": 469392
+        },
+        {
+          "Sync": 0.3784,
+          "Total": 4.9318,
+          "Bytes": 469224,
+          "idleMs": 0.0206,
+          "idleBytes": 1296,
+          "adjustedMs": 4.9112,
+          "adjustedBytes": 467928
+        },
+        {
+          "Sync": 0.3679,
+          "Total": 4.7916,
+          "Bytes": 470688,
+          "idleMs": 0.021,
+          "idleBytes": 1296,
+          "adjustedMs": 4.7706,
+          "adjustedBytes": 469392
+        }
+      ],
+      "visibleControls": 73,
+      "clippedVisibleControls": 70,
+      "realizedCommentRows": 17,
+      "realizedSessionRows": 13
+    }
+  ]
+}

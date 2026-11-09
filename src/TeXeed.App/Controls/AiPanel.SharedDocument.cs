@@ -8,16 +8,40 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
-    private readonly Dictionary<(string Project, string Conversation), AiSharedDocument> _pendingDocumentVersions = [];
+    private sealed record PendingDocumentVersion(AiSharedDocument Document);
+    private readonly Dictionary<(string Project, string Conversation), PendingDocumentVersion> _pendingDocumentVersions = [];
     private readonly SemaphoreSlim _documentVersionGate = new(1, 1);
+    private readonly AiCommentSidebar _commentSidebar = new();
+    internal event EventHandler? SharedDocumentChanged;
+    internal event EventHandler? SharedCommentsChanged;
+    internal void NotifyCommentDraftChanged() => Dirty();
+    internal bool BeginSourceComment(string revision, int start, int length) => _commentSidebar.BeginComment(revision, start, length);
+    private void NotifyCommentsChanged()
+    {
+        NotifyExternalDocumentChanged();
+        _commentSidebar.Refresh();
+        SharedCommentsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void NotifyExternalDocumentChanged()
+    {
+        if (_project is null) return;
+        _pendingDocumentVersions[(_project, _book.Active.Id)] = new(_book.Active.SharedDocument);
+        Dirty();
+        SharedDocumentChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     private void InitializeSharedDocument()
     {
+        if (SharedDocumentView.Parent is Panel host)
+        {
+            SharedDocumentView.Visibility = Visibility.Collapsed;
+            host.Children.Add(_commentSidebar);
+        }
+        _commentSidebar.VersionRequested += async (_, _) => await ShowDocumentVersionsAsync();
         SharedDocumentView.DocumentEdited += (_, _) =>
         {
-            if (_project is null) return;
-            _pendingDocumentVersions[(_project, _book.Active.Id)] = _book.Active.SharedDocument.Snapshot();
-            Dirty();
+            NotifyExternalDocumentChanged();
         };
         SharedDocumentView.VersionRequested += async (_, _) => await ShowDocumentVersionsAsync();
         SharedDocumentView.SearchRequested += (_, _) => OpenDocumentSearch();
@@ -28,6 +52,7 @@ public partial class AiPanel
         var document = _book.Active.SharedDocument;
         var model = document.AuthorSpans.LastOrDefault(span => span.Role == "ai")?.Author ?? Settings.SelectedModel?.Name ?? "AI";
         SharedDocumentView.Bind(document, _book.Turns.FirstOrDefault()?.Question ?? "", "用户", model, _project is null ? null : AiDocumentRepository.GetDirectory(_project, _book.Active.Id));
+        _commentSidebar.Bind(_book.Active, "用户", NotifyCommentDraftChanged, NotifyCommentsChanged);
     }
 
     private void UpdateRecoveryWarning()
@@ -44,7 +69,8 @@ public partial class AiPanel
         {
             foreach (var entry in _pendingDocumentVersions.ToArray())
             {
-                await AiDocumentRepository.SaveVersionAsync(entry.Key.Project, entry.Key.Conversation, entry.Value, "用户", "修改文稿与评论", resourceRestoreToken: resourceRestoreToken);
+                var snapshot = entry.Value.Document.Snapshot();
+                await AiDocumentRepository.SaveVersionAsync(entry.Key.Project, entry.Key.Conversation, snapshot, "用户", "修改文稿与评论", resourceRestoreToken: resourceRestoreToken);
                 if (_pendingDocumentVersions.TryGetValue(entry.Key, out var current) && ReferenceEquals(current, entry.Value))
                     _pendingDocumentVersions.Remove(entry.Key);
             }
@@ -142,7 +168,10 @@ public partial class AiPanel
                         MessageBox.Show(window, reverted ? "文稿在读取期间已改变，请重新选择版本。" : "文稿或资源在读取期间已改变；未覆盖新内容，恢复前版本保存在 Git 中。", "文稿版本"); return;
                     }
                     SharedDocumentView.RefreshDocument();
-                    _pendingDocumentVersions[(project, conversation.Id)] = document.Snapshot();
+                    _pendingDocumentVersions[(project, conversation.Id)] = new(document);
+                    _commentSidebar.Refresh();
+                    SharedDocumentChanged?.Invoke(this, EventArgs.Empty);
+                    SharedCommentsChanged?.Invoke(this, EventArgs.Empty);
                     Dirty(); await SaveAsync(resourceRestoreToken: resources.Token); resources.Complete(); UpdateRecoveryWarning(); window.Close();
                 }
                 catch (Exception ex) { UpdateRecoveryWarning(); MessageBox.Show(window, ex.Message, "无法恢复版本"); }
@@ -161,7 +190,10 @@ public partial class AiPanel
                         throw new IOException("文稿在恢复期间已变化，未覆盖；恢复记录仍保留。");
                     }
                     SharedDocumentView.RefreshDocument();
-                    _pendingDocumentVersions[(project, conversation.Id)] = document.Snapshot();
+                    _pendingDocumentVersions[(project, conversation.Id)] = new(document);
+                    _commentSidebar.Refresh();
+                    SharedDocumentChanged?.Invoke(this, EventArgs.Empty);
+                    SharedCommentsChanged?.Invoke(this, EventArgs.Empty);
                     Dirty(); await SaveAsync(resourceRestoreToken: recovery.Resources.Token); recovery.Resources.Complete(); UpdateRecoveryWarning(); window.Close();
                 }
                 catch (Exception ex) { UpdateRecoveryWarning(); MessageBox.Show(window, ex.Message, "无法恢复中断的资源"); }

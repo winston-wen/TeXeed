@@ -14,7 +14,6 @@ public sealed partial class MarkdownView
     private int _columnCount = 1;
     private ChatMath _math = new();
     private readonly Dictionary<string, FrameworkContentElement> _equations = [];
-    private readonly Dictionary<string, TextPointer?> _annotationPointers = [];
     private readonly Dictionary<InlineUIContainer, ChatMath.Token> _clipboardMath = [];
     private readonly List<(FrameworkElement Grid, int Columns)> _formulaWidths = [];
     private double _measuredWidth = double.NaN;
@@ -32,39 +31,6 @@ public sealed partial class MarkdownView
         }
         var measured = base.MeasureOverride(availableSize);
         return _renderPending ? new Size(measured.Width, Math.Max(measured.Height, _estimatedHeight)) : measured;
-    }
-    internal TextPointer? AnnotationPointer(string id, TeXeed.App.AI.AiAnswerAnchor anchor)
-    {
-        if (_annotationPointers.TryGetValue(id, out var cached)) return cached;
-        var offset = anchor.TextOffset;
-        TextPointer? result = null;
-        if (offset < 0) result = LegacyAnnotationPointer(anchor.Offset);
-        else for (var p = Document.ContentStart; p is not null && p.CompareTo(Document.ContentEnd) < 0;)
-        {
-            if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
-            if (EmbeddedTable(p) is { } table)
-            {
-                var length = table.Text.Length;
-                if (offset < length) { result = table.View.AnnotationPointer(id, anchor with { TextOffset = offset }); break; }
-                offset -= length; p = table.Block.ElementEnd; continue;
-            }
-            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
-            {
-                if (offset <= source.Length) { result = p; break; }
-                offset -= source.Length; p = ui.ElementEnd; continue;
-            }
-            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
-            {
-                var text = p.GetTextInRun(LogicalDirection.Forward);
-                if (offset < text.Length) { result = p.GetPositionAtOffset(offset); break; }
-                offset -= text.Length; p = p.GetPositionAtOffset(text.Length); continue;
-            }
-            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementEnd && p.GetAdjacentElement(LogicalDirection.Forward) is Paragraph)
-            { if (offset < Environment.NewLine.Length) { result = p; break; } offset -= Environment.NewLine.Length; }
-            p = p.GetNextContextPosition(LogicalDirection.Forward);
-        }
-        _annotationPointers[id] = result;
-        return result;
     }
     private void AddMathText(InlineCollection target, string text)
     {
@@ -110,7 +76,6 @@ public sealed partial class MarkdownView
         _clipboardMath.Add(inline, token);
         _equations.TryAdd(token.Label ?? "eq-" + token.Number, paragraph);
         _equations.TryAdd("eq-" + token.Number, paragraph);
-        _bookmarkFormulas.TryAdd(token.PreparedOffset, paragraph);
         return paragraph;
     }
     private Hyperlink EquationLink(string label, string? text)

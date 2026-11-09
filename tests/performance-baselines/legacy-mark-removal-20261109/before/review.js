@@ -1,0 +1,82 @@
+'use strict';
+/* The review draft is stored separately from the original response. */
+(()=>{
+ const shell=$('reading-shell'), toolbar=document.createElement('div');
+ toolbar.className='review-toolbar';toolbar.setAttribute('aria-label','回答编辑与评论');
+ toolbar.innerHTML='<button data-review-view="draft" aria-pressed="true">修改稿</button><button data-review-view="original" aria-pressed="false">AI 原件</button><button data-review-view="diff" aria-pressed="false">差异</button><span class="review-caption">修改稿中可直接编辑普通段落</span><span class="review-spacer"></span><button id="review-comment">评论选区</button><button id="review-open">评论</button>';
+ shell.insertBefore(toolbar,$('reader'));
+ const panel=document.createElement('aside');panel.className='review-sidebar';panel.hidden=true;panel.setAttribute('aria-label','回答评论');panel.innerHTML='<div class="review-sidebar-head"><strong>评论</strong><button id="review-close" aria-label="关闭评论">×</button></div><div class="review-sidebar-body"></div>';shell.append(panel);
+ function showPanel(open){panel.hidden=!open;$('chat').classList.toggle('review-panel-open',open);}
+ const fontAlert=document.createElement('span');fontAlert.className='review-font-alert';fontAlert.hidden=true;fontAlert.setAttribute('role','status');toolbar.insertBefore(fontAlert,toolbar.querySelector('.review-spacer'));
+ async function verifyFonts(){try{const loaded=await Promise.all([document.fonts.load('32px "LXGW WenKai GB"','中文修改 WiW123'),document.fonts.load('32px "Patrick Hand"','Café Grüße WiW123')]);if(loaded.some(a=>!a.length))throw Error('字体加载失败');const measure=(font,text)=>{const el=document.createElement('span');el.textContent=text;el.style.cssText='position:fixed;left:-9999px;top:0;white-space:pre;font:32px '+font;document.body.append(el);const width=el.getBoundingClientRect().width;el.remove();return width;};const same=(name,text)=>Math.abs(measure('"'+name+'",monospace',text)-measure('monospace',text))<.1;if(same('LXGW WenKai GB','中文修改 WiW123')||same('Patrick Hand','Café Grüße WiW123'))throw Error('浏览器未显示指定字体');fontAlert.hidden=true;}catch{fontAlert.textContent='手写字体未生效，请检查浏览器网页字体设置';fontAlert.hidden=false;}}
+ verifyFonts();
+ const dialog=document.createElement('dialog');dialog.className='review-dialog';dialog.innerHTML='<form method="dialog"><h2>评论所选文字</h2><blockquote></blockquote><textarea aria-label="评论内容" placeholder="写下评论"></textarea><div class="row"><button value="cancel">取消</button><button value="save">保存评论</button></div></form>';document.body.append(dialog);
+ let selection=null, pendingSelection=null, view='draft', composing=false;const histories=new Map();
+ const findTurn=id=>current().turns.find(t=>t.id===id);
+ function storage(turn){return turn.reviewDraft||(turn.reviewDraft={blocks:{},comments:[]});}
+ const visible=runs=>runs.filter(r=>r.kind!=='deleted').map(r=>r.text).join('');
+ function compact(runs){return runs.filter(r=>r.text).reduce((a,r)=>{const p=a[a.length-1];if(p&&p.kind===r.kind)p.text+=r.text;else a.push({...r});return a;},[]);}
+ function replaceRuns(runs,start,end,insert){let pos=0,inserted=false,out=[];const add=()=>{if(!inserted){if(insert)out.push({kind:'user',text:insert});inserted=true;}};
+  for(const r of runs){if(r.kind==='deleted'){out.push({...r});continue;}const next=pos+r.text.length;if(start>=next){out.push({...r});pos=next;continue;}if(end<=pos){add();out.push({...r});pos=next;continue;}
+   const a=Math.max(0,start-pos),b=Math.min(r.text.length,end-pos);if(a)out.push({kind:r.kind,text:r.text.slice(0,a)});add();if(b>a&&r.kind==='ai')out.push({kind:'deleted',text:r.text.slice(a,b)});if(b<r.text.length)out.push({kind:r.kind,text:r.text.slice(b)});pos=next;
+  }add();return compact(out);
+ }
+ function offsets(root,range){const pre=document.createRange();pre.selectNodeContents(root);pre.setEnd(range.startContainer,range.startOffset);return {start:pre.toString().length,end:pre.toString().length+range.toString().length};}
+ function rangeAt(root,start,end){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node,pos=0,from=null,to=null;while((node=walker.nextNode())){const next=pos+node.length;if(!from&&start<=next)from=[node,Math.max(0,start-pos)];if(end<=next){to=[node,Math.max(0,end-pos)];break;}pos=next;}if(!from||!to)return null;const range=document.createRange();range.setStart(...from);range.setEnd(...to);return range;}
+ function updateComments(draft,block,start,end,insertLength){const change=insertLength-(end-start);for(const c of draft.comments){if(c.block!==block||c.orphan)continue;if(end<=c.start){c.start+=change;c.end+=change;}else if(start>=c.end)continue;else if(start<=c.start&&end>=c.end){c.orphan=true;}else{c.start=Math.min(c.start,start);c.end=Math.max(c.start,c.end+change);if(c.end===c.start)c.orphan=true;}}}
+ function outputRuns(p,runs){p.replaceChildren();for(const r of runs){if(r.kind==='deleted'&&view!=='diff')continue;const span=document.createElement('span');span.textContent=r.text;if(r.kind==='user')span.className='review-user'+(view==='diff'?' review-diff-add':'');if(r.kind==='deleted')span.className='review-diff-del';p.append(span);}if(!p.firstChild)p.append(document.createTextNode(''));}
+ function marks(p,turn){if(view!=='draft')return;const comments=(turn.reviewDraft?.comments||[]).filter(c=>c.block===p.dataset.reviewBlock&&!c.orphan&&!c.resolved).sort((a,b)=>b.start-a.start);let last=Infinity;for(const c of comments){if(c.end>last)continue;const range=rangeAt(p,c.start,c.end);if(!range)continue;const mark=document.createElement('mark');mark.className='review-mark';mark.dataset.reviewNote=c.id;try{mark.append(range.extractContents());range.insertNode(mark);last=c.start;}catch{}}}
+ function paragraphFor(p,turn){const id=p.closest('.passage')?.id;if(!id)return;const old=turn.reviewDraft?.blocks?.[id];const simple=[...p.childNodes].every(n=>n.nodeType===Node.TEXT_NODE);if(!simple&&!old)return;
+  p.dataset.reviewBlock=id;p.dataset.reviewTurn=turn.id;p.dataset.reviewOriginal=old?.original??p.textContent;p.classList.add('review-editable');
+  if(old&&view!=='original')outputRuns(p,old.runs);
+  if(view==='draft'&&!running)p.setAttribute('contenteditable','true');else p.removeAttribute('contenteditable');
+  p.setAttribute('spellcheck','false');marks(p,turn);
+ }
+ function mount(){document.querySelectorAll('.answer').forEach(answer=>{const turn=findTurn(answer.dataset.turn);if(!turn)return;answer.querySelectorAll(':scope > .passage > .passage-body > p').forEach(p=>paragraphFor(p,turn));});
+  toolbar.querySelectorAll('[data-review-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.reviewView===view)));
+  toolbar.querySelector('.review-caption').textContent=view==='draft'?'直接编辑普通段落；公式、代码、标题暂不支持':view==='original'?'只读 · AI 原件保持不变':'显示原文删除与用户新增';
+  renderNotes();
+ }
+ function change(p){const turn=findTurn(p.dataset.reviewTurn);if(!turn||view!=='draft')return;const draft=storage(turn),id=p.dataset.reviewBlock;
+  const original=p.closest('.passage').querySelector('.passage-body').dataset.reviewOriginal;
+  const item=draft.blocks[id]||(draft.blocks[id]={original:original??p.dataset.reviewOriginal??'',runs:[{kind:'ai',text:original??p.dataset.reviewOriginal??''}]});
+  const old=visible(item.runs),next=p.textContent;if(old===next)return;
+  const key=current().id+'\n'+turn.id+'\n'+id,history=histories.get(key)||{undo:[],redo:[]};history.undo.push({runs:clone(item.runs),comments:clone(draft.comments)});if(history.undo.length>100)history.undo.shift();history.redo=[];histories.set(key,history);
+  let start=0;while(start<old.length&&start<next.length&&old[start]===next[start])start++;
+  if(start>0&&/[\uDC00-\uDFFF]/.test(old[start]||next[start]||''))start--;
+  let end=old.length,newEnd=next.length;while(end>start&&newEnd>start&&old[end-1]===next[newEnd-1]){end--;newEnd--;}
+  const added=next.slice(start,newEnd);item.runs=replaceRuns(item.runs,start,end,added);if(next===item.original)item.runs=[{kind:'ai',text:item.original}];updateComments(draft,id,start,end,added.length);
+  const sel=window.getSelection(),caret=sel?.rangeCount&&p.contains(sel.anchorNode)?offsets(p,sel.getRangeAt(0)).start:start+added.length;
+  outputRuns(p,item.runs);marks(p,turn);const target=rangeAt(p,caret,caret);if(target&&sel){sel.removeAllRanges();sel.addRange(target);}persist();renderNotes();
+ }
+ function collectSelection(){const s=window.getSelection();if(!s?.rangeCount||s.isCollapsed){selection=null;return;}const r=s.getRangeAt(0),el=n=>n.nodeType===Node.ELEMENT_NODE?n:n.parentElement,a=el(r.startContainer)?.closest('p[data-review-block]'),b=el(r.endContainer)?.closest('p[data-review-block]');if(!a||a!==b||!a.closest('.answer')||view!=='draft'){selection=null;return;}const pos=offsets(a,r);selection={turn:a.dataset.reviewTurn,block:a.dataset.reviewBlock,...pos,quote:r.toString()};}
+ function renderNotes(){const list=panel.querySelector('.review-sidebar-body');if(panel.hidden)return;const items=current().turns.flatMap((t,i)=>(t.reviewDraft?.comments||[]).map(c=>({...c,turn:t.id,number:i+1})));list.innerHTML=items.length?items.map(c=>'<section class="review-note" data-id="'+esc(c.id)+'" data-turn="'+esc(c.turn)+'"><div class="review-note-meta">第 '+c.number+' 轮 · '+(c.orphan?'原位置已删除':c.resolved?'已解决':'评论')+'</div><blockquote>'+esc(c.quote)+'</blockquote><p>'+esc(c.text)+' <button class="review-edit-action" data-note-action="edit-note" aria-label="编辑评论">编辑</button></p>'+(c.replies||[]).map((r,i)=>'<p class="review-reply">'+esc(r)+' <button class="review-edit-action" data-note-action="edit-reply" data-reply-index="'+i+'" aria-label="编辑回复">编辑</button></p>').join('')+'<div class="review-note-actions"><button data-note-action="locate" '+(c.orphan?'disabled':'')+'>定位</button><button data-note-action="reply">回复</button><button data-note-action="resolve">'+(c.resolved?'重新打开':'解决')+'</button><button data-note-action="delete">删除</button></div><div class="review-reply-box" hidden><textarea aria-label="回复评论" placeholder="写下回复"></textarea><button data-note-action="send-reply">保存回复</button></div><div class="review-edit-box" hidden><textarea aria-label="编辑评论或回复"></textarea><button data-note-action="save-edit">保存修改</button><button data-note-action="cancel-edit">取消</button></div></section>').join(''):'<p class="review-empty">选择回答中的文字，点击「评论选区」。评论保存在当前会话。</p>';}
+ const oldRender=renderTurns;renderTurns=function(){oldRender();mount();};
+ const oldConversation=renderConversation;renderConversation=function(){selection=null;oldConversation();mount();};
+ // Remember the untouched plain text before the browser can mutate it.
+ document.addEventListener('focusin',e=>{const p=e.target.closest?.('p[data-review-block]');if(!p||p.dataset.reviewOriginal!==undefined)return;const t=findTurn(p.dataset.reviewTurn),item=t?.reviewDraft?.blocks?.[p.dataset.reviewBlock];p.dataset.reviewOriginal=item?.original??p.textContent;});
+ $('thread').addEventListener('beforeinput',e=>{const p=e.target.closest?.('p[data-review-block]');if(!p)return;if(e.inputType==='insertParagraph'||e.inputType==='insertLineBreak'){e.preventDefault();status('原型暂不支持在回答段落内换行。');}});
+ $('thread').addEventListener('paste',e=>{const p=e.target.closest?.('p[data-review-block]');if(!p||view!=='draft')return;e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain').replace(/[\r\n]+/g,' '));});
+ $('thread').addEventListener('compositionstart',e=>{if(e.target.closest?.('p[data-review-block]'))composing=true;});
+ $('thread').addEventListener('compositionend',e=>{const p=e.target.closest?.('p[data-review-block]');if(p){composing=false;change(p);}});
+ $('thread').addEventListener('input',e=>{const p=e.target.closest?.('p[data-review-block]');if(p&&!composing)change(p);});
+ $('thread').addEventListener('keydown',e=>{const p=e.target.closest?.('p[data-review-block]');if(!p||!e.ctrlKey||e.altKey||!['z','y'].includes(e.key.toLowerCase()))return;const turn=findTurn(p.dataset.reviewTurn),draft=turn?.reviewDraft,item=draft?.blocks[p.dataset.reviewBlock],history=histories.get(current().id+'\n'+turn?.id+'\n'+p.dataset.reviewBlock),redo=e.key.toLowerCase()==='y'||e.shiftKey,from=redo?history?.redo:history?.undo,to=redo?history?.undo:history?.redo;e.preventDefault();e.stopPropagation();if(!item||!from?.length)return;to.push({runs:clone(item.runs),comments:clone(draft.comments)});const saved=from.pop();item.runs=saved.runs;const anchors=new Map(saved.comments.map(c=>[c.id,c]));draft.comments=draft.comments.map(c=>{const a=anchors.get(c.id);return a?{...c,start:a.start,end:a.end,orphan:a.orphan}:c;});outputRuns(p,item.runs);marks(p,turn);const length=visible(item.runs).length,range=rangeAt(p,length,length),sel=window.getSelection();if(range&&sel){sel.removeAllRanges();sel.addRange(range);}persist();renderNotes();});
+ $('thread').addEventListener('click',e=>{if(view==='draft'&&e.target.closest('.answer')&&e.target.closest('.math,code,h1,h2,h3,h4,h5,h6,li'))status('原型目前只支持编辑普通文字段落；公式、代码、标题和列表保持原样。');});
+ document.addEventListener('selectionchange',collectSelection);
+ toolbar.addEventListener('mousedown',e=>{if(e.target.id==='review-comment')e.preventDefault();});
+ toolbar.addEventListener('click',e=>{const v=e.target.dataset.reviewView;if(v){view=v;selection=null;renderTurns();return;}if(e.target.id==='review-open'){showPanel(panel.hidden);renderNotes();return;}if(e.target.id==='review-comment'){if(!selection){status('请在修改稿的同一普通文字段落内选择内容；公式、代码、标题和跨段选区暂不支持。');return;}pendingSelection={...selection};dialog.querySelector('blockquote').textContent=pendingSelection.quote;dialog.querySelector('textarea').value='';dialog.showModal();dialog.querySelector('textarea').focus();}});
+ dialog.addEventListener('close',()=>{if(dialog.returnValue!=='save'||!pendingSelection){pendingSelection=null;return;}const text=dialog.querySelector('textarea').value.trim(),turn=findTurn(pendingSelection.turn);if(!text||!turn){pendingSelection=null;return;}storage(turn).comments.push({id:'comment-'+Date.now()+'-'+Math.random().toString(36).slice(2),...pendingSelection,text,replies:[],resolved:false});persist();showPanel(true);pendingSelection=null;selection=null;renderTurns();});
+ panel.querySelector('#review-close').onclick=()=>{showPanel(false);};
+ panel.addEventListener('click',e=>{const action=e.target.dataset.noteAction;if(!action)return;const card=e.target.closest('.review-note'),turn=findTurn(card.dataset.turn),comment=turn?.reviewDraft?.comments.find(c=>c.id===card.dataset.id);if(!comment)return;
+  if(action==='locate'){view='draft';turn.collapsed=false;if(turn.sections)Object.keys(turn.sections).forEach(k=>turn.sections[k]=false);renderTurns();const p=document.getElementById(comment.block);p?.scrollIntoView({block:'center'});p?.classList.add('review-target');setTimeout(()=>p?.classList.remove('review-target'),1800);}
+  else if(action==='reply'){card.querySelector('.review-reply-box').hidden=false;card.querySelector('textarea').focus();}
+  else if(action==='send-reply'){const value=card.querySelector('.review-reply-box textarea').value.trim();if(value)(comment.replies||(comment.replies=[])).push(value);persist();renderNotes();}
+  else if(action==='edit-note'||action==='edit-reply'){const box=card.querySelector('.review-edit-box'),field=box.querySelector('textarea');box.hidden=false;box.dataset.editKind=action==='edit-note'?'note':'reply';box.dataset.replyIndex=e.target.dataset.replyIndex||'0';field.value=box.dataset.editKind==='note'?comment.text:(comment.replies||[])[Number(box.dataset.replyIndex)]||'';field.focus();}
+  else if(action==='cancel-edit'){card.querySelector('.review-edit-box').hidden=true;}
+  else if(action==='save-edit'){const box=card.querySelector('.review-edit-box'),value=box.querySelector('textarea').value.trim();if(!value){status('评论或回复不能为空。');return;}if(box.dataset.editKind==='note')comment.text=value;else if((comment.replies||[])[Number(box.dataset.replyIndex)]!==undefined)comment.replies[Number(box.dataset.replyIndex)]=value;persist();renderNotes();}
+  else if(action==='resolve'){comment.resolved=!comment.resolved;persist();renderTurns();}
+  else if(action==='delete'){turn.reviewDraft.comments=turn.reviewDraft.comments.filter(c=>c!==comment);persist();renderTurns();}
+ });
+ $('thread').addEventListener('click',e=>{const mark=e.target.closest('.review-mark');if(mark){showPanel(true);renderNotes();panel.querySelector('[data-id="'+CSS.escape(mark.dataset.reviewNote)+'"]')?.scrollIntoView({block:'nearest'});}});
+ if(REVIEW_PREVIEW)showPanel(true);mount();
+})();

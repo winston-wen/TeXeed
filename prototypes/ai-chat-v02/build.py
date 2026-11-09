@@ -122,7 +122,7 @@ def render(source, prefix):
         else:
             content = '<p>'+inline(' '.join(lines))+'</p>'
         block_id = f'{prefix}-p{len(blocks)}'
-        blocks.append(f'<section class="passage" id="{block_id}" data-block="{block_id}"><div class="passage-body">{content}</div><div class="margin-notes"></div></section>')
+        blocks.append(f'<section class="passage" id="{block_id}" data-block="{block_id}"><div class="passage-body">{content}</div></section>')
     return '\n'.join(blocks)
 
 for turn in all_turns:

@@ -168,12 +168,12 @@ public sealed partial class CompileService
     }
 
     private static async Task<ProcessResult> RunBibliographyAsync(TexProject project, string build, string job,
-        string tool, string executable, Dictionary<string, string> environment, CancellationToken token)
+        string tool, string executable, Dictionary<string, string> environment, CancellationToken token, int outputLimit)
     {
         if (tool == "biber")
         {
             var relativeBuild = Path.GetRelativePath(EntryDirectory(project), build).Replace('\\', '/');
-            return await RunProcessAsync(executable, ["--input-directory", relativeBuild, "--output-directory", relativeBuild, job], EntryDirectory(project), environment, token);
+            return await RunProcessAsync(executable, ["--input-directory", relativeBuild, "--output-directory", relativeBuild, job], EntryDirectory(project), environment, token, outputLimit);
         }
 
         // BibTeX has no output-directory option. Running it beside the entry and
@@ -228,7 +228,7 @@ public sealed partial class CompileService
             var bibEnvironment = new Dictionary<string, string>(environment, StringComparer.OrdinalIgnoreCase);
             foreach (var variable in new[] { "TEXINPUTS", "BIBINPUTS", "BSTINPUTS" })
                 bibEnvironment[variable] = InputSearchPath(project, variable, build);
-            return await RunProcessAsync(executable, [job], build, bibEnvironment, token);
+            return await RunProcessAsync(executable, [job], build, bibEnvironment, token, outputLimit);
         }
         finally
         {

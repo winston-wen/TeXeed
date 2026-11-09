@@ -1,0 +1,14 @@
+[
+  {
+    "Path": "src\\TeXeed.App\\bin\\Debug\\net10.0-windows\\win-x64\\TeXeed.dll",
+    "Hash": "637EBA79EE67754A88656E912F426DD7F69B7BA7B1AEBC146CD32AC2743D2ECE"
+  },
+  {
+    "Path": "src\\TeXeed.Core\\bin\\Debug\\net10.0\\TeXeed.Core.dll",
+    "Hash": "C15C161306A038B39F6FC379D49342EFC996EFCB187EDEBEBDE6E5AE12B4A430"
+  },
+  {
+    "Path": "tests\\TeXeed.AppTests\\bin\\Debug\\net10.0-windows\\win-x64\\TeXeed.AppTests.dll",
+    "Hash": "4FDDCC681CC26DBF1EAA13BE4D46D56A509E0A252A81707766D6245ABBCE6416"
+  }
+]

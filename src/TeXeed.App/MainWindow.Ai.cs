@@ -10,21 +10,12 @@ namespace TeXeed.App;
 public partial class MainWindow
 {
     private AiPanel _aiPanel = null!;
-    private bool _aiMarking;
-    private readonly Dictionary<LatexEditor, AiAnnotationLayer> _sourceAnnotations = [];
     private void InitializeAi()
     {
         _aiSettings = new AiSettingsPanel(_aiConnection); _aiPanel = CreateAiPanel();
-        _pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, entry=>_aiPanel.RemoveAnnotation(entry), confirm: entry=>_aiPanel.ConfirmAnnotation(entry), commit: () => _aiPanel.SaveAnnotationChanges());
-        Preview.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) _pdfAnnotations.Edit(entry); };
-        Preview.AiMarkingChanged += (_, active) => SetAiMarking(active);
         foreach (var editor in Editors)
         {
-            var annotations = new AiAnnotationLayer(editor, () => _aiPanel.AnnotationEntries,
-                entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), entry=>_aiPanel.RemoveAnnotation(entry), margin: true, confirm: entry=>_aiPanel.ConfirmAnnotation(entry), commit: () => _aiPanel.SaveAnnotationChanges());
-            _sourceAnnotations[editor] = annotations;
             var menu = new ContextMenu();
-            editor.AiMarked += (_, mark) => CollectSourceMark(editor, mark);
             void Command(string title, RoutedCommand command, string gesture)
             {
                 // Avoid global CanExecute requery opening the shared Windows clipboard.
@@ -38,30 +29,8 @@ public partial class MainWindow
             foreach (var (title, action) in new[] { ("切换注释", "comment"), ("增加缩进", "indent"), ("减少缩进", "outdent"), ("查找", "find"), ("替换", "replace"), ("格式化文档", "format") })
             { var item = new MenuItem { Header = title }; item.Click += (_, _) => editor.ExecuteCommand(action); menu.Items.Add(item); }
             editor.ContextMenu = menu;
-            _ = new AiMarkMenu(editor, () => _aiMarking, () => SetAiMarking(false));
         }
-    }
-    private void SetAiMarking(bool active)
-    {
-        if (active && (_project is null || _transitioning)) return;
-        if (_aiMarking == active) return;
-        _aiMarking = active;
-        foreach(var panel in _aiPanels.Values) panel.IsMarking = active;
-        UpdateWorkspaceIcons();
-        foreach (var editor in Editors) editor.SetAiMarking(active);
-        Preview.SetAiMarking(active);
-        Status(active ? "AI 圈点：单击点位，按住选择；Esc 或右键双击退出" : "已退出 AI 圈点");
-    }
-    private void AiMarking_Click(object sender, RoutedEventArgs e) => SetAiMarking(!_aiMarking);
-    private void CollectSourceMark(LatexEditor editor, SourceAiMark mark)
-    {
-        if (_project is null || editor.CurrentFilePath is not { } path || mark.Length > 40000) return;
-        var line = editor.Document.GetLineByOffset(mark.Offset).LineNumber;
-        var endLine = editor.Document.GetLineByOffset(mark.Offset + Math.Max(0, mark.Length - 1)).LineNumber;
-        var entry = new AiEntry { Title = $"{Path.GetFileName(path)}:{line} · {(mark.IsPoint ? "点位" : "句子")}", IsPoint = mark.IsPoint };
-        entry.Sources.Add(new AiSourceBlock(Path.GetRelativePath(_project.Root, path), line, endLine,
-            mark.Offset, editor.Document.GetText(mark.Offset, mark.Length), AiStorage.Hash(editor.Text)));
-        if (_aiPanel.AddEntry(entry, false)) _sourceAnnotations[editor].Edit(entry);
+        InitializeProjectComments();
     }
     private async void Ai_Click(object sender, RoutedEventArgs e) { HideMainMenu(false); await OpenNewAiConversationAsync(); }
     private void OpenAiTab()
@@ -74,17 +43,5 @@ public partial class MainWindow
         if (_project is null) { Status("请先打开项目，再使用 AI。"); return; }
         _workspaceTabs.Open(TabWorkspace.AiSettingsKey);
         RefreshWorkspaceViews();
-    }
-    private void CollectSourceForAi(LatexEditor editor)
-    {
-        if (_project is null || editor.CurrentFilePath is not { } path || editor.Document is null) return;
-        var segments = editor.TextArea.Selection.Segments.Where(s => s.Length > 0).ToArray();
-        if (segments.Length == 0) return;
-        if (segments.Sum(s => s.Length) > 40000) { Status("每个源码选区最多 4 万字符，请缩小选区。"); return; }
-        var entry = new AiEntry { Title = $"{Path.GetFileName(path)} · {segments.Length} 个选区" }; var revision = AiStorage.Hash(editor.Text);
-        foreach (var segment in segments)
-            entry.Sources.Add(new AiSourceBlock(Path.GetRelativePath(_project.Root, path), editor.Document.GetLineByOffset(segment.StartOffset).LineNumber,
-                editor.Document.GetLineByOffset(segment.EndOffset - 1).LineNumber, segment.StartOffset, editor.Document.GetText(segment.StartOffset, segment.Length), revision));
-        OpenAiTab(); _aiPanel.AddEntry(entry);
     }
 }

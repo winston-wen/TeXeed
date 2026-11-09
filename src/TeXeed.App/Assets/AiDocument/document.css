@@ -4,3 +4,4 @@ html,body{height:100%;overflow:hidden}.app{height:100%;display:block}#mentor-emp
 .mentor-document strong{font-weight:normal;text-decoration-line:underline;text-decoration-style:wavy;text-decoration-thickness:1px;text-underline-offset:.22em}.mentor-image img{max-width:100%;height:auto;vertical-align:middle}.mentor-image small{color:var(--muted)}.mentor-cite{color:var(--muted)}
 .mentor-document .mentor-block[data-wrapper=display]{margin-bottom:1em}
 .mentor-document p[data-list]{margin-bottom:0}.mentor-document p[data-list]:not(:has(+ p[data-list])){margin-bottom:1em}
+.document-heading-number{color:var(--accent);font:inherit;user-select:none}

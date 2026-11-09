@@ -12,13 +12,11 @@
   meta.textContent=raw?(hits.length+' 处结果'+(enhanced?' · 增强搜索为本地模拟，不请求模型':' · 搜索修改稿')):'搜索修改稿；增强搜索为本地模拟，不请求模型。';
   results.innerHTML=raw?(hits.map((item,index)=>'<button type="button" class="review-search-result" data-search-hit="'+index+'"><small>第 '+item.number+' 轮'+(item.approx?' · 模拟模糊匹配':'')+'</small>'+esc(item.text.length>130?item.text.slice(0,130)+'…':item.text)+'</button>').join('')||'<div class="review-search-empty">没有找到匹配内容。</div>'):'<div class="review-search-empty">输入文字后搜索当前会话的回答。</div>';
  }
- function open(){if($('chat').hidden)return;previousFocus=document.activeElement;panel.hidden=false;$('bookmark-panel').hidden=true;$('bookmark-ball').setAttribute('aria-expanded','false');refresh();input.focus();input.select();}
+ function open(){if($('chat').hidden)return;previousFocus=document.activeElement;panel.hidden=false;refresh();input.focus();input.select();}
  function close(){panel.hidden=true;if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});}
  function jump(hit){const turn=current().turns.find(t=>t.id===hit.turn);if(!turn)return;turn.collapsed=false;if(turn.sections)Object.keys(turn.sections).forEach(k=>turn.sections[k]=false);const draft=document.querySelector('[data-review-view="draft"]');if(draft&&draft.getAttribute('aria-pressed')!=='true')draft.click();else renderTurns();persist();panel.hidden=true;requestAnimationFrame(()=>{const target=document.getElementById(hit.block);if(!target){status('未找到对应段落。');return;}target.scrollIntoView({block:'center'});target.classList.add('review-search-hit');setTimeout(()=>target.classList.remove('review-search-hit'),2200);});}
  input.addEventListener('input',refresh);input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing&&hits.length){event.preventDefault();jump(hits[0]);}});
  toggle.addEventListener('click',()=>{enhanced=!enhanced;toggle.setAttribute('aria-pressed',String(enhanced));toggle.textContent='增强搜索：'+(enhanced?'开':'关');refresh();input.focus();});
  results.addEventListener('click',event=>{const button=event.target.closest('[data-search-hit]');if(button&&hits[Number(button.dataset.searchHit)])jump(hits[Number(button.dataset.searchHit)]);});panel.querySelector('.review-search-close').onclick=close;
  window.addEventListener('keydown',event=>{if(event.ctrlKey&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='g'&&!$('chat').hidden){event.preventDefault();event.stopImmediatePropagation();open();}else if(event.key==='Escape'&&!panel.hidden){event.preventDefault();event.stopImmediatePropagation();close();}},true);
- // Invisible legacy labels must not remain reachable with Enter from the old floating list.
- $('bookmark-search').addEventListener('keydown',event=>{if(event.key==='Enter'&&$('bookmark-list').querySelector('[data-bookmark][aria-selected=true]')?.closest('.bookmark-row')?.querySelector('.bookmark-remove')){event.preventDefault();event.stopImmediatePropagation();}},true);
 })();

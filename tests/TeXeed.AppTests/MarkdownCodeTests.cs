@@ -51,40 +51,23 @@ internal static partial class Program
                     var copied = view.CopyForClipboard(view.Document.ContentStart, view.Document.ContentEnd);
                     Check(!copied.Contains('\u2002') && copied.Contains("\\section{标题} 创建章节") && copied.Contains("\\[ E = mc^2 \\]"), "Code decoration changed copied text or interpreted TeX");
                     Check(view.CopyForClipboard(code.ContentStart.GetPositionAtOffset(1)!, code.ContentStart.GetPositionAtOffset(8)!) == code.Text[1..8], "Code lost native partial selection/copy");
-                    var canonical = view.CopySource(view.Document.ContentStart, view.Document.ContentEnd);
-                    var pointer = view.AnnotationPointer("code-anchor", new AiAnswerAnchor("turn", "answer", 0, 4, "创建小节", "revision") { TextOffset = canonical.IndexOf("创建小节", StringComparison.Ordinal) });
-                    Check(pointer is not null && new TextRange(pointer, pointer.GetPositionAtOffset(4)!).Text == "创建小节", "Code padding shifted canonical annotation offsets");
                 }
             }
             ai.SourceLink = _ => { }; ai.Markdown = "查看 `main.tex:12`。"; await Settle();
             var link = ((Paragraph)ai.Document.Blocks.FirstBlock!).Inlines.OfType<Span>().Single().Inlines.OfType<Hyperlink>().Single();
             Check(link.FontFamily.Source.Contains("Consolas") && ((SolidColorBrush)link.Foreground).Color == ThemeManager.Brush("Accent").Color, "Code source link lost its monospaced font or existing link color");
-            var oldFile = new Run("main.tex:12"); var oldFileDocument = new FlowDocument(new Paragraph(new Hyperlink(oldFile)));
             ai.Markdown = "`main.tex:12`"; await Settle();
-            var legacyFileAnchor = new AiAnswerAnchor("turn", "answer", oldFileDocument.ContentStart.GetOffsetToPosition(oldFile.ContentStart.GetPositionAtOffset(2)!), 2, "in", "revision");
-            var filePointer = ai.AnnotationPointer("legacy-file-link", legacyFileAnchor);
-            Check(filePointer is not null && new TextRange(filePointer, filePointer.GetPositionAtOffset(2)!).Text == "in", "Moving decorative padding changed a legacy file-link anchor");
             Check(ai.CopyForClipboard(ai.Document.ContentStart, ai.Document.ContentEnd).TrimEnd('\r', '\n') == "main.tex:12", "File-link padding leaked into copied text");
             tutorial.Markdown = "正文 `" + string.Join(" ", Enumerable.Repeat("long_code_identifier", 18)) + "` 后文。"; host.Width = 360; await Settle();
             Check(((List<Rect>)Field(tutorial, "_inlineCodeBounds")!).Count > 1, "Long inline code did not follow native wrapping");
             Capture(host, Path.Combine(output, "markdown-code-narrow.png"));
-            var legacyCode = new Run("inline"); var legacyTail = new Run("后文");
-            var legacyParagraph = new Paragraph(); legacyParagraph.Inlines.Add(new Run("前")); legacyParagraph.Inlines.Add(legacyCode); legacyParagraph.Inlines.Add(legacyTail);
-            var legacyDocument = new FlowDocument(legacyParagraph);
-            ai.Markdown = "前`inline`后文"; await Settle();
-            foreach (var original in new[] { legacyCode.ContentStart.GetPositionAtOffset(2)!, legacyTail.ContentStart })
-            {
-                var anchor = new AiAnswerAnchor("turn", "answer", legacyDocument.ContentStart.GetOffsetToPosition(original), 2, "quote", "revision");
-                var restored = ai.AnnotationPointer("legacy-" + anchor.Offset, anchor);
-                Check(restored is not null && new TextRange(restored, restored.GetPositionAtOffset(2)!).Text == new TextRange(original, original.GetPositionAtOffset(2)!).Text, "Decorative code spans shifted a legacy raw-symbol annotation");
-            }
             ai.ConfigureFolding(new Dictionary<string, bool>(), "code-folds", () => { }); ai.Markdown = "## 标题\n\n`code`\n\n```tex\ncode block\n```"; await Settle();
             var heading = (Paragraph)((Section)ai.Document.Blocks.FirstBlock!).Blocks.FirstBlock!;
             var toggle = heading.Inlines.OfType<Hyperlink>().Single(); toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); await Settle();
             Check(((List<Rect>)Field(ai, "_inlineCodeBounds")!).Count == 0, "Folded code left a painted background behind");
             toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); await Settle();
             Check(((List<Rect>)Field(ai, "_inlineCodeBounds")!).Count == 1, "Reopening a heading did not restore code decoration");
-            Console.WriteLine($"PASS: Markdown code {checks} checks: both palettes and prose fonts, native selection/copy, equal inline padding, line height, rounded blocks, code links, wrapping and stable annotation offsets.");
+            Console.WriteLine($"PASS: Markdown code {checks} checks: both palettes and prose fonts, native selection/copy, equal inline padding, line height, rounded blocks, code links, wrapping and folding.");
         }
         finally { host.Close(); ThemeManager.Apply("ristretto"); }
     }

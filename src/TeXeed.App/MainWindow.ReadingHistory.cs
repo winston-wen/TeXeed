@@ -54,6 +54,11 @@ public partial class MainWindow
         bool Valid(string key)
         {
             if (key == TabWorkspace.PreviewKey || key == TabWorkspace.AiSettingsKey || key == TabWorkspace.AiHistoryKey) return true;
+            if (TabWorkspace.AiDocumentConversationId(key) is { } documentId)
+            {
+                if (_aiStore?.Book.Conversations.Any(c => c.Id == documentId) != true) return false;
+                EnsureAiSessionViews(documentId); return true;
+            }
             if (TabWorkspace.IsAiConversation(key))
             {
                 var id = key.StartsWith(TabWorkspace.AiKey + ":", StringComparison.Ordinal) ? key[(TabWorkspace.AiKey.Length + 1)..] : "";

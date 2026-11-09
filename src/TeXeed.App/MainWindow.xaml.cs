@@ -137,10 +137,14 @@ public partial class MainWindow : Window
     {
         if (_transitioning || _closing) return;
         _transitioning = true; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = false;
+        _projectCommentPanel.IsEnabled = false;
+        foreach (var source in _aiSources.Values) source.IsEnabled = false;
+        foreach (var panel in _aiPanels.Values) panel.IsEnabled = false;
         try
         {
             await PauseWorkAsync();
             if (!await ConfirmLeaveAsync()) return;
+            await FlushProjectCommentsAsync();
             SaveReadingHistory();
             if (createNew) await File.WriteAllTextAsync(path, NewDocument);
             var project = await Task.Run(() => _projects.LoadAsync(path));
@@ -150,8 +154,7 @@ public partial class MainWindow : Window
             _followAwaitingSourceInteraction = false; _previewUserOwnsView = false;
             _externalChangePending = false; _assetChangePending = false;
             await InitializeAiProjectAsync(project.MainPath);
-            SetAiMarking(false);
-            _previewWarning = false; _project = project; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
+            _previewWarning = false; _project = project; LoadProjectComments(project); _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
             ResetDirectoryCatalog();
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
@@ -194,6 +197,9 @@ public partial class MainWindow : Window
         finally
         {
             _transitioning = false; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = true;
+            _projectCommentPanel.IsEnabled = true;
+            foreach (var source in _aiSources.Values) source.IsEnabled = true;
+            foreach (var panel in _aiPanels.Values) panel.IsEnabled = true;
             QueueExternalRefresh();
             if (_settings.LivePreview && _project != null && (_changes.Count > 0 || _pdfRevision != _revision)) ScheduleLiveBuild();
             else if (_pdfRevision == _revision && _pdfPath is not null) QueueFollowSync();
@@ -673,8 +679,8 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) != true) return;
         await SwitchProjectAsync(dialog.FileName, true);
     }
-    private async void Save_Click(object sender, RoutedEventArgs e) => await BuildAsync();
-    private async void Build_Click(object sender, RoutedEventArgs e) => await BuildAsync();
+    private async void Save_Click(object sender, RoutedEventArgs e) => await BuildFocusedDocumentAsync();
+    private async void Build_Click(object sender, RoutedEventArgs e) => await BuildFocusedDocumentAsync();
     private void Cancel_Click(object sender, RoutedEventArgs e) { _buildEpoch++; _buildAgain = false; _buildAgainExplicit = false; _scheduledBuildExplicit = false; _liveTimer.Stop(); _compiler.Cancel(); Status("编译已取消"); }
     private async void Sync_Click(object sender, RoutedEventArgs e) => await ForwardAsync(true);
     private async void Refresh_Click(object sender, RoutedEventArgs e) { if (_project != null) await OpenAsync(_project.MainPath); }
@@ -702,7 +708,7 @@ public partial class MainWindow : Window
     private void UpdateWorkspaceIcons()
     {
         foreach (var button in WorkspaceIconBar.Children.OfType<Button>())
-            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, Equals(button.Tag, "ai-mark") ? _aiMarking : _workspaceExpanded && Equals(button.Tag, _sidebar));
+            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, _workspaceExpanded && Equals(button.Tag, _sidebar));
     }
     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (!_buildingFileTree && e.NewValue is TreeViewItem { Tag: string path }) OpenExplorerFile(path); }
@@ -745,6 +751,8 @@ public partial class MainWindow : Window
         if (_project is not null) { _project = _project with { ConfiguredName = dialog.ProjectName }; RefreshTabs(); }
         _settings = dialog.Settings; PersistSettings(); LiveMenuItem.IsChecked = _settings.LivePreview;
         foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); }
+        foreach (var source in _aiSources.Values) source.SetSettings(_settings);
+        foreach (var preview in _aiPreviews.Values) preview.SetSettings(_settings);
         Preview.InvertColors = _settings.InvertPdfColors;
         Preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
         Preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
@@ -762,8 +770,6 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Escape && AutoScrollController.StopForWindow(this))
         { e.Handled = true; return; }
-        if (_aiMarking && e.Key == Key.Escape)
-        { SetAiMarking(false); e.Handled = true; return; }
         if (e.Key == Key.Escape && (FileTabs.IsDraggingTab || RightFileTabs.IsDraggingTab))
         { FileTabs.CancelDrag(); RightFileTabs.CancelDrag(); DockDropCue.Visibility = Visibility.Collapsed; e.Handled = true; return; }
         if (HandleMenuKeyDown(e)) return;
@@ -771,8 +777,10 @@ public partial class MainWindow : Window
     }
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
+        if (e.Key == Key.G && modifiers == ModifierKeys.Control && _workspaceTabs.FocusedTab is { } key && AiConversationForKey(key) is { } conversation && _aiPanels.TryGetValue(conversation.Id, out var searchPanel))
+        { e.Handled = true; if (!e.IsRepeat) searchPanel.OpenDocumentSearch(); return; }
         // Let the chat handle Ctrl+Enter before the window's compile shortcut.
-        if (e.Key == Key.Enter && modifiers == ModifierKeys.Control && (_aiPanel.IsKeyboardFocusWithin || AiPanel.IsAnnotationInput(e.OriginalSource as IInputElement) || AiPanel.IsAnnotationInput(Keyboard.FocusedElement))) return;
+        if (e.Key == Key.Enter && modifiers == ModifierKeys.Control && _aiPanel.IsKeyboardFocusWithin) return;
         if (e.Key == Key.P && modifiers is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift))
         { e.Handled = true; if (!e.IsRepeat) OpenPdfPrint(); return; }
         if (e.Key == Key.F4 && modifiers == ModifierKeys.Control)
@@ -789,8 +797,8 @@ public partial class MainWindow : Window
         {
             case Key.O: Open_Click(this, e); break;
             case Key.N: New_Click(this, e); break;
-            case Key.S: await BuildAsync(); break;
-            case Key.Enter: await BuildAsync(); break;
+            case Key.S: await BuildFocusedDocumentAsync(); break;
+            case Key.Enter: await BuildFocusedDocumentAsync(); break;
             case Key.J: await ForwardAsync(true); break;
             case Key.B: ToggleWorkspace(); break;
             case Key.H: if (!_transitioning && !_closing) Editor.ExecuteCommand("replace"); break;
@@ -804,6 +812,9 @@ public partial class MainWindow : Window
     {
         if (_allowClose) return;
         e.Cancel = true; if (_closing || _transitioning) return; _closing = true; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = false;
+        _projectCommentPanel.IsEnabled = false;
+        foreach (var source in _aiSources.Values) source.IsEnabled = false;
+        foreach (var panel in _aiPanels.Values) panel.IsEnabled = false;
         try
         {
             // Even idle/save-free shutdown must leave WPF's Closing callback before
@@ -811,6 +822,7 @@ public partial class MainWindow : Window
             await Dispatcher.Yield(DispatcherPriority.Background);
             await PauseWorkAsync();
             if (!await ConfirmLeaveAsync()) return;
+            await FlushProjectCommentsAsync();
             SaveReadingHistory();
             await StopAiWorkspaceAsync(); await _aiSettings.StopAsync(); _aiSettings.Dispose(); _aiConnection.Dispose();
             _allowClose = true; _session++; _compiler.Cancel(); _watcher?.Dispose();
@@ -823,6 +835,9 @@ public partial class MainWindow : Window
             if (!_allowClose)
             {
                 _closing = false; foreach (var sourceEditor in Editors) sourceEditor.IsEnabled = true; QueueExternalRefresh();
+                _projectCommentPanel.IsEnabled = true;
+                foreach (var source in _aiSources.Values) source.IsEnabled = true;
+                foreach (var panel in _aiPanels.Values) panel.IsEnabled = true;
                 if (_settings.LivePreview && (_changes.Count > 0 || _pdfRevision != _revision)) ScheduleLiveBuild();
             }
         }

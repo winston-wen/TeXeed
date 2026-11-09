@@ -60,49 +60,101 @@ internal static partial class Program
         var overloaded = AiFailure.FromEvent(JsonNode.Parse("""{"response":{"error":{"code":"server_is_overloaded","message":"try later"}}}"""));
         Check(AiResponses.IsNetworkFailure(overloaded, CancellationToken.None), "Server overload was treated as a permanent failure");
 
-        var fixture = new AiFakeHandler { ProgramFailure = true };
+        var fixture = new SharedRetryHandler { ProgramFailure = true };
         using (var panel = new AiPanel(new AiConnection(fixture)))
         {
-            await panel.SetProjectAsync(Path.Combine(output, "manual-retry.tex"));
+            await panel.SetProjectAsync(Path.Combine(output, "manual-retry-" + Guid.NewGuid().ToString("N") + ".tex"));
             var models = (ComboBox)panel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("fixture", "测试模型") }; models.SelectedIndex = 0;
             var host = new Window { Owner = owner, Width = 820, Height = 720, Content = panel }; host.Show();
             try
             {
+                var book = (AiNotebook)Field(panel, "_book")!;
+                const string original = "\\documentclass{article}\n\\begin{document}\nORIGINAL_CONTEXT\n\\end{document}";
+                Check(book.Active.SharedDocument.TryInitialize(original, "fixture"), "Could not prepare original document snapshot");
+                book.Active.SharedDocument.Comments.Add(new AiDocumentComment { Start = original.IndexOf("ORIGINAL_CONTEXT", StringComparison.Ordinal), Length = 16, Quote = "ORIGINAL_CONTEXT", Text = "ORIGINAL_COMMENT" });
                 var composer = (TextBox)panel.FindName("Composer"); composer.Text = "原来的问题";
-                var original = new AiEntry { Question = "原批注" }; panel.AddEntry(original); await panel.SubmitAsync();
+                await panel.SubmitAsync();
                 host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-                var book = (AiNotebook)Field(panel, "_book")!; var failed = book.Turns.Last();
-                Check(failed.EndReason == "program" && Descendants<AiTurnView>(panel).Single().CanRetry, "Last program-stopped turn has no retry action");
+                var failed = book.Turns.Last(); var retryButton = (Button)panel.FindName("SharedRetryButton");
+                Check(failed.EndReason == "program" && retryButton.IsVisible && retryButton.IsEnabled, "Last program-stopped request has no retry action");
                 Capture(host, Path.Combine(output, "retry-program-stop.png"));
                 host.Width = 420; host.UpdateLayout();
-                var narrowRetry = Descendants<Button>(panel).Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "重试本轮" && b.IsVisible);
-                Check(VisibleBounds(narrowRetry, panel).Width >= narrowRetry.ActualWidth - .5, "Narrow footer clips its retry action");
+                Check(VisibleBounds(retryButton, panel).Width >= retryButton.ActualWidth - .5, "Narrow sidebar clips its retry action");
                 Capture(host, Path.Combine(output, "retry-program-stop-narrow.png")); host.Width = 820; host.UpdateLayout();
-                composer.Text = "下一条草稿"; var pending = new AiEntry { Question = "尚未发送的批注" }; panel.AddEntry(pending);
+                composer.Text = "下一条草稿";
+                Check(book.Active.SharedDocument.TryApply(book.Active.SharedDocument.Revision, original.Replace("ORIGINAL_CONTEXT", "LATEST_CHANGE"), "用户"), "Could not prepare a later document edit");
+                book.Active.SharedDocument.Comments[0].Text = "LATEST_COMMENT";
                 fixture.ProgramFailure = false;
-                var retryButton = Descendants<Button>(panel).Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "重试本轮" && b.IsVisible);
                 retryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 retryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 var until = DateTime.UtcNow.AddSeconds(5);
                 while (panel.HasActiveOperation && DateTime.UtcNow < until) await Task.Delay(10);
                 Check(!panel.HasActiveOperation, "Retry button did not finish its operation"); host.UpdateLayout();
-                Check(book.Turns.Count == 2 && !book.Turns.Last().IsIncomplete && book.Turns.Last().Prompt == "原来的问题" && book.Turns.Last().SentAnnotations.Single().Id == original.Id, "Retry lost the original question or annotation snapshot");
-                Check(composer.Text == "下一条草稿" && book.Entries.Single() == pending, "Retry consumed the next draft or pending annotation");
-                Check(!Descendants<AiTurnView>(panel).Any(v => v.CanRetry), "A non-last or completed turn retains a retry action");
+                Check(book.Turns.Count == 2 && book.Turns.Last().IsIncomplete && book.Turns.Last().Prompt == "原来的问题", "Retry lost the original question or overwrote a concurrent edit");
+                Check(fixture.LastInput.Contains("ORIGINAL_CONTEXT") && fixture.LastInput.Contains("ORIGINAL_COMMENT") && !fixture.LastInput.Contains("LATEST_CHANGE") && !fixture.LastInput.Contains("LATEST_COMMENT"), "Retry did not use the original document and comment snapshot");
+                Check(composer.Text == "下一条草稿", "Retry consumed the next draft");
+                Check(book.Active.SharedDocument.Source.Contains("LATEST_CHANGE") && book.Active.SharedDocument.Comments[0].Text == "LATEST_COMMENT", "Retry overwrote a later document or comment edit");
+                composer.Text = "重新提问"; await panel.SubmitAsync(); host.UpdateLayout();
+                Check(!book.Turns.Last().IsIncomplete, "A fresh request did not complete");
+                Check(retryButton.Visibility == Visibility.Collapsed, "A completed last request retains a retry action");
                 var previousRequests = fixture.ResponseRequests; await panel.SubmitAsync(failed);
                 Check(previousRequests == fixture.ResponseRequests, "A stale retry action submitted an old turn");
-                var legacy = new AiTurn("已有过载中止记录", "[本轮未完成]") { Segments = [new() { Id = "failure", Kind = "activity", Text = "本轮未完成：server_is_overloaded" }] };
-                book.Turns.Add(legacy); Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+                var legacy = new AiTurn("已有过载中止记录", "[本轮未完成]") { MentorRequest = failed.MentorRequest?.Snapshot(), Segments = [new() { Id = "failure", Kind = "activity", Text = "本轮未完成：server_is_overloaded" }] };
+                book.Turns.Add(legacy); Invoke(panel, "RefreshTranscript"); Invoke(panel, "UpdateRetryActions"); host.UpdateLayout();
                 await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-                ((ScrollViewer)panel.FindName("MessagesScroll")).ScrollToEnd(); host.UpdateLayout();
-                Check(Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == legacy.Id).CanRetry, "An old overload record without an explicit incomplete flag cannot retry");
+                Check(retryButton.IsVisible && retryButton.IsEnabled, "An old overload record without an explicit incomplete flag cannot retry");
+                var oldCount = fixture.ResponseRequests; composer.Text = "重试时保留的新草稿";
+                retryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                until = DateTime.UtcNow.AddSeconds(5);
+                while (panel.HasActiveOperation && DateTime.UtcNow < until) await Task.Delay(10);
+                Check(!panel.HasActiveOperation && fixture.ResponseRequests > oldCount && composer.Text == "重试时保留的新草稿", "Retrying an old overload record failed or consumed a later draft");
+                var withoutSnapshot = new AiTurn("缺少快照的旧问题", "[本轮未完成]") { Segments = [new() { Id = "failure", Kind = "activity", Text = "本轮未完成：server_is_overloaded" }] };
+                book.Turns.Add(withoutSnapshot); Invoke(panel, "RefreshTranscript"); Invoke(panel, "UpdateRetryActions"); host.UpdateLayout();
+                var sawWarning = false; var preservedQuestion = false;
+                var idleAllocated = GC.GetAllocatedBytesForCurrentThread(); var idleWatch = System.Diagnostics.Stopwatch.StartNew();
+                await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                var idleMs = idleWatch.Elapsed.TotalMilliseconds; var idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleAllocated;
+                var openAllocated = 0L; var openMs = 0d; var visibleControls = 0; var allocationStart = 0L; var openWatch = new System.Diagnostics.Stopwatch();
+                var closeAllocated = 0L; var closeMs = 0d; var closeAllocationStart = 0L; var closeWatch = new System.Diagnostics.Stopwatch();
+                void AnswerDialog(bool send)
+                {
+                    var dialog = Application.Current.Windows.OfType<Window>().Single(w => w.Title == "重新发送旧问题");
+                    if (!send)
+                    {
+                        openMs = openWatch.Elapsed.TotalMilliseconds; openAllocated = GC.GetAllocatedBytesForCurrentThread() - allocationStart;
+                        visibleControls = Descendants<Control>(dialog).Count(control => control.IsVisible);
+                        Capture(dialog, Path.Combine(output, "legacy-resend-dialog.png"));
+                    }
+                    sawWarning = Descendants<TextBlock>(dialog).Any(t => t.Text.Contains("没有保存当时的文稿和评论快照") && t.Text.Contains("当前文稿"));
+                    var input = Descendants<TextBox>(dialog).Single(); preservedQuestion = input.Text == "缺少快照的旧问题";
+                    var choice = Descendants<Button>(dialog).Single(b => Equals(b.Content, send ? "用当前文稿发送" : "取消"));
+                    var peer = new System.Windows.Automation.Peers.ButtonAutomationPeer(choice);
+                    if (!send) { closeAllocationStart = GC.GetAllocatedBytesForCurrentThread(); closeWatch.Start(); }
+                    ((System.Windows.Automation.Provider.IInvokeProvider)peer).Invoke();
+                }
+                oldCount = fixture.ResponseRequests;
+                allocationStart = GC.GetAllocatedBytesForCurrentThread(); openWatch.Start();
+                _ = host.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => AnswerDialog(false)));
+                retryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                closeMs = closeWatch.Elapsed.TotalMilliseconds; closeAllocated = GC.GetAllocatedBytesForCurrentThread() - closeAllocationStart;
+                await File.WriteAllTextAsync(Path.Combine(output, "legacy-resend-dialog-performance.json"), System.Text.Json.JsonSerializer.Serialize(new { openMs, openAllocated, closeMs, closeAllocated, idleMs, idleBytes, visibleControls, adjustedOpenMs = Math.Max(0, openMs - idleMs), adjustedOpenBytes = Math.Max(0, openAllocated - idleBytes), adjustedCloseMs = Math.Max(0, closeMs - idleMs), adjustedCloseBytes = Math.Max(0, closeAllocated - idleBytes), limitation = "One cold modal opening and closing through ApplicationIdle; UI thread allocation includes modal dispatcher and no historical counterpart." }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                Check(sawWarning && preservedQuestion && fixture.ResponseRequests == oldCount && composer.Text == "重试时保留的新草稿", "Canceling the missing-snapshot dialog changed the request or draft");
+                sawWarning = preservedQuestion = false;
+                _ = host.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => AnswerDialog(true)));
+                retryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                until = DateTime.UtcNow.AddSeconds(5);
+                while (panel.HasActiveOperation && DateTime.UtcNow < until) await Task.Delay(10);
+                Check(sawWarning && preservedQuestion && !panel.HasActiveOperation && fixture.ResponseRequests > oldCount &&
+                    fixture.LastInput.Contains("LATEST_CHANGE") && fixture.LastInput.Contains("LATEST_COMMENT") && composer.Text == "重试时保留的新草稿",
+                    "Resending a missing-snapshot record did not use the current document/comments or preserve the draft");
             }
             finally { host.Close(); }
         }
         using (var stalled = new StalledAiHandler())
         using (var panel = new AiPanel(new AiConnection(stalled)))
         {
-            await panel.SetProjectAsync(Path.Combine(output, "immediate-send.tex"));
+            await panel.SetProjectAsync(Path.Combine(output, "immediate-send-" + Guid.NewGuid().ToString("N") + ".tex"));
             var models = (ComboBox)panel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("fixture", "测试模型") }; models.SelectedIndex = 0;
             var book = (AiNotebook)Field(panel, "_book")!;
             for (var i = 0; i < 100; i++) book.Turns.Add(new("历史问题 " + i, "历史正文。"));
@@ -112,18 +164,18 @@ internal static partial class Program
             {
                 ((TextBox)panel.FindName("Composer")).Text = "网络尚未返回时也应立即显示我的问题";
                 var request = panel.SubmitAsync();
-                Check(((FrameworkElement)panel.FindName("LiveContainer")).Visibility == Visibility.Visible
-                    && ((MarkdownView)panel.FindName("LiveQuestion")).Markdown.Contains("立即显示"), "Submission waited for disk or network before echoing the question");
+                Check(((FrameworkElement)panel.FindName("SharedSubmittedMessage")).Visibility == Visibility.Visible
+                    && ((TextBlock)panel.FindName("SharedSubmittedText")).Text.Contains("立即显示"), "Submission waited for disk or network before echoing the question");
                 await stalled.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
                 await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-                var live = (FrameworkElement)panel.FindName("LiveContainer");
-                Check(live.IsVisible && VisibleBounds((FrameworkElement)panel.FindName("LiveQuestion"), panel).Height > 0
-                    && ((AiReplyStatus)panel.FindName("LiveReplyStatus")).IsThinking
-                    && ((AiReplyStatus)panel.FindName("LiveReplyStatus")).PendingText == "等待 AI 响应", "Virtualized history hid the active question or processing state");
+                var live = (FrameworkElement)panel.FindName("SharedSubmittedMessage");
+                Check(live.IsVisible && VisibleBounds((FrameworkElement)panel.FindName("SharedSubmittedText"), panel).Height > 0
+                    && ((AiReplyStatus)panel.FindName("SharedReplyStatus")).IsThinking
+                    && ((AiReplyStatus)panel.FindName("SharedReplyStatus")).PendingText == "等待 AI 响应", "The active question or processing state was hidden");
                 Capture(host, Path.Combine(output, "immediate-send-stalled.png"));
                 ((Button)panel.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await request.WaitAsync(TimeSpan.FromSeconds(5));
                 host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-                Check(book.Turns.Last().EndReason == "user" && Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == book.Turns.Last().Id).CanRetry, "Last user-stopped turn has no retry action");
+                Check(book.Turns.Last().EndReason == "user" && ((Button)panel.FindName("SharedRetryButton")).IsVisible, "Last user-stopped request has no retry action");
                 Capture(host, Path.Combine(output, "retry-user-stop.png"));
             }
             finally { host.Close(); }
@@ -134,5 +186,20 @@ internal static partial class Program
     {
         internal int Requests;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) => Task.FromResult(reply(++Requests));
+    }
+    private sealed class SharedRetryHandler : HttpMessageHandler
+    {
+        internal bool ProgramFailure;
+        internal int ResponseRequests;
+        internal string LastInput = "";
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            ResponseRequests++;
+            LastInput = await request.Content!.ReadAsStringAsync(token);
+            var text = ProgramFailure
+                ? "data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"message\":\"fixture program failure\"}}}\n\n"
+                : "data: " + System.Text.Json.JsonSerializer.Serialize(new { type = "response.output_text.delta", delta = "{\"initial_latex\":null,\"edits\":[],\"comments\":[],\"message\":\"\"}" }) + "\n\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n";
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(text, Encoding.UTF8, "text/event-stream") };
+        }
     }
 }

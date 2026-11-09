@@ -12,17 +12,20 @@ public partial class MainWindow
     private AiWorkspaceStore? _aiStore;
     private AiHistoryView? _aiHistory;
     private readonly Dictionary<string,AiPanel> _aiPanels = [];
+    private readonly Dictionary<string,AiSessionSourceView> _aiSources = [];
+    private readonly Dictionary<string,AiSessionPdfView> _aiPreviews = [];
+    private readonly Dictionary<string,Border> _aiCommentTabs = [];
+    private Grid? _aiSidebarHost;
+    private UIElement? _aiSidebarOriginal;
     private readonly HashSet<string> _closingAi = [];
     private readonly HashSet<Task> _aiCloseTasks = [];
     private readonly HashSet<string> _deletingAi = [];
-    private AiAnnotationLayer? _pdfAnnotations;
     private AiPanel CreateAiPanel()
     {
         var panel = new AiPanel(_aiConnection, _aiSettings);
         panel.SettingsRequested += (_,_) => OpenAiSettings();
         panel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
         panel.CreateToolRunner = () => CreateAiToolRunner(panel.Permission, panel.ShellApprovals);
-        panel.AnnotationsChanged += (_,_) => { if (ReferenceEquals(_aiPanel,panel)) RefreshAiAnnotations(); };
         panel.PreviewMouseDown += (_,_) => SetAiTarget(panel);
         panel.GotKeyboardFocus += (_,_) => SetAiTarget(panel);
         return panel;
@@ -32,18 +35,68 @@ public partial class MainWindow
         if (ReferenceEquals(_aiPanel,panel)) return;
         _aiPanel = panel;
         if (_aiStore is not null) _aiStore.Book.ActiveConversationId = panel.ConversationId;
-        RefreshAiAnnotations();
-    }
-    private void RefreshAiAnnotations()
-    {
-        _pdfAnnotations?.Refresh();
-        foreach (var layer in _sourceAnnotations.Values) layer.Refresh();
     }
     private AiPanel EnsureAiPanel(string id)
     {
         if (_aiPanels.TryGetValue(id,out var panel)) return panel;
-        panel = CreateAiPanel(); panel.Bind(_aiStore!,id); panel.IsMarking = _aiMarking;
+        panel = CreateAiPanel(); panel.Bind(_aiStore!,id);
         _aiPanels.Add(id,panel); return panel;
+    }
+    private void EnsureAiSessionViews(string id)
+    {
+        if (_aiStore is null || _aiSources.ContainsKey(id)) return;
+        var panel = EnsureAiPanel(id); var document = panel.Conversation.SharedDocument;
+        var source = new AiSessionSourceView(document, AiDocumentRepository.GetDirectory(_aiStore.Project, id), _settings);
+        var pdf = new AiSessionPdfView(_aiStore.Project, id, document, _settings);
+        pdf.PreviewSettingsRequested += (_, _) => OpenAiPreviewSettings(pdf.Preview);
+        if (Preview.IsAutoWidth) pdf.Preview.FitWidth(); else pdf.Preview.SetZoom(Preview.Zoom);
+        _aiSources.Add(id, source); _aiPreviews.Add(id, pdf);
+        _aiCommentTabs.Add(id, new Border { Child = new TextBlock { Text = "该会话的评论与附言在左侧。", Margin = new Thickness(24), TextWrapping = TextWrapping.Wrap } });
+        source.DocumentEdited += (_, _) => panel.NotifyExternalDocumentChanged();
+        source.CommentRequested += (_, _) => { var selection = source.Selection; panel.BeginSourceComment(source.Revision, selection.Start, selection.Length); };
+        source.CompileRequested += async (_, _) => { if (!source.HasConflict) await pdf.CompileAsync(); else Status("请先处理会话源码冲突。 "); };
+        panel.SharedDocumentChanged += (_, _) => { source.RefreshFromDocument(); pdf.MarkSourceChanged(); };
+        panel.SharedCommentsChanged += (_, _) => pdf.RefreshComments();
+        panel.DocumentMatchRequested += (start, length) =>
+        {
+            NavigateAiSource(id, panel, source, document, document.Revision, start, length);
+        };
+    }
+    private void NavigateAiSource(string id, AiPanel panel, AiSessionSourceView source, AiSharedDocument document, string revision, int start, int length)
+    {
+        if (_closing || _transitioning || _aiStore?.Book.Conversations.Any(c => c.Id == id && ReferenceEquals(c.SharedDocument, document)) != true ||
+            revision != document.Revision || source.HasConflict || !source.RefreshFromDocument() || source.Revision != document.Revision || start < 0 || length < 0 || start > document.Source.Length || length > document.Source.Length - start)
+        { Status("文稿已变化或源码有冲突，请先处理后重新定位。"); return; }
+        _workspaceTabs.Open(TabWorkspace.AiSourceKey(id)); SetAiTarget(panel); RefreshWorkspaceViews();
+        source.Editor.CaretOffset = start; source.Editor.Select(start, length);
+        source.Editor.ScrollTo(source.Editor.TextArea.Caret.Line, source.Editor.TextArea.Caret.Column); source.Editor.TextArea.Focus();
+    }
+    private void ShowAiSidebar(AiPanel? panel)
+    {
+        if (panel is not null) HideProjectCommentsSidebar();
+        if (_aiSidebarHost is null)
+        {
+            var original = SidebarPanel.Child; SidebarPanel.Child = null; _aiSidebarOriginal = original;
+            _aiSidebarHost = new Grid(); if (original is not null) _aiSidebarHost.Children.Add(original);
+            SidebarPanel.Child = _aiSidebarHost;
+        }
+        foreach (var other in _aiPanels.Values) if (other.Parent == _aiSidebarHost) other.Visibility = Visibility.Collapsed;
+        if (_aiSidebarOriginal is not null) _aiSidebarOriginal.Visibility = panel is null && !ProjectCommentsVisible ? Visibility.Visible : Visibility.Collapsed;
+        if (panel is null) return;
+        if (panel.Parent is Panel old && old != _aiSidebarHost) old.Children.Remove(panel);
+        if (panel.Parent is null) _aiSidebarHost.Children.Add(panel);
+        panel.Visibility = Visibility.Visible;
+    }
+    private async Task BuildFocusedDocumentAsync()
+    {
+        var key = _workspaceTabs.FocusedTab;
+        var id = key is null ? null : TabWorkspace.AiDocumentConversationId(key) ?? AiConversationForKey(key)?.Id;
+        if (id is not null && _aiPreviews.TryGetValue(id, out var preview))
+        {
+            if (_aiSources.TryGetValue(id, out var source) && source.HasConflict) { Status("请先处理会话源码冲突。"); return; }
+            await preview.CompileAsync(); return;
+        }
+        await BuildAsync();
     }
     private async Task InitializeAiProjectAsync(string project)
     {
@@ -55,20 +108,30 @@ public partial class MainWindow
     }
     private async Task StopAiWorkspaceAsync()
     {
+        if (_aiSources.Values.Any(view => view.HasConflict)) throw new InvalidOperationException("会话源码存在冲突草稿，请先处理；内容仍保留在编辑器中。");
         // Tab closing saves asynchronously after removing its view from the map.
         // Finish it before a project switch snapshots/disposes the remaining panels.
         if (_aiCloseTasks.Count > 0) await Task.WhenAll(_aiCloseTasks.ToArray());
-        if (_aiHistory is not null) { await _aiHistory.CommitRenameAsync(); if (_aiHistory.Parent is Panel historyParent) historyParent.Children.Remove(_aiHistory); }
-        foreach (var panel in _aiPanels.Values.Append(_aiPanel).Where(p => p is not null).Distinct().ToArray())
+        var panels = _aiPanels.Values.Append(_aiPanel).Where(p => p is not null).Distinct().ToArray();
+        var frozen = panels.Cast<UIElement>().Concat(_aiSources.Values).Concat(_aiPreviews.Values).Concat(_aiCommentTabs.Values)
+            .Select(view => (View: view, Enabled: view.IsEnabled)).ToArray();
+        foreach (var entry in frozen) entry.View.IsEnabled = false;
+        try
         {
-            await panel.StopAndSaveAsync(); if (panel.Parent is Panel parent) parent.Children.Remove(panel);
-            panel.Dispose();
+            if (_aiHistory is not null) await _aiHistory.CommitRenameAsync();
+            foreach (var panel in panels) await panel.StopAndSaveAsync();
         }
-        _aiPanels.Clear(); _closingAi.Clear(); _deletingAi.Clear();
+        catch { foreach (var entry in frozen) entry.View.IsEnabled = entry.Enabled; throw; }
+        if (_aiHistory?.Parent is Panel historyParent) historyParent.Children.Remove(_aiHistory);
+        foreach (var panel in panels) { if (panel.Parent is Panel parent) parent.Children.Remove(panel); panel.Dispose(); }
+        foreach (var view in _aiSources.Values) if (view.Parent is Panel parent) parent.Children.Remove(view);
+        foreach (var view in _aiPreviews.Values) { if (view.Parent is Panel parent) parent.Children.Remove(view); view.Dispose(); }
+        foreach (var view in _aiCommentTabs.Values) if (view.Parent is Panel parent) parent.Children.Remove(view);
+        _aiSources.Clear(); _aiPreviews.Clear(); _aiCommentTabs.Clear(); _aiPanels.Clear(); _closingAi.Clear(); _deletingAi.Clear();
         if (_aiStore is not null) _aiStore.Changed -= AiStoreChanged;
         _aiStore = null;
     }
-    private bool IsAiConversationOpen(string id) => _closingAi.Contains(id) || _workspaceTabs.Owner(TabWorkspace.AiConversationKey(id)) is not null;
+    private bool IsAiConversationOpen(string id) => _closingAi.Contains(id) || new[] { TabWorkspace.AiConversationKey(id), TabWorkspace.AiSourceKey(id), TabWorkspace.AiPreviewKey(id) }.Any(key => _workspaceTabs.Owner(key) is not null);
     private async Task OpenAiConversationAsync(string id)
     {
         if (_aiStore is null || !_aiStore.Book.Conversations.Any(c=>c.Id==id)) return;
@@ -76,10 +139,10 @@ public partial class MainWindow
         if (_deletingAi.Contains(id)) { Status("该会话正在删除，无法打开。"); return; }
         try
         {
-            var panel = EnsureAiPanel(id); SetAiTarget(panel);
+            var panel = EnsureAiPanel(id); EnsureAiSessionViews(id); SetAiTarget(panel);
             _aiStore.Book.ActiveConversationId = id;
-            _workspaceTabs.Open(TabWorkspace.AiConversationKey(id)); RefreshWorkspaceViews();
-            _aiHistory?.RefreshExternal(); await _aiStore.SaveAsync(); panel.Focus();
+            _workspaceTabs.Open(TabWorkspace.AiConversationKey(id)); _workspaceTabs.Open(TabWorkspace.AiSourceKey(id)); _workspaceTabs.Open(TabWorkspace.AiPreviewKey(id)); RefreshWorkspaceViews();
+            _aiHistory?.RefreshExternal(); await _aiStore.SaveAsync();
         }
         catch(Exception ex) { Error(ex); }
     }
@@ -144,7 +207,7 @@ public partial class MainWindow
             store.Book.Conversations.RemoveAll(c => ids.Contains(c.Id));
             var active = store.Book.Active;
             if (!_aiPanels.Values.Contains(_aiPanel)) _aiPanel = EnsureAiPanel(active.Id);
-            await store.SaveAsync(); RefreshAiAnnotations();
+            await store.SaveAsync();
         }
         catch
         {
@@ -153,13 +216,13 @@ public partial class MainWindow
             foreach (var original in originals.Where(c => saved.Conversations.Any(x => x.Id == c.Id)))
                 if (!store.Book.Conversations.Any(c => c.Id == original.Id)) store.Book.Conversations.Add(original);
             if (store.Book.Conversations.Any(c => c.Id == activeId)) store.Book.ActiveConversationId = activeId;
-            RefreshAiAnnotations(); throw;
+            throw;
         }
         finally { foreach (var id in ids) _deletingAi.Remove(id); }
     }
     private async Task CloseAiPanelsAsync(IEnumerable<string> keys)
     {
-        var ids = keys.Where(TabWorkspace.IsAiConversation).Select(key => key[(TabWorkspace.AiKey.Length + 1)..]).ToArray();
+        var ids = keys.Select(key => AiConversationForKey(key)?.Id).Where(id => id is not null).Cast<string>().Distinct().Where(id => !IsAiConversationOpen(id)).ToArray();
         _closingAi.UnionWith(ids);
         Exception? failure = null;
         try
@@ -169,7 +232,10 @@ public partial class MainWindow
                 try
                 {
                     if (!_aiPanels.Remove(id, out var panel)) continue;
-                    try { await panel.StopAndSaveAsync(); }
+                    if (_aiSources.Remove(id, out var source) && source.Parent is Panel sourceParent) sourceParent.Children.Remove(source);
+                    if (_aiPreviews.Remove(id, out var pdf)) { if (pdf.Parent is Panel pdfParent) pdfParent.Children.Remove(pdf); pdf.Dispose(); }
+                    if (_aiCommentTabs.Remove(id, out var comment) && comment.Parent is Panel commentParent) commentParent.Children.Remove(comment);
+                    try { await Task.CompletedTask; }
                     finally
                     {
                         if (panel.Parent is Panel parent) parent.Children.Remove(panel);
@@ -184,12 +250,12 @@ public partial class MainWindow
         finally
         {
             foreach (var id in ids) _closingAi.Remove(id);
-            _aiHistory?.RefreshExternal(); RefreshAiAnnotations();
+            _aiHistory?.RefreshExternal();
         }
         if (failure is not null) throw failure;
     }
-    private string AiTabTitle(string key) => AiConversationForKey(key)?.TabTitle ?? (key==TabWorkspace.AiHistoryKey ? "AI 会话历史" : key==TabWorkspace.AiSettingsKey ? "AI 设置" : "AI 对话");
-    private AiConversation? AiConversationForKey(string key) => _aiStore?.Book.Conversations.FirstOrDefault(c=>TabWorkspace.AiConversationKey(c.Id)==key);
+    private string AiTabTitle(string key) => AiConversationForKey(key) is { } c ? c.TabTitle + (TabWorkspace.IsAiSource(key) ? " · LaTeX" : TabWorkspace.IsAiPreview(key) ? " · PDF" : " · 评论") : key==TabWorkspace.AiHistoryKey ? "AI 会话历史" : key==TabWorkspace.AiSettingsKey ? "AI 设置" : "AI 对话";
+    private AiConversation? AiConversationForKey(string key) => _aiStore?.Book.Conversations.FirstOrDefault(c=>TabWorkspace.AiConversationKey(c.Id)==key || TabWorkspace.AiDocumentConversationId(key)==c.Id);
     private void AiStoreChanged()
     {
         foreach(var side in new[]{TabSide.Left,TabSide.Right}) UpdateTabStrip(side);

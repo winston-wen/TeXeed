@@ -22,3 +22,11 @@ select.session-list{appearance:none;display:block;max-width:min(320px,42vw);padd
 .mentor-document .mentor-block[data-wrapper="display"] .katex-display{margin:0;padding-left:4em;overflow-x:auto;overflow-y:hidden;text-align:left}.mentor-document .mentor-block[data-wrapper="display"] .katex-display>.katex{text-align:left}
 .mentor-document .mentor-block[data-wrapper="display"]{margin:0 0 1em}
 .mentor-document .mentor-block[data-postscript="true"]{color:var(--muted)}
+
+/* The current session's comments and overall postscript share the left sidebar. */
+.comments-pane{order:-1;flex-basis:340px;border-left:0;border-right:1px solid var(--line)}
+.comments-list{flex:1;min-height:0}.comments-pane .status-line{padding-left:16px;padding-right:16px}.comments-pane .composer-pane{padding:10px 14px 12px}.comments-pane .composer-hint{display:none}
+@media(max-width:800px){.comments-pane{flex-basis:280px}}
+@media(max-width:650px){.work-area{flex-direction:column-reverse}.comments-pane{flex:0 0 min(320px,48vh);border-right:0;border-top:1px solid var(--line)}}
+
+.composer-controls select{appearance:none;background:transparent;border:0;padding:2px;color:var(--muted);font:12px/1.4 var(--sans)}

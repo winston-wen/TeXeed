@@ -9,8 +9,6 @@
       },
       "draft": "接下来，比较两种折法的稳定性。",
       "permission": "完全访问",
-      "next": 1,
-      "entries": [],
       "turns": [
         {
           "id": "visual-plan",
@@ -55,8 +53,6 @@
       },
       "draft": "",
       "permission": "只读",
-      "next": 1,
-      "entries": [],
       "turns": [
         {
           "id": "visual-reading-list",
@@ -77,8 +73,6 @@
       },
       "draft": "",
       "permission": "完全访问",
-      "next": 1,
-      "entries": [],
       "turns": [
         {
           "id": "visual-media-overview",

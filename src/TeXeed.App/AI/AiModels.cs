@@ -129,6 +129,7 @@ public sealed class AiConversation
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
     public AiSharedDocument SharedDocument { get; set; } = new();
+    public AiCommentDrafts CommentDrafts { get; set; } = new();
     public string Draft { get; set; } = "";
     public AiPermission Permission { get; set; } = AiPermission.FullAccess;
     public AiContextUsage? ContextUsage { get; set; }
@@ -149,38 +150,10 @@ public sealed class AiConversation
         var text = CleanQuestion(question).Replace('\r', ' ').Replace('\n', ' ').Trim();
         return text.Length == 0 ? "新对话" : string.Concat(text.EnumerateRunes().Take(20));
     }
-    internal bool ReconcileSentAnnotations()
-    {
-        var changed = false;
-        for (var i = 0; i < Turns.Count; i++)
-        {
-            var turn = Turns[i];
-            if (turn.Prompt is not null || turn.SentAnnotations.Count > 0) continue;
-            // Legacy turns embedded the complete submitted question. A matching
-            // title alone must not consume a draft edited since that submission.
-            var prompt = "\n" + turn.Question + "\n";
-            var entries = Entries.Where(e => e.State is "已完成" or "提交中" or "未完成，可重试" or "上次提交未完成，可重试")
-                .Where(e => new[] { e.DisplayTitle, e.Title }.Any(label => prompt.Contains("\n" + label + "：" + e.Question + "\n", StringComparison.Ordinal))).ToArray();
-            if (entries.Length == 0) continue;
-            foreach (var entry in entries)
-                foreach (var label in new[] { entry.DisplayTitle, entry.Title })
-                    prompt = prompt.Replace("\n" + label + "：" + entry.Question + "\n", "\n", StringComparison.Ordinal);
-            Turns[i] = turn with { Prompt = prompt.Trim('\n'), SentAnnotations = entries.Select((e, n) => e.Snapshot(n + 1)).ToList() };
-            changed = true;
-        }
-        var sent = Turns.SelectMany(t => t.SentAnnotations).GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.Last());
-        // Acceptance, rather than successful completion, consumes a pending entry.
-        // Compare the payload too so an edited/replaced draft remains untouched.
-        return Entries.RemoveAll(e => sent.TryGetValue(e.Id, out var snapshot)
-            && e.Title == snapshot.Title && e.Question == snapshot.Question
-            && e.PdfRevision == snapshot.PdfRevision && e.IsPoint == snapshot.IsPoint
-            && e.AnswerAnchor == snapshot.AnswerAnchor
-            && e.Sources.SequenceEqual(snapshot.Sources) && e.PdfBlocks.SequenceEqual(snapshot.PdfBlocks)) > 0 || changed;
-    }
     internal AiConversation Snapshot() => new()
     {
         Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { MentorRequest = t.MentorRequest?.Snapshot(), SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
-        Entries = Entries.Select(e => e.Snapshot()).ToList(), SharedDocument = SharedDocument.Snapshot()
+        Entries = Entries.Select(e => e.Snapshot()).ToList(), SharedDocument = SharedDocument.Snapshot(), CommentDrafts = CommentDrafts.Snapshot()
     };
 }
 
@@ -247,8 +220,6 @@ internal static class AiStorage
         AiNotebook Restore(AiNotebook book)
         {
             AiTurnCheckpoint.Recover(project, book);
-            foreach (var conversation in book.Conversations)
-                if (conversation.ReconcileSentAnnotations()) book.RequiresSave = true;
             return book;
         }
     }

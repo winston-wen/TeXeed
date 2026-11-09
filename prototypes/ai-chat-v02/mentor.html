@@ -20,6 +20,7 @@
   <main class="workspace">
     <div class="document-toolbar" aria-label="文稿工具">
       <span class="toolbar-label">共同文稿</span>
+      <span class="demo-badge">下方为只读模拟排版，非编译后的 PDF</span>
       <button id="mentor-source-toggle" type="button" aria-pressed="false">LaTeX 源码</button>
       <button id="mentor-history-toggle" type="button" aria-expanded="false">版本</button>
       <button id="mentor-version-save" type="button">保存版本</button>
@@ -29,6 +30,26 @@
       <button id="mentor-comments-toggle" type="button" aria-expanded="true">评论</button>
     </div>
     <div class="work-area">
+      <aside id="mentor-comments" class="comments-pane" aria-label="文稿评论">
+        <div class="comments-heading"><span>评论</span></div>
+        <div id="mentor-comment-list" class="comments-list"><p class="comments-empty">在 LaTeX 源码中选中文字，就可以开始讨论。</p></div>
+    <div id="mentor-status" class="status-line" role="status" aria-live="polite"></div>
+    <section class="composer-pane" aria-label="文稿总附言">
+      <div class="composer-input">
+        <div class="line-numbers" aria-hidden="true">1<br>2<br>3</div>
+        <textarea id="mentor-prompt" rows="3" aria-label="写附言" placeholder="写下随文稿发送的附言：问题、想法或修改要求…"></textarea>
+      </div>
+      <div class="composer-controls">
+        <button class="tool-icon" type="button" aria-label="添加附件" disabled>＋</button>
+        <select aria-label="权限（模拟）" disabled><option>权限</option></select>
+        <select aria-label="模型（模拟）" disabled><option>模型</option></select>
+        <select aria-label="推理强度（模拟）" disabled><option>推理</option></select>
+        <span class="composer-spacer"></span>
+        <span class="composer-hint">Ctrl + Enter 发送</span>
+        <button id="mentor-send" class="send-button" type="button" aria-label="发送附言" title="发送附言 · Ctrl+Enter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5 M6 11l6-6 6 6"/></svg></button>
+      </div>
+    </section>
+      </aside>
       <section class="document-pane" aria-label="共同文稿">
         <div class="document-scroll">
           <div id="mentor-empty" class="document-empty">
@@ -38,29 +59,12 @@
             <button id="mentor-example" class="example-button" type="button">填入示例问题</button>
           </div>
           <div id="mentor-initial-question" class="initial-question" hidden></div>
-          <article id="mentor-document" class="mentor-document" aria-label="可编辑文稿"></article>
+          <article id="mentor-document" class="mentor-document" aria-label="只读模拟排版"></article>
           <textarea id="mentor-source-view" class="source-view" aria-label="LaTeX 源码" spellcheck="false" hidden></textarea>
         </div>
       </section>
-      <aside id="mentor-comments" class="comments-pane" aria-label="文稿评论">
-        <div class="comments-heading"><span>评论</span></div>
-        <div id="mentor-comment-list" class="comments-list"><p class="comments-empty">选中文稿中的文字，就可以开始讨论。</p></div>
-      </aside>
       <section id="mentor-history-list" class="history-panel" aria-label="版本历史" hidden></section>
     </div>
-    <div id="mentor-status" class="status-line" role="status" aria-live="polite"></div>
-    <section class="composer-pane" aria-label="文稿总附言">
-      <div class="composer-input">
-        <div class="line-numbers" aria-hidden="true">1<br>2<br>3</div>
-        <textarea id="mentor-prompt" rows="3" aria-label="写附言" placeholder="写下随文稿发送的附言：问题、想法或修改要求…"></textarea>
-      </div>
-      <div class="composer-controls">
-        <button class="tool-icon" type="button" aria-label="添加附件" disabled>＋</button>
-        <span class="composer-spacer"></span>
-        <span class="composer-hint">Ctrl + Enter 发送</span>
-        <button id="mentor-send" class="send-button" type="button" aria-label="发送附言" title="发送附言 · Ctrl+Enter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5 M6 11l6-6 6 6"/></svg></button>
-      </div>
-    </section>
   </main>
 </div>
 <dialog id="mentor-comment-dialog" class="mentor-dialog" aria-labelledby="mentor-comment-title">

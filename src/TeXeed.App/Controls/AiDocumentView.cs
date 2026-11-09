@@ -31,7 +31,8 @@ public sealed class AiDocumentView : UserControl
     public AiDocumentView()
     {
         Content = _browser;
-        Loaded += async (_, _) => await InitializeAsync();
+        Loaded += async (_, _) => { if (IsVisible) await InitializeAsync(); };
+        IsVisibleChanged += async (_, _) => { if (IsLoaded && IsVisible) await InitializeAsync(); };
     }
 
     private async Task InitializeAsync()
@@ -203,7 +204,7 @@ public sealed class AiDocumentView : UserControl
         {
             var start = GetInt(comment, "start"); var end = GetInt(comment, "end"); var quote = GetString(comment, "quote");
             if (start < 0 || end <= start || end > _document.Source.Length || _document.Source[start..end] != quote || replies.Length != 0) return false;
-            _document.Comments.Add(new AiDocumentComment { Id = id, Start = start, Length = end - start, Quote = quote, Text = text, Author = _userName, Role = "user" });
+            _document.Comments.Add(new AiDocumentComment { Id = id, Start = start, Length = end - start, Quote = quote, AnchorRevision = _document.Revision, Text = text, Author = _userName, Role = "user" });
         }
         else
         {

@@ -1,0 +1,65 @@
+{
+  "fixture": "WPF 900x700; synthetic 1000-line compiler failure; alternating final character",
+  "version": "before",
+  "samples": [
+    {
+      "elapsedMs": 136.8716,
+      "allocatedBytes": 10084320,
+      "idleMs": 0.0177,
+      "idleBytes": 1296,
+      "adjustedMs": 136.8539,
+      "adjustedBytes": 10083024
+    },
+    {
+      "elapsedMs": 149.6137,
+      "allocatedBytes": 10084320,
+      "idleMs": 0.0262,
+      "idleBytes": 1296,
+      "adjustedMs": 149.5875,
+      "adjustedBytes": 10083024
+    },
+    {
+      "elapsedMs": 139.1925,
+      "allocatedBytes": 10084320,
+      "idleMs": 0.1693,
+      "idleBytes": 1296,
+      "adjustedMs": 139.0232,
+      "adjustedBytes": 10083024
+    },
+    {
+      "elapsedMs": 152.8752,
+      "allocatedBytes": 10084320,
+      "idleMs": 0.042,
+      "idleBytes": 1296,
+      "adjustedMs": 152.8332,
+      "adjustedBytes": 10083024
+    },
+    {
+      "elapsedMs": 127.9368,
+      "allocatedBytes": 10084320,
+      "idleMs": 0.026,
+      "idleBytes": 1296,
+      "adjustedMs": 127.91080000000001,
+      "adjustedBytes": 10083024
+    },
+    {
+      "elapsedMs": 96.9762,
+      "allocatedBytes": 10084272,
+      "idleMs": 0.0219,
+      "idleBytes": 1296,
+      "adjustedMs": 96.9543,
+      "adjustedBytes": 10082976
+    },
+    {
+      "elapsedMs": 93.9305,
+      "allocatedBytes": 10084272,
+      "idleMs": 0.0297,
+      "idleBytes": 1296,
+      "adjustedMs": 93.90079999999999,
+      "adjustedBytes": 10082976
+    }
+  ],
+  "controls": 5,
+  "pdfHeight": 0,
+  "logLength": 65889
+}

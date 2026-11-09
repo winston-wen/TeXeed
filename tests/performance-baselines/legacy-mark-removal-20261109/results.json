@@ -1,0 +1,782 @@
+{
+  "base": "ca8a678",
+  "scope": "旧轮次原型的圈点入口和发送清理；HEAD 为可复核修改前版本，但此前未提交的书签改动未冻结，不能作为精确逐文件的紧邻修改前快照。",
+  "environment": {
+    "os": "win32",
+    "release": "10.0.26300",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.8103.38",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "fixture": "120 turns; 0/60 legacy pending entries; renderTurns",
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "queueCorrection": "Each action is paired with a two-frame empty sample; adjusted total subtracts the paired idle.",
+    "allocation": "V8 HeapProfiler sampled allocations over 7 actions with collected objects included, minus 7 empty actions; statistical estimate, not exact allocation.",
+    "limitations": [
+      "The earlier uncommitted immediate-before prototype was not frozen.",
+      "This newly defined exact fixture has no older verifiable historical best.",
+      "Viewport intersection does not account for all ancestor clipping."
+    ]
+  },
+  "scriptSha256": "688a9e387c2143040f5d70cea1c5da90e9c78617dceedf20839651cab7d03529",
+  "resourceHashes": {
+    "before": {
+      "index.html": "6942bb68a6e9f6db23a96d8f8ddcafeaf4859c95d5f84a38b58a169280ec1c78",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "dcff7152c3ec5c702bf7684c97b04e265f6f2c5909d13220479e823a2e1d2e2c",
+      "review-search.css": "70ad9fdcbe639b04f65bb859647a5a0aa512df70123d5275780f7a839a1ad384",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "d46cbd759b4309fe50cabfcd68e406fec4859b0dd29f5242be8ac0f5c751727d",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "2a9de03c9fe7e33f0272ff95b09ace6a3f61a62bff6018cdc154b69c7b90f225",
+      "review.js": "513566105fbb11e91cd0da156b311c5ab43dc0e4c5bed628a7795ba575f592e5",
+      "review-search.js": "103bc5edf76d5d9d058b836393de9ed4c1ae2dc1c4faeaa12d534d8aa715445b",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    },
+    "after": {
+      "index.html": "ec7267d65d443d29a8b03e989edd2b8a49e01c3fe75af4e69e938c25dfd431c3",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "dcff7152c3ec5c702bf7684c97b04e265f6f2c5909d13220479e823a2e1d2e2c",
+      "review-search.css": "2780ff5bbfa7fc9e8873de97004dee1659e2665805a0f9b52405b29224774e93",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "6cac05c4029f7c6617aa3c5a5ad218c78bed9ff194c92fb1a908f863f62e2563",
+      "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+      "review.js": "513566105fbb11e91cd0da156b311c5ab43dc0e4c5bed628a7795ba575f592e5",
+      "review-search.js": "b49b7348f7429ecea5b4c5f746c129540899e02f345b8624bca5a5ac81aee0ca",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    }
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "before",
+      "marks": 0,
+      "samples": [
+        {
+          "sync": 21.200000000186265,
+          "total": 32.299999999813735,
+          "idle": 32.10000000055879,
+          "adjusted": 0.19999999925494194
+        },
+        {
+          "sync": 17.799999999813735,
+          "total": 32.299999999813735,
+          "idle": 32.09999999962747,
+          "adjusted": 0.20000000018626451
+        },
+        {
+          "sync": 16.799999999813735,
+          "total": 32.39999999944121,
+          "idle": 32.200000000186265,
+          "adjusted": 0.19999999925494194
+        },
+        {
+          "sync": 17.300000000745058,
+          "total": 32.30000000074506,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        },
+        {
+          "sync": 16.5,
+          "total": 32.60000000055879,
+          "idle": 32.39999999944121,
+          "adjusted": 0.2000000011175871
+        },
+        {
+          "sync": 17.799999999813735,
+          "total": 32.5,
+          "idle": 32.40000000037253,
+          "adjusted": 0.09999999962747097
+        },
+        {
+          "sync": 18.300000000745058,
+          "total": 32.40000000037253,
+          "idle": 32.39999999944121,
+          "adjusted": 9.313225746154785e-10
+        }
+      ],
+      "medianSync": 17.799999999813735,
+      "medianAdjusted": 0.19999999925494194,
+      "sampledBytesPerAction": 923402.8571428572,
+      "idleSampledBytesPerAction": 3941.1428571428573,
+      "adjustedSampledBytesPerAction": 919461.7142857143,
+      "counts": {
+        "elements": 2318,
+        "visibleControls": 16,
+        "legacyEntries": 0,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "marks": 60,
+      "samples": [
+        {
+          "sync": 24.100000000558794,
+          "total": 32.60000000055879,
+          "idle": 32.200000000186265,
+          "adjusted": 0.40000000037252903
+        },
+        {
+          "sync": 21.100000000558794,
+          "total": 32.30000000074506,
+          "idle": 31.90000000037253,
+          "adjusted": 0.40000000037252903
+        },
+        {
+          "sync": 20.100000000558794,
+          "total": 32.299999999813735,
+          "idle": 32.299999999813735,
+          "adjusted": 0
+        },
+        {
+          "sync": 19.5,
+          "total": 32.10000000055879,
+          "idle": 32.30000000074506,
+          "adjusted": 0
+        },
+        {
+          "sync": 19,
+          "total": 32.10000000055879,
+          "idle": 32.09999999962747,
+          "adjusted": 9.313225746154785e-10
+        },
+        {
+          "sync": 20.40000000037253,
+          "total": 32.40000000037253,
+          "idle": 32.10000000055879,
+          "adjusted": 0.2999999998137355
+        },
+        {
+          "sync": 23.299999999813735,
+          "total": 32.39999999944121,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 20.40000000037253,
+      "medianAdjusted": 9.313225746154785e-10,
+      "sampledBytesPerAction": 907991.4285714285,
+      "idleSampledBytesPerAction": 4356.571428571428,
+      "adjustedSampledBytesPerAction": 903634.857142857,
+      "counts": {
+        "elements": 3157,
+        "visibleControls": 21,
+        "legacyEntries": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "marks": 0,
+      "samples": [
+        {
+          "sync": 18.799999999813735,
+          "total": 32.19999999925494,
+          "idle": 32.299999999813735,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.700000000186265,
+          "total": 32.200000000186265,
+          "idle": 32.10000000055879,
+          "adjusted": 0.09999999962747097
+        },
+        {
+          "sync": 19.40000000037253,
+          "total": 32.30000000074506,
+          "idle": 32.39999999944121,
+          "adjusted": 0
+        },
+        {
+          "sync": 19.899999999441206,
+          "total": 32.299999999813735,
+          "idle": 32.299999999813735,
+          "adjusted": 0
+        },
+        {
+          "sync": 19.799999999813735,
+          "total": 32,
+          "idle": 32.30000000074506,
+          "adjusted": 0
+        },
+        {
+          "sync": 24.90000000037253,
+          "total": 32,
+          "idle": 32.19999999925494,
+          "adjusted": 0
+        },
+        {
+          "sync": 18.59999999962747,
+          "total": 32.19999999925494,
+          "idle": 32.200000000186265,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 19.40000000037253,
+      "medianAdjusted": 0,
+      "sampledBytesPerAction": 888177.1428571428,
+      "idleSampledBytesPerAction": 5289.142857142857,
+      "adjustedSampledBytesPerAction": 882888,
+      "counts": {
+        "elements": 2148,
+        "visibleControls": 13,
+        "legacyEntries": 0,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "marks": 60,
+      "samples": [
+        {
+          "sync": 20.5,
+          "total": 32.299999999813735,
+          "idle": 31.90000000037253,
+          "adjusted": 0.39999999944120646
+        },
+        {
+          "sync": 18.200000000186265,
+          "total": 32.10000000055879,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        },
+        {
+          "sync": 16.90000000037253,
+          "total": 32.299999999813735,
+          "idle": 32.200000000186265,
+          "adjusted": 0.09999999962747097
+        },
+        {
+          "sync": 21.5,
+          "total": 32.299999999813735,
+          "idle": 32,
+          "adjusted": 0.2999999998137355
+        },
+        {
+          "sync": 19.09999999962747,
+          "total": 32.200000000186265,
+          "idle": 32.200000000186265,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.100000000558794,
+          "total": 31.799999999813735,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        },
+        {
+          "sync": 18.199999999254942,
+          "total": 32.39999999944121,
+          "idle": 32.299999999813735,
+          "adjusted": 0.09999999962747097
+        }
+      ],
+      "medianSync": 18.200000000186265,
+      "medianAdjusted": 0.09999999962747097,
+      "sampledBytesPerAction": 892901.1428571428,
+      "idleSampledBytesPerAction": 5183.428571428572,
+      "adjustedSampledBytesPerAction": 887717.7142857143,
+      "counts": {
+        "elements": 2148,
+        "visibleControls": 13,
+        "legacyEntries": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "marks": 0,
+      "samples": [
+        {
+          "sync": 26.90000000037253,
+          "total": 32.40000000037253,
+          "idle": 31.700000000186265,
+          "adjusted": 0.7000000001862645
+        },
+        {
+          "sync": 25.200000000186265,
+          "total": 31.90000000037253,
+          "idle": 29.399999999441206,
+          "adjusted": 2.5000000009313226
+        },
+        {
+          "sync": 26.5,
+          "total": 32,
+          "idle": 32.299999999813735,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.700000000186265,
+          "total": 32.09999999962747,
+          "idle": 32,
+          "adjusted": 0.09999999962747097
+        },
+        {
+          "sync": 17.600000000558794,
+          "total": 32.40000000037253,
+          "idle": 32.5,
+          "adjusted": 0
+        },
+        {
+          "sync": 18.09999999962747,
+          "total": 32.200000000186265,
+          "idle": 32,
+          "adjusted": 0.20000000018626451
+        },
+        {
+          "sync": 21.700000000186265,
+          "total": 32.09999999962747,
+          "idle": 31.899999999441206,
+          "adjusted": 0.20000000018626451
+        }
+      ],
+      "medianSync": 21.700000000186265,
+      "medianAdjusted": 0.20000000018626451,
+      "sampledBytesPerAction": 891713.7142857143,
+      "idleSampledBytesPerAction": 5166.285714285715,
+      "adjustedSampledBytesPerAction": 886547.4285714286,
+      "counts": {
+        "elements": 2148,
+        "visibleControls": 13,
+        "legacyEntries": 0,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "marks": 60,
+      "samples": [
+        {
+          "sync": 23.200000000186265,
+          "total": 32.5,
+          "idle": 32.5,
+          "adjusted": 0
+        },
+        {
+          "sync": 18,
+          "total": 32.39999999944121,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.699999999254942,
+          "total": 32,
+          "idle": 32.299999999813735,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.09999999962747,
+          "total": 31.699999999254942,
+          "idle": 32.59999999962747,
+          "adjusted": 0
+        },
+        {
+          "sync": 16.799999999813735,
+          "total": 30.5,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        },
+        {
+          "sync": 16.300000000745058,
+          "total": 32.40000000037253,
+          "idle": 32.10000000055879,
+          "adjusted": 0.2999999998137355
+        },
+        {
+          "sync": 17,
+          "total": 32.5,
+          "idle": 32.299999999813735,
+          "adjusted": 0.20000000018626451
+        }
+      ],
+      "medianSync": 17.09999999962747,
+      "medianAdjusted": 0,
+      "sampledBytesPerAction": 909647.4285714285,
+      "idleSampledBytesPerAction": 4682.285714285715,
+      "adjustedSampledBytesPerAction": 904965.1428571428,
+      "counts": {
+        "elements": 2148,
+        "visibleControls": 13,
+        "legacyEntries": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "marks": 0,
+      "samples": [
+        {
+          "sync": 21.899999999441206,
+          "total": 32.299999999813735,
+          "idle": 32,
+          "adjusted": 0.2999999998137355
+        },
+        {
+          "sync": 19.799999999813735,
+          "total": 32.299999999813735,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        },
+        {
+          "sync": 29.600000000558794,
+          "total": 33.299999999813735,
+          "idle": 32.5,
+          "adjusted": 0.7999999998137355
+        },
+        {
+          "sync": 20.09999999962747,
+          "total": 32.09999999962747,
+          "idle": 30.800000000745058,
+          "adjusted": 1.299999998882413
+        },
+        {
+          "sync": 18.5,
+          "total": 32,
+          "idle": 32.200000000186265,
+          "adjusted": 0
+        },
+        {
+          "sync": 18.5,
+          "total": 32.40000000037253,
+          "idle": 32.39999999944121,
+          "adjusted": 9.313225746154785e-10
+        },
+        {
+          "sync": 17.200000000186265,
+          "total": 32.299999999813735,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 19.799999999813735,
+      "medianAdjusted": 9.313225746154785e-10,
+      "sampledBytesPerAction": 922413.7142857143,
+      "idleSampledBytesPerAction": 5594.857142857143,
+      "adjustedSampledBytesPerAction": 916818.8571428572,
+      "counts": {
+        "elements": 2318,
+        "visibleControls": 16,
+        "legacyEntries": 0,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "marks": 60,
+      "samples": [
+        {
+          "sync": 28.799999999813735,
+          "total": 33.39999999944121,
+          "idle": 31.899999999441206,
+          "adjusted": 1.5
+        },
+        {
+          "sync": 21.700000000186265,
+          "total": 31.700000000186265,
+          "idle": 30.299999999813735,
+          "adjusted": 1.400000000372529
+        },
+        {
+          "sync": 19.600000000558794,
+          "total": 32.10000000055879,
+          "idle": 32.10000000055879,
+          "adjusted": 0
+        },
+        {
+          "sync": 19.59999999962747,
+          "total": 32.299999999813735,
+          "idle": 32.09999999962747,
+          "adjusted": 0.20000000018626451
+        },
+        {
+          "sync": 20.59999999962747,
+          "total": 32.299999999813735,
+          "idle": 32.5,
+          "adjusted": 0
+        },
+        {
+          "sync": 21.200000000186265,
+          "total": 32.299999999813735,
+          "idle": 32.30000000074506,
+          "adjusted": 0
+        },
+        {
+          "sync": 25.399999999441206,
+          "total": 32.19999999925494,
+          "idle": 32.39999999944121,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 21.200000000186265,
+      "medianAdjusted": 0,
+      "sampledBytesPerAction": 920417.1428571428,
+      "idleSampledBytesPerAction": 5951.428571428572,
+      "adjustedSampledBytesPerAction": 914465.7142857143,
+      "counts": {
+        "elements": 3157,
+        "visibleControls": 21,
+        "legacyEntries": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "marks": 0,
+      "samples": [
+        {
+          "sync": 20.399999999441206,
+          "total": 32.299999999813735,
+          "idle": 32.30000000074506,
+          "adjusted": 0
+        },
+        {
+          "sync": 18.90000000037253,
+          "total": 32.200000000186265,
+          "idle": 32.39999999944121,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.100000000558794,
+          "total": 32.40000000037253,
+          "idle": 32.299999999813735,
+          "adjusted": 0.10000000055879354
+        },
+        {
+          "sync": 17.700000000186265,
+          "total": 32.39999999944121,
+          "idle": 32.39999999944121,
+          "adjusted": 0
+        },
+        {
+          "sync": 18,
+          "total": 32.5,
+          "idle": 32.5,
+          "adjusted": 0
+        },
+        {
+          "sync": 19.5,
+          "total": 32.5,
+          "idle": 32.200000000186265,
+          "adjusted": 0.2999999998137355
+        },
+        {
+          "sync": 18.40000000037253,
+          "total": 32.10000000055879,
+          "idle": 32.30000000074506,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 18.40000000037253,
+      "medianAdjusted": 0,
+      "sampledBytesPerAction": 917118.2857142857,
+      "idleSampledBytesPerAction": 5280,
+      "adjustedSampledBytesPerAction": 911838.2857142857,
+      "counts": {
+        "elements": 2318,
+        "visibleControls": 16,
+        "legacyEntries": 0,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "marks": 60,
+      "samples": [
+        {
+          "sync": 22.100000000558794,
+          "total": 32.5,
+          "idle": 32.5,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.09999999962747,
+          "total": 32.299999999813735,
+          "idle": 32.299999999813735,
+          "adjusted": 0
+        },
+        {
+          "sync": 18.700000000186265,
+          "total": 32.5,
+          "idle": 32.40000000037253,
+          "adjusted": 0.09999999962747097
+        },
+        {
+          "sync": 18.299999999813735,
+          "total": 32.5,
+          "idle": 32.299999999813735,
+          "adjusted": 0.20000000018626451
+        },
+        {
+          "sync": 21.299999999813735,
+          "total": 32.200000000186265,
+          "idle": 32,
+          "adjusted": 0.20000000018626451
+        },
+        {
+          "sync": 20.200000000186265,
+          "total": 31.700000000186265,
+          "idle": 32.799999999813735,
+          "adjusted": 0
+        },
+        {
+          "sync": 24.5,
+          "total": 32.5,
+          "idle": 32.5,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 20.200000000186265,
+      "medianAdjusted": 0,
+      "sampledBytesPerAction": 904877.7142857143,
+      "idleSampledBytesPerAction": 3798.8571428571427,
+      "adjustedSampledBytesPerAction": 901078.8571428572,
+      "counts": {
+        "elements": 3157,
+        "visibleControls": 21,
+        "legacyEntries": 60,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "marks": 0,
+      "samples": [
+        {
+          "sync": 20.5,
+          "total": 32.39999999944121,
+          "idle": 32.30000000074506,
+          "adjusted": 0.0999999986961484
+        },
+        {
+          "sync": 18.90000000037253,
+          "total": 32.40000000037253,
+          "idle": 32.10000000055879,
+          "adjusted": 0.2999999998137355
+        },
+        {
+          "sync": 25.299999999813735,
+          "total": 32.39999999944121,
+          "idle": 32.39999999944121,
+          "adjusted": 0
+        },
+        {
+          "sync": 20.90000000037253,
+          "total": 32.299999999813735,
+          "idle": 32.10000000055879,
+          "adjusted": 0.19999999925494194
+        },
+        {
+          "sync": 17.100000000558794,
+          "total": 32.10000000055879,
+          "idle": 32.39999999944121,
+          "adjusted": 0
+        },
+        {
+          "sync": 17.399999999441206,
+          "total": 32.39999999944121,
+          "idle": 32.09999999962747,
+          "adjusted": 0.2999999998137355
+        },
+        {
+          "sync": 16.90000000037253,
+          "total": 32.200000000186265,
+          "idle": 32.40000000037253,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 18.90000000037253,
+      "medianAdjusted": 0.0999999986961484,
+      "sampledBytesPerAction": 889376,
+      "idleSampledBytesPerAction": 4537.142857142857,
+      "adjustedSampledBytesPerAction": 884838.8571428572,
+      "counts": {
+        "elements": 2148,
+        "visibleControls": 13,
+        "legacyEntries": 0,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "marks": 60,
+      "samples": [
+        {
+          "sync": 18.5,
+          "total": 32.5,
+          "idle": 32.299999999813735,
+          "adjusted": 0.20000000018626451
+        },
+        {
+          "sync": 17.300000000745058,
+          "total": 32.10000000055879,
+          "idle": 32.200000000186265,
+          "adjusted": 0
+        },
+        {
+          "sync": 19.90000000037253,
+          "total": 32.40000000037253,
+          "idle": 32.299999999813735,
+          "adjusted": 0.10000000055879354
+        },
+        {
+          "sync": 20.700000000186265,
+          "total": 29.59999999962747,
+          "idle": 34.700000000186265,
+          "adjusted": 0
+        },
+        {
+          "sync": 18.90000000037253,
+          "total": 32.40000000037253,
+          "idle": 32.299999999813735,
+          "adjusted": 0.10000000055879354
+        },
+        {
+          "sync": 22.200000000186265,
+          "total": 31.799999999813735,
+          "idle": 31.59999999962747,
+          "adjusted": 0.20000000018626451
+        },
+        {
+          "sync": 20.600000000558794,
+          "total": 32,
+          "idle": 32.200000000186265,
+          "adjusted": 0
+        }
+      ],
+      "medianSync": 19.90000000037253,
+      "medianAdjusted": 0.10000000055879354,
+      "sampledBytesPerAction": 882764.5714285715,
+      "idleSampledBytesPerAction": 5176,
+      "adjustedSampledBytesPerAction": 877588.5714285715,
+      "counts": {
+        "elements": 2148,
+        "visibleControls": 13,
+        "legacyEntries": 60,
+        "draft": "保留性能草稿"
+      }
+    }
+  ]
+}

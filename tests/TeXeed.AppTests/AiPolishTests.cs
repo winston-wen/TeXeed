@@ -79,12 +79,6 @@ internal static partial class Program
         var preview = (PdfPreview)window.FindName("Preview");
         var source = (LatexEditor)window.FindName("Editor");
         Check(preview.ContextMenu is null && !source.ContextMenu.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "AI 圈点")), "Removed context menus remain");
-        var marking = ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Single(b => Equals(b.Tag, "ai-mark"));
-        marking.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
-        Check(preview.IsAiSelecting && System.Windows.Controls.Primitives.Selector.GetIsSelected(marking), "Sidebar marking button not synchronized");
-        marking.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
-        Check(!preview.IsAiSelecting, "Sidebar cannot exit marking");
-
         new AiCredentials { ApiKey = "test-key-never-send", UseApiKey = true }.Save();
         var handler = new CompactionHandler(); using var connection = new AiConnection(handler);
         var history = Enumerable.Range(0, 5).Select(i => new AiTurn("约束-" + i, new string('x', 1200))).ToArray();

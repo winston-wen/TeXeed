@@ -18,8 +18,9 @@ public partial class AiPanel
     private int _documentMatchIndex;
     private string _documentMatchRevision = "", _documentMatchConversation = "";
     private CancellationTokenSource? _documentSearchCancellation;
+    internal event Action<int, int>? DocumentMatchRequested;
 
-    private void OpenDocumentSearch()
+    internal void OpenDocumentSearch()
     {
         if (_documentSearchWindow is { IsVisible: true }) { _documentSearchWindow.Activate(); _documentSearchText?.Focus(); return; }
         var panel = new StackPanel { Margin = new Thickness(16) };
@@ -95,6 +96,7 @@ public partial class AiPanel
         _documentMatchIndex = (_documentMatchIndex + direction + _documentMatches.Count) % _documentMatches.Count;
         var match = _documentMatches[_documentMatchIndex];
         _documentSearchStatus.Text = $"{_documentMatchIndex + 1} / {_documentMatches.Count}";
-        SharedDocumentView.Locate(match.Start, match.Length);
+        if (DocumentMatchRequested is { } navigate) navigate(match.Start, match.Length);
+        else SharedDocumentView.Locate(match.Start, match.Length);
     }
 }

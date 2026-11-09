@@ -88,9 +88,9 @@ internal static partial class Program
             Capture(host, Path.Combine(output, "titles-equations-narrow.png"));
             host.Width = 800;
 
-            foreach (var question in new[] { "我想知道 Rm 元素的表示。", "An English question about Rm.", "**粗体中文首行**\n\n下一段。", "中文与 `code` 混排首行。", "", "- 列表首行含有中文。\n- 下一条。", "1. 有序列表的中文首行。\n2. 下一条。", "# 用户首行标题\n\n后续正文。", string.Concat(Enumerable.Repeat("窄窗口自动换行，包含 Rm 和 code。", 8)) + "\n\n后续段落。" })
+            foreach (var question in new[] { "我想知道 Rm 元素的表示。", "An English question about Rm.", "**粗体中文首行**\n\n下一段。", "中文与 `code` 混排首行。", "- 列表首行含有中文。\n- 下一条。", "1. 有序列表的中文首行。\n2. 下一条。", "# 用户首行标题\n\n后续正文。", string.Concat(Enumerable.Repeat("窄窗口自动换行，包含 Rm 和 code。", 8)) + "\n\n后续段落。" })
             {
-                var turn = new AiTurn(question, "合成回答。") { Prompt = question, SentAnnotations = question.Length == 0 ? [new() { Question = "圈点首行的中文说明。" }] : [] };
+                var turn = new AiTurn(question, "合成回答。") { Prompt = question };
                 var turnView = new AiTurnView { TurnNumber = 3, Turn = turn }; host.Content = turnView;
                 foreach (var width in new[] { 800d, 420d })
                 {

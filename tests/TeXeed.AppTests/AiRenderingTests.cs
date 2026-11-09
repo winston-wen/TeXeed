@@ -78,8 +78,8 @@ internal static partial class Program
         // Show the actual submitting panel: previous tests submitted only an unattached, unmeasured control.
         var handler = new AiBurstHandler();
         using var panel = new AiPanel(new AiConnection(handler));
-        var host = new Window { Width = 760, Height = 860, Content = panel, Title = "AI 连续追问回归", Owner = window };
-        var panelProject = Path.Combine(output, "burst.tex");
+        var host = new Window { Width = 760, Height = 860, Content = panel, Title = "AI 共同文稿回归", Owner = window };
+        var panelProject = Path.Combine(output, "burst-" + Guid.NewGuid().ToString("N") + ".tex");
         await panel.SetProjectAsync(panelProject);
         var models = (ComboBox)panel.Settings.FindName("Models");
         models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
@@ -94,6 +94,7 @@ internal static partial class Program
             for (var round = 0; round < 3; round++)
             {
                 Console.WriteLine("AI stream round " + round + " started");
+                var bookSnapshot = ((AiNotebook)Field(panel, "_book")!).Active.SharedDocument.Snapshot();
                 input.Text = "连续追问 " + round;
                 var before = heartbeat;
                 var submission = panel.SubmitAsync();
@@ -115,13 +116,23 @@ internal static partial class Program
                 await submission.WaitAsync(TimeSpan.FromSeconds(30));
                 Console.WriteLine("AI stream round " + round + " completed");
                 host.UpdateLayout();
-                var turns = ((AiNotebook)Field(panel, "_book")!).Turns;
-                Check(turns.Count == round + 1 && turns.Last().Answer == handler.Answer, "Follow-up answer was lost, duplicated or truncated");
+                var activeBook = (AiNotebook)Field(panel, "_book")!; var turns = activeBook.Turns;
+                Check(turns.Count == round + 1 && !turns.Last().IsIncomplete && turns.Last().MentorRequest?.Source == bookSnapshot.Source, "Follow-up lost its document snapshot or failed");
+                Check(round == 0 ? activeBook.Active.SharedDocument.Source.Contains("INITIAL_SHARED_DOCUMENT") : activeBook.Active.SharedDocument.Source.Contains("AI_REVISION_" + (round + 1)), "The model response did not update the shared source");
+                Check(handler.SourceSnapshots[round] == bookSnapshot.Source, "The sent document did not match the request snapshot");
+                if (round > 0) Check(handler.CommentSnapshots[round].Contains("USER_COMMENT"), "The current session comment was omitted from the request snapshot");
                 Check(input.Text == "下一条草稿", "Completion cleared the next draft");
                 Check(heartbeat > before + 2, "Streaming blocked the UI dispatcher");
-                Check(((ItemsControl)panel.FindName("History")).Items.OfType<AiTurn>().Count() == round + 1, "Visible history did not update after follow-up");
+                if (round == 0)
+                {
+                    var document = activeBook.Active.SharedDocument; var source = document.Source;
+                    var start = source.IndexOf("\\end{document}", StringComparison.Ordinal);
+                    Check(document.TryApply(document.Revision, source.Insert(start, "USER_REVISION\n"), "用户"), "Could not prepare a user revision");
+                    var position = document.Source.IndexOf("USER_REVISION", StringComparison.Ordinal);
+                    document.Comments.Add(new AiDocumentComment { Start = position, Length = 13, Quote = "USER_REVISION", Text = "USER_COMMENT" });
+                }
             }
-            Check(handler.HistoryCounts.SequenceEqual(new[] { 0, 1, 2 }), "Follow-up requests lost previous conversation turns");
+            Check(handler.HistoryCounts.SequenceEqual(new[] { 0, 0, 0 }), "A fresh request automatically included previous conversation turns");
             input.Text = "取消中的问题";
             var pending = panel.SubmitAsync();
             input.Text = "下一条草稿";
@@ -130,7 +141,7 @@ internal static partial class Program
             await pending.WaitAsync(TimeSpan.FromSeconds(5));
             Check(input.Text == "下一条草稿" && !input.IsReadOnly && ((Button)panel.FindName("SubmitButton")).IsEnabled, "Cancellation lost the draft or left the composer locked");
             input.Text = "取消后继续"; await panel.SubmitAsync();
-            Check(((AiNotebook)Field(panel, "_book")!).Turns.Last().Answer == handler.Answer, "Retry after cancellation failed");
+            Check(!((AiNotebook)Field(panel, "_book")!).Turns.Last().IsIncomplete, "A fresh request after cancellation failed");
 
             await panel.NewConversationAsync();
             input.Text = "首次取消的问题";
@@ -156,7 +167,7 @@ internal static partial class Program
             input.Text = "不应覆盖已有标题";
             pending = panel.SubmitAsync();
             Check(((AiNotebook)Field(panel,"_book")!).Active.Title == "保留自定义标题", "First submission replaced an existing title");
-            await pending.WaitAsync(TimeSpan.FromSeconds(5));
+            await pending.WaitAsync(TimeSpan.FromSeconds(30));
             Check(AiStorage.Load(panelProject).Active.Title == "保留自定义标题", "Completion replaced an existing title");
         }
         finally { timer.Stop(); host.Close(); }
@@ -164,7 +175,7 @@ internal static partial class Program
         var book = (AiNotebook)Field(ai, "_book")!;
         book.Entries.Clear(); book.Turns.Clear(); book.Turns.Add(new("请展示 Markdown 排版，并保留清楚的阅读层次。", MarkdownFixture));
         book.Active.Title = "更自然的阅读与追问";
-        Invoke(ai, "Rebind"); Invoke(ai, "RefreshTranscript"); composer.Text = "继续解释第二步…";
+        Invoke(ai, "RefreshTranscript"); composer.Text = "继续解释第二步…";
         foreach (var theme in new[] { "ristretto", "github-light-default" })
         {
             ThemeManager.Apply(theme); window.UpdateLayout();
@@ -175,7 +186,6 @@ internal static partial class Program
             Check(Contrast(((SolidColorBrush)Application.Current.Resources[SystemColors.InactiveSelectionHighlightBrushKey]).Color, selectionForeground) >= 4.5,
                 "Inactive selection contrast below 4.5:1");
             composer.Focus(); composer.SelectAll();
-            ((ScrollViewer)ai.FindName("MessagesScroll")).ScrollToTop();
             await Task.Delay(150); window.UpdateLayout();
             Capture(window, Path.Combine(output, "ai-markdown-" + theme + ".png"));
             Invoke(window,"OpenAiHistory"); await Task.Delay(50);
@@ -186,7 +196,7 @@ internal static partial class Program
             Invoke(window,"OpenAiTab");
         }
         ThemeManager.Apply("ristretto");
-        Console.WriteLine("AI rendering: Markdown, immediate/persisted titles, visible long streaming follow-ups, context, cancellation/retry, keyboard routing, history dialog and selection contrast passed.");
+        Console.WriteLine("AI rendering: Markdown, immediate/persisted titles, shared-document snapshots, streaming, cancellation, keyboard routing, history dialog and selection contrast passed.");
     }
 
     private static async Task CheckSelectionPixelsAsync(Window owner, string output, string theme)
@@ -237,8 +247,9 @@ internal static partial class Program
 
     private sealed class AiBurstHandler : HttpMessageHandler
     {
-        internal string Answer = MarkdownFixture + "\n\n" + string.Concat(Enumerable.Range(0, 100).Select(i => $"段落 {i}：流式长回答中的 **重点** 与 `代码`，可以继续追问。\n\n"));
         internal List<int> HistoryCounts = [];
+        internal List<string> SourceSnapshots = [];
+        internal List<string> CommentSnapshots = [];
         internal TaskCompletionSource FirstRequestStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource ReleaseFirstResponse { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal bool FailNextRequest;
@@ -246,14 +257,23 @@ internal static partial class Program
         {
             var json = JsonNode.Parse(await request.Content!.ReadAsStringAsync(token))!;
             HistoryCounts.Add(json["input"]!.AsArray().Count(n => n?["role"]?.ToString() == "assistant"));
+            var contexts = json["input"]!.AsArray().Where(n => n?["content"] is JsonArray)
+                .SelectMany(n => n!["content"]!.AsArray()).Select(part => part?["text"]?.ToString() ?? "");
+            var context = contexts.Single(text => text.Contains("\"current_latex\"", StringComparison.Ordinal));
+            var parsed = JsonNode.Parse(context[context.IndexOf('{')..].Trim())!;
+            var source = parsed["current_latex"]!.GetValue<string>();
+            SourceSnapshots.Add(source); CommentSnapshots.Add(parsed["comments"]!.ToJsonString());
             if (HistoryCounts.Count == 1)
             {
                 FirstRequestStarted.TrySetResult();
                 await ReleaseFirstResponse.Task.WaitAsync(token);
             }
             if (FailNextRequest) { FailNextRequest = false; throw new HttpRequestException("模拟连接失败"); }
+            var answer = source.Length == 0
+                ? "\\documentclass{article}\n\\begin{document}\nINITIAL_SHARED_DOCUMENT\n" + string.Concat(Enumerable.Range(0, 100).Select(i => $"Paragraph {i}: a long shared document for streaming.\n\n")) + "\\end{document}"
+                : JsonSerializer.Serialize(new { initial_latex = (string?)null, edits = new[] { new { old_text = "\\end{document}", new_text = "AI_REVISION_" + HistoryCounts.Count + ": " + new string('x', 150) + "\n\\end{document}", reason = "" } }, comments = Array.Empty<object>(), message = "" });
             var events = new StringBuilder();
-            foreach (var c in Answer) events.Append("data: ").Append(JsonSerializer.Serialize(new { type = "response.output_text.delta", delta = c.ToString() })).Append("\n\n");
+            foreach (var c in answer) events.Append("data: ").Append(JsonSerializer.Serialize(new { type = "response.output_text.delta", delta = c.ToString() })).Append("\n\n");
             events.Append("data: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n");
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new SlowAiStream(Encoding.UTF8.GetBytes(events.ToString()))) };
         }
@@ -261,6 +281,6 @@ internal static partial class Program
     private sealed class SlowAiStream(byte[] bytes) : MemoryStream(bytes)
     {
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-        { await Task.Delay(3, cancellationToken); return await base.ReadAsync(buffer[..Math.Min(buffer.Length, 2048)], cancellationToken); }
+        { await Task.Delay(10, cancellationToken); return await base.ReadAsync(buffer[..Math.Min(buffer.Length, 2048)], cancellationToken); }
     }
 }

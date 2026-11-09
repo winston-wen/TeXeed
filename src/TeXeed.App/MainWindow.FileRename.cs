@@ -50,11 +50,22 @@ public partial class MainWindow
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { Status(ex.Message); return; }
         if (next == previous) return;
         var root = _project.Root; var isMain = previous.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase);
+        if (isMain && _aiStore is not null)
+        {
+            var documentRoot = Path.GetDirectoryName(AiDocumentRepository.GetDirectory(previous, "rename-check"))!;
+            if (Directory.Exists(documentRoot) || _aiSources.Count > 0 || _aiStore.Book.Conversations.Any(c => c.SharedDocument.Source.Length > 0 || c.SharedDocument.Comments.Count > 0 || c.Draft.Length > 0))
+            { Status("项目含 AI 会话文稿或资源，暂不支持重命名主文件；请保留原路径以访问会话历史。"); return; }
+        }
         var priorityLocked = false; var notes = new List<string>();
-        _transitioning = true; foreach (var editor in Editors) editor.IsEnabled = false;
+        _transitioning = true; _projectCommentPanel.IsEnabled = false; foreach (var editor in Editors) editor.IsEnabled = false;
+        foreach (var source in _aiSources.Values) source.IsEnabled = false;
+        foreach (var panel in _aiPanels.Values) panel.IsEnabled = false;
         try
         {
             await PauseWorkAsync();
+            await FlushProjectCommentsAsync();
+            if (_projectComments is not null && (isMain ? _projectComments.HasAnyData : _projectComments.HasDataFor(previous)))
+                throw new IOException("此文件关联项目评论或草稿，暂不支持重命名。源码和评论保留在原项目，请保留原文件名，待支持迁移后再重命名。");
             await _priorityGate.WaitAsync(); priorityLocked = true;
             if (isMain && _aiStore is not null)
             {
@@ -82,11 +93,6 @@ public partial class MainWindow
                 _settings = _settings with { RecentProjects = _settings.RecentProjects.Select(path => path.Equals(previous, StringComparison.OrdinalIgnoreCase) ? next : path).ToArray() };
                 PersistSettings(); UpdateRecent();
             }
-            if (_aiStore is not null)
-                foreach (var conversation in _aiStore.Book.Conversations)
-                    foreach (var entry in conversation.Entries)
-                        entry.Sources = entry.Sources.Select(source => source.File.Replace('\\', '/').Equals(Path.GetRelativePath(root, previous).Replace('\\', '/'), StringComparison.OrdinalIgnoreCase) ? source with { File = Path.GetRelativePath(root, next) } : source).ToList();
-            foreach (var layer in _sourceAnnotations.Values) layer.CloseEditor(); _pdfAnnotations?.CloseEditor();
             _revision++; _pdfRevision = -1; _previewProject = null; CancelPendingNavigation();
             _priorityFiles = _priorityFiles.Select(path => path.Equals(previous, StringComparison.OrdinalIgnoreCase) ? next : path).ToArray();
             try { await Task.Run(() => ProjectExplorerSettings.Save(root, _priorityFiles)); }
@@ -103,7 +109,9 @@ public partial class MainWindow
         finally
         {
             if (priorityLocked) _priorityGate.Release();
-            _transitioning = false; foreach (var editor in Editors) editor.IsEnabled = true; QueueExternalRefresh();
+            _transitioning = false; _projectCommentPanel.IsEnabled = true; foreach (var editor in Editors) editor.IsEnabled = true; QueueExternalRefresh();
+            foreach (var source in _aiSources.Values) source.IsEnabled = true;
+            foreach (var panel in _aiPanels.Values) panel.IsEnabled = true;
             if (_settings.LivePreview && _changes.Count > 0) ScheduleLiveBuild();
         }
     }

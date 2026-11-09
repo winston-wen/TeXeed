@@ -35,6 +35,14 @@ public static class TabWorkspaceTests
         Check.Equal(TabSide.Right, tabs.Owner(second)!.Value);
         tabs.Close(first, TabCloseRange.This);
         Check.True(tabs.Owner(second) is not null && tabs.Owner(TabWorkspace.AiHistoryKey) is not null);
+        var documentSource = TabWorkspace.AiSourceKey("first");
+        var documentPdf = TabWorkspace.AiPreviewKey("first");
+        tabs.Open(documentSource); tabs.Open(documentPdf);
+        Check.True(tabs.Owner(documentSource) == TabSide.Left && tabs.Owner(documentPdf) == TabSide.Right);
+        Check.True(!tabs.Sources.Contains(documentSource) && !tabs.Sources.Contains(documentPdf));
+        Check.True(TabWorkspace.AiDocumentConversationId(documentSource) == "first" && TabWorkspace.AiDocumentConversationId(documentPdf) == "first");
+        tabs.Close(documentSource, TabCloseRange.This);
+        Check.True(tabs.Owner(documentPdf) is not null && tabs.Owner(second) is not null);
         var renamed = new TabWorkspace(); renamed.Reset("old.tex"); renamed.Open("second.tex"); renamed.Move("old.tex", TabSide.Right, 0);
         var order = renamed.Tabs(TabSide.Right).ToArray(); var focus = renamed.FocusedSide;
         renamed.RenameSource("old.tex", "new.tex");

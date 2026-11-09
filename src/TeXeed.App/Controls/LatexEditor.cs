@@ -93,7 +93,6 @@ public sealed partial class LatexEditor : TextEditor
         InitializeViewportTracking();
         InitializeFixedGrid();
         InitializeMultiCaret();
-        InitializeAiMarking();
         ApplyTheme();
         Loaded += (_, _) => { TeXeed.App.Services.ThemeManager.Changed += ThemeChanged; ApplyTheme(); };
         Unloaded += (_, _) => TeXeed.App.Services.ThemeManager.Changed -= ThemeChanged;

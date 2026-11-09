@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 using TeXeed.App.Controls;
+using TeXeed.Core;
 
 internal static partial class Program
 {
@@ -50,6 +51,8 @@ internal static partial class Program
             await EventuallyAsync(async () => await Script("document.readyState") == "\"complete\"", "WebView2 HTML failed to load");
             var composer = (TextBox)panel.FindName("Composer");
             var book = (AiNotebook)Field(panel, "_book")!;
+            var nativeSource = new AiSessionSourceView(book.Active.SharedDocument, AiDocumentRepository.GetDirectory(project, book.Active.Id), new AppSettings());
+            panel.SharedDocumentChanged += (_, _) => nativeSource.RefreshFromDocument();
             composer.Text = "为什么成立？";
             var firstGate = handler.Enqueue();
             var first = panel.SubmitAsync();
@@ -63,6 +66,7 @@ internal static partial class Program
             Check(submitted.Visibility == Visibility.Collapsed && submittedText.Text.Length == 0, "Completed user note stayed visible as a transcript");
             Check(book.Turns.Count == 1 && !book.Turns[0].IsIncomplete, "Initial simulated AI request failed");
             Check(book.Active.SharedDocument.Source.Contains("需要条件") && book.Active.SharedDocument.InitialSource == book.Active.SharedDocument.Source, "Initial source was not preserved");
+            Check(nativeSource.Editor.Text == book.Active.SharedDocument.Source, "Simulated model result did not reach the native source view");
             Check(book.Active.SharedDocument.AuthorSpans.Single().Author == "测试模型", "Model author name was lost");
             await EventuallyAsync(async () => (await Script("document.querySelector('#mentor-document')?.textContent || ''")).Contains("需要条件"), "Native WebView2 did not render source");
             var source = book.Active.SharedDocument.Source;
@@ -81,6 +85,7 @@ internal static partial class Program
             await panel.SubmitAsync().WaitAsync(TimeSpan.FromSeconds(20));
             var failed = book.Turns.Last();
             Check(failed.IsIncomplete && book.Active.SharedDocument.Source == source, "Malformed model response changed the document or marked success");
+            Check(nativeSource.Editor.Text == source, "Failed model response changed the native source view");
             var retryButton = (Button)panel.FindName("SharedRetryButton");
             Check(retryButton.IsVisible && retryButton.IsEnabled, "The last failed request has no visible retry button");
             using (var payload = JsonDocument.Parse(handler.Requests.Last()))

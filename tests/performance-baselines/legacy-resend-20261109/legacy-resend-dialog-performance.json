@@ -1,0 +1,14 @@
+{
+  "openMs": 51.3009,
+  "openAllocated": 218832,
+  "closeMs": 10.6614,
+  "closeAllocated": 17184,
+  "idleMs": 1.674,
+  "idleBytes": 1360,
+  "visibleControls": 4,
+  "adjustedOpenMs": 49.6269,
+  "adjustedOpenBytes": 217472,
+  "adjustedCloseMs": 8.987400000000001,
+  "adjustedCloseBytes": 15824,
+  "limitation": "One cold modal opening and closing through ApplicationIdle; UI thread allocation includes modal dispatcher and no historical counterpart."
+}

@@ -1,0 +1,234 @@
+{
+  "schema": "mentor-comment-sampled-allocation-v1",
+  "baseline": "HEAD",
+  "fixtureSha256": "79265636debfb5ca1c3dee02ee44f5a6a9c1d06bbdfaaf965b94ed3db9792e61",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.8103.38",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "paragraphs": 120,
+    "commentCounts": [
+      0,
+      60
+    ],
+    "rounds": 3,
+    "warmups": 2,
+    "operations": 7,
+    "frames": 2,
+    "samplingInterval": 1024,
+    "includeCollected": true,
+    "limitations": [
+      "V8 sampled allocation includes objects collected during the sampling window but is an estimate, not exact total allocation.",
+      "Each batch includes scheduling and JavaScript test harness allocations; a per-interaction number is a batch estimate divided by seven.",
+      "Historical retained-heap samples use a different scope and cannot be compared as total allocation.",
+      "Programmatic selection does not simulate a system IME."
+    ]
+  },
+  "resources": {
+    "before": {
+      "mentor.html": "2c9badcc2a19644b8f784a8eecd6bb8f6a03599f85dfe15fba2b56e228f75c59",
+      "mentor.css": "d61c5e5e06188589f320aaef6645be554952095d98053fa6ef2e9a4d3a52007e",
+      "mentor-core.js": "de8ad506b95edcb7c0dedd51b9d28225f3b97dc1241190a25d30e7105f4743ea",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b"
+    },
+    "after": {
+      "mentor.html": "5dcd3115a645f488313a3e2a86279adeb2e4d7a82fb1964d01c5c3e16de5f324",
+      "mentor.css": "d20c12aa2a885dd079dc47a85c07350b46fe091d8e4cc318b7c3061da690c2d5",
+      "mentor-core.js": "aaa237b3aeaf80c7adc89cbf0b79ef83c94e5a6fa36a1fc2f4e4619b864a0c26",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b"
+    }
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "before",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1457648,
+          "sampleCount": 1130
+        },
+        "selection": {
+          "sampledAllocatedBytes": 16840,
+          "sampleCount": 16
+        }
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2492764,
+          "sampleCount": 1569
+        },
+        "selection": {
+          "sampledAllocatedBytes": 22976,
+          "sampleCount": 22
+        }
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1533020,
+          "sampleCount": 1200
+        },
+        "selection": {
+          "sampledAllocatedBytes": 8408,
+          "sampleCount": 8
+        }
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2504044,
+          "sampleCount": 1576
+        },
+        "selection": {
+          "sampledAllocatedBytes": 8524,
+          "sampleCount": 8
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1575164,
+          "sampleCount": 1241
+        },
+        "selection": {
+          "sampledAllocatedBytes": 8524,
+          "sampleCount": 8
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2496436,
+          "sampleCount": 1571
+        },
+        "selection": {
+          "sampledAllocatedBytes": 8400,
+          "sampleCount": 8
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1520356,
+          "sampleCount": 1189
+        },
+        "selection": {
+          "sampledAllocatedBytes": 19512,
+          "sampleCount": 18
+        }
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2417232,
+          "sampleCount": 1496
+        },
+        "selection": {
+          "sampledAllocatedBytes": 32680,
+          "sampleCount": 31
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1516152,
+          "sampleCount": 1185
+        },
+        "selection": {
+          "sampledAllocatedBytes": 24596,
+          "sampleCount": 23
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2435540,
+          "sampleCount": 1513
+        },
+        "selection": {
+          "sampledAllocatedBytes": 19288,
+          "sampleCount": 18
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "count": 0,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 1528352,
+          "sampleCount": 1196
+        },
+        "selection": {
+          "sampledAllocatedBytes": 12804,
+          "sampleCount": 12
+        }
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "count": 60,
+      "measurements": {
+        "render": {
+          "sampledAllocatedBytes": 2503540,
+          "sampleCount": 1574
+        },
+        "selection": {
+          "sampledAllocatedBytes": 8540,
+          "sampleCount": 8
+        }
+      }
+    }
+  ]
+}

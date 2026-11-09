@@ -23,6 +23,7 @@ public sealed class AiDocumentComment
     public int Start { get; set; }
     public int Length { get; set; }
     public string Quote { get; set; } = "";
+    public string AnchorRevision { get; set; } = "";
     public string Text { get; set; } = "";
     public bool Orphaned { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
@@ -30,7 +31,7 @@ public sealed class AiDocumentComment
 
     internal AiDocumentComment Snapshot() => new()
     {
-        Id = Id, Author = Author, Role = Role, Start = Start, Length = Length, Quote = Quote,
+        Id = Id, Author = Author, Role = Role, Start = Start, Length = Length, Quote = Quote, AnchorRevision = AnchorRevision,
         Text = Text, Orphaned = Orphaned,
         CreatedAt = CreatedAt, Replies = Replies.Select(reply => reply.Snapshot()).ToList()
     };

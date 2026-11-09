@@ -9,9 +9,16 @@ public sealed class TabWorkspace
     public const string AiSettingsKey = "@texeed:ai-settings";
     public const string AiKey = "@texeed:ai";
     public const string AiHistoryKey = "@texeed:ai-history";
+    private const string AiSourcePrefix = "@texeed:ai-source:";
+    private const string AiPreviewPrefix = "@texeed:ai-pdf:";
     public static string AiConversationKey(string id) => AiKey + ":" + id;
     public static bool IsAiConversation(string key) => key == AiKey || key.StartsWith(AiKey + ":", StringComparison.Ordinal);
-    public static bool IsSource(string key) => key != PreviewKey && !IsAiConversation(key) && key != AiSettingsKey && key != AiHistoryKey;
+    public static string AiSourceKey(string id) => AiSourcePrefix + id;
+    public static string AiPreviewKey(string id) => AiPreviewPrefix + id;
+    public static bool IsAiSource(string key) => key.StartsWith(AiSourcePrefix, StringComparison.Ordinal);
+    public static bool IsAiPreview(string key) => key.StartsWith(AiPreviewPrefix, StringComparison.Ordinal);
+    public static string? AiDocumentConversationId(string key) => IsAiSource(key) ? key[AiSourcePrefix.Length..] : IsAiPreview(key) ? key[AiPreviewPrefix.Length..] : null;
+    public static bool IsSource(string key) => key != PreviewKey && !IsAiConversation(key) && !IsAiSource(key) && !IsAiPreview(key) && key != AiSettingsKey && key != AiHistoryKey;
     public const string PreviewKey = "@texeed:preview";
     private List<string> _left = [], _right = [PreviewKey];
     private string? _leftActive, _rightActive = PreviewKey;
@@ -39,7 +46,7 @@ public sealed class TabWorkspace
     }
     public void Open(string path)
     {
-        var side = Owner(path) ?? (IsSource(path) ? TabSide.Left : TabSide.Right);
+        var side = Owner(path) ?? (IsSource(path) || IsAiSource(path) ? TabSide.Left : TabSide.Right);
         if (Owner(path) is null) List(side).Add(path);
         Select(side, path);
     }
