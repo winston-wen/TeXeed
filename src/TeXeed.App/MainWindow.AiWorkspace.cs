@@ -42,7 +42,7 @@ public partial class MainWindow
     private AiPanel EnsureAiPanel(string id)
     {
         if (_aiPanels.TryGetValue(id,out var panel)) return panel;
-        panel = CreateAiPanel(); panel.Bind(_aiStore!,id); panel.IsMarking = _aiMarking;
+        panel = CreateAiPanel(); panel.Bind(_aiStore!,id);
         _aiPanels.Add(id,panel); return panel;
     }
     private async Task InitializeAiProjectAsync(string project)

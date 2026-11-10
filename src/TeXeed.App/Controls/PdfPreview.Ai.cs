@@ -24,7 +24,12 @@ public sealed partial class PdfPreview
     public bool IsAiSelecting => _aiSelecting;
     private void InitializeAiSelection()
     {
-        ContextMenu = null;
+        var menu = new ContextMenu();
+        var mark = new MenuItem { Header = "AI 圈点" };
+        mark.Click += (_, _) => BeginAiSelection();
+        menu.Opened += (_, _) => mark.IsEnabled = _document is not null && !_aiCapturing && !_aiSelecting;
+        menu.Items.Add(mark);
+        ContextMenu = menu;
         _ = new AiMarkMenu(this, () => _aiSelecting, () => SetAiMarking(false));
         _pages.PreviewMouseLeftButtonDown += (_, e) =>
         {

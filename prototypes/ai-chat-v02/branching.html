@@ -23,6 +23,7 @@
       <span class="toolbar-spacer"></span>
       <button id="bookmark-paragraph" class="quiet" type="button" title="先点击正文中的段落" disabled>为段落加书签</button>
       <button id="bookmarks-toggle" class="quiet" type="button" aria-expanded="false">书签</button>
+      <button id="demo-assets" class="quiet" type="button">添加图文示例</button>
       <button id="map-toggle" class="map-toggle" type="button" aria-expanded="false">会话关系</button>
     </div>
     <section id="reader-view" class="reader-view" aria-label="会话阅读区">
@@ -31,6 +32,11 @@
         <button id="selection-branch" type="button">从这里追问</button>
         <button id="selection-quote" type="button">引用到当前会话</button>
         <button id="selection-bookmark" type="button">添加书签</button>
+      </div>
+      <div id="context-menu" class="selection-tools" role="menu" hidden>
+        <button id="context-branch" type="button" role="menuitem">从这里追问</button>
+        <button id="context-quote" type="button" role="menuitem">引用到当前会话</button>
+        <button id="context-bookmark" type="button" role="menuitem">添加书签</button>
       </div>
       <aside id="bookmarks-panel" class="bookmarks-panel" aria-label="书签" hidden>
         <div class="bookmarks-header"><span>书签</span><button id="bookmarks-close" type="button" aria-label="关闭书签">×</button></div>
@@ -45,8 +51,11 @@
     <div id="status" class="status" role="status" aria-live="polite"></div>
     <section id="composer-pane" class="composer-pane" aria-label="提问">
       <div id="composer-context" class="composer-context" hidden></div>
+      <div id="attachment-list" class="attachment-list" aria-label="附件"></div>
       <div class="composer-input"><span class="line-numbers" aria-hidden="true">1<br>2<br>3</span><textarea id="composer" rows="3" aria-label="输入问题" placeholder="继续当前会话……"></textarea></div>
-      <div class="composer-controls"><span class="composer-spacer"></span><span class="shortcut">Ctrl + Enter 发送</span><button id="send" class="send" type="button" aria-label="发送问题" title="发送问题">↑</button></div>
+      <div class="composer-controls"><button id="attach-toggle" type="button" aria-expanded="false" aria-label="添加附件">＋</button><button id="references-toggle" type="button">引用 · 0</button><span class="composer-spacer"></span><span class="shortcut">Ctrl + Enter 发送</span><button id="send" class="send" type="button" aria-label="发送问题" title="发送问题">↑</button></div>
+      <div id="attach-menu" class="attach-menu" hidden><button id="attach-files" type="button">添加图片或文件</button><button id="attach-folder" type="button">添加文件夹</button><span class="attach-note">浏览器可能无法粘贴系统文件夹；可使用“添加文件夹”。</span></div>
+      <input id="file-input" type="file" multiple hidden><input id="folder-input" type="file" multiple webkitdirectory hidden>
     </section>
   </main>
 </div>
@@ -57,6 +66,18 @@
   <input id="bookmark-name" type="text" maxlength="120" placeholder="给书签起个名字">
   <p id="bookmark-error" role="alert" hidden></p>
   <div class="bookmark-dialog-actions"><button id="bookmark-save" type="button">保存书签</button></div>
+</dialog>
+<dialog id="references-panel" class="reference-dialog" aria-labelledby="references-title">
+  <div class="bookmark-dialog-header"><span id="references-title">本次引用</span><button id="references-close" type="button" aria-label="关闭引用">×</button></div>
+  <div id="references-list" class="references-list"></div>
+</dialog>
+<dialog id="reference-editor" class="reference-dialog" aria-labelledby="reference-title">
+  <div class="bookmark-dialog-header"><span id="reference-title">添加引用</span><button id="reference-close" type="button" aria-label="关闭">×</button></div>
+  <div id="reference-preview" class="reference-preview"></div>
+  <textarea id="reference-comment" rows="3" aria-label="引用评论" placeholder="写下你的问题或评论……"></textarea>
+  <div id="reference-attachments" class="attachment-list"></div>
+  <div class="bookmark-dialog-actions"><button id="reference-attach" type="button">添加图片</button><button id="reference-confirm" type="button">加入待发区</button></div>
+  <input id="reference-file-input" type="file" accept="image/*" multiple hidden>
 </dialog>
 <script src="vendor/katex/katex.min.js"></script>
 <script src="branching.js"></script>

@@ -1,0 +1,43 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class PerfImages
+{
+    [STAThread] static int Main(string[] args)
+    {
+        var output=Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};
+        var window=new Window{Width=900,Height=760,Left=20,Top=20,Content=new Grid()};
+        int exit=1;
+        window.Loaded+=async(_,_)=>{try {
+            var type=typeof(AiPanel).Assembly.GetType("TeXeed.App.Controls.AiAnnotationImages")!;
+            var add=type.GetMethod("Add",BindingFlags.Static|BindingFlags.NonPublic)!;
+            var create=type.GetMethod("Create",BindingFlags.Static|BindingFlags.NonPublic)!;
+            var bytes=new byte[512*512*4]; for(int i=0;i<bytes.Length;i+=4){int n=i/4;bytes[i]=(byte)(n%256);bytes[i+1]=(byte)((n/512)%256);bytes[i+2]=(byte)((n^(n/512))%256);bytes[i+3]=255;}
+            var bitmap=BitmapSource.Create(512,512,96,96,PixelFormats.Bgra32,null,bytes,512*4);bitmap.Freeze();
+            async Task Idle(){await window.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);window.UpdateLayout();}
+            int Controls(DependencyObject root){int count=0;for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var c=VisualTreeHelper.GetChild(root,i);if(c is Control control&&control.IsVisible)count++;count+=Controls(c);}return count;}
+            var samples=new List<object>();
+            foreach(var count in new[]{1,5}) for(int i=0;i<9;i++) {
+                var entry=new AiEntry();for(int j=1;j<count;j++){object?[] prior=[entry,bitmap,null];if(add.Invoke(null,prior) is not true)throw new Exception((string?)prior[2]);}
+                var before=GC.GetAllocatedBytesForCurrentThread();var timer=Stopwatch.StartNew();await Idle();timer.Stop();var idleMs=timer.Elapsed.TotalMilliseconds;var idleBytes=GC.GetAllocatedBytesForCurrentThread()-before;
+                before=GC.GetAllocatedBytesForCurrentThread();timer.Restart();object?[] call=[entry,bitmap,null];if(add.Invoke(null,call) is not true)throw new Exception((string?)call[2]);
+                var addedMs=timer.Elapsed.TotalMilliseconds;var addedBytes=GC.GetAllocatedBytesForCurrentThread()-before;
+                var view=(FrameworkElement)create.Invoke(null,[entry,(Action)(()=>{})])!;window.Content=view;await Idle();timer.Stop();var rawBytes=GC.GetAllocatedBytesForCurrentThread()-before;
+                if(i>=2)samples.Add(new{count,addMs=addedMs,addBytes=addedBytes,rawMs=timer.Elapsed.TotalMilliseconds,idleMs,correctedMs=timer.Elapsed.TotalMilliseconds-idleMs,rawBytes,idleBytes,correctedBytes=rawBytes-idleBytes,visibleControls=Controls(window)});
+                window.Content=new Grid();await Idle();
+            }
+            File.WriteAllText(Path.Combine(output,"results.json"),JsonSerializer.Serialize(new{fixture="synthetic 512x512 BGRA image; 1/5 PNG thumbnails; 2 warmups, 7 paired ApplicationIdle samples; WPF 900x760",samples},new JsonSerializerOptions{WriteIndented=true}));exit=0;
+        }catch(Exception e){Console.Error.WriteLine(e);}finally{window.Close();app.Shutdown(exit);}};
+        window.Show();app.Run();return exit;
+    }
+}

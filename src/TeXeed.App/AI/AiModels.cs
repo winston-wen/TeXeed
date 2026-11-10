@@ -15,6 +15,7 @@ public sealed record AiPdfBlock(int Page, double X, double Y, double Width, doub
     public double? PointX { get; init; }
     public double? PointY { get; init; }
 }
+public sealed record AiPastedImage(string ImageBase64);
 public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
 {
     // Semantic text offset survives responsive columns changing the FlowDocument structure.
@@ -49,8 +50,9 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
     public string State { get; set; } = "待提交";
     public List<AiSourceBlock> Sources { get; set; } = [];
     public List<AiPdfBlock> PdfBlocks { get; set; } = [];
+    public System.Collections.ObjectModel.ObservableCollection<AiPastedImage> Images { get; set; } = [];
     public string PdfRevision { get; set; } = "";
-    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
+    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], Images = new(Images), PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
     public bool IsPoint { get; set; }
 }
 public sealed record AiTurn(string Question, string Answer)

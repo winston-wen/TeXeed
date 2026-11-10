@@ -78,12 +78,8 @@ internal static partial class Program
         Check(segment.Details.Contains("git log"), "Expandable command details did not persist");
         var preview = (PdfPreview)window.FindName("Preview");
         var source = (LatexEditor)window.FindName("Editor");
-        Check(preview.ContextMenu is null && !source.ContextMenu.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "AI 圈点")), "Removed context menus remain");
-        var marking = ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Single(b => Equals(b.Tag, "ai-mark"));
-        marking.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
-        Check(preview.IsAiSelecting && System.Windows.Controls.Primitives.Selector.GetIsSelected(marking), "Sidebar marking button not synchronized");
-        marking.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
-        Check(!preview.IsAiSelecting, "Sidebar cannot exit marking");
+        Check(preview.ContextMenu?.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "AI 圈点")) == true && !source.ContextMenu.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "AI 圈点")), "Marking entry should exist only in the PDF preview");
+        Check(!((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Any(b => Equals(b.Tag, "ai-mark")), "Sidebar marking button remains");
 
         new AiCredentials { ApiKey = "test-key-never-send", UseApiKey = true }.Save();
         var handler = new CompactionHandler(); using var connection = new AiConnection(handler);
@@ -98,10 +94,17 @@ internal static partial class Program
         Check(handler.Summaries == oldSummaryCount, "Persisted summary was unnecessarily rebuilt");
         await new AiResponses(connection).RunAsync("fixture", [new() { Question = "继续" }], history.Skip(1).ToArray(), [], _ => { }, _ => { }, CancellationToken.None, memory: memory, compactThreshold: 4000);
         Check(handler.Summaries > oldSummaryCount, "Deleted history reused a stale summary");
-        handler.FailSummary = true; bool failed = false, saved = false;
-        try { await new AiResponses(connection).RunAsync("fixture", [], history, [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000, compacted: _ => saved = true); }
-        catch (Exception) { failed = true; }
-        Check(failed && !saved && history.All(t => t.Answer.Length == 1200), "Failed compaction dropped history or persisted incomplete state");
+        handler.FailSummary = true; bool summaryCanceled = false, saved = false;
+        using (var cancelSummary = new CancellationTokenSource())
+        {
+            var retryObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var response = new AiResponses(connection, (_, token) => { retryObserved.TrySetResult(); return Task.Delay(Timeout.Infinite, token); });
+            var pendingSummary = response.RunAsync("fixture", [], history, [], _ => { }, _ => { }, cancelSummary.Token, compactThreshold: 4000, compacted: _ => saved = true);
+            await retryObserved.Task.WaitAsync(TimeSpan.FromSeconds(8));
+            cancelSummary.Cancel();
+            try { await pendingSummary; } catch (OperationCanceledException) { summaryCanceled = true; }
+        }
+        Check(summaryCanceled && !saved && history.All(t => t.Answer.Length == 1200), "Canceled compaction dropped history or persisted incomplete state");
         var workingHandler = new CompactionHandler { Working = true };
         using var workingConnection = new AiConnection(workingHandler);
         var workingEvents = new AiStreamBuffer();

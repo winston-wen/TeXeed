@@ -1,0 +1,68 @@
+{
+  "fixture": "existing 5 synthetic 512x512 BGRA images; add sixth; 2 warmups, 7 paired ApplicationIdle samples; WPF 900x760",
+  "samples": [
+    {
+      "rawMs": 6.5584,
+      "idleMs": 0.0283,
+      "correctedMs": 6.5301,
+      "rawBytes": 72120,
+      "idleBytes": 1768,
+      "correctedBytes": 70352,
+      "visibleControls": 6
+    },
+    {
+      "rawMs": 5.0132,
+      "idleMs": 0.0257,
+      "correctedMs": 4.987500000000001,
+      "rawBytes": 72120,
+      "idleBytes": 1768,
+      "correctedBytes": 70352,
+      "visibleControls": 6
+    },
+    {
+      "rawMs": 5.3531,
+      "idleMs": 0.0259,
+      "correctedMs": 5.3272,
+      "rawBytes": 72120,
+      "idleBytes": 1768,
+      "correctedBytes": 70352,
+      "visibleControls": 6
+    },
+    {
+      "rawMs": 4.9077,
+      "idleMs": 0.0257,
+      "correctedMs": 4.882000000000001,
+      "rawBytes": 72120,
+      "idleBytes": 1768,
+      "correctedBytes": 70352,
+      "visibleControls": 6
+    },
+    {
+      "rawMs": 4.9409,
+      "idleMs": 0.0253,
+      "correctedMs": 4.9156,
+      "rawBytes": 72120,
+      "idleBytes": 1768,
+      "correctedBytes": 70352,
+      "visibleControls": 6
+    },
+    {
+      "rawMs": 4.8599,
+      "idleMs": 0.0257,
+      "correctedMs": 4.8342,
+      "rawBytes": 72120,
+      "idleBytes": 1768,
+      "correctedBytes": 70352,
+      "visibleControls": 6
+    },
+    {
+      "rawMs": 6.0385,
+      "idleMs": 0.0259,
+      "correctedMs": 6.0126,
+      "rawBytes": 72120,
+      "idleBytes": 1768,
+      "correctedBytes": 70352,
+      "visibleControls": 6
+    }
+  ]
+}

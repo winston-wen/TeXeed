@@ -113,11 +113,13 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     await select(page.locator('.passage').filter({ hasText: '先看一个较简单的模型' }));
     await page.locator('#selection-quote').click();
+    await page.locator('#reference-comment').fill('引用说明');
+    await page.locator('#reference-confirm').click();
     await page.locator('#composer').fill('当前会话引用后继续');
     await page.locator('#send').click(); await pause(80);
     snapshot = await state();
     assert.equal(snapshot.sessions.length, 3, '引用并继续不新建节点');
-    assert.ok(snapshot.sessions[0].turns.at(-1).quote);
+    assert.ok(snapshot.sessions[0].turns.at(-1).references.length);
 
     await page.setViewportSize({ width: 390, height: 800 }); await pause(100);
     await page.locator('#map-toggle').click();
@@ -265,7 +267,9 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.ok(await page.evaluate(() => getSelection().toString().trim().length > 0), '实际鼠标拖选文字');
     assert.equal(await page.locator('#selection-tools').isVisible(), true, '鼠标拖选后出现提问选项');
     await page.locator('#selection-quote').click();
-    assert.ok((await page.locator('#composer-context').innerText()).includes('引用到当前会话'));
+    assert.equal(await page.locator('#reference-editor').isVisible(), true);
+    await page.locator('#reference-confirm').click();
+    assert.ok((await page.locator('#references-toggle').innerText()).includes('1'));
     await page.evaluate(() => branchDemo.reset()); await pause(100);
     const formula = page.locator('.formula').first(); await formula.scrollIntoViewIfNeeded();
     await formula.evaluate(element => {

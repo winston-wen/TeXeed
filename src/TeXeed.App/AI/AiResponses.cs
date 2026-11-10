@@ -117,6 +117,11 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                 content.Add(new JsonObject { ["type"] = "input_text", ["text"] = $"PDF SHA256={entry.PdfRevision} 页 {block.Page}, PDF 坐标 (pt): x={block.X:F2}, y={block.Y:F2}, w={block.Width:F2}, h={block.Height:F2}。请用源码检索工具定位对应源码，引用文件与行号；不能确定时明确说明。" });
                 content.Add(new JsonObject { ["type"] = "input_image", ["image_url"] = "data:image/png;base64," + block.ImageBase64 });
             }
+            foreach (var image in entry.Images)
+            {
+                content.Add(new JsonObject { ["type"] = "input_text", ["text"] = "用户粘贴在此批注中的图片：" });
+                content.Add(new JsonObject { ["type"] = "input_image", ["image_url"] = "data:image/png;base64," + image.ImageBase64 });
+            }
         }
         input.Add(new JsonObject { ["role"] = "user", ["content"] = content }); return input;
     }

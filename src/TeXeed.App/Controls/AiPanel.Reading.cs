@@ -44,32 +44,16 @@ public partial class AiPanel
                 if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
                 MessagesScroll.ScrollToVerticalOffset(MessagesScroll.VerticalOffset + view.TranslatePoint(new Point(), MessagesScroll).Y + conversation.ReadingTurnOffset);
             }
-            _restoringReading = false; ScheduleReadingContext();
+            _restoringReading = false; ScheduleViewportCapture();
         }
         catch (Exception ex) when (ex is not OutOfMemoryException) { _restoringReading = false; if (!_disposed) ShowError(ex); }
     }
-    private void ScheduleReadingContext()
+    private void ScheduleViewportCapture()
     {
         if (_readingQueued || _disposed) return;
         _readingQueued = true;
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
-        { _readingQueued = false; if (!_disposed) UpdateReadingContext(); }));
-    }
-    private void UpdateReadingContext()
-    {
-        if (!IsLoaded || ReadingContext is null) return;
-        // Only native virtualized containers in/near the viewport are registered.
-        // Never walk document descendants or force layout of off-screen history.
-        var active = ActiveReadingTurn();
-        CaptureReadingAnchor();
-        if (active is null || active.Turn.Collapsed || active.TranslatePoint(new Point(), MessagesScroll).Y >= -24)
-        { ReadingContext.Visibility = Visibility.Collapsed; return; }
-        ReadingContextTitle.Text = (active.Turn.Prompt ?? active.Turn.DisplayQuestion).Split('\n').FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "圈点提问";
-        if (string.IsNullOrWhiteSpace(ReadingContextTitle.Text)) ReadingContextTitle.Text = "圈点提问";
-        ReadingContextTitle.ToolTip = ReadingContextTitle.Text;
-        ReadingContextAnnotations.Text = active.Turn.SentAnnotations.Count == 0 ? "本轮没有圈点" : string.Join("   ", active.Turn.SentAnnotations.Select((e, n) => $"{n + 1}. {AiTurnView.AnnotationSummary(e)}"));
-        ReadingContextAnnotations.ToolTip = ReadingContextAnnotations.Text;
-        ReadingContext.Visibility = Visibility.Visible;
+        { _readingQueued = false; if (!_disposed && IsLoaded) CaptureReadingAnchor(); }));
     }
     private static IEnumerable<T> VisualChildren<T>(DependencyObject parent) where T : DependencyObject
     {
@@ -113,8 +97,8 @@ public partial class AiPanel
         view.ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project);
         _turnViews[view.Turn.Id] = view;
         view.Unloaded -= Turn_Unloaded; view.Unloaded += Turn_Unloaded;
-        ScheduleReadingContext();
-        view.Changed = () => { Dirty(); ScheduleReadingContext(); };
+        ScheduleViewportCapture();
+        view.Changed = () => { Dirty(); ScheduleViewportCapture(); };
         view.SourceRequested = OpenChatSource;
         view.RetryRequested = async () => await SubmitAsync(view.Turn);
         view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;

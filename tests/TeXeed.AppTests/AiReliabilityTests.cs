@@ -86,11 +86,10 @@ internal static partial class Program
         var viewport = scroll.ViewportHeight; var offset = scroll.VerticalOffset;
         var changes = 0; ScrollChangedEventHandler changed = (_, e) => { if (ReferenceEquals(e.OriginalSource, scroll)) changes++; };
         scroll.ScrollChanged += changed;
-        for (var i = 0; i < 20; i++) { Invoke(panel, "UpdateReadingContext"); host.UpdateLayout(); await Dispatcher.Yield(DispatcherPriority.Background); }
+        for (var i = 0; i < 20; i++) { Invoke(panel, "CaptureReadingAnchor"); host.UpdateLayout(); await Dispatcher.Yield(DispatcherPriority.Background); }
         scroll.ScrollChanged -= changed;
         Check(changes == 0 && viewport == scroll.ViewportHeight && offset == scroll.VerticalOffset, "Reading context caused a viewport/layout feedback loop");
-        var title = (TextBlock)panel.FindName("ReadingContextTitle"); var annotations = (TextBlock)panel.FindName("ReadingContextAnnotations");
-        Check(annotations.TranslatePoint(new Point(), title).Y >= title.ActualHeight, "Reading title and annotation summary overlap");
+        Check(panel.FindName("ReadingContext") is null, "Floating reading context should not cover the answer");
         var streaming = new MarkdownView { IsStreaming = true, Markdown = "第一段" };
         var streamDocument = streaming.Document;
         for (var i = 0; i < 200; i++) streaming.Markdown += "\n\n" + paragraph + " $x_i$";

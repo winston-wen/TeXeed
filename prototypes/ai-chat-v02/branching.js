@@ -1,11 +1,14 @@
 (() => {
   'use strict';
   const KEY = 'texeed-branch-reading-prototype-v1';
-  const draftKey = id => KEY + '/draft/' + id, viewportKey = id => KEY + '/viewport/' + id;
+  const draftKey = id => KEY + '/draft/' + id, viewportKey = id => KEY + '/viewport/' + id, referencesKey = id => KEY + '/references/' + id;
   const $ = id => document.getElementById(id);
   const reader = $('reader'), transcript = $('transcript'), composer = $('composer');
   const uid = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
   const block = (kind, text) => ({ id: uid(), kind, text });
+  const longMath = Array.from({ length: 16 }, (_, i) => `A_{${i + 1}}`).join('+');
+  const formulaAssets = { '\\mathbb{Z}_q = \\mathbb{Z}/q\\mathbb{Z}': 'assets/branch-math-1.svg', 'R_q = \\mathbb{Z}_q[x]/(x^n+1)': 'assets/branch-math-2.svg', '7 \\equiv 2 \\pmod{5}': 'assets/branch-math-3.svg', [longMath]: 'assets/branch-math-4.svg' };
+  const demoAssetBlocks = () => [block('paragraph', '下面是一张用于演示右键引用的图片：'), { id: uid(), kind: 'image', text: '交互示例图片', alt: '示例图：图表比较', src: 'assets/flight-comparison.svg' }, block('paragraph', '下面是带编号的超宽公式：'), { id: uid(), kind: 'math', text: longMath, number: '(3)', large: true, svg: 'assets/branch-math-4.svg' }, block('paragraph', '接下来是没有编号的超宽公式。'), { id: uid(), kind: 'math', text: longMath, large: true, svg: 'assets/branch-math-4.svg' }, block('paragraph', '这段文字位于无编号公式之后。')];
   const rootBlocks = () => [
     block('heading', '先建立一个整体图景'),
     block('paragraph', '理解 Saber 与 OT 时，先把协议目标和代数计算分开：OT 描述参与者应当获得什么信息；底层代数结构提供可用于构造和分析的运算对象。这里的内容仅为阅读交互示例，不是对 Saber OT 的完整讲解。'),
@@ -24,15 +27,17 @@
     block('paragraph', '阅读时遇到不清楚的地方，可以选中句子或公式并选择“从这里追问”；也可以只引用选区，继续留在当前会话。实际决定权在你，图中记录的是你实际创建的会话关系。'),
     block('heading', '回到原文继续阅读'),
     block('paragraph', '完成一个问题的讨论后，你可以返回提问出处。你也可以主动给文中任何选区或段落添加书签，留下自己希望回看的位置。'),
-    block('paragraph', '继续阅读之后，如果在另一处遇到疑问，可以再创建一条追问会话。会话关系图会显示它们来自同一篇回答还是另一条追问，并允许你重新打开已经讨论过的问题。')
+    block('paragraph', '继续阅读之后，如果在另一处遇到疑问，可以再创建一条追问会话。会话关系图会显示它们来自同一篇回答还是另一条追问，并允许你重新打开已经讨论过的问题。'), ...demoAssetBlocks()
   ];
   const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, bookmarks: [], sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
-  const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; for (const s of loaded.sessions) { const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
-  let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, mapOpen = false;
+  const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; if (loaded.pending?.parentId && !loaded.pendingBySession[loaded.pending.parentId]) loaded.pendingBySession[loaded.pending.parentId] = loaded.pending; for (const s of loaded.sessions) { s.references ||= []; s.attachments ||= []; const references = JSON.parse(localStorage.getItem(referencesKey(s.id)) || 'null'); if (Array.isArray(references)) s.references = references; const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.attachments) s.attachments = draft.attachments; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } const old = loaded.pendingBySession[s.id]; if (old?.kind === 'quote') { if (!s.references.some(r => r.legacyPending)) s.references.push({ id: uid(), blockId: old.blockId, quote: old.quote, textOffset: old.sourceTextOffset, comment: '', selected: true, attachments: [], legacyPending: old }); delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
+  let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, pendingFileReads = 0;
   const session = id => state.sessions.find(s => s.id === id);
   const current = () => session(state.active) || state.sessions[0];
-  function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(draftKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存示例会话。'; return false; } }
-  function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, pending: state.pending?.parentId === state.active ? state.pending : null })); } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; } }
+  function ensureSession(s) { s.references ||= []; s.attachments ||= []; return s; }
+  function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(draftKey(state.active)); localStorage.removeItem(referencesKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存示例会话。'; return false; } }
+  function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, attachments: ensureSession(current()).attachments, pending: state.pending?.parentId === state.active ? state.pending : null })); return true; } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; return false; } }
+  function saveReferences() { try { localStorage.setItem(referencesKey(state.active), JSON.stringify(ensureSession(current()).references)); return true; } catch { $('status').textContent = '当前浏览器无法保存引用。'; return false; } }
   function jumpToAnchor(pos) {
     requestAnimationFrame(() => {
       const el = pos && pos.blockId ? transcript.querySelector(`[data-block-id="${CSS.escape(pos.blockId)}"]`) : null;
@@ -53,20 +58,35 @@
   }
   function appendText(tag, cls, text, parent) { const el = document.createElement(tag); if (cls) el.className = cls; el.textContent = text; parent.appendChild(el); return el; }
   function quoteElement(parent, label, text) { const quote = document.createElement('div'); quote.className = 'quoted'; const prefix = document.createElement('span'); prefix.textContent = label + '：'; quote.append(prefix, document.createTextNode(text)); parent.appendChild(quote); }
+  function renderReferencePreview(parent, ref) {
+    const box = document.createElement('div'); box.className = 'reference-preview';
+    if (ref.kind === 'math' && ref.svg && !ref.large) {
+      const img = document.createElement('img'); img.src = ref.svg; img.className = 'formula-svg'; img.alt = ref.quote || '公式';
+      const fallback = document.createElement('div'); fallback.className = 'reference-caption'; fallback.textContent = ref.quote || '公式'; fallback.hidden = true;
+      const useFallback = () => { img.hidden = true; fallback.hidden = false; };
+      img.addEventListener('load', () => { if (img.naturalWidth > 420 || img.naturalHeight > 55) useFallback(); });
+      img.addEventListener('error', useFallback); box.append(img, fallback); parent.appendChild(box); return box;
+    }
+    appendText('div', ref.kind === 'math' ? 'reference-caption' : '', ref.quote || '所选内容', box); parent.appendChild(box); return box;
+  }
+  function renderAttachments(parent, attachments, scope, ownerId) { for (const file of attachments || []) { const chip = document.createElement('span'); chip.className = 'attachment-chip'; if (file.type?.startsWith('image/') && file.data) { const img = document.createElement('img'); img.src = file.data; img.alt = file.name; chip.appendChild(img); } appendText('span', '', file.path || file.name, chip); if (scope) { const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.dataset.attachmentRemove = file.id; remove.dataset.attachmentScope = scope; if (ownerId) remove.dataset.referenceId = ownerId; remove.setAttribute('aria-label', '移除附件 ' + file.name); chip.appendChild(remove); } parent.appendChild(chip); } }
   function renderBlock(parent, item, number, heading) {
     let el;
     if (item.kind === 'heading') { el = document.createElement('div'); el.className = 'passage passage-heading'; el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0'); el.dataset.headingId = item.id; const mark = document.createElement('span'); mark.className = 'heading-number'; mark.textContent = `[${number}:${heading}]`; el.append(mark, document.createTextNode(item.text)); }
-    else if (item.kind === 'math') { el = document.createElement('div'); el.className = 'passage formula'; try { katex.render(item.text, el, { displayMode: true, throwOnError: false, output: 'html' }); } catch { el.textContent = item.text; } }
+    else if (item.kind === 'math') { el = document.createElement('div'); el.className = 'passage formula'; try { katex.render(item.text, el, { displayMode: true, throwOnError: false, output: 'html' }); } catch { el.textContent = item.text; } if (item.number) appendText('span', 'formula-number', item.number, el); }
+    else if (item.kind === 'image') { el = document.createElement('div'); el.className = 'passage'; const img = document.createElement('img'); img.src = item.src; img.alt = item.alt || ''; img.className = 'sample-image'; el.appendChild(img); }
     else { el = document.createElement('p'); el.className = 'passage'; el.textContent = item.text; }
     el.dataset.blockId = item.id; parent.appendChild(el);
     const related = state.sessions.filter(s => s.parent === current().id && s.source && s.source.blockId === item.id);
-    if (related.length) { const links = document.createElement('div'); for (const child of related) { const link = document.createElement('button'); link.className = 'associated'; link.textContent = '追问：' + child.title; link.dataset.openSession = child.id; links.appendChild(link); } parent.appendChild(links); }
+    if (related.length) { const links = document.createElement('div'); for (const child of related) { const link = document.createElement('button'); link.className = 'associated'; link.textContent = '🗨️ ' + child.title; link.dataset.openSession = child.id; links.appendChild(link); } parent.appendChild(links); }
   }
   function renderTurn(turn, i) {
       const wrap = document.createElement('section'); wrap.className = 'turn';
       const q = appendText('div', 'turn-question', turn.question, wrap); const num = document.createElement('span'); num.className = 'turn-number'; num.textContent = `[${i + 1}]`; q.prepend(num);
       appendText('div', 'time', '示例时间　发送', wrap);
       if (turn.quote) quoteElement(wrap, '引用', turn.quote);
+      for (const ref of turn.references || []) { renderReferencePreview(wrap, ref); if (ref.comment) appendText('p', 'passage', ref.comment, wrap); if (ref.attachments?.length) { const media = document.createElement('div'); media.className = 'attachment-list'; renderAttachments(media, ref.attachments); wrap.appendChild(media); } }
+      if (turn.attachments?.length) { const media = document.createElement('div'); media.className = 'attachment-list'; renderAttachments(media, turn.attachments); wrap.appendChild(media); }
       const rule = document.createElement('hr'); rule.className = 'answer-rule'; wrap.appendChild(rule);
       if (turn.demo) appendText('div', 'example-label', '示例答复 · 未连接 AI', wrap);
       let heading = 0, folded = false; for (const item of turn.answer) { const before = wrap.children.length; if (item.kind === 'heading') { heading++; folded = Boolean(turn.collapsedSections?.[item.id]); } renderBlock(wrap, item, i + 1, heading); const added = Array.from(wrap.children).slice(before); if (item.kind === 'heading') added[0].setAttribute('aria-expanded', String(!folded)); else if (folded) added.forEach(el => { el.hidden = true; }); }
@@ -80,19 +100,19 @@
     $('session-title').textContent = s.title;
     $('back-source').hidden = !s.parent;
     focusedBlock = null; $('bookmark-paragraph').disabled = true;
-    renderComposerContext();
+    renderComposerContext(); renderReferencesButton(); renderMainAttachments();
   }
   function renderComposerContext() {
     const box = $('composer-context'); box.replaceChildren();
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     box.hidden = !pending;
-    if (pending) { const text = document.createElement('div'); text.className = 'context-text'; const strong = document.createElement('strong'); strong.textContent = pending.kind === 'branch' ? '新开追问型会话' : '引用到当前会话'; text.append(strong, document.createTextNode('　' + pending.quote)); box.appendChild(text); const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消'; cancel.id = 'cancel-context'; box.appendChild(cancel); }
+    if (pending) { const text = document.createElement('div'); text.className = 'context-text'; const strong = document.createElement('strong'); strong.textContent = pending.kind === 'branch' ? '新开追问型会话' : '引用到当前会话'; text.append(strong, document.createTextNode('　' + pending.quote)); if (pending.sourceKind === 'math') renderReferencePreview(text, { kind: 'math', quote: pending.quote, svg: pending.svg, large: pending.large }); box.appendChild(text); const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消'; cancel.id = 'cancel-context'; box.appendChild(cancel); }
     composer.placeholder = pending && pending.kind === 'branch' ? '写下追问；发送后创建追问会话……' : '继续当前会话……';
   }
   function setComposer() {
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     composer.value = pending && pending.kind === 'branch' ? (pending.draft || '') : (current().draft || '');
-    renderComposerContext();
+    renderComposerContext(); renderReferencesButton(); renderMainAttachments();
   }
   function navigate(id, position) {
     if (!session(id)) return;
@@ -112,14 +132,24 @@
     navigate(target.parent, { blockId: source.blockId, textOffset: source.textOffset, lineY: 18, offset: -18 });
     $('status').textContent = '已定位提问出处。';
   }
+  function blockContext(el) {
+    if (!el?.dataset.blockId) return null;
+    const id = el.dataset.blockId; let item, before = '', after = '';
+    for (const turn of current().turns) { const idx = turn.answer.findIndex(b => b.id === id); if (idx < 0) continue; item = turn.answer[idx]; before = [...turn.answer.slice(0, idx)].reverse().find(b => b.kind === 'paragraph')?.text || ''; after = turn.answer.slice(idx + 1).find(b => b.kind === 'paragraph')?.text || ''; break; }
+    if (!item) return null;
+    if (item.kind === 'math') return { blockId: id, kind: 'math', quote: item.number ? '公式 ' + item.number : '公式附近：' + [before.slice(-70), after.slice(0, 70)].filter(Boolean).join(' … '), svg: item.svg || formulaAssets[item.text], math: item.text, number: item.number, large: item.large };
+    if (item.kind === 'image') return { blockId: id, kind: 'image', quote: item.alt || [before.slice(-80), after.slice(0, 80)].filter(Boolean).join(' … ') || '图片', src: item.src };
+    return { blockId: id, kind: 'text', quote: item.text };
+  }
   function selectionInfo() {
     const sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.toString().trim() || !sel.rangeCount) return null;
     const range = sel.getRangeAt(0); if (!transcript.contains(range.commonAncestorContainer)) return null;
     const element = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
     const source = element && element.closest('[data-block-id]'); if (!source) return null;
+    const context = blockContext(source); if (!context) return null; if (context.kind === 'math' || context.kind === 'image') return { ...context, rect: range.getBoundingClientRect() };
     let textOffset;
     if (!source.classList.contains('formula') && source.contains(range.startContainer)) { const prefix = document.createRange(); prefix.selectNodeContents(source); prefix.setEnd(range.startContainer, range.startOffset); textOffset = prefix.toString().length; }
-    return { quote: sel.toString().trim().slice(0, 2000), blockId: source.dataset.blockId, textOffset, rect: range.getBoundingClientRect() };
+    return { ...context, quote: sel.toString().trim().slice(0, 2000), textOffset, rect: range.getBoundingClientRect() };
   }
   function showSelection() {
     const info = selectionInfo(); if (!info) { $('selection-tools').hidden = true; return; }
@@ -128,8 +158,32 @@
   }
   function setPending(kind) {
     if (!currentSelection) return;
-    persistCurrent(); state.pending = { kind, parentId: state.active, quote: currentSelection.quote, blockId: currentSelection.blockId, sourceTextOffset: currentSelection.textOffset, draft: '' };
+    if (kind === 'quote') { addReference(currentSelection); return; }
+    persistCurrent(); state.pending = { kind, parentId: state.active, quote: currentSelection.quote, blockId: currentSelection.blockId, sourceTextOffset: currentSelection.textOffset, sourceKind: currentSelection.kind, svg: currentSelection.svg, src: currentSelection.src, large: currentSelection.large, draft: '' };
     $('selection-tools').hidden = true; window.getSelection()?.removeAllRanges(); setComposer(); composer.focus(); save();
+  }
+  function renderReferencesButton() { $('references-toggle').textContent = '引用 · ' + ensureSession(current()).references.length; }
+  function renderReferenceEditor() { const ref = ensureSession(current()).references.find(r => r.id === editingReference); if (!ref) return; const preview = $('reference-preview'); preview.replaceChildren(); renderReferencePreview(preview, ref); $('reference-comment').value = ref.comment || ''; const media = $('reference-attachments'); media.replaceChildren(); renderAttachments(media, ref.attachments, 'reference', ref.id); }
+  function openReference(id) { editingReference = id; if ($('references-panel').open) $('references-panel').close(); renderReferenceEditor(); $('reference-editor').showModal(); $('reference-comment').focus(); }
+  function addReference(context) {
+    const refs = ensureSession(current()).references; const ref = { id: uid(), blockId: context.blockId, textOffset: context.textOffset, quote: context.quote, kind: context.kind || 'text', svg: context.svg, src: context.src, number: context.number, large: context.large, comment: '', selected: true, attachments: [] };
+    refs.push(ref); if (!saveReferences()) { refs.pop(); return; } $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges(); renderReferencesButton(); openReference(ref.id);
+  }
+  function renderReferenceList() {
+    const list = $('references-list'); list.replaceChildren(); const refs = ensureSession(current()).references;
+    if (!refs.length) { appendText('p', 'bookmarks-empty', '还没有引用。选择内容后可添加。', list); return; }
+    refs.forEach((ref, i) => { const row = document.createElement('section'); row.className = 'reference-row'; const head = document.createElement('div'); head.className = 'reference-head'; const check = document.createElement('input'); check.type = 'checkbox'; check.checked = ref.selected !== false; check.dataset.referenceSelected = ref.id; check.setAttribute('aria-label', '携带引用 ' + (i + 1)); head.appendChild(check); appendText('span', '', '引用 ' + (i + 1), head); const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.referenceEdit = ref.id; edit.textContent = '编辑'; head.appendChild(edit); const remove = document.createElement('button'); remove.type = 'button'; remove.dataset.referenceRemove = ref.id; remove.textContent = '删除'; head.appendChild(remove); row.appendChild(head); renderReferencePreview(row, ref); if (ref.comment) appendText('div', '', ref.comment, row); renderAttachments(row, ref.attachments); list.appendChild(row); });
+  }
+  function mainAttachments() { const pending = state.pending?.kind === 'branch' && state.pending.parentId === state.active ? state.pending : null; if (pending) { pending.attachments ||= []; return pending.attachments; } return ensureSession(current()).attachments; }
+  function renderMainAttachments() { const box = $('attachment-list'); box.replaceChildren(); renderAttachments(box, mainAttachments(), 'main'); }
+  async function appendFiles(files, referenceId) {
+    const originSession = state.active;
+    const ref = referenceId ? ensureSession(current()).references.find(r => r.id === referenceId) : null; if (referenceId && !ref) return;
+    const target = ref ? (ref.attachments ||= []) : mainAttachments(); const staged = [];
+    pendingFileReads++; $('send').disabled = true; $('status').textContent = '正在读取附件。';
+    try { for (const entry of files) { const file = entry.file || entry; const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); }); staged.push({ id: uid(), name: file.name, path: entry.path || file.webkitRelativePath || file.name, type: file.type, size: file.size, data }); } if (ref && !session(originSession)?.references?.includes(ref)) throw new Error('reference removed'); target.push(...staged); const moved = state.active !== originSession; const ok = moved ? save() : ref ? saveReferences() : saveDraft(); if (!ok) throw new Error('storage'); if (moved) { localStorage.removeItem(referencesKey(originSession)); localStorage.removeItem(draftKey(originSession)); } else { if (ref) renderReferenceEditor(); else renderMainAttachments(); } $('status').textContent = '附件已保存在此浏览器的示例会话中。'; }
+    catch { for (const file of staged) { const i = target.indexOf(file); if (i >= 0) target.splice(i, 1); } $('status').textContent = '无法保存附件；文件可能超过浏览器存储容量。'; }
+    finally { pendingFileReads--; $('send').disabled = pendingFileReads > 0; }
   }
   function demoAnswer(question, quote) {
     const subject = (question + ' ' + (quote || '')).toLowerCase();
@@ -138,25 +192,29 @@
     return [block('paragraph', '这是用于体验交互的预设示例答复，没有连接 AI，也不会对你的问题进行真实推理。'), block('paragraph', '你可以继续当前会话、选中此处创建更深一层的追问，或者返回上层继续阅读。')];
   }
   function send() {
-    const question = composer.value.trim(); if (!question) { composer.focus(); return; }
+    if (pendingFileReads) { $('status').textContent = '请等待附件读取完成。'; return; }
+    const question = composer.value.trim(); const refs = ensureSession(current()).references; const selected = refs.filter(ref => ref.selected !== false); const files = mainAttachments();
+    if (!question && !selected.length && !files.length) { composer.focus(); return; }
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     const previousState = JSON.stringify(state);
     const previousSessionId = state.active;
+    const sentReferences = JSON.parse(JSON.stringify(selected)), sentAttachments = JSON.parse(JSON.stringify(files));
+    current().references = refs.filter(ref => ref.selected === false);
     const branching = pending && pending.kind === 'branch';
     if (branching) {
       const parent = current();
-      const child = { id: uid(), title: question.slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, textOffset: pending.sourceTextOffset, quote: pending.quote }, draft: '', turns: [] };
+      const child = { id: uid(), title: (question || selected[0]?.comment || '追问').slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, textOffset: pending.sourceTextOffset, quote: pending.quote, kind: pending.sourceKind, svg: pending.svg, src: pending.src }, draft: '', references: [], attachments: [], turns: [] };
       if (state.pendingBySession) delete state.pendingBySession[parent.id]; state.sessions.push(child); state.active = child.id; state.selected = child.id; state.pending = null;
-      child.turns.push({ id: uid(), question, answer: demoAnswer(question, pending.quote), demo: true });
+      child.turns.push({ id: uid(), question, references: sentReferences, attachments: sentAttachments, answer: demoAnswer(question, pending.quote), demo: true });
     } else {
-      current().turns.push({ id: uid(), question, quote: pending && pending.kind === 'quote' ? pending.quote : '', answer: demoAnswer(question, pending && pending.quote), demo: true });
-      current().draft = ''; state.pending = null;
+      current().turns.push({ id: uid(), question, references: sentReferences, attachments: sentAttachments, quote: pending && pending.kind === 'quote' ? pending.quote : '', answer: demoAnswer(question, pending && pending.quote), demo: true });
+      current().draft = ''; current().attachments = []; state.pending = null;
     }
     if (!save()) { state = JSON.parse(previousState); $('status').textContent = '无法保存本次问题，输入内容已保留。'; composer.focus(); return; }
-    if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
+    if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); localStorage.removeItem(referencesKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
     composer.value = ''; if (branching) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
     requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
-    $('status').textContent = '已发送示例问题；下方显示预设答复。';
+    $('status').textContent = '已保存示例问题和附件；下方是预设答复，未连接 AI。';
   }
   function openBookmark(candidate) {
     if (!candidate) return;
@@ -205,23 +263,45 @@
   $('map-toggle').addEventListener('click', () => mapOpen ? closeMap() : openMap()); $('map-close').addEventListener('click', closeMap);
   $('back-source').addEventListener('click', () => parentSource(current()));
   $('selection-tools').addEventListener('pointerdown', e => e.preventDefault()); $('selection-branch').addEventListener('click', () => setPending('branch')); $('selection-quote').addEventListener('click', () => setPending('quote')); $('selection-bookmark').addEventListener('click', () => openBookmark(currentSelection));
+  $('context-menu').addEventListener('pointerdown', e => e.preventDefault()); $('context-branch').addEventListener('click', () => { $('context-menu').hidden = true; setPending('branch'); }); $('context-quote').addEventListener('click', () => setPending('quote')); $('context-bookmark').addEventListener('click', () => { $('context-menu').hidden = true; openBookmark(currentSelection); });
+  reader.addEventListener('contextmenu', e => { const el = e.target.closest('[data-block-id]'); if (!el) return; const selection = selectionInfo(); currentSelection = selection?.blockId === el.dataset.blockId ? selection : blockContext(el); if (!currentSelection) return; e.preventDefault(); $('selection-tools').hidden = true; const menu = $('context-menu'); menu.hidden = false; requestAnimationFrame(() => { menu.style.left = Math.max(6, Math.min(innerWidth - menu.offsetWidth - 6, e.clientX)) + 'px'; menu.style.top = Math.max(55, Math.min(innerHeight - menu.offsetHeight - 6, e.clientY)) + 'px'; }); });
   $('bookmark-paragraph').addEventListener('click', () => openBookmark(focusedBlock));
   $('bookmarks-toggle').addEventListener('click', () => { if (mapOpen) closeMap(); setBookmarksOpen($('bookmarks-panel').hidden); }); $('bookmarks-close').addEventListener('click', () => setBookmarksOpen(false));
   $('bookmark-cancel').addEventListener('click', () => $('bookmark-dialog').close());
   $('bookmark-save').addEventListener('click', () => { const label = $('bookmark-name').value.trim(); if (!label) { $('bookmark-error').textContent = '请填写书签名称。'; $('bookmark-error').hidden = false; $('bookmark-name').focus(); return; } if (!bookmarkCandidate) return; const bookmark = { id: uid(), ...bookmarkCandidate, label }; state.bookmarks.push(bookmark); if (!save()) { state.bookmarks.pop(); $('bookmark-error').textContent = '无法保存书签，请重试。'; $('bookmark-error').hidden = false; return; } $('bookmark-dialog').close(); bookmarkCandidate = null; $('status').textContent = '已保存书签：' + label; if (!$('bookmarks-panel').hidden) renderBookmarks(); });
   $('bookmarks-list').addEventListener('click', e => { const openId = e.target.closest('[data-bookmark-open]')?.dataset.bookmarkOpen; if (openId) { const bookmark = state.bookmarks.find(item => item.id === openId); if (bookmark) goBookmark(bookmark); return; } const deleteId = e.target.closest('[data-bookmark-delete]')?.dataset.bookmarkDelete; if (!deleteId) return; const index = state.bookmarks.findIndex(item => item.id === deleteId); if (index < 0) return; const removed = state.bookmarks.splice(index, 1)[0]; if (!save()) { state.bookmarks.splice(index, 0, removed); return; } renderBookmarks(); $('status').textContent = '已删除书签：' + removed.label; });
+  $('references-toggle').addEventListener('click', () => { renderReferenceList(); $('references-panel').showModal(); }); $('references-close').addEventListener('click', () => $('references-panel').close());
+  $('references-list').addEventListener('click', e => { const edit = e.target.closest('[data-reference-edit]')?.dataset.referenceEdit; if (edit) { openReference(edit); return; } const remove = e.target.closest('[data-reference-remove]')?.dataset.referenceRemove; if (!remove) return; const refs = ensureSession(current()).references, index = refs.findIndex(r => r.id === remove); if (index < 0) return; const old = refs.splice(index, 1)[0]; if (!saveReferences()) { refs.splice(index, 0, old); return; } renderReferenceList(); renderReferencesButton(); });
+  $('references-list').addEventListener('change', e => { const id = e.target.dataset.referenceSelected; const ref = ensureSession(current()).references.find(r => r.id === id); if (ref) { const old = ref.selected; ref.selected = e.target.checked; if (!saveReferences()) { ref.selected = old; e.target.checked = old !== false; } } });
+  $('reference-comment').addEventListener('input', () => { const ref = ensureSession(current()).references.find(r => r.id === editingReference); if (ref) { ref.comment = $('reference-comment').value; saveReferences(); } });
+  $('reference-comment').addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); $('reference-confirm').click(); } });
+  $('reference-confirm').addEventListener('click', () => { if (!saveReferences()) return; $('reference-editor').close(); editingReference = null; $('status').textContent = '引用已加入待发区；尚未请求 AI。'; }); $('reference-close').addEventListener('click', () => { $('reference-editor').close(); editingReference = null; });
+  $('reference-attach').addEventListener('click', () => $('reference-file-input').click()); $('reference-file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) appendFiles(files, editingReference); });
+  function removeAttachment(e) { const button = e.target.closest('[data-attachment-remove]'); if (!button) return; const ref = button.dataset.attachmentScope === 'reference' ? ensureSession(current()).references.find(r => r.id === button.dataset.referenceId) : null; const target = ref ? ref.attachments : mainAttachments(); const idx = target.findIndex(file => file.id === button.dataset.attachmentRemove); if (idx < 0) return; const old = target.splice(idx, 1)[0]; if (!(ref ? saveReferences() : saveDraft())) { target.splice(idx, 0, old); return; } if (ref) renderReferenceEditor(); else renderMainAttachments(); }
+  $('attachment-list').addEventListener('click', removeAttachment); $('reference-attachments').addEventListener('click', removeAttachment);
+  function pasteImages(e, referenceId) { const files = Array.from(e.clipboardData?.files || []).filter(file => file.type.startsWith('image/')); if (!files.length) return; if (!e.clipboardData.getData('text/plain')) e.preventDefault(); appendFiles(files, referenceId); }
+  async function collectEntry(entry, prefix = '') { const path = prefix + entry.name; if (entry.isFile) { const file = await new Promise((resolve, reject) => entry.file(resolve, reject)); return [{ file, path }]; } if (!entry.isDirectory) return []; const reader = entry.createReader(), out = []; while (true) { const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject)); if (!batch.length) break; for (const child of batch) out.push(...await collectEntry(child, path + '/')); } return out; }
+  function pasteMain(e) { const data = e.clipboardData; if (!data) return; let entries = []; try { entries = Array.from(data.items || []).filter(item => item.kind === 'file').map(item => typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null).filter(Boolean); } catch { /* Some browsers do not expose file system entries. */ } const files = Array.from(data.files || []); if (entries.some(entry => entry.isDirectory)) { e.preventDefault(); pendingFileReads++; $('send').disabled = true; $('status').textContent = '正在读取文件夹。'; Promise.all(entries.map(entry => collectEntry(entry))).then(groups => { const collected = groups.flat(); if (collected.length) appendFiles(collected); else $('status').textContent = '文件夹中没有可添加的文件。'; }).catch(() => { $('status').textContent = '浏览器无法读取粘贴的文件夹，请使用“添加文件夹”。'; }).finally(() => { pendingFileReads--; $('send').disabled = pendingFileReads > 0; }); return; } if (files.length) { if (!data.getData('text/plain')) e.preventDefault(); appendFiles(files); return; } if (Array.from(data.types || []).includes('Files')) { e.preventDefault(); $('status').textContent = '浏览器无法读取粘贴的文件或文件夹，请使用添加附件。'; } }
+  composer.addEventListener('paste', pasteMain); $('reference-comment').addEventListener('paste', e => pasteImages(e, editingReference));
+  $('attach-toggle').addEventListener('click', () => { const open = $('attach-menu').hidden; $('attach-menu').hidden = !open; $('attach-toggle').setAttribute('aria-expanded', String(open)); });
+  $('attach-files').addEventListener('click', () => { $('attach-menu').hidden = true; $('file-input').click(); }); $('attach-folder').addEventListener('click', () => { $('attach-menu').hidden = true; $('folder-input').click(); });
+  for (const id of ['file-input', 'folder-input']) $(id).addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) appendFiles(files); else if (id === 'folder-input') $('status').textContent = '文件夹中没有可添加的文件，或选择已取消。'; });
+  if (!('webkitdirectory' in $('folder-input'))) { $('attach-folder').disabled = true; $('attach-folder').textContent = '添加文件夹（浏览器不支持）'; }
+  $('demo-assets').addEventListener('click', () => { const turn = { id: uid(), question: '图文交互示例', answer: demoAssetBlocks(), demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } transcript.appendChild(renderTurn(turn, current().turns.length - 1)); requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '已添加图文示例；右键公式或图片可操作。'; });
   reader.addEventListener('pointerup', showSelection); reader.addEventListener('keyup', showSelection);
   reader.addEventListener('scroll', () => { if (!mapOpen) { current().viewport = reader.scrollTop; try { localStorage.setItem(viewportKey(state.active), String(reader.scrollTop)); } catch { $('status').textContent = '当前浏览器无法保存视口位置。'; } } }, { passive: true });
   function toggleHeading(target) { const heading = target.closest('[data-heading-id]'); if (!heading || window.getSelection()?.toString().trim()) return; const turnIndex = Array.from(transcript.children).indexOf(heading.closest('.turn')); const turn = current().turns[turnIndex]; if (!turn) return; const collapsed = heading.getAttribute('aria-expanded') === 'true'; turn.collapsedSections ||= {}; turn.collapsedSections[heading.dataset.headingId] = collapsed; heading.setAttribute('aria-expanded', String(!collapsed)); let sibling = heading.nextElementSibling; while (sibling && !sibling.matches('[data-heading-id], .answer-rule, .time')) { sibling.hidden = collapsed; sibling = sibling.nextElementSibling; } save(); }
-  transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = { blockId: el.dataset.blockId, quote: el.textContent.trim().slice(0, 2000) }; $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
+  transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
   transcript.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-heading-id]')) { e.preventDefault(); toggleHeading(e.target); } });
   $('composer-context').addEventListener('click', e => { if (e.target.id !== 'cancel-context') return; if (state.pending?.kind === 'branch') state.pending = null; else state.pending = null; setComposer(); save(); });
   composer.addEventListener('input', () => { if (state.pending?.kind === 'branch' && state.pending.parentId === state.active) state.pending.draft = composer.value; else current().draft = composer.value; saveDraft(); });
   composer.addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); send(); } }); $('send').addEventListener('click', send);
-  $('map-tree').addEventListener('click', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (!id) return; state.selected = id; renderMap(); save(); });
+  $('map-tree').addEventListener('click', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (!id) return; state.selected = id; $('map-tree').querySelectorAll('[data-node-id]').forEach(node => node.setAttribute('aria-current', String(node.dataset.nodeId === id))); mapDetails(); save(); });
+  $('map-tree').addEventListener('dblclick', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (id) navigate(id); });
+  $('map-tree').addEventListener('keydown', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (id && e.key === 'Enter') { e.preventDefault(); navigate(id); } });
   $('map-detail').addEventListener('click', e => { const id = e.target.closest('[data-map-open]')?.dataset.mapOpen; if (id) navigate(id); const sourceId = e.target.closest('[data-map-source]')?.dataset.mapSource; if (sourceId) parentSource(session(sourceId)); });
   window.addEventListener('beforeunload', persistCurrent);
-  document.addEventListener('pointerdown', e => { if (!e.target.closest('#selection-tools') && !reader.contains(e.target)) $('selection-tools').hidden = true; });
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('#selection-tools') && !reader.contains(e.target)) $('selection-tools').hidden = true; if (!e.target.closest('#context-menu')) $('context-menu').hidden = true; });
   window.branchDemo = {
     getState: () => JSON.parse(JSON.stringify(state)),
     setState: next => { for (const s of state.sessions) localStorage.removeItem(draftKey(s.id)); state = JSON.parse(JSON.stringify(next)); state.bookmarks ||= []; closeMap(); renderTranscript(); setComposer(); reader.scrollTop = 0; save(); },

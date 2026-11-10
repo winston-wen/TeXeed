@@ -130,8 +130,7 @@ internal static partial class Program
         changedLegacy.Turns[0] = new("同标题：旧内容", "[本轮未完成]");
         changedLegacy.ReconcileSentAnnotations();
         Check(changedLegacy.Entries.Count == 0 && changedLegacy.Turns[0].SentAnnotations.Count == 1, "Legacy unnumbered failed submission was not archived");
-        // A tall question keeps the same folded turn at the viewport top.
-        // Expanded -> folded must hide the existing bar without another scroll.
+        // Scrolling and folding preserve the conversation without a floating prompt.
         var contextBook = (AiNotebook)Field(panel, "_book")!;
         contextBook.Turns.Clear(); contextBook.Entries.Clear();
         var contextTurn = new AiTurn(string.Join("\n\n", Enumerable.Repeat("滚动阅读提示测试问题", 12)), "保持展开时可显示悬浮问题提示。");
@@ -139,22 +138,20 @@ internal static partial class Program
         contextBook.Turns.Add(new("后续问答", string.Join("\n\n", Enumerable.Repeat("后续正文用于提供滚动空间。", 40))));
         Invoke(panel, "RefreshTranscript"); await Task.Delay(150); host.UpdateLayout();
         var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
-        var bar = (Border)panel.FindName("ReadingContext");
+        Check(panel.FindName("ReadingContext") is null, "Floating reading context still exists");
         scroll.ScrollToVerticalOffset(120); await Task.Delay(80); host.UpdateLayout();
-        Invoke(panel, "UpdateReadingContext");
-        Check(bar.IsVisible && ((TextBlock)panel.FindName("ReadingContextTitle")).Text == "滚动阅读提示测试问题", "Expanded turn no longer shows its reading context");
+        Invoke(panel, "CaptureReadingAnchor");
+        Check(contextBook.Active.ReadingTurnId == contextTurn.Id, "The view position was not captured");
         var contextView = Descendants<AiTurnView>(panel).Single(v => v.Turn == contextTurn);
         contextView.Toggle(); host.UpdateLayout(); await Task.Delay(80);
-        Check(bar.Visibility == Visibility.Collapsed, "Folding kept the floating reading context visible");
         scroll.ScrollToVerticalOffset(160); await Task.Delay(80); host.UpdateLayout();
-        Invoke(panel, "UpdateReadingContext");
-        Check(bar.Visibility == Visibility.Collapsed, "Scrolling a folded question showed its floating context");
+        Invoke(panel, "CaptureReadingAnchor");
         await panel.SaveAsync(); Invoke(panel, "RefreshTranscript"); await Task.Delay(80);
-        scroll.ScrollToVerticalOffset(120); host.UpdateLayout(); Invoke(panel, "UpdateReadingContext");
-        Check(bar.Visibility == Visibility.Collapsed, "Restoring a folded question revived its floating context");
+        scroll.ScrollToVerticalOffset(120); host.UpdateLayout(); Invoke(panel, "CaptureReadingAnchor");
+        Check(contextTurn.Collapsed, "Folded state was lost when saving and restoring");
         contextView = Descendants<AiTurnView>(panel).Single(v => v.Turn == contextTurn);
         contextView.Toggle(); host.UpdateLayout(); await Task.Delay(80);
-        Check(bar.IsVisible, "Expanding a question did not restore the reading context");
+        Check(!contextTurn.Collapsed && panel.FindName("ReadingContext") is null, "Expanding a question recreated the floating prompt");
         host.Close();
         Console.WriteLine($"AI reading: {checks} checks passed (native layout, snapshots, folds, persistence, zero-request annotation confirmation, composer batch send).");
     }

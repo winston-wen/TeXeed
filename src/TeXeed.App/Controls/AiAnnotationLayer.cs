@@ -226,6 +226,9 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         input.SetBinding(TextBox.TextProperty, new Binding(nameof(AiEntry.Question)) { Source = entry, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         System.Windows.Automation.AutomationProperties.SetName(input, "原位批注内容");
         input.PreviewKeyDown += (_, e) => HandleEditorKey(e, Keyboard.Modifiers);
+        var imageStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
+        imageStatus.SetResourceReference(TextElement.ForegroundProperty, "Muted");
+        AiAnnotationImages.EnablePaste(input, entry, () => { imageStatus.Text = ""; _commit?.Invoke(); }, message => imageStatus.Text = message);
         var inputGrid = new Grid(); inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); inputGrid.ColumnDefinitions.Add(new ColumnDefinition());
         var numbers = new TextBoxLineNumbers();
         numbers.SetResourceReference(Control.ForegroundProperty, "Muted");
@@ -241,6 +244,8 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         focused.Setters.Add(new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("ChatFocus")));
         editorStyle.Triggers.Add(focused); editor.Style = editorStyle;
         stack.Children.Add(editor);
+        stack.Children.Add(imageStatus);
+        stack.Children.Add(AiAnnotationImages.Create(entry, () => _commit?.Invoke()));
         Button Icon(string name, string tooltip, string geometry, int column)
         {
             var path = new System.Windows.Shapes.Path { Data = Geometry.Parse(geometry), Width = 16, Height = 16, Stretch = Stretch.Uniform, StrokeThickness = 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round };

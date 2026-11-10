@@ -1,0 +1,348 @@
+diff --git a/src/TeXeed.App/AI/AiModels.cs b/src/TeXeed.App/AI/AiModels.cs
+index 19aaf67..3e9466c 100644
+--- a/src/TeXeed.App/AI/AiModels.cs
++++ b/src/TeXeed.App/AI/AiModels.cs
+@@ -15,6 +15,7 @@ public sealed record AiPdfBlock(int Page, double X, double Y, double Width, doub
+     public double? PointX { get; init; }
+     public double? PointY { get; init; }
+ }
++public sealed record AiPastedImage(string ImageBase64);
+ public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
+ {
+     // Semantic text offset survives responsive columns changing the FlowDocument structure.
+@@ -49,8 +50,9 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
+     public string State { get; set; } = "待提交";
+     public List<AiSourceBlock> Sources { get; set; } = [];
+     public List<AiPdfBlock> PdfBlocks { get; set; } = [];
++    public System.Collections.ObjectModel.ObservableCollection<AiPastedImage> Images { get; set; } = [];
+     public string PdfRevision { get; set; } = "";
+-    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
++    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], Images = new(Images), PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
+     public bool IsPoint { get; set; }
+ }
+ public sealed record AiTurn(string Question, string Answer)
+diff --git a/src/TeXeed.App/AI/AiResponses.cs b/src/TeXeed.App/AI/AiResponses.cs
+index 732c6f2..0f604f2 100644
+--- a/src/TeXeed.App/AI/AiResponses.cs
++++ b/src/TeXeed.App/AI/AiResponses.cs
+@@ -117,6 +117,11 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
+                 content.Add(new JsonObject { ["type"] = "input_text", ["text"] = $"PDF SHA256={entry.PdfRevision} 页 {block.Page}, PDF 坐标 (pt): x={block.X:F2}, y={block.Y:F2}, w={block.Width:F2}, h={block.Height:F2}。请用源码检索工具定位对应源码，引用文件与行号；不能确定时明确说明。" });
+                 content.Add(new JsonObject { ["type"] = "input_image", ["image_url"] = "data:image/png;base64," + block.ImageBase64 });
+             }
++            foreach (var image in entry.Images)
++            {
++                content.Add(new JsonObject { ["type"] = "input_text", ["text"] = "用户粘贴在此批注中的图片：" });
++                content.Add(new JsonObject { ["type"] = "input_image", ["image_url"] = "data:image/png;base64," + image.ImageBase64 });
++            }
+         }
+         input.Add(new JsonObject { ["role"] = "user", ["content"] = content }); return input;
+     }
+diff --git a/src/TeXeed.App/Controls/AiAnnotationLayer.cs b/src/TeXeed.App/Controls/AiAnnotationLayer.cs
+index e1c2483..6dd0614 100644
+--- a/src/TeXeed.App/Controls/AiAnnotationLayer.cs
++++ b/src/TeXeed.App/Controls/AiAnnotationLayer.cs
+@@ -226,6 +226,9 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
+         input.SetBinding(TextBox.TextProperty, new Binding(nameof(AiEntry.Question)) { Source = entry, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
+         System.Windows.Automation.AutomationProperties.SetName(input, "原位批注内容");
+         input.PreviewKeyDown += (_, e) => HandleEditorKey(e, Keyboard.Modifiers);
++        var imageStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
++        imageStatus.SetResourceReference(TextElement.ForegroundProperty, "Muted");
++        AiAnnotationImages.EnablePaste(input, entry, () => { imageStatus.Text = ""; _commit?.Invoke(); }, message => imageStatus.Text = message);
+         var inputGrid = new Grid(); inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); inputGrid.ColumnDefinitions.Add(new ColumnDefinition());
+         var numbers = new TextBoxLineNumbers();
+         numbers.SetResourceReference(Control.ForegroundProperty, "Muted");
+@@ -241,6 +244,8 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
+         focused.Setters.Add(new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("ChatFocus")));
+         editorStyle.Triggers.Add(focused); editor.Style = editorStyle;
+         stack.Children.Add(editor);
++        stack.Children.Add(imageStatus);
++        stack.Children.Add(AiAnnotationImages.Create(entry, () => _commit?.Invoke()));
+         Button Icon(string name, string tooltip, string geometry, int column)
+         {
+             var path = new System.Windows.Shapes.Path { Data = Geometry.Parse(geometry), Width = 16, Height = 16, Stretch = Stretch.Uniform, StrokeThickness = 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round };
+diff --git a/src/TeXeed.App/Controls/AiPanel.Reading.cs b/src/TeXeed.App/Controls/AiPanel.Reading.cs
+index f1b9742..de4159f 100644
+--- a/src/TeXeed.App/Controls/AiPanel.Reading.cs
++++ b/src/TeXeed.App/Controls/AiPanel.Reading.cs
+@@ -44,32 +44,16 @@ public partial class AiPanel
+                 if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
+                 MessagesScroll.ScrollToVerticalOffset(MessagesScroll.VerticalOffset + view.TranslatePoint(new Point(), MessagesScroll).Y + conversation.ReadingTurnOffset);
+             }
+-            _restoringReading = false; ScheduleReadingContext();
++            _restoringReading = false; ScheduleViewportCapture();
+         }
+         catch (Exception ex) when (ex is not OutOfMemoryException) { _restoringReading = false; if (!_disposed) ShowError(ex); }
+     }
+-    private void ScheduleReadingContext()
++    private void ScheduleViewportCapture()
+     {
+         if (_readingQueued || _disposed) return;
+         _readingQueued = true;
+         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+-        { _readingQueued = false; if (!_disposed) UpdateReadingContext(); }));
+-    }
+-    private void UpdateReadingContext()
+-    {
+-        if (!IsLoaded || ReadingContext is null) return;
+-        // Only native virtualized containers in/near the viewport are registered.
+-        // Never walk document descendants or force layout of off-screen history.
+-        var active = ActiveReadingTurn();
+-        CaptureReadingAnchor();
+-        if (active is null || active.Turn.Collapsed || active.TranslatePoint(new Point(), MessagesScroll).Y >= -24)
+-        { ReadingContext.Visibility = Visibility.Collapsed; return; }
+-        ReadingContextTitle.Text = (active.Turn.Prompt ?? active.Turn.DisplayQuestion).Split('\n').FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "圈点提问";
+-        if (string.IsNullOrWhiteSpace(ReadingContextTitle.Text)) ReadingContextTitle.Text = "圈点提问";
+-        ReadingContextTitle.ToolTip = ReadingContextTitle.Text;
+-        ReadingContextAnnotations.Text = active.Turn.SentAnnotations.Count == 0 ? "本轮没有圈点" : string.Join("   ", active.Turn.SentAnnotations.Select((e, n) => $"{n + 1}. {AiTurnView.AnnotationSummary(e)}"));
+-        ReadingContextAnnotations.ToolTip = ReadingContextAnnotations.Text;
+-        ReadingContext.Visibility = Visibility.Visible;
++        { _readingQueued = false; if (!_disposed && IsLoaded) CaptureReadingAnchor(); }));
+     }
+     private static IEnumerable<T> VisualChildren<T>(DependencyObject parent) where T : DependencyObject
+     {
+@@ -113,8 +97,8 @@ public partial class AiPanel
+         view.ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project);
+         _turnViews[view.Turn.Id] = view;
+         view.Unloaded -= Turn_Unloaded; view.Unloaded += Turn_Unloaded;
+-        ScheduleReadingContext();
+-        view.Changed = () => { Dirty(); ScheduleReadingContext(); };
++        ScheduleViewportCapture();
++        view.Changed = () => { Dirty(); ScheduleViewportCapture(); };
+         view.SourceRequested = OpenChatSource;
+         view.RetryRequested = async () => await SubmitAsync(view.Turn);
+         view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;
+diff --git a/src/TeXeed.App/Controls/AiPanel.xaml b/src/TeXeed.App/Controls/AiPanel.xaml
+index 9229e2e..1d21144 100644
+--- a/src/TeXeed.App/Controls/AiPanel.xaml
++++ b/src/TeXeed.App/Controls/AiPanel.xaml
+@@ -38,7 +38,7 @@
+     <ItemsControl.Template><ControlTemplate TargetType="ItemsControl"><ScrollViewer x:Name="MessagesScroll" CanContentScroll="True" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" PreviewMouseWheel="MessagesScroll_Wheel"><ItemsPresenter/></ScrollViewer></ControlTemplate></ItemsControl.Template>
+     <ItemsControl.ItemsPanel><ItemsPanelTemplate><local:ChatVirtualizingPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+     <ItemsControl.Resources><DataTemplate DataType="{x:Type ai:AiTurn}"><local:AiTurnView Turn="{Binding}" Loaded="Turn_Loaded" Margin="12,0,0,30"/></DataTemplate></ItemsControl.Resources>
+-    <StackPanel x:Name="EmptyConversation" Margin="24,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="点击左边栏 AI 圈点按钮，再在源码、PDF 或 AI 回答中选择。松开后就地填写批注，点击编号气泡可继续编辑。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
++    <StackPanel x:Name="EmptyConversation" Margin="24,45,12,35"><TextBlock Text="AI 对话" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock Text="从一个问题，或一处圈点开始。" Foreground="{DynamicResource Muted}" Margin="0,12" HorizontalAlignment="Center"/><TextBlock Text="在 PDF 预览中右键选择 AI 圈点，然后选择需要讨论的位置；也可在 AI 回答中右键批注所选内容。" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" MaxWidth="360"/></StackPanel>
+     <StackPanel x:Name="LiveContainer" Visibility="Collapsed" Margin="12,8,0,30">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock x:Name="LiveTurnNumber" FontSize="16" Foreground="{DynamicResource ChatHeading}" Margin="-40,8,10,0" HorizontalAlignment="Right" VerticalAlignment="Top"/><local:MarkdownView x:Name="LiveQuestion" Grid.Column="1" Margin="-5,8,12,0" Padding="0" UseWavyEmphasis="True"/></Grid>
+      <TextBlock x:Name="LiveSentTime" Foreground="{DynamicResource Muted}" FontSize="13" TextWrapping="Wrap" LineHeight="26.5" LineStackingStrategy="BlockLineHeight" Margin="36,0,4,0"/>
+@@ -46,10 +46,6 @@
+      <local:AiReplyStatus x:Name="LiveReplyStatus" IsThinking="True" Margin="36,0,4,0"/>
+     </StackPanel>
+    </ItemsControl>
+-   <Border x:Name="ReadingContext" VerticalAlignment="Top" Panel.ZIndex="1" Visibility="Collapsed" Margin="12,0,0,0" BorderBrush="{DynamicResource ChatDivider}" BorderThickness="0,0,0,2" Background="{DynamicResource ChatQuestionBackground}" Padding="12,6" ClipToBounds="True"><StackPanel>
+-    <TextBlock x:Name="ReadingContextTitle" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" TextTrimming="CharacterEllipsis"/>
+-    <TextBlock x:Name="ReadingContextAnnotations" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+-   </StackPanel></Border>
+   </Grid>
+   <TextBlock x:Name="StatusText" Grid.Row="2" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="26,4,22,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+   <Border x:Name="ComposerBorder" Grid.Row="3" BorderThickness="0,1,0,0" Background="{DynamicResource ChatQuestionBackground}" Padding="21,0,15,0">
+@@ -94,7 +90,8 @@
+          <ItemsControl ItemsSource="{Binding PdfBlocks}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Page, StringFormat=PDF 第 {0} 页}"/><Image Loaded="Thumbnail_Loaded" Stretch="Uniform" MaxHeight="140"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+          <TextBlock Text="{Binding State}" Foreground="{DynamicResource Muted}"/>
+         </StackPanel></Expander>
+-        <TextBox Text="{Binding Question, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="Question_Changed" PreviewKeyDown="Entry_KeyDown" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" AcceptsTab="True" MaxHeight="140" ToolTip="对此处的单独说明（可留空，使用下方统一问题）"/>
++        <TextBox Text="{Binding Question, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Loaded="AnnotationInput_Loaded" TextChanged="Question_Changed" PreviewKeyDown="Entry_KeyDown" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" AcceptsTab="True" MaxHeight="140" ToolTip="对此处的单独说明，可粘贴图片"/>
++        <ContentControl Loaded="AnnotationImages_Loaded"/>
+        </StackPanel></Border>
+       </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+      </ScrollViewer>
+diff --git a/src/TeXeed.App/Controls/AiPanel.xaml.cs b/src/TeXeed.App/Controls/AiPanel.xaml.cs
+index ea55da9..3789e77 100644
+--- a/src/TeXeed.App/Controls/AiPanel.xaml.cs
++++ b/src/TeXeed.App/Controls/AiPanel.xaml.cs
+@@ -78,14 +78,14 @@ public partial class AiPanel : UserControl, IDisposable
+             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
+             LimitComposerHeight();
+             if (EntriesPopup.Child is FrameworkElement surface) surface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
+-            ScheduleReadingContext(); ResizeChoices();
++            ScheduleViewportCapture(); ResizeChoices();
+         };
+         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
+         MessagesScroll.ScrollChanged += (_, e) =>
+         {
+             if (!ReferenceEquals(e.OriginalSource, MessagesScroll)) return;
+             if (!_restoringReading && e.VerticalChange != 0) { _book.Active.ReadingOffset = MessagesScroll.VerticalOffset; Dirty(); }
+-            ScheduleReadingContext();
++            ScheduleViewportCapture();
+         };
+         Loaded += async (_, _) => { SyncModelChoices(); if (Settings.SelectedModel is null) await RefreshModelChoicesAsync(); };
+         PreviewKeyDown += (_, e) =>
+@@ -173,6 +173,17 @@ public partial class AiPanel : UserControl, IDisposable
+     private void ClearDone_Click(object sender, RoutedEventArgs e) { _book.Entries.RemoveAll(e => e.State == "已完成"); Rebind(); Dirty(); }
+     private void Entry_Changed(object sender, RoutedEventArgs e) => Dirty();
+     private void Question_Changed(object sender, TextChangedEventArgs e) => Dirty();
++    private void AnnotationInput_Loaded(object sender, RoutedEventArgs e)
++    {
++        if (sender is not TextBox { DataContext: AiEntry entry } input || input.Tag is AiEntry) return;
++        input.Tag = entry;
++        AiAnnotationImages.EnablePaste(input, entry, () => { Dirty(); SaveAnnotationChanges(); }, message => StatusText.Text = message);
++    }
++    private void AnnotationImages_Loaded(object sender, RoutedEventArgs e)
++    {
++        if (sender is ContentControl { DataContext: AiEntry entry, Content: null } control)
++            control.Content = AiAnnotationImages.Create(entry, () => { Dirty(); SaveAnnotationChanges(); });
++    }
+     private void Stop_Click(object sender, RoutedEventArgs e) => _operation?.Cancel();
+     private void Thumbnail_Loaded(object sender, RoutedEventArgs e)
+     {
+@@ -217,7 +228,7 @@ public partial class AiPanel : UserControl, IDisposable
+         var sentAnnotations = selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
+         await RunOperationAsync(async token =>
+         {
+-            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
++            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
+             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
+             var generation = _generation; var book = _book;
+             var sentAt = DateTimeOffset.Now;
+@@ -336,7 +347,7 @@ public partial class AiPanel : UserControl, IDisposable
+         LiveSentTime.Text = turn.SentTime;
+         LiveSegments.Visibility = turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
+         LiveReplyStatus.IsCollapsed = turn.Collapsed;
+-        ScheduleReadingContext();
++        ScheduleViewportCapture();
+     }
+     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
+     public void Dispose() { _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+diff --git a/src/TeXeed.App/Controls/PdfPreview.Ai.cs b/src/TeXeed.App/Controls/PdfPreview.Ai.cs
+index c00726e..dacbbc9 100644
+--- a/src/TeXeed.App/Controls/PdfPreview.Ai.cs
++++ b/src/TeXeed.App/Controls/PdfPreview.Ai.cs
+@@ -24,7 +24,12 @@ public sealed partial class PdfPreview
+     public bool IsAiSelecting => _aiSelecting;
+     private void InitializeAiSelection()
+     {
+-        ContextMenu = null;
++        var menu = new ContextMenu();
++        var mark = new MenuItem { Header = "AI 圈点" };
++        mark.Click += (_, _) => BeginAiSelection();
++        menu.Opened += (_, _) => mark.IsEnabled = _document is not null && !_aiCapturing && !_aiSelecting;
++        menu.Items.Add(mark);
++        ContextMenu = menu;
+         _ = new AiMarkMenu(this, () => _aiSelecting, () => SetAiMarking(false));
+         _pages.PreviewMouseLeftButtonDown += (_, e) =>
+         {
+diff --git a/src/TeXeed.App/MainWindow.Ai.cs b/src/TeXeed.App/MainWindow.Ai.cs
+index d3e5882..bdca532 100644
+--- a/src/TeXeed.App/MainWindow.Ai.cs
++++ b/src/TeXeed.App/MainWindow.Ai.cs
+@@ -24,13 +24,12 @@ public partial class MainWindow
+                 entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), entry=>_aiPanel.RemoveAnnotation(entry), margin: true, confirm: entry=>_aiPanel.ConfirmAnnotation(entry), commit: () => _aiPanel.SaveAnnotationChanges());
+             _sourceAnnotations[editor] = annotations;
+             var menu = new ContextMenu();
+-            editor.AiMarked += (_, mark) => CollectSourceMark(editor, mark);
+             void Command(string title, RoutedCommand command, string gesture)
+             {
+                 // Avoid global CanExecute requery opening the shared Windows clipboard.
+                 var item = new MenuItem { Header = title, InputGestureText = gesture };
+-                menu.Opened += (_, _) => { try { item.IsEnabled = command.CanExecute(null, editor.TextArea); } catch (System.Runtime.InteropServices.COMException) { item.IsEnabled = false; } };
+-                item.Click += (_, _) => { try { command.Execute(null, editor.TextArea); } catch (System.Runtime.InteropServices.COMException) { Status("剪贴板暂时被其他程序占用，请重试。"); } };
++                menu.Opened += (_, _) => { try { item.IsEnabled = command.CanExecute(null, editor.TextArea); } catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or UnauthorizedAccessException) { item.IsEnabled = false; } };
++                item.Click += (_, _) => { try { command.Execute(null, editor.TextArea); } catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or UnauthorizedAccessException) { Status("剪贴板暂时无法访问，请重试。"); } };
+                 menu.Items.Add(item);
+             }
+             Command("撤销", ApplicationCommands.Undo, "Ctrl+Z"); Command("重做", ApplicationCommands.Redo, "Ctrl+Y"); menu.Items.Add(new Separator());
+@@ -38,7 +37,6 @@ public partial class MainWindow
+             foreach (var (title, action) in new[] { ("切换注释", "comment"), ("增加缩进", "indent"), ("减少缩进", "outdent"), ("查找", "find"), ("替换", "replace"), ("格式化文档", "format") })
+             { var item = new MenuItem { Header = title }; item.Click += (_, _) => editor.ExecuteCommand(action); menu.Items.Add(item); }
+             editor.ContextMenu = menu;
+-            _ = new AiMarkMenu(editor, () => _aiMarking, () => SetAiMarking(false));
+         }
+     }
+     private void SetAiMarking(bool active)
+@@ -46,13 +44,9 @@ public partial class MainWindow
+         if (active && (_project is null || _transitioning)) return;
+         if (_aiMarking == active) return;
+         _aiMarking = active;
+-        foreach(var panel in _aiPanels.Values) panel.IsMarking = active;
+-        UpdateWorkspaceIcons();
+-        foreach (var editor in Editors) editor.SetAiMarking(active);
+         Preview.SetAiMarking(active);
+-        Status(active ? "AI 圈点：单击点位，按住选择；Esc 或右键双击退出" : "已退出 AI 圈点");
++        Status(active ? "PDF AI 圈点：单击点位，按住框选；Esc 或右键双击退出" : "已退出 PDF AI 圈点");
+     }
+-    private void AiMarking_Click(object sender, RoutedEventArgs e) => SetAiMarking(!_aiMarking);
+     private void CollectSourceMark(LatexEditor editor, SourceAiMark mark)
+     {
+         if (_project is null || editor.CurrentFilePath is not { } path || mark.Length > 40000) return;
+diff --git a/src/TeXeed.App/MainWindow.AiWorkspace.cs b/src/TeXeed.App/MainWindow.AiWorkspace.cs
+index eed4c85..384d311 100644
+--- a/src/TeXeed.App/MainWindow.AiWorkspace.cs
++++ b/src/TeXeed.App/MainWindow.AiWorkspace.cs
+@@ -42,7 +42,7 @@ public partial class MainWindow
+     private AiPanel EnsureAiPanel(string id)
+     {
+         if (_aiPanels.TryGetValue(id,out var panel)) return panel;
+-        panel = CreateAiPanel(); panel.Bind(_aiStore!,id); panel.IsMarking = _aiMarking;
++        panel = CreateAiPanel(); panel.Bind(_aiStore!,id);
+         _aiPanels.Add(id,panel); return panel;
+     }
+     private async Task InitializeAiProjectAsync(string project)
+diff --git a/src/TeXeed.App/MainWindow.xaml b/src/TeXeed.App/MainWindow.xaml
+index c4ba581..7da78e0 100644
+--- a/src/TeXeed.App/MainWindow.xaml
++++ b/src/TeXeed.App/MainWindow.xaml
+@@ -39,7 +39,6 @@
+       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceBookmarksIcon}" Tag="bookmarks" ToolTip="书签" AutomationProperties.Name="书签" Click="SidebarMode_Click"/>
+       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceLabelsIcon}" Tag="labels" ToolTip="标签" AutomationProperties.Name="标签" Click="SidebarMode_Click"/>
+       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceTodosIcon}" Tag="todos" ToolTip="待办" AutomationProperties.Name="待办" Click="SidebarMode_Click"/>
+-      <Button Style="{StaticResource WorkspaceAiMarkButton}" Tag="ai-mark" ToolTip="AI 圈点" AutomationProperties.Name="AI 圈点" Click="AiMarking_Click"/>
+      </UniformGrid></Border>
+    <Border Grid.Column="1" x:Name="SidebarPanel" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}">
+     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+diff --git a/src/TeXeed.App/MainWindow.xaml.cs b/src/TeXeed.App/MainWindow.xaml.cs
+index b88c0dd..91eebb2 100644
+--- a/src/TeXeed.App/MainWindow.xaml.cs
++++ b/src/TeXeed.App/MainWindow.xaml.cs
+@@ -750,7 +750,7 @@ public partial class MainWindow : Window
+     private void UpdateWorkspaceIcons()
+     {
+         foreach (var button in WorkspaceIconBar.Children.OfType<Button>())
+-            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, Equals(button.Tag, "ai-mark") ? _aiMarking : _workspaceExpanded && Equals(button.Tag, _sidebar));
++            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, _workspaceExpanded && Equals(button.Tag, _sidebar));
+     }
+     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
+     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (!_buildingFileTree && e.NewValue is TreeViewItem { Tag: string path }) OpenExplorerFile(path); }
+diff --git a/src/TeXeed.App/TeXeed.App.csproj b/src/TeXeed.App/TeXeed.App.csproj
+index e3dcea1..ebedcf4 100644
+--- a/src/TeXeed.App/TeXeed.App.csproj
++++ b/src/TeXeed.App/TeXeed.App.csproj
+@@ -8,7 +8,7 @@
+     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+     <PlatformTarget>x64</PlatformTarget>
+     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+-    <Version>0.4.2</Version>
++    <Version>0.4.3</Version>
+     <ApplicationIcon>Assets/TeXeed.ico</ApplicationIcon>
+     <Description>A native Windows LaTeX workspace</Description>
+   </PropertyGroup>
+diff --git a/src/TeXeed.App/WorkspaceIcons.xaml b/src/TeXeed.App/WorkspaceIcons.xaml
+index c5a1b58..254f562 100644
+--- a/src/TeXeed.App/WorkspaceIcons.xaml
++++ b/src/TeXeed.App/WorkspaceIcons.xaml
+@@ -29,27 +29,4 @@
+  <Style x:Key="SidebarActionButton" TargetType="Button" BasedOn="{StaticResource WorkspaceIconButton}">
+   <Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="Margin" Value="1,0"/>
+  </Style>
+- <!-- The pencil crosses both full-height letters. Subtract its silhouette from
+-      the letters so the overlap stays clear on every background and theme. -->
+- <CombinedGeometry x:Key="WorkspaceAiMarkLetters" GeometryCombineMode="Exclude"
+-  Geometry1="M0.5,22 L6.7,3 H8.2 L13,22 H11.3 L7.3,6.1 L2.3,22 Z M4,14 H10 V15.5 H4 Z M14,3.5 H23 V5 H19.3 V21 H23 V22.5 H14 V21 H17.7 V5 H14 Z"
+-  Geometry2="M3,24 L4.5,18 16,0.8 23.5,5.4 12,23.5 Z"/>
+- <Geometry x:Key="WorkspaceAiMarkIcon">M4.5,22.8 L5.7,18.5 16.3,2.2 21.8,5.8 11.2,22.1 Z M5.7,18.5 L11.2,22.1 M14.8,4.5 L20.3,8.1</Geometry>
+- <Style x:Key="WorkspaceAiMarkButton" TargetType="Button" BasedOn="{StaticResource WorkspaceIconButton}">
+-  <!-- FocusVisualStyle is shown for keyboard navigation, not a lingering mouse focus. -->
+-  <Setter Property="FocusVisualStyle"><Setter.Value><Style TargetType="Control"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control"><Border BorderBrush="{DynamicResource Accent}" BorderThickness="1" CornerRadius="4" Margin="1"/></ControlTemplate></Setter.Value></Setter></Style></Setter.Value></Setter>
+-  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+-   <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent">
+-    <Viewbox Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center"><Canvas Width="24" Height="24">
+-     <Path Data="{StaticResource WorkspaceAiMarkLetters}" Fill="{TemplateBinding Foreground}"/>
+-     <Path Data="{StaticResource WorkspaceAiMarkIcon}" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.35" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+-    </Canvas></Viewbox>
+-   </Border>
+-   <ControlTemplate.Triggers>
+-    <Trigger Property="Selector.IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource PanelBackground}"/></Trigger>
+-    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+-    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.65"/></Trigger>
+-   </ControlTemplate.Triggers>
+-  </ControlTemplate></Setter.Value></Setter>
+- </Style>
+ </ResourceDictionary>

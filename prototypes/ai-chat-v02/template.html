@@ -59,9 +59,6 @@ details[open]>summary:before { transform:rotate(90deg) }
 .app-tab button { width:20px; height:22px; padding:0; border:0; display:grid; place-items:center; color:var(--quiet); flex:none }
 .app-tab button:hover { color:var(--ink); background:#cf8fa021 }
 .app-tab button svg { width:14px; height:14px }
-#mark-button { margin-left:auto; white-space:nowrap; font-size:12px; border:1px solid transparent }
-#mark-button[aria-pressed=true] { color:var(--accent); background:var(--panel); border-color:var(--guide) }
-#mark-button:focus:not(:focus-visible) { outline:none }
 .chat { --text-inset:36px; position:relative; min-height:0; width:100%; margin:0; padding-top:10px; display:grid; grid-template-rows:auto minmax(0,1fr) auto auto }
 .chat > .search, .chat > .reading-shell, .chat > .status { width:min(1100px,calc(100% - 40px)); margin-left:auto; margin-right:auto }
 .bookmark-ball { position:absolute; z-index:20; width:38px; height:38px; padding:0; display:grid; place-items:center; border:1px solid var(--guide); border-radius:50%; background:var(--question); color:var(--accent); box-shadow:0 3px 12px #0005; cursor:grab; touch-action:none }
@@ -213,10 +210,6 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .activity-code textarea { resize:none; width:100%; height:100%; min-height:0; overflow:auto; box-sizing:border-box; outline:none }
 .activity-numbers { overflow:hidden; min-width:2ch; color:inherit }
 .activity-numbers pre { text-align:right; padding-right:8px }
-#reading-context { flex:none; padding:8px 46px 9px calc(var(--text-inset) + 12px); border-bottom:1px solid var(--line); background:var(--bg); height:61px; font:12px/21px var(--sans) }
-#reading-context-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
-#reading-context-notes { display:flex; gap:14px; color:var(--muted); min-height:21px; overflow:hidden; white-space:nowrap }
-#reading-context-notes span { overflow:hidden; text-overflow:ellipsis; max-width:33% }
 
 /* Composer uses one shell and one control baseline. */
 .composer-shell { --corner-radius:24px; --control-size:24px; --editor-top:13px; grid-row:4; position:relative; border-top:1px solid var(--guide); background:var(--question); padding:0; margin:0; min-width:0; overflow:hidden }
@@ -373,7 +366,6 @@ dialog textarea { width:100%; height:220px }
  .chat { padding-top:6px }
  .chat > .search, .chat > .reading-shell, .chat > .status, .composer-shell>.code-editor, .composer-toolbar, .composer-shell > .review-pinned-summary { width:calc(100% - 24px) }
  .thread { padding-top:16px; padding-right:32px }
- #reading-context { padding-right:32px }
  .margin-notes { right:-28px }
  .bubble { min-width:23px }
  .composer-toolbar { flex-wrap:wrap; gap:5px; row-gap:4px }
@@ -388,7 +380,6 @@ dialog textarea { width:100%; height:220px }
  .history-tools #history-selected { font-size:11px }
 }
 @media(max-width:380px) {
- #mark-button { font-size:11px; padding:4px }
  .app-tab .tab-label { max-width:10em }
  .models select { max-width:142px }
  .models .effort { max-width:74px }
@@ -401,10 +392,10 @@ dialog textarea { width:100%; height:220px }
 </head>
 <body>
 <main class="app">
- <nav class="tabs" aria-label="工作区标签"><button id="ai-menu-button" aria-haspopup="menu" aria-expanded="false">AI</button><div id="workspace-tabs" role="tablist"></div><button id="mark-button" aria-label="AI 圈点" aria-pressed="false" title="AI 圈点 · Esc 退出">AI 圈点</button></nav>
+ <nav class="tabs" aria-label="工作区标签"><button id="ai-menu-button" aria-haspopup="menu" aria-expanded="false">AI</button><div id="workspace-tabs" role="tablist"></div></nav>
  <section class="chat" id="chat">
   <div class="search" id="search" hidden><input id="search-input" aria-label="查找当前 AI 对话"><span id="search-count">0</span><button id="search-prev" aria-label="上一个匹配">↑</button><button id="search-next" aria-label="下一个匹配">↓</button></div>
-  <div class="reading-shell" id="reading-shell"><aside id="reading-context" hidden aria-label="当前问题提示"><div id="reading-context-title"></div><div id="reading-context-notes"></div></aside><div class="reader" id="reader" tabindex="0" aria-label="AI 对话记录"><div class="thread" id="thread"></div></div></div>
+  <div class="reading-shell" id="reading-shell"><div class="reader" id="reader" tabindex="0" aria-label="AI 对话记录"><div class="thread" id="thread"></div></div></div>
   <div id="status" class="status" role="status" hidden></div>
   <div class="composer-shell">
    <textarea class="composer-input" id="composer" aria-label="AI 对话编辑栏" rows="2" title="Enter / Shift+Enter 换行；Ctrl+Enter 发送"></textarea>
@@ -438,7 +429,7 @@ dialog textarea { width:100%; height:220px }
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>
 <dialog id="image-viewer" aria-labelledby="image-title"><div class="image-viewer-header"><h2 id="image-title">图片预览</h2><button id="image-close" class="icon-button" aria-label="关闭图片预览"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg></button></div><div id="image-viewport" tabindex="0" aria-label="图片浏览区域"><img id="image-preview" alt=""></div><div class="image-viewer-tools"><button id="image-zoom-out" aria-label="缩小图片">−</button><output id="image-scale" aria-live="polite">100%</output><button id="image-zoom-in" aria-label="放大图片">+</button><button id="image-fit">适应窗口</button><button id="image-actual">原尺寸</button></div></dialog>
 <div id="context-tooltip" role="tooltip" hidden></div>
-<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>按 Ctrl+Alt+T 打开试验台，选择预编回放结果或导出本次交互记录。</p><div class="lab-row"><label><input id="marking" type="checkbox">左边栏「AI 圈点」已开启（模拟外部开关）</label></div><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">持续网络故障</option><option value="program-failure">程序中止</option></select></label><button id="restore">恢复示例状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>合成示例 / 预编续答</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
+<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>按 Ctrl+Alt+T 打开试验台，选择预编回放结果或导出本次交互记录。</p><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">持续网络故障</option><option value="program-failure">程序中止</option></select></label><button id="restore">恢复示例状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>合成示例 / 预编续答</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
 <dialog id="copy-dialog"><div class="row"><h2>复制文本</h2><span class="spacer"></span><button id="close-copy">关闭</button></div><textarea id="copy-text" aria-label="复制文本"></textarea></dialog>
 <dialog id="rename-dialog" aria-label="重命名 AI 对话"><form id="rename-form"><label for="rename-title">AI 对话标题</label><input id="rename-title" maxlength="200" autocomplete="off"><div class="row"><button type="button" id="rename-cancel">取消</button><button type="submit" id="rename-save">确定</button></div></form></dialog>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>

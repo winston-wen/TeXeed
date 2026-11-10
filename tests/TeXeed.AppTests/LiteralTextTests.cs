@@ -30,7 +30,11 @@ internal static partial class Program
         Check(recent.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(paths), "Recent paths were mutated before display");
         foreach (var item in recent.Items.Cast<MenuItem>()) Check(Equals(item.ToolTip, item.Header), "Recent path tooltip is not the full literal path");
         var project = (TexProject)Field(window, "_project")!;
-        await EnsureDirectoryTreeAsync(window); var tree = (TreeView)window.FindName("FileTree"); tree.Visibility = Visibility.Visible;
+        var fileButton = ((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Single(button => Equals(button.Tag, "files"));
+        if ((string)Field(window, "_sidebar")! != "files" || !(bool)Field(window, "_workspaceExpanded")!)
+            fileButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await EnsureDirectoryTreeAsync(window); var tree = (TreeView)window.FindName("FileTree");
+        Check(tree.IsVisible, "File explorer must be visible before inspecting its rendered text");
         var folders = tree.Items.OfType<TreeViewItem>().SelectMany(LiteralTreeItems).ToArray();
         Check(folders.All(i => i.HeaderTemplate is not null), "File tree title uses implicit mnemonic rendering");
         var leaf = folders.Single(i => Equals(i.Tag, file));
@@ -89,8 +93,8 @@ internal static partial class Program
                 { SentAnnotations = [new() { Question = annotation }], Prompt = "[主题] a_b" });
             Invoke(window, "OpenAiTab"); Invoke(ai, "RefreshTranscript"); await Settle();
             ((ScrollViewer)ai.FindName("MessagesScroll")).ScrollToEnd(); await Settle();
-            var context = (TextBlock)ai.FindName("ReadingContextAnnotations");
-            Check(context.IsVisible && context.Text == "1. " + annotation, "Plain reading hint showed Markdown escape characters");
+            Check(ai.FindName("ReadingContextAnnotations") is null, "Removed floating reading hint remains");
+            Check(book.Turns.Last().SentAnnotations[0].Question == annotation, "Removing the reading hint changed saved annotation text");
         }
         finally { File.Delete(themeFile); ThemeManager.Apply("ristretto"); }
         Console.WriteLine($"Literal UI text: {count} checks passed (wide/compact menus, breadcrumbs, tooltips, automation, filenames, themes, both palettes and Alt mnemonics).");

@@ -78,14 +78,14 @@ public partial class AiPanel : UserControl, IDisposable
             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
             LimitComposerHeight();
             if (EntriesPopup.Child is FrameworkElement surface) surface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
-            ScheduleReadingContext(); ResizeChoices();
+            ScheduleViewportCapture(); ResizeChoices();
         };
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
         MessagesScroll.ScrollChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.OriginalSource, MessagesScroll)) return;
             if (!_restoringReading && e.VerticalChange != 0) { _book.Active.ReadingOffset = MessagesScroll.VerticalOffset; Dirty(); }
-            ScheduleReadingContext();
+            ScheduleViewportCapture();
         };
         Loaded += async (_, _) => { SyncModelChoices(); if (Settings.SelectedModel is null) await RefreshModelChoicesAsync(); };
         PreviewKeyDown += (_, e) =>
@@ -173,6 +173,17 @@ public partial class AiPanel : UserControl, IDisposable
     private void ClearDone_Click(object sender, RoutedEventArgs e) { _book.Entries.RemoveAll(e => e.State == "已完成"); Rebind(); Dirty(); }
     private void Entry_Changed(object sender, RoutedEventArgs e) => Dirty();
     private void Question_Changed(object sender, TextChangedEventArgs e) => Dirty();
+    private void AnnotationInput_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: AiEntry entry } input || input.Tag is AiEntry) return;
+        input.Tag = entry;
+        AiAnnotationImages.EnablePaste(input, entry, () => { Dirty(); SaveAnnotationChanges(); }, message => StatusText.Text = message);
+    }
+    private void AnnotationImages_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContentControl { DataContext: AiEntry entry, Content: null } control)
+            control.Content = AiAnnotationImages.Create(entry, () => { Dirty(); SaveAnnotationChanges(); });
+    }
     private void Stop_Click(object sender, RoutedEventArgs e) => _operation?.Cancel();
     private void Thumbnail_Loaded(object sender, RoutedEventArgs e)
     {
@@ -217,7 +228,7 @@ public partial class AiPanel : UserControl, IDisposable
         var sentAnnotations = selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
         await RunOperationAsync(async token =>
         {
-            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
+            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var generation = _generation; var book = _book;
             var sentAt = DateTimeOffset.Now;
@@ -336,7 +347,7 @@ public partial class AiPanel : UserControl, IDisposable
         LiveSentTime.Text = turn.SentTime;
         LiveSegments.Visibility = turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
         LiveReplyStatus.IsCollapsed = turn.Collapsed;
-        ScheduleReadingContext();
+        ScheduleViewportCapture();
     }
     public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
     public void Dispose() { _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }

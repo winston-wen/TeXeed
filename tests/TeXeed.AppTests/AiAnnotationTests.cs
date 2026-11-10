@@ -147,6 +147,29 @@ internal static partial class Program
         Check(answerPopup.IsOpen, "Answer annotation did not open locally");
         var answerInput = AnnotationVisuals<TextBox>(answerPopup.Child).Single();
         Check(!answerInput.IsReadOnly, "Answer annotation input inherited a read-only state");
+        var pixels = new byte[100 * 60 * 4];
+        for (var y = 0; y < 60; y++) for (var x = 0; x < 100; x++)
+        { var offset = (y * 100 + x) * 4; pixels[offset] = (byte)(40 + x); pixels[offset + 1] = (byte)(70 + y); pixels[offset + 2] = 180; pixels[offset + 3] = 255; }
+        var annotationBitmap = System.Windows.Media.Imaging.BitmapSource.Create(100, 60, 96, 96, PixelFormats.Bgra32, null, pixels, 400);
+        Check(AiAnnotationImages.Add(answerEntry, annotationBitmap, out _), "Cannot add a picture to the answer annotation");
+        answerPopup.Child.UpdateLayout(); await Task.Delay(100);
+        Check(AnnotationVisuals<Image>(answerPopup.Child).Any(i => i.Source is not null), "Pasted image did not appear in the annotation editor");
+        Capture(window, Path.Combine(output, "ai-answer-annotation-image.png"));
+        for (var i = 0; i < 4; i++) Check(AiAnnotationImages.Add(answerEntry, annotationBitmap, out _), "Cannot create image reuse fixture");
+        var originalThumbnails = AnnotationVisuals<Image>(answerPopup.Child).Where(i => i.Source is not null).ToArray();
+        Check(originalThumbnails.Length == 5, "Annotation image fixture did not render five thumbnails");
+        Check(AiAnnotationImages.Add(answerEntry, annotationBitmap, out _), "Cannot append an annotation image");
+        var afterAdd = AnnotationVisuals<Image>(answerPopup.Child).Where(i => i.Source is not null).ToArray();
+        Check(afterAdd.Length == 6 && originalThumbnails.Select((image, index) => ReferenceEquals(image, afterAdd[index])).All(x => x), "Adding an image recreated unchanged thumbnails");
+        var fourthImage = answerEntry.Images[3];
+        var fourthRow = (DockPanel)originalThumbnails[3].Parent;
+        ((Button)fourthRow.Children[0]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        var afterRemove = AnnotationVisuals<Image>(answerPopup.Child).Where(i => i.Source is not null).ToArray();
+        Check(answerEntry.Images.Count == 5 && !answerEntry.Images.Any(image => ReferenceEquals(image, fourthImage)) &&
+            afterRemove.Length == 5 && ReferenceEquals(afterRemove[0], originalThumbnails[0]) && ReferenceEquals(afterRemove[1], originalThumbnails[1]) &&
+            ReferenceEquals(afterRemove[2], originalThumbnails[2]) && ReferenceEquals(afterRemove[3], originalThumbnails[4]) && ReferenceEquals(afterRemove[4], afterAdd[5]),
+            "Removing a duplicate image removed the wrong item or recreated unchanged thumbnails");
+        while (answerEntry.Images.Count > 1) answerEntry.Images.RemoveAt(1);
         if (Environment.GetEnvironmentVariable("TEXEED_INTERACTIVE_INPUT") == "1")
         {
             window.Activate(); await Task.Delay(80);
@@ -176,7 +199,8 @@ internal static partial class Program
         Capture(window, Path.Combine(output, "ai-answer-bubble.png"));
         Check(AiResponses.MakeInput([answerEntry], []).ToJsonString().Contains(answerEntry.AnswerAnchor!.TurnId), "Answer quote was not sent with its identity");
         await ai.SaveAsync();
-        Check(AiStorage.Load(project.MainPath).Entries.Last().AnswerAnchor == answerEntry.AnswerAnchor, "Answer annotation failed persistence");
+        var savedAnswerEntry = AiStorage.Load(project.MainPath).Entries.Last();
+        Check(savedAnswerEntry.AnswerAnchor == answerEntry.AnswerAnchor && savedAnswerEntry.Images.Count == 1, "Answer annotation or image failed persistence");
         var oldId = book.Active.Id;
         await CallAsync(window, "OpenNewAiConversationAsync"); window.UpdateLayout();
         Check(((AiPanel)Field(window, "_aiPanel")!).AnnotationEntries.Count == 0, "Annotation leaked to another conversation");

@@ -750,7 +750,7 @@ public partial class MainWindow : Window
     private void UpdateWorkspaceIcons()
     {
         foreach (var button in WorkspaceIconBar.Children.OfType<Button>())
-            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, Equals(button.Tag, "ai-mark") ? _aiMarking : _workspaceExpanded && Equals(button.Tag, _sidebar));
+            System.Windows.Controls.Primitives.Selector.SetIsSelected(button, _workspaceExpanded && Equals(button.Tag, _sidebar));
     }
     private void Search_Changed(object sender, TextChangedEventArgs e) { if (IsInitialized && _project != null) RefreshIndex(); }
     private void FileTree_Selected(object sender, RoutedPropertyChangedEventArgs<object> e) { if (!_buildingFileTree && e.NewValue is TreeViewItem { Tag: string path }) OpenExplorerFile(path); }

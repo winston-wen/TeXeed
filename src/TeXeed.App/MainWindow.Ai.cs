@@ -24,13 +24,12 @@ public partial class MainWindow
                 entry => _project is null ? null : editor.AnnotationPosition(entry, _project.Root), entry=>_aiPanel.RemoveAnnotation(entry), margin: true, confirm: entry=>_aiPanel.ConfirmAnnotation(entry), commit: () => _aiPanel.SaveAnnotationChanges());
             _sourceAnnotations[editor] = annotations;
             var menu = new ContextMenu();
-            editor.AiMarked += (_, mark) => CollectSourceMark(editor, mark);
             void Command(string title, RoutedCommand command, string gesture)
             {
                 // Avoid global CanExecute requery opening the shared Windows clipboard.
                 var item = new MenuItem { Header = title, InputGestureText = gesture };
-                menu.Opened += (_, _) => { try { item.IsEnabled = command.CanExecute(null, editor.TextArea); } catch (System.Runtime.InteropServices.COMException) { item.IsEnabled = false; } };
-                item.Click += (_, _) => { try { command.Execute(null, editor.TextArea); } catch (System.Runtime.InteropServices.COMException) { Status("剪贴板暂时被其他程序占用，请重试。"); } };
+                menu.Opened += (_, _) => { try { item.IsEnabled = command.CanExecute(null, editor.TextArea); } catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or UnauthorizedAccessException) { item.IsEnabled = false; } };
+                item.Click += (_, _) => { try { command.Execute(null, editor.TextArea); } catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or UnauthorizedAccessException) { Status("剪贴板暂时无法访问，请重试。"); } };
                 menu.Items.Add(item);
             }
             Command("撤销", ApplicationCommands.Undo, "Ctrl+Z"); Command("重做", ApplicationCommands.Redo, "Ctrl+Y"); menu.Items.Add(new Separator());
@@ -38,7 +37,6 @@ public partial class MainWindow
             foreach (var (title, action) in new[] { ("切换注释", "comment"), ("增加缩进", "indent"), ("减少缩进", "outdent"), ("查找", "find"), ("替换", "replace"), ("格式化文档", "format") })
             { var item = new MenuItem { Header = title }; item.Click += (_, _) => editor.ExecuteCommand(action); menu.Items.Add(item); }
             editor.ContextMenu = menu;
-            _ = new AiMarkMenu(editor, () => _aiMarking, () => SetAiMarking(false));
         }
     }
     private void SetAiMarking(bool active)
@@ -46,13 +44,9 @@ public partial class MainWindow
         if (active && (_project is null || _transitioning)) return;
         if (_aiMarking == active) return;
         _aiMarking = active;
-        foreach(var panel in _aiPanels.Values) panel.IsMarking = active;
-        UpdateWorkspaceIcons();
-        foreach (var editor in Editors) editor.SetAiMarking(active);
         Preview.SetAiMarking(active);
-        Status(active ? "AI 圈点：单击点位，按住选择；Esc 或右键双击退出" : "已退出 AI 圈点");
+        Status(active ? "PDF AI 圈点：单击点位，按住框选；Esc 或右键双击退出" : "已退出 PDF AI 圈点");
     }
-    private void AiMarking_Click(object sender, RoutedEventArgs e) => SetAiMarking(!_aiMarking);
     private void CollectSourceMark(LatexEditor editor, SourceAiMark mark)
     {
         if (_project is null || editor.CurrentFilePath is not { } path || mark.Length > 40000) return;
