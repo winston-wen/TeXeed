@@ -1,0 +1,1241 @@
+{
+  "schema": "bookmarks-branching-20261110-v1",
+  "baseline": "cf7cb2349a3cd887bc1b50679c37e1bf6397acfd",
+  "historic": "7af94c2562d4f0ea2eae0a29413e49d465f7e172",
+  "fixtureHash": "4bce645cfc97daa7fd8318b3afebae72aa521864d4499e1a0165839cbff8f13a",
+  "resources": {
+    "historic": {
+      "index.html": "b769c17a10100b3fb5129c75e903a873d029397ee8d10ee987755dd149e8d77a",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "d46cbd759b4309fe50cabfcd68e406fec4859b0dd29f5242be8ac0f5c751727d",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "c700c3d7a5f62b877b7a7795f21d849d82a4d70e5cd76fe8897542d3a69c0fc5"
+    },
+    "before": {
+      "branching.html": "cebb2cd4eba3002e5b70248cc14f093b1e044a670ee48b6b9617c9d4bb7db48f",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "branching.css": "2a70162be2dc7c34b80ad8a460391218d18ab1f4492ead2692ec811f8abe47a3",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "branching.js": "58888b9efdfedd59252cc704f687b39eb18b7c0c8515bfe17cd8a20e72b331ab",
+      "vendor/katex/fonts/KaTeX_AMS-Regular.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866"
+    },
+    "after": {
+      "branching.html": "9ec2f86e2053eaa1b7be0e524323fae0e0ac863f8de41f1443a6298201ed8acf",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "branching.css": "a892990498553ff36745f98d467670c652aa8912bf0fb032a72eda16a96b1bfc",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "branching.js": "2921c3e2b6bd0782d921bd1fddede87dce51501d5f75000149c198296c01e593",
+      "vendor/katex/fonts/KaTeX_AMS-Regular.woff2": "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866"
+    }
+  },
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.8103.40",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "turns": 120,
+    "rounds": 2,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "delayedWaitMs": 220,
+    "heapSamplingInterval": 1024,
+    "note": "Paired empty operation includes the same two frames and delayed wait. V8 sampled allocation is an estimate, including harness and scheduling; it is not exact total allocation. Comparison is only for equivalent synthetic reading interactions, not identical feature coverage."
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "historic",
+      "operation": "input",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.79999999981374
+          },
+          "work": {
+            "sync": 1.099999999627471,
+            "elapsed": 231.3999999994412
+          },
+          "correctedElapsed": 2.599999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240
+          },
+          "work": {
+            "sync": 1.2000000001862645,
+            "elapsed": 226.70000000018626
+          },
+          "correctedElapsed": -13.299999999813735
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.30000000074506
+          },
+          "work": {
+            "sync": 1,
+            "elapsed": 241.40000000037253
+          },
+          "correctedElapsed": -1.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.40000000037253
+          },
+          "work": {
+            "sync": 1.1000000005587935,
+            "elapsed": 242.70000000018626
+          },
+          "correctedElapsed": 14.299999999813735
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240.79999999981374
+          },
+          "work": {
+            "sync": 1,
+            "elapsed": 227.8999999994412
+          },
+          "correctedElapsed": -12.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.40000000037253
+          },
+          "work": {
+            "sync": 0.900000000372529,
+            "elapsed": 256.30000000074506
+          },
+          "correctedElapsed": 13.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.20000000018626
+          },
+          "work": {
+            "sync": 1,
+            "elapsed": 241
+          },
+          "correctedElapsed": -1.2000000001862645
+        }
+      ],
+      "medianSync": 1,
+      "medianElapsed": 241,
+      "medianCorrected": -1.2000000001862645,
+      "idleBytes": 59204,
+      "workBytes": 1005416,
+      "allocatedBytes": 135173.14285714287,
+      "counts": {
+        "nodes": 2283,
+        "visibleControls": 11
+      },
+      "viewportStorage": null
+    },
+    {
+      "round": 0,
+      "mode": "historic",
+      "operation": "scroll",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.20000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 229.40000000037253
+          },
+          "correctedElapsed": -13.799999999813735
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.8999999994412
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 240.40000000037253
+          },
+          "correctedElapsed": 11.500000000931323
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 226.90000000037253
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 228.79999999981374
+          },
+          "correctedElapsed": 1.8999999994412065
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241.3999999994412
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 244.6000000005588
+          },
+          "correctedElapsed": 3.200000001117587
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 227.20000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 242.20000000018626
+          },
+          "correctedElapsed": 15
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 237.1000000005588
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 235
+          },
+          "correctedElapsed": -2.1000000005587935
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.6000000005588
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 244.5
+          },
+          "correctedElapsed": 1.8999999994412065
+        }
+      ],
+      "medianSync": 0,
+      "medianElapsed": 240.40000000037253,
+      "medianCorrected": 1.8999999994412065,
+      "idleBytes": 40948,
+      "workBytes": 1033392,
+      "allocatedBytes": 141777.7142857143,
+      "counts": {
+        "nodes": 2283,
+        "visibleControls": 11
+      },
+      "viewportStorage": {
+        "value": {
+          "top": 600,
+          "anchor": "synthetic-3-p0",
+          "offset": 61
+        },
+        "scrollTop": 600,
+        "mechanism": "legacy conversation reading state"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "operation": "input",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 226.90000000037253
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 243.80000000074506
+          },
+          "correctedElapsed": 16.90000000037253
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.6000000005588
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 227.20000000018626
+          },
+          "correctedElapsed": -15.400000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.20000000018626
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 236.8999999994412
+          },
+          "correctedElapsed": -6.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 233.90000000037253
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 231
+          },
+          "correctedElapsed": -2.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 239.1000000005588
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 225
+          },
+          "correctedElapsed": -14.100000000558794
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.8999999994412
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 242.79999999981374
+          },
+          "correctedElapsed": -0.09999999962747097
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 227.79999999981374
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 232.20000000018626
+          },
+          "correctedElapsed": 4.400000000372529
+        }
+      ],
+      "medianSync": 0.09999999962747097,
+      "medianElapsed": 232.20000000018626,
+      "medianCorrected": -2.900000000372529,
+      "idleBytes": 48012,
+      "workBytes": 51480,
+      "allocatedBytes": 495.42857142857144,
+      "counts": {
+        "nodes": 1132,
+        "visibleControls": 4
+      },
+      "viewportStorage": null
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "operation": "scroll",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 228.90000000037253
+          },
+          "correctedElapsed": -15.099999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.30000000074506
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 243.40000000037253
+          },
+          "correctedElapsed": 15.099999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.6000000005588
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 230
+          },
+          "correctedElapsed": -14.600000000558794
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 227.90000000037253
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 243.59999999962747
+          },
+          "correctedElapsed": 15.699999999254942
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.5
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 228.5
+          },
+          "correctedElapsed": -16
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 227
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 244.70000000018626
+          },
+          "correctedElapsed": 17.700000000186265
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 228.8999999994412
+          },
+          "correctedElapsed": -15.100000000558794
+        }
+      ],
+      "medianSync": 0,
+      "medianElapsed": 230,
+      "medianCorrected": -14.600000000558794,
+      "idleBytes": 30936,
+      "workBytes": 64436,
+      "allocatedBytes": 4785.714285714285,
+      "counts": {
+        "nodes": 1132,
+        "visibleControls": 4
+      },
+      "viewportStorage": {
+        "value": {
+          "blockId": "synthetic-0-block",
+          "offset": -141,
+          "fallback": 0
+        },
+        "scrollTop": 0,
+        "mechanism": "reading-position key"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "operation": "input",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.59999999962747
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 242.30000000074506
+          },
+          "correctedElapsed": -2.299999998882413
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.30000000074506
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 229.40000000037253
+          },
+          "correctedElapsed": 1.099999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 232.40000000037253
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 238.20000000018626
+          },
+          "correctedElapsed": 5.7999999998137355
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 230.40000000037253
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 229.1000000005588
+          },
+          "correctedElapsed": -1.2999999998137355
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.59999999962747
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 245.1000000005588
+          },
+          "correctedElapsed": 0.5000000009313226
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.3999999994412
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 226.79999999981374
+          },
+          "correctedElapsed": -1.599999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 245.20000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 241.29999999981374
+          },
+          "correctedElapsed": -3.900000000372529
+        }
+      ],
+      "medianSync": 0.09999999962747097,
+      "medianElapsed": 238.20000000018626,
+      "medianCorrected": -1.2999999998137355,
+      "idleBytes": 32560,
+      "workBytes": 55464,
+      "allocatedBytes": 3272,
+      "counts": {
+        "nodes": 1148,
+        "visibleControls": 5
+      },
+      "viewportStorage": null
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "operation": "scroll",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.59999999962747
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 242.90000000037253
+          },
+          "correctedElapsed": 14.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.6000000005588
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 229.29999999981374
+          },
+          "correctedElapsed": -14.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.09999999962747
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 243.5
+          },
+          "correctedElapsed": 15.400000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.70000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 228.3999999994412
+          },
+          "correctedElapsed": -15.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240.90000000037253
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 243.6000000005588
+          },
+          "correctedElapsed": 2.7000000001862645
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 230.6000000005588
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 229
+          },
+          "correctedElapsed": -1.6000000005587935
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.90000000037253
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 243.20000000018626
+          },
+          "correctedElapsed": -1.7000000001862645
+        }
+      ],
+      "medianSync": 0,
+      "medianElapsed": 242.90000000037253,
+      "medianCorrected": -1.6000000005587935,
+      "idleBytes": 55604,
+      "workBytes": 54188,
+      "allocatedBytes": -202.28571428571428,
+      "counts": {
+        "nodes": 1148,
+        "visibleControls": 5
+      },
+      "viewportStorage": {
+        "value": 0,
+        "scrollTop": 0,
+        "mechanism": "independent viewport key"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "operation": "input",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240.70000000018626
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 227.5
+          },
+          "correctedElapsed": -13.200000000186265
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.5
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 246.30000000074506
+          },
+          "correctedElapsed": 17.800000000745058
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.70000000018626
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 229.59999999962747
+          },
+          "correctedElapsed": -15.100000000558794
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229.09999999962747
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 243.09999999962747
+          },
+          "correctedElapsed": 14
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 245.29999999981374
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 243.80000000074506
+          },
+          "correctedElapsed": -1.4999999990686774
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 231.40000000037253
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 228.20000000018626
+          },
+          "correctedElapsed": -3.2000000001862645
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.90000000037253
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 243.20000000018626
+          },
+          "correctedElapsed": -1.7000000001862645
+        }
+      ],
+      "medianSync": 0.09999999962747097,
+      "medianElapsed": 243.09999999962747,
+      "medianCorrected": -1.7000000001862645,
+      "idleBytes": 51720,
+      "workBytes": 40960,
+      "allocatedBytes": -1537.142857142857,
+      "counts": {
+        "nodes": 1148,
+        "visibleControls": 5
+      },
+      "viewportStorage": null
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "operation": "scroll",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241.5
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 226.70000000018626
+          },
+          "correctedElapsed": -14.799999999813735
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 242.6000000005588
+          },
+          "correctedElapsed": 13.600000000558794
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.6000000005588
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 228.69999999925494
+          },
+          "correctedElapsed": -14.900000001303852
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.1000000005588
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 245.29999999981374
+          },
+          "correctedElapsed": 3.199999999254942
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 223.6000000005588
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 235.5
+          },
+          "correctedElapsed": 11.899999999441206
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.5
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 240.90000000037253
+          },
+          "correctedElapsed": -2.599999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 226.59999999962747
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 243.59999999962747
+          },
+          "correctedElapsed": 17
+        }
+      ],
+      "medianSync": 0.09999999962747097,
+      "medianElapsed": 240.90000000037253,
+      "medianCorrected": 3.199999999254942,
+      "idleBytes": 46644,
+      "workBytes": 46500,
+      "allocatedBytes": -20.571428571428573,
+      "counts": {
+        "nodes": 1148,
+        "visibleControls": 5
+      },
+      "viewportStorage": {
+        "value": 0,
+        "scrollTop": 0,
+        "mechanism": "independent viewport key"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "operation": "input",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 230.20000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 244.59999999962747
+          },
+          "correctedElapsed": 14.399999999441206
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.3999999994412
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 243.70000000018626
+          },
+          "correctedElapsed": -0.6999999992549419
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229.3999999994412
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 244.59999999962747
+          },
+          "correctedElapsed": 15.200000000186265
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 245.6000000005588
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 244.5
+          },
+          "correctedElapsed": -1.1000000005587935
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 224.40000000037253
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 232.80000000074506
+          },
+          "correctedElapsed": 8.400000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.8999999994412
+          },
+          "work": {
+            "sync": 0.20000000018626451,
+            "elapsed": 238.59999999962747
+          },
+          "correctedElapsed": -4.2999999998137355
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 233.79999999981374
+          },
+          "work": {
+            "sync": 0.20000000018626451,
+            "elapsed": 244.09999999962747
+          },
+          "correctedElapsed": 10.299999999813735
+        }
+      ],
+      "medianSync": 0.10000000055879354,
+      "medianElapsed": 244.09999999962747,
+      "medianCorrected": 8.400000000372529,
+      "idleBytes": 57280,
+      "workBytes": 51640,
+      "allocatedBytes": -805.7142857142857,
+      "counts": {
+        "nodes": 1132,
+        "visibleControls": 4
+      },
+      "viewportStorage": null
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "operation": "scroll",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229.09999999962747
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 227.5
+          },
+          "correctedElapsed": -1.599999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.59999999962747
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 241
+          },
+          "correctedElapsed": -3.599999999627471
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240.30000000074506
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 239.6000000005588
+          },
+          "correctedElapsed": -0.7000000001862645
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241.29999999981374
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 242
+          },
+          "correctedElapsed": 0.7000000001862645
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229.20000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 228.3999999994412
+          },
+          "correctedElapsed": -0.8000000007450581
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 244.29999999981374
+          },
+          "correctedElapsed": 2.2999999998137355
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.20000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 240
+          },
+          "correctedElapsed": 11.799999999813735
+        }
+      ],
+      "medianSync": 0,
+      "medianElapsed": 240,
+      "medianCorrected": -0.7000000001862645,
+      "idleBytes": 65380,
+      "workBytes": 53004,
+      "allocatedBytes": -1768,
+      "counts": {
+        "nodes": 1132,
+        "visibleControls": 4
+      },
+      "viewportStorage": {
+        "value": {
+          "blockId": "synthetic-0-block",
+          "offset": -141,
+          "fallback": 0
+        },
+        "scrollTop": 0,
+        "mechanism": "reading-position key"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "historic",
+      "operation": "input",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241
+          },
+          "work": {
+            "sync": 1.099999999627471,
+            "elapsed": 237.09999999962747
+          },
+          "correctedElapsed": -3.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 247
+          },
+          "work": {
+            "sync": 1.2000000001862645,
+            "elapsed": 243.20000000018626
+          },
+          "correctedElapsed": -3.7999999998137355
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229.5
+          },
+          "work": {
+            "sync": 1,
+            "elapsed": 228
+          },
+          "correctedElapsed": -1.5
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244
+          },
+          "work": {
+            "sync": 1,
+            "elapsed": 242.8999999994412
+          },
+          "correctedElapsed": -1.1000000005587935
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 224.5
+          },
+          "work": {
+            "sync": 1.2000000001862645,
+            "elapsed": 243.70000000018626
+          },
+          "correctedElapsed": 19.200000000186265
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241
+          },
+          "work": {
+            "sync": 1.599999999627471,
+            "elapsed": 240.5
+          },
+          "correctedElapsed": -0.5
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 236.8999999994412
+          },
+          "work": {
+            "sync": 1.199999999254942,
+            "elapsed": 233.79999999981374
+          },
+          "correctedElapsed": -3.099999999627471
+        }
+      ],
+      "medianSync": 1.199999999254942,
+      "medianElapsed": 240.5,
+      "medianCorrected": -1.5,
+      "idleBytes": 40104,
+      "workBytes": 999684,
+      "allocatedBytes": 137082.85714285713,
+      "counts": {
+        "nodes": 2283,
+        "visibleControls": 11
+      },
+      "viewportStorage": null
+    },
+    {
+      "round": 1,
+      "mode": "historic",
+      "operation": "scroll",
+      "pair": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 243.20000000018626
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 243.3999999994412
+          },
+          "correctedElapsed": 0.19999999925494194
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 228.59999999962747
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 229.79999999981374
+          },
+          "correctedElapsed": 1.2000000001862645
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.40000000037253
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 243.8999999994412
+          },
+          "correctedElapsed": -0.5000000009313226
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 229.5
+          },
+          "correctedElapsed": 0.5
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 229.20000000018626
+          },
+          "work": {
+            "sync": 0.09999999962747097,
+            "elapsed": 245.5
+          },
+          "correctedElapsed": 16.299999999813735
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 235.09999999962747
+          },
+          "work": {
+            "sync": 0,
+            "elapsed": 236.79999999981374
+          },
+          "correctedElapsed": 1.7000000001862645
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 230.20000000018626
+          },
+          "work": {
+            "sync": 0.10000000055879354,
+            "elapsed": 241.5
+          },
+          "correctedElapsed": 11.299999999813735
+        }
+      ],
+      "medianSync": 0.09999999962747097,
+      "medianElapsed": 241.5,
+      "medianCorrected": 1.2000000001862645,
+      "idleBytes": 39812,
+      "workBytes": 1019756,
+      "allocatedBytes": 139992,
+      "counts": {
+        "nodes": 2283,
+        "visibleControls": 11
+      },
+      "viewportStorage": {
+        "value": {
+          "top": 600,
+          "anchor": "synthetic-3-p0",
+          "offset": 61
+        },
+        "scrollTop": 600,
+        "mechanism": "legacy conversation reading state"
+      }
+    }
+  ]
+}

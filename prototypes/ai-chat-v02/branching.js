@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const KEY = 'texeed-branch-reading-prototype-v1';
-  const readingKey = id => KEY + '/reading/' + id, draftKey = id => KEY + '/draft/' + id;
+  const draftKey = id => KEY + '/draft/' + id, viewportKey = id => KEY + '/viewport/' + id;
   const $ = id => document.getElementById(id);
   const reader = $('reader'), transcript = $('transcript'), composer = $('composer');
   const uid = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
@@ -23,31 +23,17 @@
     block('paragraph', '即使我们理解了运算所在的代数结构，也不能仅凭这个结构断定一个协议安全。还需要检查假设、参与方模型、随机性以及协议证明。一个正确的定义与一个完整的安全结论之间，仍然有许多需要核对的步骤。'),
     block('paragraph', '阅读时遇到不清楚的地方，可以选中句子或公式并选择“从这里追问”；也可以只引用选区，继续留在当前会话。实际决定权在你，图中记录的是你实际创建的会话关系。'),
     block('heading', '回到原文继续阅读'),
-    block('paragraph', '完成一个问题的讨论后，你可以返回原先的阅读位置；如果想重新核对所指的句子，可以选择查看提问出处。这两个位置可能不同。'),
+    block('paragraph', '完成一个问题的讨论后，你可以返回提问出处。你也可以主动给文中任何选区或段落添加书签，留下自己希望回看的位置。'),
     block('paragraph', '继续阅读之后，如果在另一处遇到疑问，可以再创建一条追问会话。会话关系图会显示它们来自同一篇回答还是另一条追问，并允许你重新打开已经讨论过的问题。')
   ];
-  const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, returnPoint: null, sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, reading: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
-  const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; for (const s of loaded.sessions) { const reading = JSON.parse(localStorage.getItem(readingKey(s.id)) || 'null'); if (reading) s.reading = reading; const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
-  let state = readState(), currentSelection = null, restoring = false, mapOpen = false;
+  const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, bookmarks: [], sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
+  const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; for (const s of loaded.sessions) { const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
+  let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, mapOpen = false;
   const session = id => state.sessions.find(s => s.id === id);
   const current = () => session(state.active) || state.sessions[0];
-  function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(readingKey(state.active)); localStorage.removeItem(draftKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存演示进度。'; return false; } }
-  function saveReading() { try { localStorage.setItem(readingKey(state.active), JSON.stringify(current().reading)); } catch { $('status').textContent = '当前浏览器无法保存阅读位置。'; } }
+  function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(draftKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存示例会话。'; return false; } }
   function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, pending: state.pending?.parentId === state.active ? state.pending : null })); } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; } }
-  function capturePosition(withText = false) {
-    const bounds = reader.getBoundingClientRect();
-    const candidates = Array.from(transcript.querySelectorAll('[data-block-id]'));
-    const first = candidates.find(el => el.getBoundingClientRect().bottom > bounds.top + 4) || candidates.at(-1);
-    if (!first) return { fallback: reader.scrollTop };
-    const rect = first.getBoundingClientRect(), result = { blockId: first.dataset.blockId, offset: bounds.top - rect.top, fallback: reader.scrollTop };
-    if (withText && !first.classList.contains('formula') && document.caretRangeFromPoint) {
-      const point = document.caretRangeFromPoint(Math.min(rect.right - 2, rect.left + 8), Math.max(bounds.top + 2, rect.top + 2));
-      if (point && first.contains(point.startContainer)) { const prefix = document.createRange(); prefix.selectNodeContents(first); prefix.setEnd(point.startContainer, point.startOffset); result.textOffset = prefix.toString().length; result.lineY = point.getBoundingClientRect().top - bounds.top; }
-    }
-    return result;
-  }
-  function restorePosition(pos) {
-    restoring = true;
+  function jumpToAnchor(pos) {
     requestAnimationFrame(() => {
       const el = pos && pos.blockId ? transcript.querySelector(`[data-block-id="${CSS.escape(pos.blockId)}"]`) : null;
       if (el && Number.isInteger(pos.textOffset)) {
@@ -57,12 +43,10 @@
         else reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top + (pos.offset || 0);
       }
       else if (el) reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top + (pos.offset || 0);
-      else reader.scrollTop = pos && Number.isFinite(pos.fallback) ? pos.fallback : 0;
-      requestAnimationFrame(() => { restoring = false; });
+      if (el) { el.classList.add('source-flash'); setTimeout(() => el.classList.remove('source-flash'), 3000); }
     });
   }
   function persistCurrent() {
-    if (!mapOpen && !restoring) current().reading = capturePosition();
     if (state.pending && state.pending.kind === 'branch' && state.pending.parentId === state.active) state.pending.draft = composer.value;
     else current().draft = composer.value;
     save();
@@ -94,11 +78,8 @@
     const s = current();
     s.turns.forEach((turn, i) => transcript.appendChild(renderTurn(turn, i)));
     $('session-title').textContent = s.title;
-    $('mark-reading').textContent = s.markedReading ? '更新阅读处' : '记住阅读处';
     $('back-source').hidden = !s.parent;
-    const hasReturn = Boolean((state.returnPoint && state.returnPoint.sessionId === s.id) || s.parent);
-    $('back-reading').hidden = !hasReturn;
-    $('back-reading').textContent = state.returnPoint && state.returnPoint.sessionId === s.id ? '← 返回阅读断点' : '← 返回上层阅读断点';
+    focusedBlock = null; $('bookmark-paragraph').disabled = true;
     renderComposerContext();
   }
   function renderComposerContext() {
@@ -115,24 +96,21 @@
   }
   function navigate(id, position) {
     if (!session(id)) return;
+    if (id === state.active && !position) { closeMap(); return; }
     persistCurrent(); state.active = id; state.selected = id; state.pending = state.pendingBySession?.[id] || null; currentSelection = null;
+    const viewport = current().viewport || 0;
     $('selection-tools').hidden = true; closeMap(); renderTranscript(); setComposer();
-    restorePosition(position || current().reading); save();
+    if (position) jumpToAnchor(position); else requestAnimationFrame(() => { reader.scrollTop = viewport; }); save();
+  }
+  function unfoldFor(target, blockId) {
+    if (target) for (const turn of target.turns) { let headingId = null; for (const item of turn.answer) { if (item.kind === 'heading') headingId = item.id; if (item.id === blockId && headingId && turn.collapsedSections) turn.collapsedSections[headingId] = false; } }
   }
   function parentSource(target) {
     if (!target || !target.parent) return;
     const source = target.source || {};
-    const parent = session(target.parent);
-    if (parent) for (const turn of parent.turns) { let headingId = null; for (const item of turn.answer) { if (item.kind === 'heading') headingId = item.id; if (item.id === source.blockId && headingId && turn.collapsedSections) turn.collapsedSections[headingId] = false; } }
-    state.returnPoint = { sessionId: target.parent, reading: source.parentReading || session(target.parent).reading };
+    unfoldFor(session(target.parent), source.blockId);
     navigate(target.parent, { blockId: source.blockId, textOffset: source.textOffset, lineY: 18, offset: -18 });
-    requestAnimationFrame(() => { const el = transcript.querySelector(`[data-block-id="${CSS.escape(source.blockId || '')}"]`); if (el) { el.classList.add('source-flash'); setTimeout(() => el.classList.remove('source-flash'), 3000); } });
-    $('status').textContent = '已定位提问出处；可返回原来的阅读断点。';
-  }
-  function returnReading() {
-    const s = current();
-    if (state.returnPoint && state.returnPoint.sessionId === s.id) { const pos = state.returnPoint.reading; state.returnPoint = null; restorePosition(pos); $('back-reading').hidden = !s.parent; $('status').textContent = '已返回原来的阅读断点。'; save(); return; }
-    if (s.parent) { const pos = s.source && s.source.parentReading; state.returnPoint = null; navigate(s.parent, pos); $('status').textContent = '已返回上层的阅读断点。'; }
+    $('status').textContent = '已定位提问出处。';
   }
   function selectionInfo() {
     const sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.toString().trim() || !sel.rangeCount) return null;
@@ -141,7 +119,7 @@
     const source = element && element.closest('[data-block-id]'); if (!source) return null;
     let textOffset;
     if (!source.classList.contains('formula') && source.contains(range.startContainer)) { const prefix = document.createRange(); prefix.selectNodeContents(source); prefix.setEnd(range.startContainer, range.startOffset); textOffset = prefix.toString().length; }
-    return { quote: sel.toString().trim().slice(0, 2000), blockId: source.dataset.blockId, textOffset, reading: capturePosition(true), rect: range.getBoundingClientRect() };
+    return { quote: sel.toString().trim().slice(0, 2000), blockId: source.dataset.blockId, textOffset, rect: range.getBoundingClientRect() };
   }
   function showSelection() {
     const info = selectionInfo(); if (!info) { $('selection-tools').hidden = true; return; }
@@ -150,7 +128,7 @@
   }
   function setPending(kind) {
     if (!currentSelection) return;
-    persistCurrent(); state.pending = { kind, parentId: state.active, quote: currentSelection.quote, blockId: currentSelection.blockId, sourceTextOffset: currentSelection.textOffset, parentReading: current().markedReading || currentSelection.reading, draft: '' };
+    persistCurrent(); state.pending = { kind, parentId: state.active, quote: currentSelection.quote, blockId: currentSelection.blockId, sourceTextOffset: currentSelection.textOffset, draft: '' };
     $('selection-tools').hidden = true; window.getSelection()?.removeAllRanges(); setComposer(); composer.focus(); save();
   }
   function demoAnswer(question, quote) {
@@ -166,9 +144,9 @@
     const previousSessionId = state.active;
     const branching = pending && pending.kind === 'branch';
     if (branching) {
-      const parent = current(); parent.reading = pending.parentReading;
-      const child = { id: uid(), title: question.slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, textOffset: pending.sourceTextOffset, quote: pending.quote, parentReading: pending.parentReading }, reading: null, draft: '', turns: [] };
-      if (state.pendingBySession) delete state.pendingBySession[parent.id]; delete parent.markedReading; state.sessions.push(child); state.active = child.id; state.selected = child.id; state.returnPoint = null; state.pending = null;
+      const parent = current();
+      const child = { id: uid(), title: question.slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, textOffset: pending.sourceTextOffset, quote: pending.quote }, draft: '', turns: [] };
+      if (state.pendingBySession) delete state.pendingBySession[parent.id]; state.sessions.push(child); state.active = child.id; state.selected = child.id; state.pending = null;
       child.turns.push({ id: uid(), question, answer: demoAnswer(question, pending.quote), demo: true });
     } else {
       current().turns.push({ id: uid(), question, quote: pending && pending.kind === 'quote' ? pending.quote : '', answer: demoAnswer(question, pending && pending.quote), demo: true });
@@ -177,8 +155,34 @@
     if (!save()) { state = JSON.parse(previousState); $('status').textContent = '无法保存本次问题，输入内容已保留。'; composer.focus(); return; }
     if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
     composer.value = ''; if (branching) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
-    requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; current().reading = capturePosition(); save(); });
+    requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
     $('status').textContent = '已发送示例问题；下方显示预设答复。';
+  }
+  function openBookmark(candidate) {
+    if (!candidate) return;
+    bookmarkCandidate = { sessionId: state.active, blockId: candidate.blockId, textOffset: candidate.textOffset, quote: candidate.quote };
+    $('selection-tools').hidden = true; window.getSelection()?.removeAllRanges(); $('bookmark-quote').textContent = candidate.quote;
+    $('bookmark-name').value = candidate.quote.replace(/\s+/g, ' ').slice(0, 20);
+    $('bookmark-error').hidden = true; $('bookmark-dialog').showModal(); $('bookmark-name').focus(); $('bookmark-name').select();
+  }
+  function renderBookmarks() {
+    const list = $('bookmarks-list'); list.replaceChildren();
+    if (!state.bookmarks.length) { appendText('p', 'bookmarks-empty', '还没有书签。选中文字或点击段落后可以添加。', list); return; }
+    for (const bookmark of state.bookmarks) {
+      const row = document.createElement('div'); row.className = 'bookmark-row';
+      const open = document.createElement('button'); open.type = 'button'; open.className = 'bookmark-open'; open.dataset.bookmarkOpen = bookmark.id;
+      appendText('span', '', bookmark.label, open); appendText('small', '', session(bookmark.sessionId)?.title || '未找到的会话', open); row.appendChild(open);
+      const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'bookmark-delete'; remove.dataset.bookmarkDelete = bookmark.id; remove.textContent = '删除'; remove.setAttribute('aria-label', '删除书签 ' + bookmark.label); row.appendChild(remove); list.appendChild(row);
+    }
+  }
+  function setBookmarksOpen(open) { $('bookmarks-panel').hidden = !open; $('bookmarks-toggle').setAttribute('aria-expanded', String(open)); if (open) renderBookmarks(); }
+  function goBookmark(bookmark) {
+    const target = session(bookmark.sessionId); if (!target) { $('status').textContent = '该书签的会话不可用。'; return; }
+    const exists = target.turns.some(turn => turn.answer.some(item => item.id === bookmark.blockId));
+    if (!exists) { $('status').textContent = '书签原文不可用。'; return; }
+    unfoldFor(target, bookmark.blockId); setBookmarksOpen(false);
+    navigate(bookmark.sessionId, { blockId: bookmark.blockId, textOffset: bookmark.textOffset, lineY: 18, offset: -18 });
+    $('status').textContent = '已跳转到书签：' + bookmark.label;
   }
   function makeNode(s) {
     const branch = document.createElement('div'); branch.className = 'tree-node';
@@ -199,13 +203,17 @@
   function openMap() { persistCurrent(); mapOpen = true; state.selected = state.active; $('reader-view').hidden = true; $('composer-pane').hidden = true; $('relation-map').hidden = false; $('map-toggle').setAttribute('aria-expanded', 'true'); $('selection-tools').hidden = true; renderMap(); save(); }
   function closeMap() { mapOpen = false; $('reader-view').hidden = false; $('composer-pane').hidden = false; $('relation-map').hidden = true; $('map-toggle').setAttribute('aria-expanded', 'false'); }
   $('map-toggle').addEventListener('click', () => mapOpen ? closeMap() : openMap()); $('map-close').addEventListener('click', closeMap);
-  $('back-reading').addEventListener('click', returnReading); $('back-source').addEventListener('click', () => parentSource(current()));
-  $('mark-reading').addEventListener('click', () => { current().markedReading = capturePosition(true); $('mark-reading').textContent = '更新阅读处'; $('status').textContent = '已记住当前位置；回看其他位置并追问后可返回这里。'; save(); });
-  $('selection-tools').addEventListener('pointerdown', e => e.preventDefault()); $('selection-branch').addEventListener('click', () => setPending('branch')); $('selection-quote').addEventListener('click', () => setPending('quote'));
+  $('back-source').addEventListener('click', () => parentSource(current()));
+  $('selection-tools').addEventListener('pointerdown', e => e.preventDefault()); $('selection-branch').addEventListener('click', () => setPending('branch')); $('selection-quote').addEventListener('click', () => setPending('quote')); $('selection-bookmark').addEventListener('click', () => openBookmark(currentSelection));
+  $('bookmark-paragraph').addEventListener('click', () => openBookmark(focusedBlock));
+  $('bookmarks-toggle').addEventListener('click', () => { if (mapOpen) closeMap(); setBookmarksOpen($('bookmarks-panel').hidden); }); $('bookmarks-close').addEventListener('click', () => setBookmarksOpen(false));
+  $('bookmark-cancel').addEventListener('click', () => $('bookmark-dialog').close());
+  $('bookmark-save').addEventListener('click', () => { const label = $('bookmark-name').value.trim(); if (!label) { $('bookmark-error').textContent = '请填写书签名称。'; $('bookmark-error').hidden = false; $('bookmark-name').focus(); return; } if (!bookmarkCandidate) return; const bookmark = { id: uid(), ...bookmarkCandidate, label }; state.bookmarks.push(bookmark); if (!save()) { state.bookmarks.pop(); $('bookmark-error').textContent = '无法保存书签，请重试。'; $('bookmark-error').hidden = false; return; } $('bookmark-dialog').close(); bookmarkCandidate = null; $('status').textContent = '已保存书签：' + label; if (!$('bookmarks-panel').hidden) renderBookmarks(); });
+  $('bookmarks-list').addEventListener('click', e => { const openId = e.target.closest('[data-bookmark-open]')?.dataset.bookmarkOpen; if (openId) { const bookmark = state.bookmarks.find(item => item.id === openId); if (bookmark) goBookmark(bookmark); return; } const deleteId = e.target.closest('[data-bookmark-delete]')?.dataset.bookmarkDelete; if (!deleteId) return; const index = state.bookmarks.findIndex(item => item.id === deleteId); if (index < 0) return; const removed = state.bookmarks.splice(index, 1)[0]; if (!save()) { state.bookmarks.splice(index, 0, removed); return; } renderBookmarks(); $('status').textContent = '已删除书签：' + removed.label; });
   reader.addEventListener('pointerup', showSelection); reader.addEventListener('keyup', showSelection);
-  reader.addEventListener('scroll', () => { if (!restoring && !mapOpen) { current().reading = capturePosition(); saveReading(); } }, { passive: true });
+  reader.addEventListener('scroll', () => { if (!mapOpen) { current().viewport = reader.scrollTop; try { localStorage.setItem(viewportKey(state.active), String(reader.scrollTop)); } catch { $('status').textContent = '当前浏览器无法保存视口位置。'; } } }, { passive: true });
   function toggleHeading(target) { const heading = target.closest('[data-heading-id]'); if (!heading || window.getSelection()?.toString().trim()) return; const turnIndex = Array.from(transcript.children).indexOf(heading.closest('.turn')); const turn = current().turns[turnIndex]; if (!turn) return; const collapsed = heading.getAttribute('aria-expanded') === 'true'; turn.collapsedSections ||= {}; turn.collapsedSections[heading.dataset.headingId] = collapsed; heading.setAttribute('aria-expanded', String(!collapsed)); let sibling = heading.nextElementSibling; while (sibling && !sibling.matches('[data-heading-id], .answer-rule, .time')) { sibling.hidden = collapsed; sibling = sibling.nextElementSibling; } save(); }
-  transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } toggleHeading(e.target); });
+  transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = { blockId: el.dataset.blockId, quote: el.textContent.trim().slice(0, 2000) }; $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
   transcript.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-heading-id]')) { e.preventDefault(); toggleHeading(e.target); } });
   $('composer-context').addEventListener('click', e => { if (e.target.id !== 'cancel-context') return; if (state.pending?.kind === 'branch') state.pending = null; else state.pending = null; setComposer(); save(); });
   composer.addEventListener('input', () => { if (state.pending?.kind === 'branch' && state.pending.parentId === state.active) state.pending.draft = composer.value; else current().draft = composer.value; saveDraft(); });
@@ -216,11 +224,11 @@
   document.addEventListener('pointerdown', e => { if (!e.target.closest('#selection-tools') && !reader.contains(e.target)) $('selection-tools').hidden = true; });
   window.branchDemo = {
     getState: () => JSON.parse(JSON.stringify(state)),
-    setState: next => { for (const s of state.sessions) { localStorage.removeItem(readingKey(s.id)); localStorage.removeItem(draftKey(s.id)); } state = JSON.parse(JSON.stringify(next)); closeMap(); renderTranscript(); setComposer(); restorePosition(current().reading); save(); },
-    reset: () => { for (const s of state.sessions) { localStorage.removeItem(readingKey(s.id)); localStorage.removeItem(draftKey(s.id)); } state = initial(); closeMap(); renderTranscript(); setComposer(); restorePosition(null); save(); },
-    makeFixture: (turnCount = 120, branchCount = 60) => { const fixture = initial(); const root = fixture.sessions[0]; root.turns = Array.from({ length: turnCount }, (_, i) => ({ id: 'fixture-turn-' + i, question: '测试问题 ' + i, answer: [ { id: 'fixture-block-' + i, kind: 'paragraph', text: '同一阅读场景的固定测试内容。'.repeat(8) } ], demo: true })); for (let i = 0; i < branchCount; i++) fixture.sessions.push({ id: 'fixture-branch-' + i, title: '追问 ' + i, parent: 'root', source: { blockId: 'fixture-block-' + (i % turnCount), quote: '同一阅读场景', parentReading: null }, reading: null, draft: '', turns: [] }); return fixture; },
+    setState: next => { for (const s of state.sessions) localStorage.removeItem(draftKey(s.id)); state = JSON.parse(JSON.stringify(next)); state.bookmarks ||= []; closeMap(); renderTranscript(); setComposer(); reader.scrollTop = 0; save(); },
+    reset: () => { for (const s of state.sessions) localStorage.removeItem(draftKey(s.id)); state = initial(); closeMap(); renderTranscript(); setComposer(); reader.scrollTop = 0; save(); },
+    makeFixture: (turnCount = 120, branchCount = 60) => { const fixture = initial(); const root = fixture.sessions[0]; root.turns = Array.from({ length: turnCount }, (_, i) => ({ id: 'fixture-turn-' + i, question: '测试问题 ' + i, answer: [ { id: 'fixture-block-' + i, kind: 'paragraph', text: '同一阅读场景的固定测试内容。'.repeat(8) } ], demo: true })); for (let i = 0; i < branchCount; i++) fixture.sessions.push({ id: 'fixture-branch-' + i, title: '追问 ' + i, parent: 'root', source: { blockId: 'fixture-block-' + (i % turnCount), quote: '同一阅读场景' }, draft: '', turns: [] }); return fixture; },
     seedPerf: turns => { const fixture = initial(); fixture.sessions[0].turns = turns.map((t, i) => ({ id: t.id || 'fixture-turn-' + i, question: t.question, answer: Array.isArray(t.answer) ? t.answer : [{ id: 'fixture-block-' + i, kind: 'paragraph', text: String(t.answer || '') }], demo: true })); window.branchDemo.setState(fixture); }
   };
   if (!session(state.active)) state.active = state.sessions[0].id;
-  renderTranscript(); setComposer(); restorePosition(current().reading);
+  renderTranscript(); setComposer(); requestAnimationFrame(() => { reader.scrollTop = current().viewport || 0; });
 })();

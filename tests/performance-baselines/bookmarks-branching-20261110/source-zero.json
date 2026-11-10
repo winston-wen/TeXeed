@@ -1,0 +1,265 @@
+{
+  "schema": "bookmarks-branching-operations-v1",
+  "baseline": "cf7cb2349a3cd887bc1b50679c37e1bf6397acfd",
+  "fixtureHash": "dfadd198a07bc6f9ae9df1a240f92d78649f1eee084a894983d2ae60693981ab",
+  "resources": {
+    "before": {
+      "branching.html": "cebb2cd4eba3002e5b70248cc14f093b1e044a670ee48b6b9617c9d4bb7db48f",
+      "branching.css": "2a70162be2dc7c34b80ad8a460391218d18ab1f4492ead2692ec811f8abe47a3",
+      "branching.js": "58888b9efdfedd59252cc704f687b39eb18b7c0c8515bfe17cd8a20e72b331ab"
+    },
+    "after": {
+      "branching.html": "9ec2f86e2053eaa1b7be0e524323fae0e0ac863f8de41f1443a6298201ed8acf",
+      "branching.css": "a892990498553ff36745f98d467670c652aa8912bf0fb032a72eda16a96b1bfc",
+      "branching.js": "2921c3e2b6bd0782d921bd1fddede87dce51501d5f75000149c198296c01e593"
+    }
+  },
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.8103.40",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "rounds": 2,
+    "warmups": 2,
+    "samples": 7,
+    "turns": 120,
+    "branches": 60,
+    "bookmarks": 0,
+    "frames": 2,
+    "waitMs": 220,
+    "allocation": "CDP V8 sampling at 1024 bytes. Paired empty action estimates are subtracted. Includes dispatch, queue and timer allocations; statistical estimates may be negative."
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "after",
+      "operation": "source",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241.5,
+            "bytes": 5500
+          },
+          "work": {
+            "sync": 2.099999999627471,
+            "elapsed": 241.3999999994412,
+            "bytes": 333660
+          },
+          "correctedElapsed": -0.10000000055879354,
+          "correctedBytes": 328160
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 226.69999999925494,
+            "bytes": 9700
+          },
+          "work": {
+            "sync": 1.7000000001862645,
+            "elapsed": 241.70000000018626,
+            "bytes": 301736
+          },
+          "correctedElapsed": 15.000000000931323,
+          "correctedBytes": 292036
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240.09999999962747,
+            "bytes": 8424
+          },
+          "work": {
+            "sync": 2.2000000001862645,
+            "elapsed": 238.1000000005588,
+            "bytes": 317980
+          },
+          "correctedElapsed": -1.9999999990686774,
+          "correctedBytes": 309556
+        },
+        {
+          "empty": {
+            "sync": 0.09999999962747097,
+            "elapsed": 241.29999999981374,
+            "bytes": 8412
+          },
+          "work": {
+            "sync": 2,
+            "elapsed": 241.09999999962747,
+            "bytes": 323488
+          },
+          "correctedElapsed": -0.20000000018626451,
+          "correctedBytes": 315076
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.40000000037253,
+            "bytes": 10020
+          },
+          "work": {
+            "sync": 2,
+            "elapsed": 241.20000000018626,
+            "bytes": 307488
+          },
+          "correctedElapsed": -1.2000000001862645,
+          "correctedBytes": 297468
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240.70000000018626,
+            "bytes": 3304
+          },
+          "work": {
+            "sync": 1.7999999998137355,
+            "elapsed": 242.40000000037253,
+            "bytes": 320340
+          },
+          "correctedElapsed": 1.7000000001862645,
+          "correctedBytes": 317036
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 239.79999999981374,
+            "bytes": 3500
+          },
+          "work": {
+            "sync": 1.7000000001862645,
+            "elapsed": 241.29999999981374,
+            "bytes": 311716
+          },
+          "correctedElapsed": 1.5,
+          "correctedBytes": 308216
+        }
+      ],
+      "medianSync": 2,
+      "medianCorrected": -0.10000000055879354,
+      "medianBytes": 309556,
+      "counts": {
+        "nodes": 1576,
+        "visibleControls": 7
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "operation": "source",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241.79999999981374,
+            "bytes": 6528
+          },
+          "work": {
+            "sync": 1.800000000745058,
+            "elapsed": 241.1000000005588,
+            "bytes": 314004
+          },
+          "correctedElapsed": -0.6999999992549419,
+          "correctedBytes": 307476
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 240.40000000037253,
+            "bytes": 7504
+          },
+          "work": {
+            "sync": 2.2999999998137355,
+            "elapsed": 240.79999999981374,
+            "bytes": 313828
+          },
+          "correctedElapsed": 0.39999999944120646,
+          "correctedBytes": 306324
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 239.5,
+            "bytes": 11980
+          },
+          "work": {
+            "sync": 1.900000000372529,
+            "elapsed": 241.79999999981374,
+            "bytes": 320308
+          },
+          "correctedElapsed": 2.2999999998137355,
+          "correctedBytes": 308328
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 241,
+            "bytes": 7280
+          },
+          "work": {
+            "sync": 2.099999999627471,
+            "elapsed": 243.79999999981374,
+            "bytes": 320012
+          },
+          "correctedElapsed": 2.7999999998137355,
+          "correctedBytes": 312732
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 237.59999999962747,
+            "bytes": 6592
+          },
+          "work": {
+            "sync": 2.400000000372529,
+            "elapsed": 243,
+            "bytes": 334852
+          },
+          "correctedElapsed": 5.400000000372529,
+          "correctedBytes": 328260
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 239,
+            "bytes": 9408
+          },
+          "work": {
+            "sync": 1.900000000372529,
+            "elapsed": 240.79999999981374,
+            "bytes": 307436
+          },
+          "correctedElapsed": 1.7999999998137355,
+          "correctedBytes": 298028
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 242.69999999925494,
+            "bytes": 6756
+          },
+          "work": {
+            "sync": 1.800000000745058,
+            "elapsed": 238.40000000037253,
+            "bytes": 305748
+          },
+          "correctedElapsed": -4.299999998882413,
+          "correctedBytes": 298992
+        }
+      ],
+      "medianSync": 1.900000000372529,
+      "medianCorrected": 1.7999999998137355,
+      "medianBytes": 307476,
+      "counts": {
+        "nodes": 1576,
+        "visibleControls": 7
+      }
+    }
+  ]
+}
