@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TeXeed · 中途追问原型</title>
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="branching.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <span class="app-name">TeXeed</span>
+    <span class="top-divider"></span>
+    <span class="tab-title">AI 对话</span>
+    <span class="top-spacer"></span>
+    <span class="demo-label">交互示例 · 未连接 AI</span>
+  </header>
+  <main class="workspace">
+    <div class="toolbar">
+      <button id="back-reading" class="quiet" type="button" hidden>← 返回阅读断点</button>
+      <button id="back-source" class="quiet" type="button" hidden>查看提问出处</button>
+      <span id="session-title" class="session-title"></span>
+      <span class="toolbar-spacer"></span>
+      <button id="mark-reading" class="quiet" type="button" title="回看前先记住阅读位置">记住阅读处</button>
+      <button id="map-toggle" class="map-toggle" type="button" aria-expanded="false">会话关系</button>
+    </div>
+    <section id="reader-view" class="reader-view" aria-label="会话阅读区">
+      <div id="reader" class="reader" tabindex="0"><div id="transcript" class="transcript"></div></div>
+      <div id="selection-tools" class="selection-tools" hidden>
+        <button id="selection-branch" type="button">从这里追问</button>
+        <button id="selection-quote" type="button">引用到当前会话</button>
+      </div>
+    </section>
+    <section id="relation-map" class="relation-map" aria-label="会话关系图" hidden>
+      <div class="map-head"><div><span>会话关系</span><small>连线表示从哪条会话发起追问</small></div><button id="map-close" type="button">返回会话</button></div>
+      <div id="map-scroller" class="map-scroller"><div id="map-tree" class="map-tree"></div></div>
+      <div id="map-detail" class="map-detail" aria-live="polite"></div>
+    </section>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <section id="composer-pane" class="composer-pane" aria-label="提问">
+      <div id="composer-context" class="composer-context" hidden></div>
+      <div class="composer-input"><span class="line-numbers" aria-hidden="true">1<br>2<br>3</span><textarea id="composer" rows="3" aria-label="输入问题" placeholder="继续当前会话……"></textarea></div>
+      <div class="composer-controls"><span class="composer-spacer"></span><span class="shortcut">Ctrl + Enter 发送</span><button id="send" class="send" type="button" aria-label="发送问题" title="发送问题">↑</button></div>
+    </section>
+  </main>
+</div>
+<script src="vendor/katex/katex.min.js"></script>
+<script src="branching.js"></script>
+</body>
+</html>
