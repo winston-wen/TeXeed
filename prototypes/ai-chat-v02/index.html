@@ -62,7 +62,8 @@ details[open]>summary:before { transform:rotate(90deg) }
 #mark-button { margin-left:auto; white-space:nowrap; font-size:12px; border:1px solid transparent }
 #mark-button[aria-pressed=true] { color:var(--accent); background:var(--panel); border-color:var(--guide) }
 #mark-button:focus:not(:focus-visible) { outline:none }
-.chat { --text-inset:36px; position:relative; min-height:0; width:min(1100px,calc(100% - 40px)); margin:0 auto 18px; padding-top:10px; display:grid; grid-template-rows:auto minmax(0,1fr) auto auto }
+.chat { --text-inset:36px; position:relative; min-height:0; width:100%; margin:0; padding-top:10px; display:grid; grid-template-rows:auto minmax(0,1fr) auto auto }
+.chat > .search, .chat > .reading-shell, .chat > .status { width:min(1100px,calc(100% - 40px)); margin-left:auto; margin-right:auto }
 .bookmark-ball { position:absolute; z-index:20; width:38px; height:38px; padding:0; display:grid; place-items:center; border:1px solid var(--guide); border-radius:50%; background:var(--question); color:var(--accent); box-shadow:0 3px 12px #0005; cursor:grab; touch-action:none }
 .bookmark-ball:active { cursor:grabbing }
 .bookmark-ball svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round }
@@ -80,7 +81,7 @@ details[open]>summary:before { transform:rotate(90deg) }
 .search { grid-row:1; display:flex; gap:6px; align-items:center; margin-bottom:10px }
 .search input { min-width:0; flex:1 }
 .search span { font-size:12px; color:var(--muted) }
-.reading-shell { grid-row:2; min-height:0; display:flex; flex-direction:column; overflow:hidden; margin-left:-12px }
+.reading-shell { grid-row:2; position:relative; left:-12px; min-height:0; display:flex; flex-direction:column; overflow:hidden; margin-left:-12px }
 .reader { min-height:0; flex:1; overflow:auto; overflow-x:hidden; position:relative; outline:0; scrollbar-gutter:stable }
 .reader:focus-visible { outline:1px solid var(--guide); outline-offset:-1px }
 .autoscroll-indicator { position:fixed; z-index:1000; left:0; top:0; width:48px; height:48px; transform:translate(-50%,-50%); border:1px solid #3338; border-radius:50%; background:#dbdbdbeb; pointer-events:none; }
@@ -218,11 +219,12 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 #reading-context-notes span { overflow:hidden; text-overflow:ellipsis; max-width:33% }
 
 /* Composer uses one shell and one control baseline. */
-.composer-shell { --corner-radius:24px; --control-size:24px; --editor-top:13px; grid-row:4; position:relative; border:1px solid var(--guide); border-radius:var(--corner-radius); background:var(--question); padding:0; margin:10px 0 0; min-width:0; overflow:hidden }
-.composer-shell:focus-within { border-color:#cf8fa09c; box-shadow:0 0 0 1px #cf8fa00d }
+.composer-shell { --corner-radius:24px; --control-size:24px; --editor-top:13px; grid-row:4; position:relative; border-top:1px solid var(--guide); background:var(--question); padding:0; margin:0; min-width:0; overflow:hidden }
+.composer-shell:focus-within { border-top-color:#cf8fa09c }
 .composer-input { width:100%; display:block; border:0; background:transparent; min-height:56px; max-height:150px; padding:12px var(--text-inset); font:15px/22px var(--editor-font) }
 .composer-input::placeholder { color:var(--quiet); opacity:1 }
-.composer-toolbar { --edge-inset:calc(var(--corner-radius) - var(--control-size)/2 - 1px); margin:0; padding:4px var(--edge-inset) var(--edge-inset); display:flex; align-items:center; gap:7px }
+.composer-shell > .review-pinned-summary { width:min(1100px,calc(100% - 40px)); box-sizing:border-box; margin-left:auto; margin-right:auto }
+.composer-toolbar { width:min(1100px,calc(100% - 40px)); box-sizing:border-box; --edge-inset:calc(var(--corner-radius) - var(--control-size)/2 - 1px); margin:0 auto; padding:4px var(--edge-inset) var(--edge-inset); display:flex; align-items:center; gap:7px }
 .composer-toolbar button,.composer-toolbar select { height:var(--control-size); min-height:var(--control-size); margin:0; padding-top:0; padding-bottom:0; border-radius:5px; box-sizing:border-box; font-size:13px; line-height:18px }
 .composer-toolbar button { display:inline-flex; align-items:center; justify-content:center }
 .composer-toolbar select { appearance:none; background:transparent; border-color:transparent; padding:0 8px; color:var(--muted); line-height:18px }
@@ -253,7 +255,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .editor-action { grid-column:3; grid-row:1; align-self:end; width:30px; height:30px; padding:4px; margin:2px; color:#261c20; background:var(--focus) }
 .editor-action svg { width:18px; height:18px }
 .editor-measure { position:absolute; visibility:hidden; pointer-events:none; white-space:pre-wrap; overflow-wrap:break-word; top:0; left:0 }
-.composer-shell>.code-editor { border:0; border-radius:0; background:transparent; margin:0; width:100%; grid-template-columns:minmax(calc(var(--text-inset) - 1px),max-content) minmax(0,1fr) }
+.composer-shell>.code-editor { border:0; border-radius:0; background:transparent; margin:0 auto; width:min(1100px,calc(100% - 40px)); grid-template-columns:minmax(calc(var(--text-inset) - 1px),max-content) minmax(0,1fr) }
 .composer-shell>.code-editor textarea { height:81px; min-height:calc(var(--editor-top) + 28px); max-height:none; padding:var(--editor-top) 16px 8px 0; font:15px/20px var(--editor-font) }
 .composer-shell .line-numbers { justify-self:end; font:15px/20px var(--editor-font); padding:var(--editor-top) 9px 8px 0; background:transparent; border:0 }
 .composer-shell .line-numbers>div { top:var(--editor-top); right:9px }
@@ -368,7 +370,8 @@ dialog textarea { width:100%; height:220px }
  .tabs { padding:7px 10px; gap:4px }
  .app-tab { padding-left:10px; gap:6px }
  .app-tab .tab-label { max-width:14em }
- .chat { width:calc(100% - 24px); margin-bottom:12px; padding-top:6px }
+ .chat { padding-top:6px }
+ .chat > .search, .chat > .reading-shell, .chat > .status, .composer-shell>.code-editor, .composer-toolbar, .composer-shell > .review-pinned-summary { width:calc(100% - 24px) }
  .thread { padding-top:16px; padding-right:32px }
  #reading-context { padding-right:32px }
  .margin-notes { right:-28px }

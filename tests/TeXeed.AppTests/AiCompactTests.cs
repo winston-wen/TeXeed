@@ -51,18 +51,29 @@ internal static partial class Program
         Console.WriteLine($"Composer first character: {input.TranslatePoint(firstCharacter.TopLeft, panel)}; row height: {firstCharacter.Height}");
         var firstNumber = GlyphBounds(numbers).OrderBy(rect => rect.Top).First();
         var numberCenter = new Point(firstNumber.X + firstNumber.Width / 2, firstNumber.Y + firstNumber.Height / 2);
-        var corner = ((Border)panel.FindName("ComposerBorder")).TranslatePoint(new Point(), panel);
-        Console.WriteLine($"Composer first number center from corner: {numberCenter.X - corner.X:F2}, {numberCenter.Y - corner.Y:F2}");
-        Check(Math.Abs(numberCenter.X - corner.X - numberCenter.Y + corner.Y) < .5, "First line number is not on the upper-left corner bisector");
+        var firstLine = input.TranslatePoint(firstCharacter.TopLeft, panel);
+        Check(Math.Abs(numberCenter.Y - firstLine.Y - firstCharacter.Height / 2) < 4, "First line number is not aligned with the first text line");
         Check(Math.Abs(input.TranslatePoint(firstCharacter.TopLeft, panel).X - 56) < .5, "Composer text does not share the reading origin");
         panel.Visibility = Visibility.Collapsed; host.UpdateLayout(); panel.Visibility = Visibility.Visible; host.UpdateLayout(); await Task.Delay(50);
         Check(Math.Abs(input.ActualHeight - 81) < .1, "Switching away from a conversation changed its editor height");
         Check(numbers.ActualWidth == 33 && ((System.Windows.Media.SolidColorBrush)numbers.BorderBrush).Color.A == 0, "Composer gutter lost its reading origin or gained a dividing rule");
         var border = (Border)panel.FindName("ComposerBorder"); var toolbar = (Border)panel.FindName("ComposerToolbar");
         var send = (Button)panel.FindName("SubmitButton"); var add = (Button)panel.FindName("AddButton");
-        Check(border.CornerRadius.TopLeft == 24 && toolbar.BorderThickness.Top == 0 && send.ActualWidth == 24 && add.ActualHeight == 24, "Compact composer geometry diverged");
-        var center = send.TranslatePoint(new Point(12, 12), border);
-        Check(Math.Abs(border.ActualWidth - center.X - 24) < .5 && Math.Abs(border.ActualHeight - center.Y - 24) < .5, "Send button is not concentric with the lower-right corner");
+        Check(border.CornerRadius == new CornerRadius(0) && border.BorderThickness == new Thickness(0, 1, 0, 0) && toolbar.BorderThickness.Top == 0 && send.ActualWidth == 24 && add.ActualHeight == 24, "Composer region or toolbar geometry diverged");
+        var borderOrigin = border.TranslatePoint(new Point(), panel);
+        var reader = (Grid)panel.FindName("ReadingArea");
+        var readerBottom = reader.TranslatePoint(new Point(0, reader.ActualHeight), panel).Y;
+        Check(Math.Abs(borderOrigin.X) < .5 && Math.Abs(border.ActualWidth - panel.ActualWidth) < .5 && Math.Abs(borderOrigin.Y + border.ActualHeight - panel.ActualHeight) < .5, "Composer region does not span the panel's lower edge");
+        Check(readerBottom <= borderOrigin.Y + .5, "Reading area overlaps the independent composer region");
+        var sendBounds = send.TransformToAncestor(border).TransformBounds(new Rect(send.RenderSize));
+        Check(sendBounds.Left >= 0 && sendBounds.Right <= border.ActualWidth && sendBounds.Top >= 0 && sendBounds.Bottom <= border.ActualHeight, "Send button extends beyond the composer region");
+        var status = (TextBlock)panel.FindName("StatusText"); status.Text = "正在等待响应"; host.UpdateLayout();
+        var statusBounds = status.TransformToAncestor(panel).TransformBounds(new Rect(status.RenderSize));
+        Check(reader.TranslatePoint(new Point(0, reader.ActualHeight), panel).Y <= statusBounds.Top + .5 && statusBounds.Bottom <= border.TranslatePoint(new Point(), panel).Y + .5, "Status must remain between reading and composer regions");
+        status.Text = ""; host.Width = 380; host.UpdateLayout(); Invoke(panel, "ResizeChoices"); host.UpdateLayout();
+        sendBounds = send.TransformToAncestor(border).TransformBounds(new Rect(send.RenderSize));
+        Check(Math.Abs(border.ActualWidth - panel.ActualWidth) < .5 && sendBounds.Left >= 0 && sendBounds.Right <= border.ActualWidth && sendBounds.Bottom <= border.ActualHeight, "Narrow layout clipped the composer region or send button");
+        host.Width = 620; host.UpdateLayout(); Invoke(panel, "ResizeChoices"); host.UpdateLayout();
         foreach (var name in new[] { "PermissionPicker", "ModelPicker", "EffortPicker" })
         {
             var picker = (ComboBox)panel.FindName(name); picker.ApplyTemplate();

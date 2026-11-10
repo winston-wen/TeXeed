@@ -1,0 +1,587 @@
+{
+  "schema": "texeed-browser-user-marker-performance-v1",
+  "baseline": "7af94c2562d4f0ea2eae0a29413e49d465f7e172",
+  "fixtureSha256": "2a727d36149934b5b3f013c4dc1b98d3eaafa5e8ab2cf2b77e2aa9d4861d9544",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.8103.38",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "turns": 120,
+    "markers": 60,
+    "rounds": 3,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "V8 sampled retained heap estimates live sampled objects and is not total allocation.",
+      "Frame timings include scheduling and do not equal pure calculation.",
+      "All tests share one browser process; after resources are working-tree bytes identified by hash."
+    ]
+  },
+  "resources": {
+    "before": {
+      "index.html": "b769c17a10100b3fb5129c75e903a873d029397ee8d10ee987755dd149e8d77a",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "d46cbd759b4309fe50cabfcd68e406fec4859b0dd29f5242be8ac0f5c751727d",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "c700c3d7a5f62b877b7a7795f21d849d82a4d70e5cd76fe8897542d3a69c0fc5"
+    },
+    "after": {
+      "index.html": "b2c4419f0e4319a1579eeb3038ae90c87d96a6971f309c3bbf3fa3b9b145e918",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "70ad9fdcbe639b04f65bb859647a5a0aa512df70123d5275780f7a839a1ad384",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "d46cbd759b4309fe50cabfcd68e406fec4859b0dd29f5242be8ac0f5c751727d",
+      "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+      "bookmarks.js": "2a9de03c9fe7e33f0272ff95b09ace6a3f61a62bff6018cdc154b69c7b90f225",
+      "review.js": "ea380e30b8b9b3badc61efc5b5a3f317e09437ed6daaa090b2d22bb8aef7a6fc",
+      "review-search.js": "103bc5edf76d5d9d058b836393de9ed4c1ae2dc1c4faeaa12d534d8aa715445b",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    }
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "before",
+      "labels": 0,
+      "samples": [
+        {
+          "sync": 19,
+          "frame": 32.19999999552965
+        },
+        {
+          "sync": 16.899999998509884,
+          "frame": 32
+        },
+        {
+          "sync": 18,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 17.69999999552965,
+          "frame": 32.19999999552965
+        },
+        {
+          "sync": 17.600000001490116,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 18.100000001490116,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 21,
+          "frame": 36
+        }
+      ],
+      "medianSync": 18,
+      "medianFrame": 32.20000000298023,
+      "sampledRetainedJsBytes": 86844,
+      "counts": {
+        "elements": 2283,
+        "markers": 0,
+        "visible": 11,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "labels": 60,
+      "samples": [
+        {
+          "sync": 25.5,
+          "frame": 33.099999994039536
+        },
+        {
+          "sync": 19.600000001490116,
+          "frame": 31.399999998509884
+        },
+        {
+          "sync": 17.5,
+          "frame": 32.400000005960464
+        },
+        {
+          "sync": 17.5,
+          "frame": 34.599999994039536
+        },
+        {
+          "sync": 19.80000000447035,
+          "frame": 31.100000001490116
+        },
+        {
+          "sync": 15.899999998509884,
+          "frame": 28.30000000447035
+        },
+        {
+          "sync": 16.299999997019768,
+          "frame": 32.399999998509884
+        }
+      ],
+      "medianSync": 17.5,
+      "medianFrame": 32.399999998509884,
+      "sampledRetainedJsBytes": 118296,
+      "counts": {
+        "elements": 2463,
+        "markers": 60,
+        "visible": 11,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "labels": 0,
+      "samples": [
+        {
+          "sync": 23.600000001490116,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 24.100000001490116,
+          "frame": 33.69999999552965
+        },
+        {
+          "sync": 19,
+          "frame": 31
+        },
+        {
+          "sync": 18.80000000447035,
+          "frame": 32.100000001490116
+        },
+        {
+          "sync": 19.899999998509884,
+          "frame": 32.69999999552965
+        },
+        {
+          "sync": 18.700000002980232,
+          "frame": 32
+        },
+        {
+          "sync": 17.600000001490116,
+          "frame": 32.30000000447035
+        }
+      ],
+      "medianSync": 19,
+      "medianFrame": 32.20000000298023,
+      "sampledRetainedJsBytes": 62384,
+      "counts": {
+        "elements": 2331,
+        "markers": 0,
+        "visible": 19,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "labels": 60,
+      "samples": [
+        {
+          "sync": 18.700000002980232,
+          "frame": 30.299999997019768
+        },
+        {
+          "sync": 22.700000002980232,
+          "frame": 34.5
+        },
+        {
+          "sync": 17.100000001490116,
+          "frame": 30.200000002980232
+        },
+        {
+          "sync": 16.899999998509884,
+          "frame": 32.099999994039536
+        },
+        {
+          "sync": 17.600000001490116,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 16.899999998509884,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 17.600000001490116,
+          "frame": 32.29999999701977
+        }
+      ],
+      "medianSync": 17.600000001490116,
+      "medianFrame": 32.29999999701977,
+      "sampledRetainedJsBytes": 70692,
+      "counts": {
+        "elements": 2511,
+        "markers": 60,
+        "visible": 19,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "labels": 0,
+      "samples": [
+        {
+          "sync": 20.100000001490116,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 22.700000002980232,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 19.600000001490116,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 26,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 22.299999997019768,
+          "frame": 32.100000001490116
+        },
+        {
+          "sync": 19.299999997019768,
+          "frame": 32.19999999552965
+        },
+        {
+          "sync": 20.900000005960464,
+          "frame": 32.5
+        }
+      ],
+      "medianSync": 20.900000005960464,
+      "medianFrame": 32.29999999701977,
+      "sampledRetainedJsBytes": 57088,
+      "counts": {
+        "elements": 2331,
+        "markers": 0,
+        "visible": 19,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "after",
+      "labels": 60,
+      "samples": [
+        {
+          "sync": 18.5,
+          "frame": 32.79999999701977
+        },
+        {
+          "sync": 21.799999997019768,
+          "frame": 33.20000000298023
+        },
+        {
+          "sync": 17.399999998509884,
+          "frame": 31
+        },
+        {
+          "sync": 17.099999994039536,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 17.5,
+          "frame": 32.5
+        },
+        {
+          "sync": 16.80000000447035,
+          "frame": 32.400000005960464
+        },
+        {
+          "sync": 17.5,
+          "frame": 32.399999998509884
+        }
+      ],
+      "medianSync": 17.5,
+      "medianFrame": 32.400000005960464,
+      "sampledRetainedJsBytes": 76676,
+      "counts": {
+        "elements": 2511,
+        "markers": 60,
+        "visible": 19,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "labels": 0,
+      "samples": [
+        {
+          "sync": 17.299999997019768,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 16.799999997019768,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 16.30000000447035,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 15.699999995529652,
+          "frame": 32.5
+        },
+        {
+          "sync": 16.200000002980232,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 15.600000001490116,
+          "frame": 32.400000005960464
+        },
+        {
+          "sync": 19,
+          "frame": 32.399999998509884
+        }
+      ],
+      "medianSync": 16.30000000447035,
+      "medianFrame": 32.399999998509884,
+      "sampledRetainedJsBytes": 93108,
+      "counts": {
+        "elements": 2283,
+        "markers": 0,
+        "visible": 11,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 1,
+      "mode": "before",
+      "labels": 60,
+      "samples": [
+        {
+          "sync": 16.899999998509884,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 16.899999998509884,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 16.600000001490116,
+          "frame": 32.400000005960464
+        },
+        {
+          "sync": 17.399999998509884,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 18,
+          "frame": 34.20000000298023
+        },
+        {
+          "sync": 16.400000005960464,
+          "frame": 30.400000005960464
+        },
+        {
+          "sync": 15.699999995529652,
+          "frame": 32.399999998509884
+        }
+      ],
+      "medianSync": 16.899999998509884,
+      "medianFrame": 32.399999998509884,
+      "sampledRetainedJsBytes": 104176,
+      "counts": {
+        "elements": 2463,
+        "markers": 60,
+        "visible": 11,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "labels": 0,
+      "samples": [
+        {
+          "sync": 16.799999997019768,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 16.900000005960464,
+          "frame": 32.400000005960464
+        },
+        {
+          "sync": 16.599999994039536,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 17.19999999552965,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 15.899999998509884,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 16.399999998509884,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 19.899999998509884,
+          "frame": 32.399999998509884
+        }
+      ],
+      "medianSync": 16.799999997019768,
+      "medianFrame": 32.30000000447035,
+      "sampledRetainedJsBytes": 100512,
+      "counts": {
+        "elements": 2283,
+        "markers": 0,
+        "visible": 11,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "before",
+      "labels": 60,
+      "samples": [
+        {
+          "sync": 16.5,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 16.80000000447035,
+          "frame": 32.20000000298023
+        },
+        {
+          "sync": 17.100000001490116,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 16.900000005960464,
+          "frame": 32.400000005960464
+        },
+        {
+          "sync": 20.600000001490116,
+          "frame": 34
+        },
+        {
+          "sync": 14.899999998509884,
+          "frame": 30.5
+        },
+        {
+          "sync": 15.300000004470348,
+          "frame": 32.399999998509884
+        }
+      ],
+      "medianSync": 16.80000000447035,
+      "medianFrame": 32.399999998509884,
+      "sampledRetainedJsBytes": 115804,
+      "counts": {
+        "elements": 2463,
+        "markers": 60,
+        "visible": 11,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "labels": 0,
+      "samples": [
+        {
+          "sync": 18.799999997019768,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 19.899999998509884,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 18,
+          "frame": 32.30000000447035
+        },
+        {
+          "sync": 17,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 17.399999998509884,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 16.899999998509884,
+          "frame": 32.599999994039536
+        },
+        {
+          "sync": 17.5,
+          "frame": 32.30000000447035
+        }
+      ],
+      "medianSync": 17.5,
+      "medianFrame": 32.30000000447035,
+      "sampledRetainedJsBytes": 51524,
+      "counts": {
+        "elements": 2331,
+        "markers": 0,
+        "visible": 19,
+        "draft": "保留性能草稿"
+      }
+    },
+    {
+      "round": 2,
+      "mode": "after",
+      "labels": 60,
+      "samples": [
+        {
+          "sync": 18.399999998509884,
+          "frame": 32.29999999701977
+        },
+        {
+          "sync": 21.600000001490116,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 19.100000001490116,
+          "frame": 31.80000000447035
+        },
+        {
+          "sync": 16.600000001490116,
+          "frame": 32.19999999552965
+        },
+        {
+          "sync": 16.799999997019768,
+          "frame": 32.599999994039536
+        },
+        {
+          "sync": 16.299999997019768,
+          "frame": 32.399999998509884
+        },
+        {
+          "sync": 17.399999998509884,
+          "frame": 32.399999998509884
+        }
+      ],
+      "medianSync": 17.399999998509884,
+      "medianFrame": 32.399999998509884,
+      "sampledRetainedJsBytes": 66616,
+      "counts": {
+        "elements": 2511,
+        "markers": 60,
+        "visible": 19,
+        "draft": "保留性能草稿"
+      }
+    }
+  ]
+}
