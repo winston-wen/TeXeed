@@ -21,6 +21,11 @@ public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset,
 {
     // Semantic text offset survives responsive columns changing the FlowDocument structure.
     public int TextOffset { get; init; } = -1;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewKind { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewSource { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewNumber { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewBefore { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewAfter { get; init; }
 }
 
 public sealed record AiUserBookmark

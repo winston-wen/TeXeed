@@ -61,7 +61,7 @@
      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <Button x:Name="AddButton" Click="Options_Click" Style="{StaticResource ComposerIcon}" ToolTip="添加圈点与对话操作" Margin="0,0,8,0" AutomationProperties.Name="添加圈点与对话操作">
        <Path Data="M 8,1 V 15 M 1,8 H 15" Width="16" Height="16" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-       <Button.ContextMenu><ContextMenu><MenuItem Header="添加文件" Click="AttachFiles_Click"/><MenuItem Header="添加文件夹" Click="AttachFolder_Click"/><Separator/><MenuItem Header="添加圈点说明" Click="Add_Click"/><MenuItem Header="全选圈点" Click="SelectAll_Click"/><MenuItem Header="清理已完成圈点" Click="ClearDone_Click"/><Separator/><MenuItem Header="刷新模型" Click="RefreshModels_Click"/><MenuItem Header="AI 设置" Click="Settings_Click"/></ContextMenu></Button.ContextMenu>
+       <Button.ContextMenu><ContextMenu><MenuItem Header="添加文件" ToolTip="支持文本、图片和 PDF；每次最多 50 个文件，单个 8 MB，合计 16 MB。" Click="AttachFiles_Click"/><MenuItem Header="添加文件夹" ToolTip="递归读取文本、图片和 PDF；每次最多 50 个文件，单个 8 MB，合计 16 MB。不支持的文件会提示。" Click="AttachFolder_Click"/><Separator/><MenuItem Header="添加圈点说明" Click="Add_Click"/><MenuItem Header="全选圈点" Click="SelectAll_Click"/><MenuItem Header="清理已完成圈点" Click="ClearDone_Click"/><Separator/><MenuItem Header="刷新模型" Click="RefreshModels_Click"/><MenuItem Header="AI 设置" Click="Settings_Click"/></ContextMenu></Button.ContextMenu>
       </Button>
       <ComboBox x:Name="PermissionPicker" Style="{StaticResource ComposerChoice}" Grid.Column="1" SelectionChanged="Permission_Changed" AutomationProperties.Name="会话权限"/>
       <Button x:Name="EntriesButton" Height="24" FontSize="13" Grid.Column="2" Content="圈点 · 0" Click="Entries_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,0" Padding="5,0" BorderThickness="0" Foreground="{DynamicResource Muted}"/>
@@ -80,16 +80,19 @@
   </Border>
   <Popup x:Name="EntriesPopup" PlacementTarget="{Binding ElementName=EntriesButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True"><Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Guide}" BorderThickness="1" CornerRadius="10" Padding="12" Width="430"><StackPanel><Button Content="完成" Click="CloseEntries_Click" HorizontalAlignment="Right"/>
     <Expander x:Name="ContextExpander" Header="圈点与问题条目" IsExpanded="True" Visibility="Collapsed">
-     <ScrollViewer x:Name="ContextScroll" MaxHeight="170" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+     <ScrollViewer x:Name="ContextScroll" MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <ItemsControl x:Name="Entries"><ItemsControl.ItemTemplate><DataTemplate>
        <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="2,4" Margin="0,0,0,4"><StackPanel>
         <DockPanel><Button DockPanel.Dock="Right" Content="×" Padding="6,0" Click="Remove_Click" ToolTip="移除此条目"/><CheckBox IsChecked="{Binding Selected, Mode=TwoWay}" Click="Entry_Changed" VerticalAlignment="Center"/><TextBlock Text="{Binding DisplayTitle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Title}"/></DockPanel>
         <Expander Header="查看上下文"><StackPanel>
-         <TextBlock Text="{Binding AnswerAnchor.Quote}" TextWrapping="Wrap" MaxHeight="140"/>
+         <ContentControl Loaded="ReferencePreview_Loaded"/>
          <ItemsControl ItemsSource="{Binding Sources}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding File}" TextWrapping="Wrap"/><TextBox Text="{Binding Text, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="140" VerticalScrollBarVisibility="Auto"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
          <ItemsControl ItemsSource="{Binding PdfBlocks}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Page, StringFormat=PDF 第 {0} 页}"/><Image Loaded="Thumbnail_Loaded" Stretch="Uniform" MaxHeight="140"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
          <TextBlock Text="{Binding State}" Foreground="{DynamicResource Muted}"/>
         </StackPanel></Expander>
+        <ItemsControl ItemsSource="{Binding Files}" Tag="{Binding}"><ItemsControl.ItemTemplate><DataTemplate>
+         <DockPanel><Button DockPanel.Dock="Right" Content="×" Padding="5,0" ToolTip="移除此文件" Tag="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Click="RemoveAttachedFile_Click"/><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" VerticalAlignment="Center"/></DockPanel>
+        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
         <TextBox Text="{Binding Question, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Loaded="AnnotationInput_Loaded" TextChanged="Question_Changed" PreviewKeyDown="Entry_KeyDown" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Cascadia Code, Consolas, Microsoft YaHei" AcceptsTab="True" MaxHeight="140" ToolTip="对此处的单独说明，可粘贴图片"/>
         <ContentControl Loaded="AnnotationImages_Loaded"/>
        </StackPanel></Border>

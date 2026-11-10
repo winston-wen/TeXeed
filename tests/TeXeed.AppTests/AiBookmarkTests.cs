@@ -31,6 +31,12 @@ internal static partial class Program
     {
         var checks = 0;
         void Check(bool value, string message) { checks++; if (!value) throw new Exception(message); }
+        var previewAnchor = new AiAnswerAnchor("t", "s", 0, 1, "quoted", "revision") { PreviewKind = "formula", PreviewNumber = "A", PreviewBefore = "前文", PreviewAfter = "后文" };
+        Check(AiPanel.ReferencePreviewFallback(previewAnchor) == "公式 (A)", "Large numbered formula should fall back to its number");
+        Check(AiPanel.ReferencePreviewFallback(previewAnchor with { PreviewNumber = null }) == "前文 … 后文", "Unnumbered formula should fall back to surrounding text");
+        Check(AiPanel.ReferencePreviewFallback(previewAnchor with { PreviewKind = "image", PreviewSource = "图例" }) == "图例", "Image should show alt text");
+        Check(AiPanel.ReferencePreviewFallback(previewAnchor with { PreviewKind = "image", PreviewSource = "" }) == "前文 … 后文", "Image without alt should show surrounding text");
+        Check(AiPanel.ReferencePreviewFallback(previewAnchor with { PreviewKind = null }) == "quoted", "Legacy text reference should remain visible");
         var largeNumbers = new AiHeadingNumbers([int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue - 1]);
         Check(largeNumbers.Next(6) == string.Join('.', Enumerable.Repeat(int.MaxValue, 6)), "Large multi-digit heading counters were truncated");
         var rollover = new AiHeadingNumbers([9, 99, 0, 0, 0, 0]);
@@ -47,9 +53,41 @@ internal static partial class Program
         host.Show();
         try
         {
+            var previewPanel = new StackPanel { Margin = new Thickness(16) };
+            var previewWindow = new Window { Owner = host, Content = previewPanel, Width = 450, Height = 350, Title = "引用预览验证" };
+            var smallPreview = new ContentControl { DataContext = new AiEntry { AnswerAnchor = previewAnchor with { PreviewSource = "x^2+y^2=z^2" } } };
+            var largePreview = new ContentControl { DataContext = new AiEntry { AnswerAnchor = previewAnchor with { PreviewSource = string.Join("+", Enumerable.Repeat("x", 120)) } } };
+            var imagePreview = new ContentControl { DataContext = new AiEntry { AnswerAnchor = previewAnchor with { PreviewKind = "image", PreviewSource = "代数结构图" } } };
+            var noAltPreview = new ContentControl { DataContext = new AiEntry { AnswerAnchor = previewAnchor with { PreviewKind = "image", PreviewSource = "" } } };
+            foreach (var control in new[] { smallPreview, largePreview, imagePreview, noAltPreview }) { control.Margin = new Thickness(0, 8, 0, 8); previewPanel.Children.Add(control); }
+            previewWindow.Show(); previewWindow.UpdateLayout();
+            await Task.WhenAll(ChatTexRenderer.RenderAsync("x^2+y^2=z^2", true), ChatTexRenderer.RenderAsync(string.Join("+", Enumerable.Repeat("x", 120)), true));
+            foreach (var control in new[] { smallPreview, largePreview, imagePreview, noAltPreview }) Invoke(panel, "ReferencePreview_Loaded", control, new RoutedEventArgs());
+            for (var i = 0; i < 150 && smallPreview.Content is not ChatFormula; i++) { await Task.Delay(100); previewWindow.UpdateLayout(); }
+            Check(smallPreview.Content is ChatFormula { Error: null }, "A small formula did not render as a vector preview");
+            await Task.Delay(500); previewWindow.UpdateLayout();
+            Check(largePreview.Content is TextBlock { Text: "公式 (A)" }, "A large formula did not fall back to its number");
+            Check(imagePreview.Content is TextBlock { Text: "代数结构图" } && noAltPreview.Content is TextBlock { Text: "前文 … 后文" }, "Image preview did not display alt text or surrounding text");
+            Capture(previewWindow, Path.Combine(output, "reference-preview.png")); previewWindow.Close();
             var project = Path.Combine(output, "bookmarks.tex");
             await panel.SetProjectAsync(project);
             var book = (AiNotebook)Field(panel, "_book")!;
+            var popupFixture = new[] {
+                new AiEntry { Title = "公式引用", AnswerAnchor = previewAnchor with { PreviewSource = "x^2+y^2=z^2" } },
+                new AiEntry { Title = "图片引用", AnswerAnchor = previewAnchor with { PreviewKind = "image", PreviewSource = "" } }
+            };
+            foreach (var entry in popupFixture) panel.AddEntry(entry, false);
+            var popup = (System.Windows.Controls.Primitives.Popup)panel.FindName("EntriesPopup");
+            popup.IsOpen = true; host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var popupVisual = (FrameworkElement)popup.Child;
+            foreach (var expander in Descendants<Expander>(popupVisual)) expander.IsExpanded = true;
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); await Task.Delay(500); popupVisual.UpdateLayout();
+            var screenshot = new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(popupVisual.ActualWidth), (int)Math.Ceiling(popupVisual.ActualHeight), 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            screenshot.Render(popupVisual); var screenshotEncoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            screenshotEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(screenshot));
+            using (var file = File.Create(Path.Combine(output, "reference-popup.png"))) screenshotEncoder.Save(file);
+            popup.IsOpen = false;
+            foreach (var entry in popupFixture) panel.RemoveAnnotation(entry);
             var source = "# 首个标题\n\n## 重复标题甲\n\n锚点内容甲，用户稍后定位。\n\n行内代码 `inline.tex` 和行内公式 $x_i$ 也可定位。\n\n| 项目 | 内容 |\n| --- | --- |\n| 甲 | 表格选区 |\n\n$$a+b$$\n\n## 重复标题乙\n\n$$c+d\\tag{A}$$\n\n![示例图片](missing-image.png)\n\n![](missing-no-alt.png)\n\n```tex\n# 伪标题\n$$not-a-formula$$\n```\n\n" +
                 string.Join("\n\n", Enumerable.Range(0, 45).Select(i => $"第 {i} 段合成正文，验证较长对话在索引和虚拟化时不会遗漏内容。"));
             for (var i = 0; i < 120; i++)
@@ -280,6 +318,8 @@ internal static partial class Program
                 { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
             var displayFormulaSelection = panel.CaptureBookmarkSelection(answer);
             Check(displayFormulaSelection is not null && displayFormulaSelection.Anchor.Quote.Contains("c+d"), $"Right-click did not select the display formula: {displayFormulaSelection?.Anchor.Quote ?? "<null>"}");
+            var referenceFormula = answer.SelectedReferenceObject();
+            Check(referenceFormula.Kind == "formula" && referenceFormula.Source == "c+d" && referenceFormula.Number == "A", "Formula reference lost its source or number");
             Check(panel.AddBookmarkFromSelection(displayFormulaSelection!, "公式书签"), "Cannot save a selected formula bookmark");
             var userFormula = panel.GetBookmarks().Single(b => b.Label == "公式书签");
             await panel.SaveAsync();
@@ -291,6 +331,7 @@ internal static partial class Program
                 { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
             var imageSelection = panel.CaptureBookmarkSelection(answer);
             Check(imageSelection is not null && imageSelection.Anchor.Quote.Contains("示例图片"), "Right-click did not select the image");
+            Check(answer.SelectedReferenceObject() is { Kind: "image", Source: "示例图片" }, "Image reference lost its alt text");
             Check(panel.AddBookmarkFromSelection(imageSelection!, "图片书签"), "Cannot save an image bookmark");
             var imageBookmark = panel.GetBookmarks().Single(b => b.Label == "图片书签");
             await panel.SaveAsync();
@@ -302,6 +343,7 @@ internal static partial class Program
                 { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
             var noAltSelection = panel.CaptureBookmarkSelection(answer);
             Check(noAltSelection is not null && noAltSelection.Anchor.Quote == "[图片]", "Right-click did not select an image without alt text");
+            Check(answer.SelectedReferenceObject() is { Kind: "image", Source: "" }, "Image without alt was not distinguished from text");
             Check(panel.AddBookmarkFromSelection(noAltSelection!, "无描述图片书签"), "Cannot save an image bookmark without alt text");
             var noAltBookmark = panel.GetBookmarks().Single(b => b.Label == "无描述图片书签");
             turnView.Toggle(); host.UpdateLayout();

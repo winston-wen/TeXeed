@@ -1,0 +1,89 @@
+{
+  "fixture": "120 turns, 3 activities, 200 detail lines; 900/620 x760 WPF; two warmups and seven samples; paired 800ms queue and save gate",
+  "samples": [
+    {
+      "op": "graph-open",
+      "feedbackMs": 33.0986,
+      "feedbackBytes": 1133792,
+      "rawMs": 33.0986,
+      "idleMs": 0.0346,
+      "correctedMs": 33.064,
+      "rawBytes": 1133792,
+      "idleBytes": 1768,
+      "correctedBytes": 1132024,
+      "visibleControls": 19
+    },
+    {
+      "op": "graph-open",
+      "feedbackMs": 44.5594,
+      "feedbackBytes": 1142744,
+      "rawMs": 44.5594,
+      "idleMs": 0.0598,
+      "correctedMs": 44.499599999999994,
+      "rawBytes": 1142744,
+      "idleBytes": 1768,
+      "correctedBytes": 1140976,
+      "visibleControls": 19
+    },
+    {
+      "op": "graph-open",
+      "feedbackMs": 34.2227,
+      "feedbackBytes": 1129792,
+      "rawMs": 34.2227,
+      "idleMs": 0.0415,
+      "correctedMs": 34.181200000000004,
+      "rawBytes": 1129792,
+      "idleBytes": 1768,
+      "correctedBytes": 1128024,
+      "visibleControls": 19
+    },
+    {
+      "op": "graph-open",
+      "feedbackMs": 39.6204,
+      "feedbackBytes": 1131680,
+      "rawMs": 39.6204,
+      "idleMs": 0.0367,
+      "correctedMs": 39.58369999999999,
+      "rawBytes": 1131680,
+      "idleBytes": 1768,
+      "correctedBytes": 1129912,
+      "visibleControls": 19
+    },
+    {
+      "op": "graph-open",
+      "feedbackMs": 33.4213,
+      "feedbackBytes": 1138792,
+      "rawMs": 33.4213,
+      "idleMs": 0.0423,
+      "correctedMs": 33.379000000000005,
+      "rawBytes": 1138792,
+      "idleBytes": 1768,
+      "correctedBytes": 1137024,
+      "visibleControls": 19
+    },
+    {
+      "op": "graph-open",
+      "feedbackMs": 32.4733,
+      "feedbackBytes": 1138488,
+      "rawMs": 32.4733,
+      "idleMs": 0.0485,
+      "correctedMs": 32.424800000000005,
+      "rawBytes": 1138488,
+      "idleBytes": 1768,
+      "correctedBytes": 1136720,
+      "visibleControls": 19
+    },
+    {
+      "op": "graph-open",
+      "feedbackMs": 33.8057,
+      "feedbackBytes": 1141128,
+      "rawMs": 33.8057,
+      "idleMs": 0.0456,
+      "correctedMs": 33.7601,
+      "rawBytes": 1141128,
+      "idleBytes": 1768,
+      "correctedBytes": 1139360,
+      "visibleControls": 19
+    }
+  ]
+}

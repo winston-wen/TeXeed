@@ -75,7 +75,7 @@ public partial class AiPanel : UserControl, IDisposable
         _settingsChanged = (_, _) => SyncModelChoices(); Settings.ConnectionChanged += _settingsChanged;
         SizeChanged += (_, _) =>
         {
-            ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .25, 40, 170);
+            ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .35, 40, 260);
             LimitComposerHeight();
             if (EntriesPopup.Child is FrameworkElement surface) surface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
             ScheduleViewportCapture(); ResizeChoices();
@@ -311,7 +311,7 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }

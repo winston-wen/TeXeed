@@ -2,6 +2,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using TeXeed.App.AI;
@@ -10,6 +11,12 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
+    private sealed class RelationNode(AiConversation conversation)
+    {
+        public string Id { get; } = conversation.Id;
+        public string Title { get; } = conversation.Title;
+        public List<RelationNode> Children { get; } = [];
+    }
     internal event EventHandler<string>? ConversationOpenRequested;
     internal event EventHandler<AiConversation>? BranchSourceRequested;
 
@@ -116,19 +123,48 @@ public partial class AiPanel
         var window = new Window { Owner = Window.GetWindow(this), Title = "会话关系", Width = 480, Height = 560, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var tree = new TreeView { Margin = new Thickness(12), FontSize = 15 };
         var all = _book.Conversations.ToArray();
-        TreeViewItem MakeNode(AiConversation conversation, HashSet<string> ancestors)
+        if (all.Length <= 24)
         {
-            var node = new TreeViewItem { Header = conversation.Title, Tag = conversation.Id, IsExpanded = true, Padding = new Thickness(2, 5, 2, 5) };
+            TreeViewItem MakeSmallNode(AiConversation conversation, HashSet<string> ancestors)
+            {
+                var node = new TreeViewItem { Header = conversation.Title, Tag = conversation.Id, IsExpanded = true, Padding = new Thickness(2, 5, 2, 5) };
+                if (!ancestors.Add(conversation.Id)) return node;
+                foreach (var child in all.Where(c => c.ParentConversationId == conversation.Id && !ancestors.Contains(c.Id)))
+                    node.Items.Add(MakeSmallNode(child, new HashSet<string>(ancestors)));
+                return node;
+            }
+            foreach (var root in all.Where(c => c.ParentConversationId is null || all.All(p => p.Id != c.ParentConversationId))) tree.Items.Add(MakeSmallNode(root, []));
+        }
+        else
+        {
+        VirtualizingPanel.SetIsVirtualizing(tree, true);
+        VirtualizingPanel.SetVirtualizationMode(tree, VirtualizationMode.Recycling);
+        ScrollViewer.SetCanContentScroll(tree, true);
+        var style = new Style(typeof(TreeViewItem));
+        style.Setters.Add(new Setter(TreeViewItem.IsExpandedProperty, true));
+        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(2, 5, 2, 5)));
+        tree.Resources.Add(typeof(TreeViewItem), style);
+        var template = new HierarchicalDataTemplate(typeof(RelationNode)) { ItemsSource = new Binding(nameof(RelationNode.Children)) };
+        var label = new FrameworkElementFactory(typeof(TextBlock));
+        label.SetBinding(TextBlock.TextProperty, new Binding(nameof(RelationNode.Title)));
+        template.VisualTree = label;
+        tree.ItemTemplate = template;
+        var nodes = all.ToDictionary(c => c.Id, c => new RelationNode(c));
+        var children = all.Where(c => c.ParentConversationId is not null).GroupBy(c => c.ParentConversationId!).ToDictionary(g => g.Key, g => g.ToArray());
+        RelationNode MakeNode(AiConversation conversation, HashSet<string> ancestors)
+        {
+            var node = nodes[conversation.Id];
             if (!ancestors.Add(conversation.Id)) return node;
-            foreach (var child in all.Where(c => c.ParentConversationId == conversation.Id && !ancestors.Contains(c.Id)))
-                node.Items.Add(MakeNode(child, new HashSet<string>(ancestors)));
+            foreach (var child in children.GetValueOrDefault(conversation.Id, []).Where(c => !ancestors.Contains(c.Id)))
+                node.Children.Add(MakeNode(child, new HashSet<string>(ancestors)));
             return node;
         }
         foreach (var root in all.Where(c => c.ParentConversationId is null || all.All(p => p.Id != c.ParentConversationId))) tree.Items.Add(MakeNode(root, []));
+        }
         tree.MouseDoubleClick += (_, e) =>
         {
             for (var current = e.OriginalSource as DependencyObject; current is not null && current != tree; current = current is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D ? System.Windows.Media.VisualTreeHelper.GetParent(current) : LogicalTreeHelper.GetParent(current))
-                if (current is TreeViewItem { Tag: string id }) { e.Handled = true; window.Close(); OpenRelatedConversation(id); break; }
+                if (current is TreeViewItem item && (item.Tag as string ?? (item.DataContext as RelationNode)?.Id) is { } id) { e.Handled = true; window.Close(); OpenRelatedConversation(id); break; }
         };
         window.Content = tree; window.Show();
     }

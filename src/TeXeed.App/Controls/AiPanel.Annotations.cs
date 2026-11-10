@@ -100,9 +100,12 @@ public partial class AiPanel
         var selection = view.GetAnnotationSelection();
         var quote = selection.Quote.Trim();
         if (quote.Length == 0 || quote.Length > 40000) { StatusText.Text = "请选择不超过 4 万字符的回答内容。"; return; }
+        var preview = view.SelectedReferenceObject();
+        var context = view.BookmarkSelectionContext();
         var entry = new AiEntry { Title = "AI 回答批注", AnswerAnchor = new(turn.Id, segment.Id,
             selection.Offset, selection.Length, quote, view.Revision)
-            { TextOffset = selection.TextOffset } };
+            { TextOffset = selection.TextOffset, PreviewKind = preview.Kind, PreviewSource = preview.Source,
+              PreviewNumber = preview.Number, PreviewBefore = context.Before, PreviewAfter = context.After } };
         if (AddEntry(entry, false) && edit) layer.Edit(entry);
     }
 }

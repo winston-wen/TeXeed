@@ -86,7 +86,7 @@ internal static partial class Program
         Check(imageReload.Entries.Single().Images.Count == 2 && imageReload.Entries.Single().Images[0].ImageBase64 == pastedSnapshot.Images[0].ImageBase64 && imageReload.Turns.Single().SentAnnotations.Single().Images.Count == 2, "Draft or sent image was lost when saving or restoring");
         var attachmentFolder = Path.Combine(output, "attachment-fixture"); Directory.CreateDirectory(attachmentFolder);
         File.WriteAllText(Path.Combine(attachmentFolder, "notes.tex"), "附件内容");
-        Check(ai.AddAttachments([attachmentFolder]), "Folder attachment was not captured");
+        Check(await ai.AddAttachmentsAsync([attachmentFolder]), "Folder attachment was not captured");
         var attached = book.Entries.Last();
         Check(attached.Files.Single().Name.EndsWith("attachment-fixture/notes.tex") && Encoding.UTF8.GetString(Convert.FromBase64String(attached.Files[0].Base64)) == "附件内容", "Folder path or content was lost");
         var attachmentInput = AiResponses.MakeInput([attached.Snapshot()], []);
@@ -97,6 +97,23 @@ internal static partial class Program
         reconciliation.Entries[0].Files.Add(new AiAttachedFile("new.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("new"))));
         reconciliation.ReconcileSentAnnotations();
         Check(reconciliation.Entries.Count == 1, "Recovery discarded a changed attachment draft");
+        attached.Files.Add(new AiAttachedFile("attachment-fixture/second.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("second"))));
+        Invoke(ai, "Rebind");
+        var attachmentPopup = (System.Windows.Controls.Primitives.Popup)ai.FindName("EntriesPopup");
+        attachmentPopup.IsOpen = true; window.UpdateLayout(); await Task.Delay(100);
+        var fileButtons = Descendants<Button>(attachmentPopup.Child).Where(b => Equals(b.ToolTip, "移除此文件")).ToArray();
+        Check(fileButtons.Length == 2, "Attachment list did not show one remove control per file");
+        var popupVisual = (FrameworkElement)attachmentPopup.Child;
+        var popupBitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(popupVisual.ActualWidth), (int)Math.Ceiling(popupVisual.ActualHeight), 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        popupBitmap.Render(popupVisual);
+        var popupPng = new System.Windows.Media.Imaging.PngBitmapEncoder(); popupPng.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(popupBitmap));
+        using (var popupFile = File.Create(Path.Combine(output, "attachment-list.png"))) popupPng.Save(popupFile);
+        fileButtons[0].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        attachmentPopup.IsOpen = false;
+        Check(attached.Files.Count == 1 && attached.Files[0].Name.EndsWith("second.txt") && book.Entries.Contains(attached), "Removing one file removed the wrong attachment or whole group");
+        var filesAfterRemoval = AiResponses.MakeInput([attached.Snapshot()], [])[0]!["content"]!.AsArray();
+        Check(filesAfterRemoval.Any(part => part?["text"]?.GetValue<string>()?.Contains("second.txt") == true) &&
+              !filesAfterRemoval.Any(part => part?["text"]?.GetValue<string>()?.Contains("notes.tex") == true), "Removed attachment still entered the request");
         book.Entries.Remove(attached);
         Check(AiStorage.NotebookPath(project.MainPath) != AiStorage.NotebookPath(project.MainPath + "x"), "Project notebook isolation failed");
         var credentials = new AiCredentials { ApiKey = "test-key-never-send", UseApiKey = true }; credentials.Save();
@@ -114,6 +131,12 @@ internal static partial class Program
         await new AiResponses(connection).RunAsync("test-model", restored.Entries, [], files, x => answer.Append(x), _ => { }, CancellationToken.None);
         Check(answer.ToString() == "定位到 main.tex:2。" && handler.Requests == 2, "Streaming tool roundtrip failed");
         Check(handler.SawToolOutput && handler.SawContract, "Responses request broke OAuth-compatible streaming contract");
+        using (var branchHandler = new AiFakeHandler())
+        using (var branchConnection = new AiConnection(branchHandler))
+        {
+            await new AiResponses(branchConnection).RunAsync("test-model", restored.Entries, [], files, _ => { }, _ => { }, CancellationToken.None, isBranch: true);
+            Check(branchHandler.LastInstructions?.Contains("不要假定用户已经阅读") == true, "Branch request omitted the mid-reading instruction");
+        }
         using (var eventHandler = new AiFakeHandler { ToolsInEvents = true })
         using (var eventConnection = new AiConnection(eventHandler))
         {
@@ -285,7 +308,7 @@ internal static partial class Program
     private sealed class AiFakeHandler : HttpMessageHandler
     {
         public int Requests, ResponseRequests; public bool Broken, ProgramFailure, SawToolOutput, SawContract, SwitchAccount, ToolsInEvents, Empty;
-        public string? LastModel, LastEffort;
+        public string? LastModel, LastEffort, LastInstructions;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests++;
@@ -293,6 +316,7 @@ internal static partial class Program
             ResponseRequests++;
             var json = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
             LastModel = json["model"]?.ToString(); LastEffort = json["reasoning"]?["effort"]?.ToString();
+            LastInstructions = json["instructions"]?.ToString();
             SawContract = json["store"]!.GetValue<bool>() == false && json["stream"]!.GetValue<bool>() && json["tools"]![0]!["type"]!.GetValue<string>() == "namespace";
             if (Requests > 1) SawToolOutput = json["input"]!.AsArray().Any(n => n?["type"]?.GetValue<string>() == "function_call_output" && n["output"]!.GetValue<string>().Contains("main.tex:2"));
             var data = Broken ? "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n" : Requests == 1

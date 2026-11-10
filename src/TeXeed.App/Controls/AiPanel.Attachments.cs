@@ -1,6 +1,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Win32;
 using TeXeed.App.AI;
@@ -9,26 +10,27 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
-    private void AttachFiles_Click(object sender, RoutedEventArgs e)
+    private async void AttachFiles_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog { Multiselect = true, Title = "选择附件" };
-        if (dialog.ShowDialog() == true) AddAttachments(dialog.FileNames);
+        if (dialog.ShowDialog() == true) await AddAttachmentsAsync(dialog.FileNames);
     }
 
-    private void AttachFolder_Click(object sender, RoutedEventArgs e)
+    private async void AttachFolder_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog { Title = "选择附件文件夹" };
-        if (dialog.ShowDialog() == true) AddAttachments([dialog.FolderName]);
+        if (dialog.ShowDialog() == true) await AddAttachmentsAsync([dialog.FolderName]);
     }
 
-    private void ComposerAttachmentPaste(object sender, KeyEventArgs e)
+    private async void ComposerAttachmentPaste(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.V || Keyboard.Modifiers != ModifierKeys.Control) return;
         try
         {
             if (Clipboard.ContainsFileDropList())
             {
-                e.Handled = true; AddAttachments(Clipboard.GetFileDropList().Cast<string>()); return;
+                var paths = Clipboard.GetFileDropList().Cast<string>().ToArray();
+                e.Handled = true; await AddAttachmentsAsync(paths); return;
             }
             if (Clipboard.ContainsImage() && Clipboard.GetImage() is { } bitmap)
             {
@@ -42,10 +44,27 @@ public partial class AiPanel
         { e.Handled = true; StatusText.Text = "无法读取剪贴板：" + ex.Message; }
     }
 
-    internal bool AddAttachments(IEnumerable<string> paths)
+    internal async Task<bool> AddAttachmentsAsync(IEnumerable<string> paths)
     {
+        var conversation = _book.Active;
+        var pathSnapshot = paths.ToArray();
+        StatusText.Text = "正在读取附件…";
         try
         {
+            var files = await Task.Run(() => ReadAttachmentFiles(pathSnapshot));
+            if (_disposed) return false;
+            if (!ReferenceEquals(_book.Active, conversation)) { StatusText.Text = "会话已切换，请在目标会话中重新添加附件。"; return false; }
+            if (files.Count == 0) { StatusText.Text = "没有可添加的文件。"; return false; }
+            var entry = new AiEntry { Title = files.Count == 1 ? "附件：" + files[0].Name : $"附件：{files.Count} 个文件", Files = files };
+            if (!AddEntry(entry)) return false;
+            StatusText.Text = "附件已添加到引用与附件。"; return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or NotSupportedException)
+        { if (!_disposed) StatusText.Text = "无法添加附件：" + ex.Message; return false; }
+    }
+
+    private static List<AiAttachedFile> ReadAttachmentFiles(IEnumerable<string> paths)
+    {
             var files = new List<AiAttachedFile>(); long total = 0;
             foreach (var path in paths)
             {
@@ -58,10 +77,7 @@ public partial class AiPanel
                 }
                 else AddFile(path, Path.GetFileName(path));
             }
-            if (files.Count == 0) { StatusText.Text = "没有可添加的文件。"; return false; }
-            var entry = new AiEntry { Title = files.Count == 1 ? "附件：" + files[0].Name : $"附件：{files.Count} 个文件", Files = files };
-            if (!AddEntry(entry)) return false;
-            StatusText.Text = "附件已添加到引用与附件。"; return true;
+            return files;
 
             void AddFile(string path, string name)
             {
@@ -71,10 +87,25 @@ public partial class AiPanel
                 if (length > 8 * 1024 * 1024 || total > 16 * 1024 * 1024) throw new InvalidOperationException("单个文件最多 8 MB，本次附件最多 16 MB。");
                 var ext = Path.GetExtension(path).ToLowerInvariant();
                 var mime = ext switch { ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp", ".gif" => "image/gif", ".pdf" => "application/pdf", ".txt" or ".md" or ".tex" or ".bib" or ".sty" or ".cls" or ".json" or ".csv" or ".xml" or ".html" or ".py" or ".js" or ".cs" => "text/plain", _ => throw new InvalidOperationException($"暂不支持附件类型：{name}") };
-                files.Add(new(name, mime, Convert.ToBase64String(File.ReadAllBytes(path))));
+                var bytes = new byte[checked((int)length)];
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                stream.ReadExactly(bytes);
+                if (stream.ReadByte() != -1) throw new IOException($"读取时文件大小发生变化：{name}");
+                files.Add(new(name, mime, Convert.ToBase64String(bytes)));
             }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or NotSupportedException)
-        { StatusText.Text = "无法添加附件：" + ex.Message; return false; }
+    }
+
+    internal void RemoveAttachedFile(AiEntry entry, AiAttachedFile file)
+    {
+        if (!_book.Entries.Contains(entry) || entry.State == "提交中") return;
+        if (!entry.Files.Remove(file)) return;
+        if (entry.Files.Count == 0 && entry.Images.Count == 0 && entry.AnswerAnchor is null && entry.Sources.Count == 0 && entry.PdfBlocks.Count == 0 && string.IsNullOrWhiteSpace(entry.Question))
+            RemoveAnnotation(entry);
+        else { if (entry.Files.Count > 0 && entry.Title.StartsWith("附件：", StringComparison.Ordinal)) entry.Title = entry.Files.Count == 1 ? "附件：" + entry.Files[0].Name : $"附件：{entry.Files.Count} 个文件"; Rebind(); Dirty(); }
+    }
+
+    private void RemoveAttachedFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AiAttachedFile file, Tag: AiEntry entry }) RemoveAttachedFile(entry, file);
     }
 }
