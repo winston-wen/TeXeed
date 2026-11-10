@@ -107,6 +107,7 @@ public sealed partial class MarkdownView
         grid.Width = FormulaAvailableWidth(double.IsFinite(_measuredWidth) ? _measuredWidth : 0, _columnCount);
         var inline = new InlineUIContainer(grid) { Tag = "$$" + token.Source + (token.Label is null ? "" : @"\label{" + token.Label + "}") + @"\tag{" + token.Number + "}$$" };
         paragraph.Inlines.Add(inline);
+        grid.PreviewMouseRightButtonDown += (_, _) => SelectBookmarkObject(inline);
         _clipboardMath.Add(inline, token);
         _equations.TryAdd(token.Label ?? "eq-" + token.Number, paragraph);
         _equations.TryAdd("eq-" + token.Number, paragraph);

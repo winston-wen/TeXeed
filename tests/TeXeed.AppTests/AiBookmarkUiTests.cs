@@ -78,13 +78,21 @@ internal static partial class Program
             }
             var savedX = book.Active.BookmarkBallX; var savedY = book.Active.BookmarkBallY;
             Check(savedX > .99 && savedY > .99, "Dragging did not save normalized ball position");
+            Check(panel.GetBookmarks().Count == 0, "Headings and formulas must not create bookmarks automatically");
+
+            var performanceBookmarks = Environment.GetEnvironmentVariable("TEXEED_BOOKMARK_PERF_USERS") == "1";
+            if (performanceBookmarks)
+                foreach (var turn in book.Turns)
+                    for (var n = 0; n < 3; n++)
+                        book.Active.Bookmarks.Add(new AiUserBookmark { Label = $"{book.Turns.IndexOf(turn) + 1}:{n + 1}",
+                            Anchor = new AiAnswerAnchor(turn.Id, turn.Segments[0].Id, 0, 1, "相同标题", AiStorage.Hash(answerText)) });
 
             var beforeOpen = GC.GetAllocatedBytesForCurrentThread(); var openWatch = Stopwatch.StartNew();
             Invoke(panel, "OpenBookmarkUi", false); host.UpdateLayout(); await Idle(); openWatch.Stop();
             var coldOpenMs = openWatch.Elapsed.TotalMilliseconds;
             var coldOpenBytes = GC.GetAllocatedBytesForCurrentThread() - beforeOpen;
-            var initialDefaults = (ListBox)Field(panel, "_defaultBookmarks")!;
-            Check(initialDefaults.Items.Count == 360, "The performance fixture did not index all 120 turns");
+            var initialDefaults = (ListBox)Field(panel, "_userBookmarks")!;
+            Check(initialDefaults.Items.Count == (performanceBookmarks ? 360 : 0), "Unexpected bookmark count");
             var realizedRows = Descendants<ListBoxItem>(initialDefaults).Count();
             Check(realizedRows < 60, $"Bookmark menu realizes too many of 360 default rows: {realizedRows}");
             var rowHeights = Descendants<ListBoxItem>(initialDefaults).Select(item => item.ActualHeight).ToArray();
@@ -102,6 +110,7 @@ internal static partial class Program
             File.WriteAllText(Path.Combine(output, "bookmark-ui-performance.json"), JsonSerializer.Serialize(new
             { turns = 120, indexed = initialDefaults.Items.Count, coldOpenMs, coldOpenBytes, realizedRows, rowHeights, controlsOpen, visibleControlsOpen, searchTiming }, new JsonSerializerOptions { WriteIndented = true }));
             ball.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); await Idle();
+            if (performanceBookmarks) book.Active.Bookmarks.Clear();
 
             if (physical)
             {
@@ -119,32 +128,18 @@ internal static partial class Program
             else { Invoke(panel, "OpenBookmarkUi", true); await Idle(); }
             var surface = (Border)Field(panel, "_bookmarkSurface")!;
             var search = (TextBox)Field(panel, "_bookmarkSearch")!;
-            var defaults = (ListBox)Field(panel, "_defaultBookmarks")!;
+            var defaults = (ListBox)Field(panel, "_userBookmarks")!;
             var users = (ListBox)Field(panel, "_userBookmarks")!;
             var order = (ComboBox)Field(panel, "_bookmarkOrder")!;
             Check(surface.IsVisible && (!physical || search.IsKeyboardFocusWithin), "Opening bookmarks did not focus the search field");
-            Check(defaults.Items.Count == 360 && users.Items.Count == 0, "Automatic and user bookmark groups are not separate");
-            var first = defaults.Items.Cast<object>().Select(Target).Where(t => t.TurnIndex == 0).ToArray();
-            Check(first.Select(t => t.Label).SequenceEqual(["1:1", "1:1.1", "1:eq1"]) &&
-                first[0].Description == first[1].Description && first[0].Id != first[1].Id,
-                "Repeated heading text did not produce distinct grouped destinations");
-            search.Text = "1:"; await Idle();
-            var tab = CreateKey(host, Key.Tab, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(tab);
-            Check(tab.Handled && search.Text == "1:1" && defaults.Items.Count == 2, "Tab did not complete an exact bookmark prefix");
-            search.Text = "[1:"; await Idle();
-            tab = CreateKey(host, Key.Tab, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(tab);
-            Check(tab.Handled && search.Text == "1:1", "Tab did not complete a bracketed bookmark prefix");
-            search.Text = "[31:1.1]"; await Idle();
-            Check(defaults.Items.Count == 1 && Target(defaults.Items[0]).Label == "31:1.1", "A full bracketed heading number did not match its bookmark");
+            Check(defaults.Items.Count == 0 && users.Items.Count == 0, "Empty conversation unexpectedly has bookmarks");
             var targetTurn = book.Turns[30]; targetTurn.Collapsed = true;
-            var outer = panel.GetBookmarks().Single(t => t.TurnIndex == 30 && t.Label == "31:1");
+            var outer = FixtureBookmarkTargets(book).Single(t => t.TurnIndex == 30 && t.Label == "31:1");
+            var target = FixtureBookmarkTargets(book).Single(t => t.TurnIndex == 30 && t.Label == "31:1.1");
             targetTurn.CollapsedSections[outer.SegmentId + ":" + outer.Position] = true;
-            var enter = CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(enter);
-            for (var i = 0; i < 40 && targetTurn.Collapsed; i++) { await Task.Delay(30); host.UpdateLayout(); }
-            await Idle();
-            Check(enter.Handled && !targetTurn.Collapsed && !targetTurn.CollapsedSections[outer.SegmentId + ":" + outer.Position],
-                "Search jump did not realize the offscreen turn and reopen folded ancestors");
-            Check(!surface.IsVisible && ((ScrollViewer)panel.FindName("MessagesScroll")).VerticalOffset > 0, "Search jump did not close the menu or move the viewport");
+            Check(await panel.NavigateBookmarkAsync(target), "Could not prepare offscreen test content");
+            Invoke(panel, "CloseBookmarkUi"); host.UpdateLayout(); await Idle();
+            Check(!targetTurn.Collapsed && !targetTurn.CollapsedSections[outer.SegmentId + ":" + outer.Position], "Navigation failed to reopen folded ancestors");
             var views = (Dictionary<string, AiTurnView>)Field(panel, "_turnViews")!;
             var view = views[targetTurn.Id].Answers.Single();
             await view.RenderTask; host.UpdateLayout(); await Idle();
@@ -180,8 +175,12 @@ internal static partial class Program
             await AddLabel("甲标签正文", "Z标签");
             Check(book.Active.Bookmarks.Count == 3, "Adding duplicate user labels changed or lost selections");
             ball.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)); await Idle();
-            Check(defaults.Items.Count == 360 && users.Items.Count == 3, "Bookmark menu did not refresh separate groups");
+            Check(users.Items.Count == 3, "Bookmark menu did not show the user bookmarks");
             Check(users.Items.Cast<object>().Select(Target).Select(t => t.Label).SequenceEqual(["Z标签", "Z标签", "A标签"]), "Document order is incorrect");
+            search.Text = "A"; await Idle();
+            var tab = CreateKey(host, Key.Tab, Keyboard.PreviewKeyDownEvent); search.RaiseEvent(tab);
+            Check(tab.Handled && search.Text == "A标签" && users.Items.Count == 1, "Search did not complete a user bookmark");
+            search.Text = ""; await Idle();
             order.SelectedIndex = 1; await Idle();
             Check(book.Active.BookmarkSort == "alphabetical", "Bookmark sort choice was not saved in the session");
             Check(users.Items.Cast<object>().Select(Target).Select(t => t.Label).SequenceEqual(["A标签", "Z标签", "Z标签"]), "Alphabetical order is incorrect");

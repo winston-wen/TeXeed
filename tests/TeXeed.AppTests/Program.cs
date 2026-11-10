@@ -90,6 +90,11 @@ internal static partial class Program
                     await CheckAiBookmarksAsync(window, output);
                     await CloseAndObserveAsync(window, "AI bookmark navigation"); result = 0; return;
                 }
+                if (args.Contains("--ai-branches-only"))
+                {
+                    await CheckAiBranchesAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI branch navigation"); result = 0; return;
+                }
                 if (args.Contains("--ai-emphasis-only"))
                 {
                     await CheckAiEmphasisAsync(window, output);

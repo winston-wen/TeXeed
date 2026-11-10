@@ -51,6 +51,7 @@ public partial class AiPanel
             return view.AnnotationPoint(entry.Id, anchor);
         }, RemoveAnnotation, margin: true, confirm: ConfirmAnnotation, commit: SaveAnnotationChanges);
         _answerLayers.Add(view, layer);
+        AddBranchLinks(view);
         RefreshBookmarkMarker(view, false);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
         var menu = new ContextMenu();
@@ -58,6 +59,11 @@ public partial class AiPanel
         annotate.Click += (_, _) => AnnotateAnswer(view);
         menu.Opened += (_, _) => annotate.IsEnabled = AnswerTurn(view) is not null;
         menu.Items.Add(annotate);
+        AddBranchMenu(view, menu);
+        var quote = new MenuItem { Header = "引用到当前会话" };
+        quote.Click += (_, _) => AnnotateAnswer(view, edit: false);
+        menu.Opened += (_, _) => quote.IsEnabled = AnswerTurn(view) is not null && view.HasBookmarkSelection;
+        menu.Items.Add(quote);
         var bookmark = new MenuItem { Header = "为所选内容添加标签" };
         ToolTipService.SetShowOnDisabled(bookmark, true);
         menu.Opened += (_, _) =>
@@ -88,7 +94,7 @@ public partial class AiPanel
         if (!IsMarking || sender is not MarkdownView view || Keyboard.Modifiers != ModifierKeys.None || ImagePreview.IsPreviewImage(e.OriginalSource)) return;
         view.Dispatcher.BeginInvoke(new Action(() => AnnotateAnswer(view)));
     }
-    internal void AnnotateAnswer(MarkdownView view)
+    internal void AnnotateAnswer(MarkdownView view, bool edit = true)
     {
         if (AnswerTurn(view) is not { } turn || view.DataContext is not AiSegment segment || !_answerLayers.TryGetValue(view, out var layer)) return;
         var selection = view.GetAnnotationSelection();
@@ -97,6 +103,6 @@ public partial class AiPanel
         var entry = new AiEntry { Title = "AI 回答批注", AnswerAnchor = new(turn.Id, segment.Id,
             selection.Offset, selection.Length, quote, view.Revision)
             { TextOffset = selection.TextOffset } };
-        if (AddEntry(entry, false)) layer.Edit(entry);
+        if (AddEntry(entry, false) && edit) layer.Edit(entry);
     }
 }

@@ -17,7 +17,7 @@ public partial class AiPanel
     private Button _bookmarkBall = null!;
     private Border? _bookmarkSurface;
     private TextBox? _bookmarkSearch;
-    private ListBox? _defaultBookmarks, _userBookmarks;
+    private ListBox? _userBookmarks;
     private TextBlock? _bookmarkEmpty;
     private ComboBox? _bookmarkOrder;
     private IReadOnlyList<AiBookmarkTarget> _bookmarkItems = [];
@@ -149,7 +149,7 @@ public partial class AiPanel
         var panel = new StackPanel();
         var heading = new TextBlock { Text = "书签", FontSize = 15, Margin = new Thickness(0, 0, 0, 8) };
         heading.SetResourceReference(TextBlock.ForegroundProperty, "Ink"); panel.Children.Add(heading);
-        _bookmarkSearch = new TextBox { IsReadOnly = false, ToolTip = "输入标题号、公式号或标签；↑↓ 选择，Tab 补全，Enter 跳转" };
+        _bookmarkSearch = new TextBox { IsReadOnly = false, ToolTip = "输入书签名称；↑↓ 选择，Tab 补全，Enter 跳转" };
         AutomationProperties.SetName(_bookmarkSearch, "跳转到书签");
         _bookmarkSearch.TextChanged += (_, _) => RefreshBookmarkLists();
         _bookmarkSearch.PreviewKeyDown += BookmarkSearch_KeyDown;
@@ -161,21 +161,16 @@ public partial class AiPanel
         var empty = new DataTrigger { Binding = new Binding("Text") { Source = _bookmarkSearch }, Value = "" };
         empty.Setters.Add(new Setter(VisibilityProperty, Visibility.Visible)); hintStyle.Triggers.Add(empty); hint.Style = hintStyle;
         searchBox.Children.Add(hint); panel.Children.Add(searchBox);
-        var defaults = new TextBlock { Text = "默认书签", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
-        defaults.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); panel.Children.Add(defaults);
-        _defaultBookmarks = CreateBookmarkList(false); _defaultBookmarks.MaxHeight = 158; panel.Children.Add(_defaultBookmarks);
-        var userHeader = new DockPanel { Margin = new Thickness(0, 8, 0, 4) };
-        var userLabel = new TextBlock { Text = "用户标签", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
-        userLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        var userHeader = new DockPanel { Margin = new Thickness(0, 8, 0, 4), LastChildFill = false };
         _bookmarkOrder = new ComboBox { Width = 120, FontSize = 12, Padding = new Thickness(4, 1, 4, 1), ItemsSource = new[] { "按行文顺序", "按字典序" }, SelectedIndex = 0 };
-        AutomationProperties.SetName(_bookmarkOrder, "用户标签排序");
+        AutomationProperties.SetName(_bookmarkOrder, "书签排序");
         _bookmarkOrder.SelectionChanged += (_, _) =>
         {
             var order = _bookmarkOrder.SelectedIndex == 1 ? "alphabetical" : "document";
             if (_book.Active.BookmarkSort != order) { _book.Active.BookmarkSort = order; Dirty(); }
             RefreshBookmarkLists();
         };
-        DockPanel.SetDock(_bookmarkOrder, Dock.Right); userHeader.Children.Add(_bookmarkOrder); userHeader.Children.Add(userLabel); panel.Children.Add(userHeader);
+        DockPanel.SetDock(_bookmarkOrder, Dock.Right); userHeader.Children.Add(_bookmarkOrder); panel.Children.Add(userHeader);
         _userBookmarks = CreateBookmarkList(true); _userBookmarks.MaxHeight = 118; panel.Children.Add(_userBookmarks);
         _bookmarkEmpty = new TextBlock { Text = "没有匹配的书签", FontSize = 12, Margin = new Thickness(0, 6, 0, 0), Visibility = Visibility.Collapsed };
         _bookmarkEmpty.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); panel.Children.Add(_bookmarkEmpty);
@@ -233,7 +228,7 @@ public partial class AiPanel
     }
     private void RefreshBookmarkLists()
     {
-        if (_defaultBookmarks is null || _userBookmarks is null || _bookmarkSearch is null) return;
+        if (_userBookmarks is null || _bookmarkSearch is null) return;
         var query = _bookmarkSearch.Text.Trim();
         var numberQuery = query;
         var bracketed = query.Length > 1 && query[0] == '[' && char.IsDigit(query[1]);
@@ -241,14 +236,12 @@ public partial class AiPanel
             numberQuery = query[1..].TrimEnd(']');
         var numbered = numberQuery.Length > 0 && char.IsDigit(numberQuery[0]);
         var matches = _bookmarkItems.Where(b => query.Length == 0 || (numbered ? b.Label.StartsWith(numberQuery, StringComparison.CurrentCultureIgnoreCase) : b.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase)) || bracketed && b.Kind == AiBookmarkKind.User && b.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase) || b.Description.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToArray();
-        var defaults = matches.Where(b => b.Kind != AiBookmarkKind.User).Select(b => new BookmarkRow(b)).ToArray();
         var users = matches.Where(b => b.Kind == AiBookmarkKind.User);
         if (_bookmarkOrder?.SelectedIndex == 1) users = users.OrderBy(b => b.Label, StringComparer.CurrentCultureIgnoreCase).ThenBy(b => b.TurnIndex).ThenBy(b => b.SegmentIndex).ThenBy(b => b.Position);
         var userRows = users.Select(b => new BookmarkRow(b)).ToArray();
-        _defaultBookmarks.ItemsSource = defaults; _userBookmarks.ItemsSource = userRows;
-        _defaultBookmarks.Visibility = defaults.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        _userBookmarks.ItemsSource = userRows;
         _userBookmarks.Visibility = userRows.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-        if (_bookmarkEmpty is not null) _bookmarkEmpty.Visibility = defaults.Length + userRows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_bookmarkEmpty is not null) _bookmarkEmpty.Visibility = userRows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         PlaceBookmarkSurface();
     }
     private void PlaceBookmarkSurface()
@@ -267,7 +260,7 @@ public partial class AiPanel
     {
         if (e.Key is Key.Down or Key.Up)
         {
-            var lists = new[] { _defaultBookmarks!, _userBookmarks! }.Where(l => l.Items.Count > 0).ToArray();
+            var lists = new[] { _userBookmarks! }.Where(l => l.Items.Count > 0).ToArray();
             var count = lists.Sum(l => l.Items.Count); if (count == 0) return;
             var index = -1; var offset = 0;
             foreach (var list in lists) { if (list.SelectedIndex >= 0) index = offset + list.SelectedIndex; offset += list.Items.Count; }
@@ -279,8 +272,7 @@ public partial class AiPanel
         }
         else if (e.Key == Key.Tab || e.Key == Key.Enter)
         {
-            var row = _defaultBookmarks!.SelectedItem as BookmarkRow ?? _userBookmarks!.SelectedItem as BookmarkRow ??
-                _defaultBookmarks.Items.Cast<BookmarkRow>().FirstOrDefault() ?? _userBookmarks.Items.Cast<BookmarkRow>().FirstOrDefault();
+            var row = _userBookmarks!.SelectedItem as BookmarkRow ?? _userBookmarks.Items.Cast<BookmarkRow>().FirstOrDefault();
             if (row is null) return;
             e.Handled = true;
             if (e.Key == Key.Tab) { _bookmarkSearch!.Text = row.Target.Label; _bookmarkSearch.CaretIndex = _bookmarkSearch.Text.Length; }

@@ -19,6 +19,14 @@ public partial class MainWindow
     private AiPanel CreateAiPanel()
     {
         var panel = new AiPanel(_aiConnection, _aiSettings);
+        panel.InitializeBranchUi();
+        panel.ConversationOpenRequested += async (_, id) => await OpenAiConversationAsync(id);
+        panel.BranchSourceRequested += async (_, branch) =>
+        {
+            if (branch.ParentConversationId is not { } id || branch.BranchAnchor is not { } anchor) return;
+            await OpenAiConversationAsync(id);
+            if (_aiPanels.TryGetValue(id, out var source) && !await source.NavigateBranchSourceAsync(anchor, branch.BranchContextBefore, branch.BranchContextAfter)) Status("无法定位提问出处，原回答可能已改变。");
+        };
         panel.SettingsRequested += (_,_) => OpenAiSettings();
         panel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
         panel.CreateToolRunner = () => CreateAiToolRunner(panel.Permission, panel.ShellApprovals);

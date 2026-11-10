@@ -65,6 +65,12 @@ public sealed partial class MarkdownView
         var block = new BlockUIContainer(scroll) { Margin = new Thickness(0, 6, 0, 16) };
         var viewport = new TableViewport(block, view, scroll, table, widths, widths.Sum(), view.CopySource(document.ContentStart, document.ContentEnd));
         _tableViews.Add(viewport); SizeTable(viewport);
+        scroll.PreviewMouseRightButtonDown += (_, _) =>
+        {
+            if (!view.Selection.IsEmpty) return;
+            _selectionView = view;
+            view.Selection.Select(view.Document.ContentStart, view.Document.ContentEnd);
+        };
         foreach (var (key, formula) in view._equations) _equations.TryAdd(key, formula);
         foreach (var (key, formula) in view._bookmarkFormulas) _bookmarkFormulas.TryAdd(key, formula);
         foreach (var (key, heading) in view._bookmarkHeadings) _bookmarkHeadings.TryAdd(key, heading);
@@ -116,7 +122,15 @@ public sealed partial class MarkdownView
     {
         var picture = new MarkdownPicture(uri, alt, () => { LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); }) { Width = MediaWidth };
         _pictures.Add(picture);
-        return new InlineUIContainer(picture) { Tag = "[图片] " + alt };
+        var inline = new InlineUIContainer(picture) { Tag = "[图片] " + alt };
+        picture.PreviewMouseRightButtonDown += (_, _) => SelectBookmarkObject(inline);
+        return inline;
+    }
+    private void SelectBookmarkObject(InlineUIContainer inline)
+    {
+        if (_tableOwner is not null) _tableOwner._selectionView = this;
+        else _selectionView = null;
+        Selection.Select(inline.ElementStart, inline.ElementEnd);
     }
     private string ImageAltText(ContainerInline source)
     {

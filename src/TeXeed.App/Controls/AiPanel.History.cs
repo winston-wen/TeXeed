@@ -55,7 +55,6 @@ public partial class AiPanel
     private void ShowCurrentConversation()
     {
         ClearBookmarkMarkers();
-        _bookmarkCache.Clear();
         _autoScroll.Stop();
         RestoreBookmarkBallPosition();
         _restoringReading = true;

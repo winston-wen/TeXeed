@@ -142,8 +142,8 @@ public partial class AiPanel : UserControl, IDisposable
         Entries.ItemsSource = null;
         Entries.ItemsSource = _book.Entries.ToArray();
         ContextExpander.Visibility = _book.Entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        ContextExpander.Header = $"圈点与问题条目 · {_book.Entries.Count}";
-        EntriesButton.Content = $"圈点 · {_book.Entries.Count}";
+        ContextExpander.Header = $"引用与批注 · {_book.Entries.Count}";
+        EntriesButton.Content = $"引用 · {_book.Entries.Count}";
     }
     private void Dirty() { if (_updating || _disposed) return; _saveTimer.Stop(); _saveTimer.Start(); }
     public async Task SaveAsync()
@@ -225,10 +225,12 @@ public partial class AiPanel : UserControl, IDisposable
         if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
         if (selected.Length > 20 || selected.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || selected.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
+        if (selected.Sum(e => e.Files.Sum(f => (long)f.Base64.Length) + e.Images.Sum(i => (long)i.ImageBase64.Length)) > 24_000_000)
+        { StatusText.Text = "每批附件与批注图片合计最多约 18 MB，请分批提交。"; return; }
         var sentAnnotations = selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
         await RunOperationAsync(async token =>
         {
-            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
+            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), Files = [.. x.Files], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var generation = _generation; var book = _book;
             var sentAt = DateTimeOffset.Now;
@@ -301,7 +303,7 @@ public partial class AiPanel : UserControl, IDisposable
                 await Settings.SaveSelectionAsync(token);
                 var files = ProjectFiles?.Invoke().ToArray() ?? [];
                 var toolRunner = CreateToolRunner?.Invoke();
-                var history = book.Turns.ToArray();
+                var history = book.Active.InheritedTurns.Concat(book.Turns).ToArray();
                 await Task.Run(() => new AiResponses(_connection).RunAsync(model.Id, batch, history, files,
                     _ => { }, _ => { }, token, effort, toolRunner, evt =>
                     {

@@ -8,6 +8,17 @@ internal static partial class Program
         static JsonNode[] HistoryMessages(JsonArray input) => input.Take(input.Count - 1).Select(n => n!).ToArray();
         static string Content(JsonNode message) => message["content"]!.GetValue<string>();
 
+        var references = new[] {
+            new AiEntry { Question = "第一条评论", AnswerAnchor = new("t1", "s1", 0, 2, "甲引用", "r1") },
+            new AiEntry { Question = "第二条评论", AnswerAnchor = new("t2", "s2", 0, 2, "乙引用", "r2") }
+        };
+        var referenceInput = string.Join("\n", AiResponses.MakeInput(references, [])[0]!["content"]!.AsArray()
+            .Where(item => item?["type"]?.GetValue<string>() == "input_text")
+            .Select(item => item!["text"]!.GetValue<string>()));
+        check(referenceInput.Contains("甲引用") && referenceInput.Contains("乙引用") &&
+              referenceInput.Contains("第一条评论") && referenceInput.Contains("第二条评论"),
+            "Multiple references and their separate comments were not sent together");
+
         // Seven older long answers can consume nearly all the budget. The latest
         // instruction must win that competition, while retained pairs keep their order.
         var history = Enumerable.Range(0, 7).Select(i => new AiTurn($"old-{i}", new string((char)('a' + i), 6800))).ToList();

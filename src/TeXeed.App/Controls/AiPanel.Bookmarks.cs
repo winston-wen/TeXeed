@@ -10,7 +10,6 @@ namespace TeXeed.App.Controls;
 public partial class AiPanel
 {
     private const string BookmarkQuestionPrefix = "@question:";
-    private readonly Dictionary<(string Turn, string Segment), (string Text, IReadOnlyList<AiBookmarkFragment> Items)> _bookmarkCache = [];
     private readonly HashSet<MarkdownView> _bookmarkQuestions = [];
     private readonly Dictionary<MarkdownView, AiBookmarkMarkerLayer> _bookmarkMarkerLayers = [];
     private bool _liveBookmarkCheckpointReady;
@@ -26,7 +25,6 @@ public partial class AiPanel
     {
         var conversation = _book.Active;
         var results = new List<AiBookmarkTarget>();
-        var activeKeys = new HashSet<(string Turn, string Segment)>();
         var turnIndices = new Dictionary<string, int>();
         var segmentIndices = new Dictionary<(string Turn, string Segment), int>();
         for (var turnIndex = 0; turnIndex < conversation.Turns.Count; turnIndex++)
@@ -34,26 +32,13 @@ public partial class AiPanel
             var turn = conversation.Turns[turnIndex];
             turnIndices.TryAdd(turn.Id, turnIndex);
             var segments = turn.DisplaySegments;
-            var headingNumbers = new AiHeadingNumbers();
             for (var segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
             {
                 var segment = segments[segmentIndex];
                 if (segment.Kind == "activity") continue;
                 segmentIndices.TryAdd((turn.Id, segment.Id), segmentIndex);
-                var key = (turn.Id, segment.Id); activeKeys.Add(key);
-                if (!_bookmarkCache.TryGetValue(key, out var cached) || cached.Text != segment.Text)
-                    _bookmarkCache[key] = cached = (segment.Text, MarkdownView.BookmarkFragments(segment.Text));
-                foreach (var item in cached.Items)
-                {
-                    var number = item.Kind == AiBookmarkKind.Heading && int.TryParse(item.Number.AsSpan(1), out var level)
-                        ? headingNumbers.Next(level) : item.Number;
-                    var label = $"{turnIndex + 1}:{number}";
-                    results.Add(new($"{turn.Id}:{segment.Id}:{item.Kind}:{item.Position}", label, item.Description,
-                        turn.Id, segment.Id, item.Kind, turnIndex, segmentIndex, item.Position, null));
-                }
             }
         }
-        foreach (var key in _bookmarkCache.Keys.Where(key => !activeKeys.Contains(key)).ToArray()) _bookmarkCache.Remove(key);
         foreach (var bookmark in conversation.Bookmarks)
         {
             if (bookmark.Anchor is not { } anchor || string.IsNullOrWhiteSpace(bookmark.Label)) continue;

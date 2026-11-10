@@ -16,6 +16,7 @@ public sealed record AiPdfBlock(int Page, double X, double Y, double Width, doub
     public double? PointY { get; init; }
 }
 public sealed record AiPastedImage(string ImageBase64);
+public sealed record AiAttachedFile(string Name, string MimeType, string Base64);
 public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
 {
     // Semantic text offset survives responsive columns changing the FlowDocument structure.
@@ -51,8 +52,9 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
     public List<AiSourceBlock> Sources { get; set; } = [];
     public List<AiPdfBlock> PdfBlocks { get; set; } = [];
     public System.Collections.ObjectModel.ObservableCollection<AiPastedImage> Images { get; set; } = [];
+    public List<AiAttachedFile> Files { get; set; } = [];
     public string PdfRevision { get; set; } = "";
-    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], Images = new(Images), PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
+    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], Images = new(Images), Files = [.. Files], PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
     public bool IsPoint { get; set; }
 }
 public sealed record AiTurn(string Question, string Answer)
@@ -126,6 +128,11 @@ public sealed class AiConversation
     public List<AiEntry> Entries { get; set; } = [];
     public List<AiTurn> Turns { get; set; } = [];
     public string Draft { get; set; } = "";
+    public string? ParentConversationId { get; set; }
+    public AiAnswerAnchor? BranchAnchor { get; set; }
+    public string? BranchContextBefore { get; set; }
+    public string? BranchContextAfter { get; set; }
+    public List<AiTurn> InheritedTurns { get; set; } = [];
     public AiPermission Permission { get; set; } = AiPermission.FullAccess;
     public AiContextUsage? ContextUsage { get; set; }
     public AiContextMemory? ContextMemory { get; set; }
@@ -171,12 +178,14 @@ public sealed class AiConversation
             && e.Title == snapshot.Title && e.Question == snapshot.Question
             && e.PdfRevision == snapshot.PdfRevision && e.IsPoint == snapshot.IsPoint
             && e.AnswerAnchor == snapshot.AnswerAnchor
-            && e.Sources.SequenceEqual(snapshot.Sources) && e.PdfBlocks.SequenceEqual(snapshot.PdfBlocks)) > 0 || changed;
+            && e.Sources.SequenceEqual(snapshot.Sources) && e.PdfBlocks.SequenceEqual(snapshot.PdfBlocks)
+            && e.Images.SequenceEqual(snapshot.Images) && e.Files.SequenceEqual(snapshot.Files)) > 0 || changed;
     }
     internal AiConversation Snapshot() => new()
     {
         Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
-        Entries = Entries.Select(e => e.Snapshot()).ToList(), AdditionalData = AdditionalData is null ? null : new(AdditionalData)
+        Entries = Entries.Select(e => e.Snapshot()).ToList(), ParentConversationId = ParentConversationId, BranchAnchor = BranchAnchor, BranchContextBefore = BranchContextBefore, BranchContextAfter = BranchContextAfter,
+        InheritedTurns = InheritedTurns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), AdditionalData = AdditionalData is null ? null : new(AdditionalData)
     };
 }
 

@@ -9,6 +9,24 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
+    private static IReadOnlyList<AiBookmarkTarget> FixtureBookmarkTargets(AiNotebook book)
+    {
+        var result = new List<AiBookmarkTarget>();
+        for (var i = 0; i < book.Turns.Count; i++)
+        {
+            var turn = book.Turns[i]; var numbers = new AiHeadingNumbers(); var segments = turn.DisplaySegments;
+            for (var j = 0; j < segments.Count; j++)
+            {
+                var segment = segments[j]; if (segment.Kind == "activity") continue;
+                foreach (var item in MarkdownView.BookmarkFragments(segment.Text))
+                {
+                    var number = item.Kind == AiBookmarkKind.Heading && int.TryParse(item.Number.AsSpan(1), out var level) ? numbers.Next(level) : item.Number;
+                    result.Add(new($"{turn.Id}:{segment.Id}:{item.Kind}:{item.Position}", $"{i + 1}:{number}", item.Description, turn.Id, segment.Id, item.Kind, i, j, item.Position, null));
+                }
+            }
+        }
+        return result;
+    }
     private static async Task CheckAiBookmarksAsync(MainWindow owner, string output)
     {
         var checks = 0;
@@ -32,7 +50,7 @@ internal static partial class Program
             var project = Path.Combine(output, "bookmarks.tex");
             await panel.SetProjectAsync(project);
             var book = (AiNotebook)Field(panel, "_book")!;
-            var source = "# 首个标题\n\n## 重复标题甲\n\n锚点内容甲，用户稍后定位。\n\n行内代码 `inline.tex` 和行内公式 $x_i$ 也可定位。\n\n| 项目 | 内容 |\n| --- | --- |\n| 甲 | 表格选区 |\n\n$$a+b$$\n\n## 重复标题乙\n\n$$c+d\\tag{A}$$\n\n```tex\n# 伪标题\n$$not-a-formula$$\n```\n\n" +
+            var source = "# 首个标题\n\n## 重复标题甲\n\n锚点内容甲，用户稍后定位。\n\n行内代码 `inline.tex` 和行内公式 $x_i$ 也可定位。\n\n| 项目 | 内容 |\n| --- | --- |\n| 甲 | 表格选区 |\n\n$$a+b$$\n\n## 重复标题乙\n\n$$c+d\\tag{A}$$\n\n![示例图片](missing-image.png)\n\n![](missing-no-alt.png)\n\n```tex\n# 伪标题\n$$not-a-formula$$\n```\n\n" +
                 string.Join("\n\n", Enumerable.Range(0, 45).Select(i => $"第 {i} 段合成正文，验证较长对话在索引和虚拟化时不会遗漏内容。"));
             for (var i = 0; i < 120; i++)
                 book.Turns.Add(new AiTurn("用户问题第 " + i + " 轮", source) { SentAt = DateTimeOffset.UnixEpoch, Segments = [new AiSegment { Id = "final-" + i, Kind = "final", Text = source }] });
@@ -40,10 +58,11 @@ internal static partial class Program
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             var visibleBefore = Descendants<Control>(panel).Count(c => c.IsVisible && VisibleBounds(c, panel) is { Width: > 0, Height: > 0 });
             var bytes = GC.GetAllocatedBytesForCurrentThread(); var watch = System.Diagnostics.Stopwatch.StartNew();
-            var initial = panel.GetBookmarks();
+            var initial = FixtureBookmarkTargets(book);
+            Check(panel.GetBookmarks().Count == 0, "Headings and formulas must not create bookmarks automatically");
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); watch.Stop();
             var firstMs = watch.Elapsed.TotalMilliseconds; var firstBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
-            bytes = GC.GetAllocatedBytesForCurrentThread(); watch.Restart(); var reused = panel.GetBookmarks();
+            bytes = GC.GetAllocatedBytesForCurrentThread(); watch.Restart(); var reused = FixtureBookmarkTargets(book);
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); watch.Stop();
             var reusedMs = watch.Elapsed.TotalMilliseconds; var reusedBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
             var visibleAfter = Descendants<Control>(panel).Count(c => c.IsVisible && VisibleBounds(c, panel) is { Width: > 0, Height: > 0 });
@@ -62,7 +81,7 @@ internal static partial class Program
             numberingFirst.Text = "## 1. 已有标题\n\n### 深一级\n\n## 下一标题\n\n```md\n# 不是标题\n```";
             numberingTurn.Segments.Add(new AiSegment { Id = "numbering-activity", Kind = "activity", Text = "工具过程" });
             numberingTurn.Segments.Add(new AiSegment { Id = "numbering-next", Kind = "final", Text = "# 新上级\n\n## 2. 已有编号" });
-            var numbered = panel.GetBookmarks().Where(b => b.TurnIndex == 0 && b.Kind == AiBookmarkKind.Heading).ToArray();
+            var numbered = FixtureBookmarkTargets(book).Where(b => b.TurnIndex == 0 && b.Kind == AiBookmarkKind.Heading).ToArray();
             Check(numbered.Select(b => b.Label).SequenceEqual(["1:0.1", "1:0.1.1", "1:0.2", "1:1", "1:1.1"]), "Heading counters did not cross answer segments or handle missing ancestors");
             var numberingView = new AiTurnView { TurnNumber = 1, Turn = numberingTurn };
             var rendered = numberingView.Answers.SelectMany(a => Paragraphs(a.Document.Blocks)).Where(p => p.Inlines.FirstInline is Hyperlink)
@@ -80,12 +99,12 @@ internal static partial class Program
             numberingFirst.Text = numberingOriginal; numberingTurn.Segments.RemoveRange(1, 2);
             var changed = book.Turns[79].Segments[0]; var original = changed.Text;
             changed.Text += "\n\n### 新增标题";
-            Check(panel.GetBookmarks().Any(b => b.TurnIndex == 79 && b.Label == "80:1.2.1"), "Changed answer did not refresh its cached index");
+            Check(FixtureBookmarkTargets(book).Any(b => b.TurnIndex == 79 && b.Label == "80:1.2.1"), "Changed answer did not refresh its cached index");
             changed.Text = original;
-            Check(panel.GetBookmarks().All(b => b.TurnIndex != 79 || b.Label != "80:1.2.1"), "Stale cached heading remained after an answer changed");
+            Check(FixtureBookmarkTargets(book).All(b => b.TurnIndex != 79 || b.Label != "80:1.2.1"), "Stale cached heading remained after an answer changed");
 
-            var target = panel.GetBookmarks().Single(b => b.TurnIndex == 60 && b.Label == "61:1.1" && b.Description.Contains("甲"));
-            var outer = panel.GetBookmarks().Single(b => b.TurnIndex == 60 && b.Label == "61:1");
+            var target = FixtureBookmarkTargets(book).Single(b => b.TurnIndex == 60 && b.Label == "61:1.1" && b.Description.Contains("甲"));
+            var outer = FixtureBookmarkTargets(book).Single(b => b.TurnIndex == 60 && b.Label == "61:1");
             var turn = book.Turns[60]; turn.Collapsed = true;
             turn.CollapsedSections[outer.SegmentId + ":" + outer.Position] = true;
             turn.CollapsedSections[target.SegmentId + ":" + target.Position] = true;
@@ -245,8 +264,49 @@ internal static partial class Program
             Check(horizontalBefore > 0 && answer.BookmarkMarkerPoint(book.Active.Bookmarks.Single(b => b.Id == tableTarget.Id)) is not null,
                 "A horizontally hidden table selection must retain its row marker");
             Check(tableScroll.HorizontalOffset == horizontalBefore, "Rendering a table marker changed the horizontal viewport");
-            var formulaTarget = panel.GetBookmarks().Single(b => b.TurnIndex == 60 && b.Label == "61:eqA");
+            tableView.Selection.Select(tableView.Document.ContentStart, tableView.Document.ContentStart);
+            tableScroll.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Right)
+                { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
+            var wholeTable = panel.CaptureBookmarkSelection(answer);
+            Check(wholeTable is not null && wholeTable.Anchor.Quote.Contains("表格选区"), $"Right-click did not select the table: {wholeTable?.Anchor.Quote ?? "<null>"}");
+            Check(panel.AddBookmarkFromSelection(wholeTable!, "整表书签"), "Cannot save a whole-table bookmark");
+            var wholeTableTarget = panel.GetBookmarks().Single(b => b.Label == "整表书签");
+            Check(await panel.NavigateBookmarkAsync(wholeTableTarget), "Cannot navigate to a whole-table bookmark");
+            Check(panel.RemoveBookmark(wholeTableTarget), "Cannot remove the whole-table bookmark");
+            var formulaTarget = FixtureBookmarkTargets(book).Single(b => b.TurnIndex == 60 && b.Label == "61:eqA");
             Check(await panel.NavigateBookmarkAsync(formulaTarget), "Cannot navigate to a tagged display formula");
+            var formulaRow = Descendants<ChatFormulaRow>(answer).Last();
+            formulaRow.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Right)
+                { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
+            var displayFormulaSelection = panel.CaptureBookmarkSelection(answer);
+            Check(displayFormulaSelection is not null && displayFormulaSelection.Anchor.Quote.Contains("c+d"), $"Right-click did not select the display formula: {displayFormulaSelection?.Anchor.Quote ?? "<null>"}");
+            Check(panel.AddBookmarkFromSelection(displayFormulaSelection!, "公式书签"), "Cannot save a selected formula bookmark");
+            var userFormula = panel.GetBookmarks().Single(b => b.Label == "公式书签");
+            await panel.SaveAsync();
+            Check(AiStorage.Load(project).Active.Bookmarks.Any(b => b.Label == "公式书签"), "Saved formula bookmark did not survive reload");
+            Check(await panel.NavigateBookmarkAsync(userFormula), "Cannot navigate to a user formula bookmark");
+            Check(panel.RemoveBookmark(userFormula), "Cannot remove the formula bookmark");
+            var picture = Descendants<MarkdownPicture>(answer).First();
+            picture.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Right)
+                { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
+            var imageSelection = panel.CaptureBookmarkSelection(answer);
+            Check(imageSelection is not null && imageSelection.Anchor.Quote.Contains("示例图片"), "Right-click did not select the image");
+            Check(panel.AddBookmarkFromSelection(imageSelection!, "图片书签"), "Cannot save an image bookmark");
+            var imageBookmark = panel.GetBookmarks().Single(b => b.Label == "图片书签");
+            await panel.SaveAsync();
+            Check(AiStorage.Load(project).Active.Bookmarks.Any(b => b.Label == "图片书签"), "Saved image bookmark did not survive reload");
+            Check(await panel.NavigateBookmarkAsync(imageBookmark), "Cannot navigate to a user image bookmark");
+            Check(panel.RemoveBookmark(imageBookmark), "Cannot remove the image bookmark");
+            var noAltPicture = Descendants<MarkdownPicture>(answer).Last();
+            noAltPicture.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Right)
+                { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
+            var noAltSelection = panel.CaptureBookmarkSelection(answer);
+            Check(noAltSelection is not null && noAltSelection.Anchor.Quote == "[图片]", "Right-click did not select an image without alt text");
+            Check(panel.AddBookmarkFromSelection(noAltSelection!, "无描述图片书签"), "Cannot save an image bookmark without alt text");
+            var noAltBookmark = panel.GetBookmarks().Single(b => b.Label == "无描述图片书签");
+            turnView.Toggle(); host.UpdateLayout();
+            Check(await panel.NavigateBookmarkAsync(noAltBookmark), "Cannot reopen a collapsed turn at an image without alt text");
+            Check(panel.RemoveBookmark(noAltBookmark), "Cannot remove the image bookmark without alt text");
 
             var questionView = turnView.Questions[0];
             var questionParagraph = (Paragraph)questionView.Document.Blocks.FirstBlock!;
@@ -265,7 +325,7 @@ internal static partial class Program
             Check(loaded.Active.Bookmarks.Count == 3 && loaded.Draft == "保留草稿", "Bookmark persistence changed the saved draft or lost bookmarks");
             Check(panel.RemoveBookmark(questionTarget) && panel.GetBookmarks().All(b => b.Id != questionTarget.Id), "User bookmark deletion failed");
             Check(!markerLayers.ContainsKey(questionView), "Removing the last label did not remove the marker layer");
-            var lastHeading = panel.GetBookmarks().First(b => b.TurnIndex == 119 && b.Kind == AiBookmarkKind.Heading);
+            var lastHeading = FixtureBookmarkTargets(book).First(b => b.TurnIndex == 119 && b.Kind == AiBookmarkKind.Heading);
             Check(await panel.NavigateBookmarkAsync(lastHeading), "Cannot reveal 120th turn");
             host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             var lastView = views[book.Turns[119].Id].Questions[0];
@@ -320,10 +380,9 @@ internal static partial class Program
             Check(book.Active.Bookmarks.All(b => b.Label != "实时问题标签"), "Deleting a turn left an orphaned user bookmark");
             var legacyTurn = new AiTurn("旧提问", "## 旧回答标题\n\n旧正文。\n\n$$x+y$$");
             book.Turns.Add(legacyTurn); Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
-            var legacyTarget = panel.GetBookmarks().Single(b => b.TurnId == legacyTurn.Id && b.Kind == AiBookmarkKind.Heading);
+            var legacyTarget = FixtureBookmarkTargets(book).Single(b => b.TurnId == legacyTurn.Id && b.Kind == AiBookmarkKind.Heading);
             Check(legacyTarget.Label == "121:0.1" && await panel.NavigateBookmarkAsync(legacyTarget), "Legacy answer without segments cannot be indexed and located");
             await panel.NewConversationAsync();
-            Check(((System.Collections.IDictionary)Field(panel, "_bookmarkCache")!).Count == 0, "Switching conversations retained the old default index");
             var legacy = System.Text.Json.JsonSerializer.Deserialize<AiConversation>("{\"Title\":\"旧会话\",\"Draft\":\"旧草稿\"}")!;
             Check(legacy.Bookmarks.Count == 0 && legacy.BookmarkBallX is null && legacy.BookmarkSort == "document" && legacy.Draft == "旧草稿", "Old session migration lost data");
             Console.WriteLine($"AI bookmarks: {checks} checks passed (ordered duplicate headings, formulas, code exclusion, offscreen/folded navigation, captured answer and question selections, persistence and old sessions).");

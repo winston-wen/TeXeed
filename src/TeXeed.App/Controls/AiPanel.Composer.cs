@@ -9,6 +9,7 @@ public partial class AiPanel
     private void InitializeComposer()
     {
         ComposerLines.Attach(Composer);
+        Composer.PreviewKeyDown += ComposerAttachmentPaste;
         Composer.MinHeight = ComposerLineHeight + Composer.Padding.Top + Composer.Padding.Bottom;
         Composer.Height = ComposerLineHeight * 3 + Composer.Padding.Top + Composer.Padding.Bottom;
     }
