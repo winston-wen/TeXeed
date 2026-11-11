@@ -1,0 +1,10 @@
+Stress: constructing 8 turns / 480 sections and formulas
+Stress: realized turns=2/8, viewport=735.5, extent=44495.5
+Stress: scroll + pointer hit-test worst=23.2ms input-gap=188.9ms total=4648ms
+Pointer sample 0: elapsed=35.3ms
+Pointer sample 1: elapsed=359.8ms
+Pointer sample 2: elapsed=376.0ms
+Pointer sample 3: elapsed=53.6ms
+Pointer sample 4: elapsed=664.8ms
+System.Exception: Native pointer movement stalled the dispatcher
+Exit code: 1

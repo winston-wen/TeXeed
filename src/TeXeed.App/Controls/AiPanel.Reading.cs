@@ -75,8 +75,10 @@ public partial class AiPanel
         var preview = new Window { Owner = Window.GetWindow(this), Title = "当前项目源码 · " + reference, Width = 760, Height = 600, Content = editor };
         preview.Show(); if (int.TryParse(match.Groups[2].Value, out var line)) { line = Math.Clamp(line, 1, editor.Document.LineCount); editor.ScrollToLine(line); editor.Select(editor.Document.GetLineByNumber(line).Offset, editor.Document.GetLineByNumber(line).Length); }
     }
-    private void Entries_Click(object sender, RoutedEventArgs e) => EntriesPopup.IsOpen = !EntriesPopup.IsOpen;
+    private void Entries_Click(object sender, RoutedEventArgs e) { AttachmentsPopup.IsOpen = false; EntriesPopup.IsOpen = !EntriesPopup.IsOpen; }
     private void CloseEntries_Click(object sender, RoutedEventArgs e) => EntriesPopup.IsOpen = false;
+    private void Attachments_Click(object sender, RoutedEventArgs e) { EntriesPopup.IsOpen = false; AttachmentsPopup.IsOpen = !AttachmentsPopup.IsOpen; }
+    private void CloseAttachments_Click(object sender, RoutedEventArgs e) => AttachmentsPopup.IsOpen = false;
     private void Entry_KeyDown(object sender, KeyEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: AiEntry entry }) HandleEntryKey(entry, e, Keyboard.Modifiers);

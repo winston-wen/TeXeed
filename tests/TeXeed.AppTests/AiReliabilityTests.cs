@@ -134,6 +134,22 @@ internal static partial class Program
         }
         AiStorage.Save(recoveryProject, recovered);
         Check(!File.Exists(AiTurnCheckpoint.PathFor(recoveryProject)) && AiStorage.Load(recoveryProject).Turns.Count == 1, "Recovered turn was duplicated or journal not retired");
+        foreach (var sendReference in new[] { true, false })
+        {
+            var partialProject = Path.Combine(output, $"partial-journal-{sendReference}.tex");
+            var originalBook = new AiNotebook();
+            var mixed = new AiEntry { Question = "引用说明", AnswerAnchor = new("turn", "segment", 0, 2, "原文", "revision"), Files = [new AiAttachedFile("document.txt", "text/plain", "ZmlsZQ==")] };
+            mixed.ReferenceSelected = sendReference; mixed.AttachmentSelected = !sendReference;
+            originalBook.Entries.Add(mixed); AiStorage.Save(partialProject, originalBook);
+            var accepted = AiPanel.SnapshotSelectedParts(mixed, sendReference, !sendReference, 1);
+            var partialTurn = new AiTurn("处理", "") { Prompt = "处理", SentAnnotations = [accepted] };
+            var partialJournal = await AiTurnCheckpoint.StartAsync(partialProject, originalBook.Active.Id, "部分提交", partialTurn, new AiStreamBuffer());
+            var loaded = AiStorage.Load(partialProject); var remaining = loaded.Entries.Single();
+            Check(loaded.Turns.Single().SentAnnotations.Single().Id == mixed.Id &&
+                (sendReference ? !remaining.HasReference && remaining.Files.Count == 1 : remaining.HasReference && !remaining.HasAttachments),
+                "Partial journal recovery did not consume only the accepted part");
+            await partialJournal.StopAsync(); partialJournal.Commit();
+        }
         var largeBudget = new AiContextBudget(1_000_000);
         Check(largeBudget.Size(new string('x', 200_000)) < largeBudget.Limit, "Large model still compacts at the old 96k character ceiling");
         Check(new AiContextBudget(128000).Size(new string('中', 50000)) > new AiContextBudget(128000).Limit, "Conservative Unicode budget lost overflow protection");

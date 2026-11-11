@@ -1,0 +1,31 @@
+Stress: constructing 8 turns / 480 sections and formulas
+Stress: realized turns=2/8, viewport=735.5, extent=44495.5
+Scroll sample 12: layout=13.1ms hit=0.2ms queued=30.6ms
+Stress: scroll + pointer hit-test worst=44.0ms input-gap=201.8ms total=4793ms
+Pointer sample 0: elapsed=30.5ms
+Pointer sample 1: elapsed=304.5ms
+Pointer sample 2: elapsed=363.3ms
+Pointer sample 3: elapsed=380.2ms
+Pointer sample 4: elapsed=297.6ms
+Pointer sample 5: elapsed=32.9ms
+Pointer sample 6: elapsed=54.7ms
+Pointer sample 7: elapsed=59.8ms
+Pointer sample 8: elapsed=31.5ms
+Pointer sample 9: elapsed=28.8ms
+Pointer sample 10: elapsed=30.6ms
+Pointer sample 11: elapsed=31.4ms
+Pointer sample 12: elapsed=29.6ms
+Pointer sample 13: elapsed=30.9ms
+Pointer sample 14: elapsed=29.9ms
+Pointer sample 15: elapsed=32.5ms
+Pointer sample 16: elapsed=29.1ms
+Pointer sample 17: elapsed=30.0ms
+Pointer sample 18: elapsed=30.4ms
+Pointer sample 19: elapsed=30.5ms
+Pointer sample 20: elapsed=29.0ms
+Pointer sample 21: elapsed=29.9ms
+Pointer sample 22: elapsed=29.6ms
+Pointer sample 23: elapsed=32.7ms
+Pointer sample 24: elapsed=29.4ms
+AI reliability: 55 checks passed.
+Exit code: 0

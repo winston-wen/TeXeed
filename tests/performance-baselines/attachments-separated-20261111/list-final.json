@@ -1,0 +1,159 @@
+{
+  "fixture": "900x760 WPF; one reference and one 31-file directory; popup open; two warmups and seven paired ApplicationIdle",
+  "samples": [
+    {
+      "op": "reference",
+      "rawMs": 9.276,
+      "idleMs": 0.688,
+      "correctedMs": 8.588,
+      "rawBytes": 49016,
+      "idleBytes": 1768,
+      "correctedBytes": 47248,
+      "popupControls": 11,
+      "windowControls": 22
+    },
+    {
+      "op": "reference",
+      "rawMs": 7.1632,
+      "idleMs": 0.4598,
+      "correctedMs": 6.7034,
+      "rawBytes": 46120,
+      "idleBytes": 1768,
+      "correctedBytes": 44352,
+      "popupControls": 11,
+      "windowControls": 22
+    },
+    {
+      "op": "reference",
+      "rawMs": 7.7265,
+      "idleMs": 0.3214,
+      "correctedMs": 7.4051,
+      "rawBytes": 46120,
+      "idleBytes": 1768,
+      "correctedBytes": 44352,
+      "popupControls": 11,
+      "windowControls": 22
+    },
+    {
+      "op": "reference",
+      "rawMs": 7.5883,
+      "idleMs": 0.2703,
+      "correctedMs": 7.3180000000000005,
+      "rawBytes": 46120,
+      "idleBytes": 1768,
+      "correctedBytes": 44352,
+      "popupControls": 11,
+      "windowControls": 22
+    },
+    {
+      "op": "reference",
+      "rawMs": 9.2024,
+      "idleMs": 0.3332,
+      "correctedMs": 8.869200000000001,
+      "rawBytes": 46120,
+      "idleBytes": 1768,
+      "correctedBytes": 44352,
+      "popupControls": 11,
+      "windowControls": 22
+    },
+    {
+      "op": "reference",
+      "rawMs": 9.1995,
+      "idleMs": 0.4554,
+      "correctedMs": 8.7441,
+      "rawBytes": 46120,
+      "idleBytes": 1768,
+      "correctedBytes": 44352,
+      "popupControls": 11,
+      "windowControls": 22
+    },
+    {
+      "op": "reference",
+      "rawMs": 8.7876,
+      "idleMs": 0.4157,
+      "correctedMs": 8.3719,
+      "rawBytes": 46120,
+      "idleBytes": 1768,
+      "correctedBytes": 44352,
+      "popupControls": 11,
+      "windowControls": 22
+    },
+    {
+      "op": "attachment",
+      "rawMs": 8.3189,
+      "idleMs": 0.0306,
+      "correctedMs": 8.2883,
+      "rawBytes": 42552,
+      "idleBytes": 1768,
+      "correctedBytes": 40784,
+      "popupControls": 6,
+      "windowControls": 22
+    },
+    {
+      "op": "attachment",
+      "rawMs": 8.8899,
+      "idleMs": 0.4555,
+      "correctedMs": 8.4344,
+      "rawBytes": 39744,
+      "idleBytes": 1768,
+      "correctedBytes": 37976,
+      "popupControls": 6,
+      "windowControls": 22
+    },
+    {
+      "op": "attachment",
+      "rawMs": 8.2515,
+      "idleMs": 0.3451,
+      "correctedMs": 7.9064,
+      "rawBytes": 39744,
+      "idleBytes": 1768,
+      "correctedBytes": 37976,
+      "popupControls": 6,
+      "windowControls": 22
+    },
+    {
+      "op": "attachment",
+      "rawMs": 7.6265,
+      "idleMs": 0.3768,
+      "correctedMs": 7.2497,
+      "rawBytes": 39744,
+      "idleBytes": 1768,
+      "correctedBytes": 37976,
+      "popupControls": 6,
+      "windowControls": 22
+    },
+    {
+      "op": "attachment",
+      "rawMs": 17.0076,
+      "idleMs": 0.5213,
+      "correctedMs": 16.4863,
+      "rawBytes": 39608,
+      "idleBytes": 1768,
+      "correctedBytes": 37840,
+      "popupControls": 6,
+      "windowControls": 22
+    },
+    {
+      "op": "attachment",
+      "rawMs": 7.8963,
+      "idleMs": 0.2754,
+      "correctedMs": 7.6209,
+      "rawBytes": 42552,
+      "idleBytes": 1768,
+      "correctedBytes": 40784,
+      "popupControls": 6,
+      "windowControls": 22
+    },
+    {
+      "op": "attachment",
+      "rawMs": 8.8061,
+      "idleMs": 0.3506,
+      "correctedMs": 8.4555,
+      "rawBytes": 39744,
+      "idleBytes": 1768,
+      "correctedBytes": 37976,
+      "popupControls": 6,
+      "windowControls": 22
+    }
+  ]
+}

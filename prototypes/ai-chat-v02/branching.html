@@ -55,9 +55,8 @@
     <div id="status" class="status" role="status" aria-live="polite"></div>
     <section id="composer-pane" class="composer-pane" aria-label="提问">
       <div id="composer-context" class="composer-context" hidden></div>
-      <div id="attachment-list" class="attachment-list" aria-label="附件"></div>
       <div class="composer-input"><span class="line-numbers" aria-hidden="true">1<br>2<br>3</span><textarea id="composer" rows="3" aria-label="输入问题" placeholder="继续当前会话……"></textarea></div>
-      <div class="composer-controls"><button id="attach-toggle" type="button" aria-expanded="false" aria-label="添加附件">＋</button><button id="references-toggle" type="button">引用 · 0</button><span class="composer-spacer"></span><span class="shortcut">Ctrl + Enter 发送</span><button id="send" class="send" type="button" aria-label="发送问题" title="发送问题">↑</button></div>
+      <div class="composer-controls"><button id="attach-toggle" type="button" aria-expanded="false" aria-label="添加附件">＋</button><button id="references-toggle" type="button">引用 · 0</button><button id="attachments-toggle" type="button">附件 · 0</button><span class="composer-spacer"></span><span class="shortcut">Ctrl + Enter 发送</span><button id="send" class="send" type="button" aria-label="发送问题" title="发送问题">↑</button></div>
       <div id="attach-menu" class="attach-menu" hidden><button id="attach-files" type="button">添加图片或文件</button><button id="attach-folder" type="button">添加文件夹</button><span class="attach-note">浏览器可能无法粘贴系统文件夹；可使用“添加文件夹”。</span></div>
       <input id="file-input" type="file" multiple hidden><input id="folder-input" type="file" multiple webkitdirectory hidden>
     </section>
@@ -74,6 +73,10 @@
 <dialog id="references-panel" class="reference-dialog" aria-labelledby="references-title">
   <div class="bookmark-dialog-header"><span id="references-title">本次引用</span><button id="references-close" type="button" aria-label="关闭引用">×</button></div>
   <div id="references-list" class="references-list"></div>
+</dialog>
+<dialog id="attachments-panel" class="reference-dialog" aria-labelledby="attachments-title">
+  <div class="bookmark-dialog-header"><span id="attachments-title">本次附件</span><button id="attachments-close" type="button" aria-label="关闭附件">×</button></div>
+  <div id="attachment-list" class="attachment-list" aria-label="附件"></div>
 </dialog>
 <dialog id="reference-editor" class="reference-dialog" aria-labelledby="reference-title">
   <div class="bookmark-dialog-header"><span id="reference-title">添加引用</span><button id="reference-close" type="button" aria-label="关闭">×</button></div>

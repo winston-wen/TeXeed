@@ -100,6 +100,11 @@ internal static partial class Program
                     await CheckAiReferenceNavigationAsync(window, output);
                     await CloseAndObserveAsync(window, "AI reference navigation"); result = 0; return;
                 }
+                if (args.Contains("--ai-attachment-grouping-only"))
+                {
+                    await CheckAiAttachmentGroupingAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI attachment grouping"); result = 0; return;
+                }
                 if (args.Contains("--ai-toolbar-alignment-only"))
                 {
                     await CheckAiToolbarAlignmentAsync(window, output);

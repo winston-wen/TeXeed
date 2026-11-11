@@ -97,12 +97,13 @@ internal static partial class Program
         reconciliation.Entries[0].Files.Add(new AiAttachedFile("new.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("new"))));
         reconciliation.ReconcileSentAnnotations();
         Check(reconciliation.Entries.Count == 1, "Recovery discarded a changed attachment draft");
-        attached.Files.Add(new AiAttachedFile("attachment-fixture/second.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("second"))));
+        attached.Files.Add(new AiAttachedFile("loose.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("second"))));
         Invoke(ai, "Rebind");
-        var attachmentPopup = (System.Windows.Controls.Primitives.Popup)ai.FindName("EntriesPopup");
+        Check(((Button)ai.FindName("EntriesButton")).Content.ToString() == "引用 · 1" && ((Button)ai.FindName("AttachmentsButton")).Content.ToString() == "附件 · 2", "Reference and attachment counts were mixed");
+        var attachmentPopup = (System.Windows.Controls.Primitives.Popup)ai.FindName("AttachmentsPopup");
         attachmentPopup.IsOpen = true; window.UpdateLayout(); await Task.Delay(100);
-        var fileButtons = Descendants<Button>(attachmentPopup.Child).Where(b => Equals(b.ToolTip, "移除此文件")).ToArray();
-        Check(fileButtons.Length == 2, "Attachment list did not show one remove control per file");
+        var fileButtons = Descendants<Button>(attachmentPopup.Child).Where(b => Equals(b.ToolTip, "移除此附件")).ToArray();
+        Check(fileButtons.Length == 2 && Descendants<TextBlock>(attachmentPopup.Child).Any(t => t.Text.EndsWith("attachment-fixture")) && Descendants<TextBlock>(attachmentPopup.Child).Any(t => t.Text == "\\") && !Descendants<TextBlock>(attachmentPopup.Child).Any(t => t.Text.Contains("notes.tex")), "Folder attachment did not collapse to its directory path");
         var popupVisual = (FrameworkElement)attachmentPopup.Child;
         var popupBitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(popupVisual.ActualWidth), (int)Math.Ceiling(popupVisual.ActualHeight), 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
         popupBitmap.Render(popupVisual);
@@ -110,11 +111,66 @@ internal static partial class Program
         using (var popupFile = File.Create(Path.Combine(output, "attachment-list.png"))) popupPng.Save(popupFile);
         fileButtons[0].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
         attachmentPopup.IsOpen = false;
-        Check(attached.Files.Count == 1 && attached.Files[0].Name.EndsWith("second.txt") && book.Entries.Contains(attached), "Removing one file removed the wrong attachment or whole group");
+        Check(attached.Files.Count == 1 && attached.Files[0].Name == "loose.txt" && book.Entries.Contains(attached), "Removing one folder removed the wrong attachment or whole group");
         var filesAfterRemoval = AiResponses.MakeInput([attached.Snapshot()], [])[0]!["content"]!.AsArray();
-        Check(filesAfterRemoval.Any(part => part?["text"]?.GetValue<string>()?.Contains("second.txt") == true) &&
+        Check(filesAfterRemoval.Any(part => part?["text"]?.GetValue<string>()?.Contains("loose.txt") == true) &&
               !filesAfterRemoval.Any(part => part?["text"]?.GetValue<string>()?.Contains("notes.tex") == true), "Removed attachment still entered the request");
         book.Entries.Remove(attached);
+        var mixed = new AiEntry { Question = "引用评论", AnswerAnchor = new("turn", "segment", 0, 2, "原文", "rev"), Files = [new AiAttachedFile("sample.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("file")))] };
+        mixed.Images.Add(new AiPastedImage("comment-image"));
+        mixed.ReferenceSelected = true; mixed.AttachmentSelected = false;
+        var referenceOnly = AiPanel.SnapshotSelectedParts(mixed, true, false, 1);
+        Check(referenceOnly.AnswerAnchor is not null && referenceOnly.Images.Count == 1 && referenceOnly.Files.Count == 0, "Reference-only submission included attachments or lost comment images");
+        var mixedBook = new AiNotebook(); mixedBook.Entries.Add(mixed);
+        ai.ConsumeSelectedParts(mixedBook, mixed, true, false);
+        Check(mixedBook.Entries.Count == 1 && mixed.HasAttachments && !mixed.HasReference && mixed.Files.Count == 1, "Submitting reference consumed the unselected attachment");
+        mixedBook.Turns.Add(new AiTurn("问题", "回答") { Prompt = "问题", SentAnnotations = [referenceOnly] });
+        var mixedPath = Path.Combine(output, "split-selection.tex"); AiStorage.Save(mixedPath, mixedBook.Snapshot());
+        Check(AiStorage.Load(mixedPath).Entries.Single().Files.Count == 1, "Recovery discarded the unselected attachment");
+        var mixedReverse = new AiEntry { Question = "保留的评论", AnswerAnchor = new("turn", "segment", 0, 2, "原文", "rev"), Files = [new AiAttachedFile("sample.txt", "text/plain", "ZmlsZQ==")] };
+        mixedReverse.Images.Add(new AiPastedImage("comment-image"));
+        var attachmentOnly = AiPanel.SnapshotSelectedParts(mixedReverse, false, true, 1);
+        Check(attachmentOnly.AnswerAnchor is null && attachmentOnly.Images.Count == 0 && attachmentOnly.Files.Count == 1 && attachmentOnly.Question == "", "Attachment-only submission included reference or its comment image");
+        var reverseBook = new AiNotebook(); reverseBook.Entries.Add(mixedReverse); ai.ConsumeSelectedParts(reverseBook, mixedReverse, false, true);
+        Check(reverseBook.Entries.Count == 1 && mixedReverse.AnswerAnchor is not null && mixedReverse.Question == "保留的评论" && mixedReverse.Images.Count == 1 && mixedReverse.Files.Count == 0, "Submitting attachment consumed the unselected reference");
+        foreach (var (sendReference, changedSent) in new[] { (true, false), (false, false), (true, true), (false, true) })
+        {
+            var original = new AiEntry { Question = "原引用", AnswerAnchor = new("t", "s", 0, 2, "原文", "rev"), Files = [new AiAttachedFile("file.txt", "text/plain", "Zg==")] };
+            original.ReferenceSelected = sendReference; original.AttachmentSelected = !sendReference;
+            var checkpoint = AiPanel.SnapshotSelectedParts(original, sendReference, !sendReference, 1);
+            if (changedSent) { if (sendReference) original.Question = "用户修改的引用"; else original.Files.Add(new AiAttachedFile("new.txt", "text/plain", "bg==")); }
+            else { if (sendReference) original.Files.Add(new AiAttachedFile("new.txt", "text/plain", "bg==")); else original.Question = "用户修改的引用"; }
+            var crashBook = new AiNotebook(); crashBook.Entries.Add(original); crashBook.Turns.Add(new AiTurn("处理", "回答") { Prompt = "处理", SentAnnotations = [checkpoint] });
+            var crashPath = Path.Combine(output, $"partial-checkpoint-{sendReference}-{changedSent}.tex"); AiStorage.Save(crashPath, crashBook);
+            var recovered = AiStorage.Load(crashPath).Entries.Single();
+            Check(changedSent ? recovered.HasReference && recovered.HasAttachments : sendReference ? !recovered.HasReference && recovered.Files.Count == 2 : recovered.HasReference && !recovered.HasAttachments && recovered.Question == "用户修改的引用", "Partial checkpoint recovery lost an edit or left an accepted part pending");
+        }
+        var mixedUi = new AiEntry { Question = "混合引用", AnswerAnchor = new("t", "s", 0, 2, "原文", "rev"), Files = [new AiAttachedFile("file.txt", "text/plain", "Zg==")] };
+        book.Entries.Add(mixedUi); Invoke(ai, "Rebind");
+        Check(((ItemsControl)ai.FindName("Entries")).Items.Contains(mixedUi) && ((ItemsControl)ai.FindName("Attachments")).Items.Contains(mixedUi), "Legacy mixed entry did not appear in both separate lists");
+        mixedUi.ReferenceSelected = false; mixedUi.AttachmentSelected = true;
+        Check(!mixedUi.ReferenceSelected && mixedUi.AttachmentSelected, "Reference and attachment checkboxes are not independent");
+        Invoke(ai, "RemoveReference", mixedUi);
+        Check(book.Entries.Contains(mixedUi) && mixedUi.Files.Count == 1 && mixedUi.AnswerAnchor is null, "Removing a reference deleted its attachment");
+        book.Entries.Remove(mixedUi); Invoke(ai, "Rebind");
+        using var extraFixture = JsonDocument.Parse("{\"extension\":\"keep\"}");
+        var oldImage = new AiEntry { Title = "粘贴的图片", Question = "图片说明", Images = new(pastedSnapshot.Images), Files = [new AiAttachedFile("legacy.txt", "text/plain", "Zg==")], AdditionalData = new() { ["future"] = extraFixture.RootElement.Clone() } };
+        oldImage.ReferenceSelected = true; oldImage.AttachmentSelected = false;
+        book.Entries.Add(oldImage); Invoke(ai, "Rebind");
+        var referencePopup = (System.Windows.Controls.Primitives.Popup)ai.FindName("EntriesPopup"); referencePopup.IsOpen = true; window.UpdateLayout(); await Task.Delay(100);
+        var oldImageReference = Descendants<ContentControl>(referencePopup.Child).Single(c => ReferenceEquals(c.DataContext, oldImage) && Equals(c.Tag, "ReferenceImages"));
+        Check(oldImageReference.Visibility == Visibility.Collapsed && oldImageReference.Content is null, "Legacy composer image was repeated in the reference list");
+        referencePopup.IsOpen = false;
+        Check(ai.AddReferenceImage(oldImage, bitmap, out var pasteSplitError, out var separatedImage) && separatedImage && pasteSplitError.Length == 0, "Pasting a comment image did not separate legacy attachment images");
+        var oldAttachment = book.Entries[book.Entries.IndexOf(oldImage) + 1];
+        Check(oldImage.HasReference && !oldImage.HasAttachments && oldImage.Images.Count == 1 && oldImage.Question == "图片说明" &&
+            oldAttachment.HasAttachments && !oldAttachment.HasReference && oldAttachment.Images.Count == 2 && oldAttachment.Files.Single().Name == "legacy.txt" &&
+            !oldAttachment.AttachmentSelected && oldImage.ReferenceSelected && oldImage.AdditionalData?.ContainsKey("future") == true && oldAttachment.AdditionalData?.ContainsKey("future") == true,
+            "Legacy image separation lost order, selection, comment or extension data");
+        var oldImageProject = Path.Combine(output, "old-image-split.tex"); AiStorage.Save(oldImageProject, book.Snapshot());
+        var reloadedOldImages = AiStorage.Load(oldImageProject).Entries.Where(e => e.Id == oldImage.Id || e.Id == oldAttachment.Id).ToArray();
+        Check(reloadedOldImages.Length == 2 && reloadedOldImages.Single(e => e.Id == oldImage.Id).Images.Count == 1 && reloadedOldImages.Single(e => e.Id == oldAttachment.Id).Images.Count == 2, "Separated legacy image draft did not survive reload");
+        book.Entries.Remove(oldImage); book.Entries.Remove(oldAttachment); Invoke(ai, "Rebind");
         Check(AiStorage.NotebookPath(project.MainPath) != AiStorage.NotebookPath(project.MainPath + "x"), "Project notebook isolation failed");
         var credentials = new AiCredentials { ApiKey = "test-key-never-send", UseApiKey = true }; credentials.Save();
         Check(AiCredentials.Load().ApiKey == credentials.ApiKey && !Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(AiStorage.Home, "credentials.dpapi"))).Contains(credentials.ApiKey), "DPAPI secret storage failed");
@@ -200,6 +256,20 @@ internal static partial class Program
             Check(savedHistory.Conversations.Count == 1 && savedHistory.Active.Id == secondId && savedHistory.Draft == "草稿 B", "Conversation deletion did not persist");
             await batchPanel.DeleteConversationAsync(secondId);
             Check(batchBook.Conversations.Count == 1 && batchBook.Turns.Count == 0 && batchBook.Active.Id != secondId, "Deleting last conversation must yield a fresh empty chat");
+        }
+        foreach (var (sendReference, fail) in new[] { (true, false), (false, true) })
+        {
+            var mixedProject = Path.Combine(output, fail ? "partial-failure.tex" : "partial-success.tex");
+            using var partialPanel = new AiPanel(new AiConnection(new AiFakeHandler { ProgramFailure = fail }));
+            await partialPanel.SetProjectAsync(mixedProject); partialPanel.ProjectFiles = () => files;
+            var models = (ComboBox)partialPanel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("test-model", "测试模型") }; models.SelectedIndex = 0;
+            var partial = new AiEntry { Question = "引用的说明", AnswerAnchor = new("t", "s", 0, 2, "原文", "rev"), Files = [new AiAttachedFile("partial.txt", "text/plain", "ZmlsZQ==")] };
+            partial.ReferenceSelected = sendReference; partial.AttachmentSelected = !sendReference;
+            partialPanel.AddEntry(partial); ((TextBox)partialPanel.FindName("Composer")).Text = "处理所选内容";
+            await partialPanel.SubmitAsync();
+            var reloaded = AiStorage.Load(mixedProject); var sent = reloaded.Turns.Single().SentAnnotations.Single(); var pending = reloaded.Entries.Single();
+            Check(sendReference ? sent.AnswerAnchor is not null && sent.Files.Count == 0 && pending.AnswerAnchor is null && pending.Files.Count == 1 : sent.AnswerAnchor is null && sent.Files.Count == 1 && pending.AnswerAnchor is not null && pending.Files.Count == 0, "Partial submission or reload consumed the unselected part");
+            Check(reloaded.Turns.Single().IsIncomplete == fail, "Partial submission failure state was not preserved");
         }
         var legacyProject = Path.Combine(output, "legacy-ai.tex");
         var legacyPath = AiStorage.NotebookPath(legacyProject); Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);

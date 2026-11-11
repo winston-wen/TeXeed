@@ -153,6 +153,8 @@ public sealed class AiTurnView : StackPanel
     internal static string LinkLabel(AiEntry entry) => AnnotationSummary(entry).Replace("[", "\\[").Replace("]", "\\]");
     internal static string AnnotationSummary(AiEntry entry)
     {
+        if (!entry.HasReference && entry.HasAttachments)
+            return string.Join("、", entry.AttachmentItems.Select(item => item.DisplayPath).Concat(entry.HasAttachmentImages ? ["粘贴的图片"] : Array.Empty<string>()));
         var text = string.IsNullOrWhiteSpace(entry.Question) ? entry.AnswerAnchor?.Quote ?? entry.Sources.FirstOrDefault()?.Text ?? entry.Title : entry.Question;
         text = Regex.Replace(text, @"\s+", " ").Trim();
         text = string.Concat(text.EnumerateRunes().Take(80));

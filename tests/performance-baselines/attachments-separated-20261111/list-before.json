@@ -1,0 +1,82 @@
+{
+  "fixture": "900x760 WPF; one reference and one 31-file directory; popup open; two warmups and seven paired ApplicationIdle",
+  "samples": [
+    {
+      "op": "combined",
+      "rawMs": 11.6512,
+      "idleMs": 1.3633,
+      "correctedMs": 10.287899999999999,
+      "rawBytes": 56600,
+      "idleBytes": 1768,
+      "correctedBytes": 54832,
+      "popupControls": 25,
+      "windowControls": 21
+    },
+    {
+      "op": "combined",
+      "rawMs": 12.2836,
+      "idleMs": 0.0302,
+      "correctedMs": 12.2534,
+      "rawBytes": 56512,
+      "idleBytes": 1768,
+      "correctedBytes": 54744,
+      "popupControls": 25,
+      "windowControls": 21
+    },
+    {
+      "op": "combined",
+      "rawMs": 8.1867,
+      "idleMs": 0.2654,
+      "correctedMs": 7.9213000000000005,
+      "rawBytes": 56512,
+      "idleBytes": 1768,
+      "correctedBytes": 54744,
+      "popupControls": 25,
+      "windowControls": 21
+    },
+    {
+      "op": "combined",
+      "rawMs": 11.2786,
+      "idleMs": 1.8601,
+      "correctedMs": 9.418500000000002,
+      "rawBytes": 56512,
+      "idleBytes": 1768,
+      "correctedBytes": 54744,
+      "popupControls": 25,
+      "windowControls": 21
+    },
+    {
+      "op": "combined",
+      "rawMs": 7.5509,
+      "idleMs": 0.3365,
+      "correctedMs": 7.2144,
+      "rawBytes": 56512,
+      "idleBytes": 1768,
+      "correctedBytes": 54744,
+      "popupControls": 25,
+      "windowControls": 21
+    },
+    {
+      "op": "combined",
+      "rawMs": 7.9843,
+      "idleMs": 0.2352,
+      "correctedMs": 7.7491,
+      "rawBytes": 56512,
+      "idleBytes": 1768,
+      "correctedBytes": 54744,
+      "popupControls": 25,
+      "windowControls": 21
+    },
+    {
+      "op": "combined",
+      "rawMs": 8.9633,
+      "idleMs": 0.248,
+      "correctedMs": 8.715300000000001,
+      "rawBytes": 56512,
+      "idleBytes": 1768,
+      "correctedBytes": 54744,
+      "popupControls": 25,
+      "windowControls": 21
+    }
+  ]
+}

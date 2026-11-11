@@ -12,7 +12,8 @@ namespace TeXeed.App.Controls;
 internal static class AiAnnotationImages
 {
     internal static void EnablePaste(TextBox input, AiEntry entry, Action changed, Action<string> report,
-        Func<bool>? hasImage = null, Func<BitmapSource?>? readImage = null, Func<ModifierKeys>? modifiers = null)
+        Func<bool>? hasImage = null, Func<BitmapSource?>? readImage = null, Func<ModifierKeys>? modifiers = null,
+        Func<BitmapSource, (bool Success, string Error)>? addImage = null)
     {
         input.PreviewKeyDown += (_, e) =>
         {
@@ -22,7 +23,8 @@ internal static class AiAnnotationImages
                 if (!(hasImage?.Invoke() ?? Clipboard.ContainsImage())) return;
                 e.Handled = true;
                 if ((readImage is null ? Clipboard.GetImage() : readImage()) is not { } image) { report("剪贴板图片无法读取。"); return; }
-                if (!Add(entry, image, out var error)) { report(error); return; }
+                var added = addImage is null ? (Add(entry, image, out var error), error) : addImage(image);
+                if (!added.Item1) { report(added.Item2); return; }
                 changed();
             }
             catch (Exception ex) when (ex is ExternalException or UnauthorizedAccessException or IOException or InvalidOperationException or NotSupportedException or ArgumentException)

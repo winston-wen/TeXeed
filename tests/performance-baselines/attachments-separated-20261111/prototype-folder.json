@@ -1,0 +1,468 @@
+{
+  "environment": {
+    "browser": "157.0.8103.40",
+    "platform": "win32",
+    "release": "10.0.26300",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "viewport": "1000x820"
+  },
+  "resources": {
+    "before": {
+      "branching.js": "39b1758f9943d65aa4825a580c5dc4f5bf69c11dcbc7da10e16942f50b0a2cf4",
+      "branching.html": "101ee77ea73250b3371bbd1aad5e0b33e0d64ebcc8ec0042e556b1c1298132a1",
+      "branching.css": "71b3e98fc4f65694eb85617dbc0dc8f507cfff3ac21e25a5175d1d762368e6d6"
+    },
+    "after": {
+      "branching.js": "10e22ebccd93e26438978a8c20c6dea6a762cbf391e53a650cee638719f1979d",
+      "branching.html": "4f43fee8cdc50a9b671bb116e0bfe9c75487ab222770abfa774d3ae6e62954fc",
+      "branching.css": "e7326f902742be2e9721bfc88950713369c804d9e78d6655b3df60ad192cede4"
+    }
+  },
+  "method": "120 turns; one reference, 31 files under one directory; 2 warmups + 7 paired two frames plus 220ms; CDP sampling 1024 bytes",
+  "measurements": [
+    {
+      "mode": "before",
+      "op": "state",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 268.1000000089407,
+            "bytes": 7512
+          },
+          "work": {
+            "sync": 13.200000002980232,
+            "elapsed": 258.20000000298023,
+            "bytes": 311216
+          },
+          "correctedMs": -9.900000005960464,
+          "correctedBytes": 303704
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 266.6000000089407,
+            "bytes": 8352
+          },
+          "work": {
+            "sync": 14.099999994039536,
+            "elapsed": 255.20000000298023,
+            "bytes": 302132
+          },
+          "correctedMs": -11.400000005960464,
+          "correctedBytes": 293780
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 261.8999999910593,
+            "bytes": 6224
+          },
+          "work": {
+            "sync": 14.699999988079071,
+            "elapsed": 264.3999999910593,
+            "bytes": 317108
+          },
+          "correctedMs": 2.5,
+          "correctedBytes": 310884
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 253.79999999701977,
+            "bytes": 7576
+          },
+          "work": {
+            "sync": 15.200000002980232,
+            "elapsed": 260.20000000298023,
+            "bytes": 283316
+          },
+          "correctedMs": 6.4000000059604645,
+          "correctedBytes": 275740
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 265.70000000298023,
+            "bytes": 6280
+          },
+          "work": {
+            "sync": 14.700000002980232,
+            "elapsed": 269.29999999701977,
+            "bytes": 310160
+          },
+          "correctedMs": 3.5999999940395355,
+          "correctedBytes": 303880
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 260,
+            "bytes": 12828
+          },
+          "work": {
+            "sync": 12.599999994039536,
+            "elapsed": 268.5,
+            "bytes": 289896
+          },
+          "correctedMs": 8.5,
+          "correctedBytes": 277068
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 257.20000000298023,
+            "bytes": 2304
+          },
+          "work": {
+            "sync": 15.5,
+            "elapsed": 259,
+            "bytes": 296612
+          },
+          "correctedMs": 1.7999999970197678,
+          "correctedBytes": 294308
+        }
+      ],
+      "medianSync": 14.699999988079071,
+      "medianCorrected": 2.5,
+      "medianBytes": 294308,
+      "counts": {
+        "nodes": 1277,
+        "controls": 43
+      }
+    },
+    {
+      "mode": "after",
+      "op": "state",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 252.40000000596046,
+            "bytes": 6240
+          },
+          "work": {
+            "sync": 12.700000002980232,
+            "elapsed": 257.5,
+            "bytes": 297528
+          },
+          "correctedMs": 5.0999999940395355,
+          "correctedBytes": 291288
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 264.40000000596046,
+            "bytes": 3200
+          },
+          "work": {
+            "sync": 12.200000002980232,
+            "elapsed": 254.29999999701977,
+            "bytes": 296320
+          },
+          "correctedMs": -10.100000008940697,
+          "correctedBytes": 293120
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 261.20000000298023,
+            "bytes": 8528
+          },
+          "work": {
+            "sync": 11.600000008940697,
+            "elapsed": 266.20000000298023,
+            "bytes": 297020
+          },
+          "correctedMs": 5,
+          "correctedBytes": 288492
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 253.5,
+            "bytes": 15040
+          },
+          "work": {
+            "sync": 13.300000011920929,
+            "elapsed": 261,
+            "bytes": 305440
+          },
+          "correctedMs": 7.5,
+          "correctedBytes": 290400
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 264.80000001192093,
+            "bytes": 3104
+          },
+          "work": {
+            "sync": 15.5,
+            "elapsed": 269.3999999910593,
+            "bytes": 294340
+          },
+          "correctedMs": 4.599999979138374,
+          "correctedBytes": 291236
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 261.40000000596046,
+            "bytes": 6540
+          },
+          "work": {
+            "sync": 15.200000002980232,
+            "elapsed": 269.09999999403954,
+            "bytes": 283136
+          },
+          "correctedMs": 7.699999988079071,
+          "correctedBytes": 276596
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 258.5,
+            "bytes": 4164
+          },
+          "work": {
+            "sync": 14.700000002980232,
+            "elapsed": 266.70000000298023,
+            "bytes": 282788
+          },
+          "correctedMs": 8.200000002980232,
+          "correctedBytes": 278624
+        }
+      ],
+      "medianSync": 13.300000011920929,
+      "medianCorrected": 5.0999999940395355,
+      "medianBytes": 290400,
+      "counts": {
+        "nodes": 1193,
+        "controls": 13
+      }
+    },
+    {
+      "mode": "after",
+      "op": "attachments-open",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 266.09999999403954,
+            "bytes": 4172
+          },
+          "work": {
+            "sync": 4.4000000059604645,
+            "elapsed": 257.6000000089407,
+            "bytes": 13524
+          },
+          "correctedMs": -8.499999985098839,
+          "correctedBytes": 9352
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 256,
+            "bytes": 6272
+          },
+          "work": {
+            "sync": 3.9000000059604645,
+            "elapsed": 255.5,
+            "bytes": 9348
+          },
+          "correctedMs": -0.5,
+          "correctedBytes": 3076
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 254.30000001192093,
+            "bytes": 8608
+          },
+          "work": {
+            "sync": 3.7000000029802322,
+            "elapsed": 266.79999999701977,
+            "bytes": 12536
+          },
+          "correctedMs": 12.499999985098839,
+          "correctedBytes": 3928
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 250.5,
+            "bytes": 9500
+          },
+          "work": {
+            "sync": 4.5,
+            "elapsed": 262.79999999701977,
+            "bytes": 20840
+          },
+          "correctedMs": 12.299999997019768,
+          "correctedBytes": 11340
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 244.8999999910593,
+            "bytes": 7308
+          },
+          "work": {
+            "sync": 4.200000002980232,
+            "elapsed": 259,
+            "bytes": 15672
+          },
+          "correctedMs": 14.100000008940697,
+          "correctedBytes": 8364
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 263.20000000298023,
+            "bytes": 5256
+          },
+          "work": {
+            "sync": 4.9000000059604645,
+            "elapsed": 253.70000000298023,
+            "bytes": 14816
+          },
+          "correctedMs": -9.5,
+          "correctedBytes": 9560
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 256,
+            "bytes": 8628
+          },
+          "work": {
+            "sync": 5,
+            "elapsed": 263.29999999701977,
+            "bytes": 13568
+          },
+          "correctedMs": 7.299999997019768,
+          "correctedBytes": 4940
+        }
+      ],
+      "medianSync": 4.4000000059604645,
+      "medianCorrected": 7.299999997019768,
+      "medianBytes": 8364,
+      "counts": {
+        "nodes": 1193,
+        "controls": 15
+      }
+    },
+    {
+      "mode": "after",
+      "op": "references-open",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 256.20000000298023,
+            "bytes": 4424
+          },
+          "work": {
+            "sync": 3.5,
+            "elapsed": 262.29999999701977,
+            "bytes": 12760
+          },
+          "correctedMs": 6.0999999940395355,
+          "correctedBytes": 8336
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 263.40000000596046,
+            "bytes": 3368
+          },
+          "work": {
+            "sync": 4.100000008940697,
+            "elapsed": 252.5,
+            "bytes": 6400
+          },
+          "correctedMs": -10.900000005960464,
+          "correctedBytes": 3032
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 254.5,
+            "bytes": 14812
+          },
+          "work": {
+            "sync": 3.9000000059604645,
+            "elapsed": 265,
+            "bytes": 6228
+          },
+          "correctedMs": 10.5,
+          "correctedBytes": -8584
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 265.70000000298023,
+            "bytes": 5232
+          },
+          "work": {
+            "sync": 5,
+            "elapsed": 255.90000000596046,
+            "bytes": 7316
+          },
+          "correctedMs": -9.799999997019768,
+          "correctedBytes": 2084
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 252.1000000089407,
+            "bytes": 5220
+          },
+          "work": {
+            "sync": 4.700000002980232,
+            "elapsed": 252.40000000596046,
+            "bytes": 5232
+          },
+          "correctedMs": 0.29999999701976776,
+          "correctedBytes": 12
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 250.29999999701977,
+            "bytes": 10416
+          },
+          "work": {
+            "sync": 4,
+            "elapsed": 259.80000001192093,
+            "bytes": 8360
+          },
+          "correctedMs": 9.500000014901161,
+          "correctedBytes": -2056
+        },
+        {
+          "empty": {
+            "sync": 0,
+            "elapsed": 263.6000000089407,
+            "bytes": 7316
+          },
+          "work": {
+            "sync": 4.399999991059303,
+            "elapsed": 253.09999999403954,
+            "bytes": 9720
+          },
+          "correctedMs": -10.500000014901161,
+          "correctedBytes": 2404
+        }
+      ],
+      "medianSync": 4.100000008940697,
+      "medianCorrected": 0.29999999701976776,
+      "medianBytes": 2084,
+      "counts": {
+        "nodes": 1202,
+        "controls": 17
+      }
+    }
+  ]
+}

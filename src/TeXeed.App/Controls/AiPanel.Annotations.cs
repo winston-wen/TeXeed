@@ -24,12 +24,13 @@ public partial class AiPanel
     internal void RemoveAnnotation(AiEntry entry)
     {
         if (entry.State == "提交中") return;
+        if (entry.HasReference && entry.HasAttachments) { RemoveReference(entry); return; }
         _book.Entries.Remove(entry); entry.PropertyChanged -= AnnotationChanged; Rebind(); Dirty();
     }
     internal void ConfirmAnnotation(AiEntry entry)
     {
         if (!_book.Entries.Contains(entry)) return;
-        entry.Selected = true;
+        entry.Selected = true; entry.ReferenceSelected = true;
         Dirty();
     }
     private static AiTurn? AnswerTurn(MarkdownView view)

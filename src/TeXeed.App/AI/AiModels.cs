@@ -16,7 +16,16 @@ public sealed record AiPdfBlock(int Page, double X, double Y, double Width, doub
     public double? PointY { get; init; }
 }
 public sealed record AiPastedImage(string ImageBase64);
-public sealed record AiAttachedFile(string Name, string MimeType, string Base64);
+public sealed record AiAttachedFile(string Name, string MimeType, string Base64)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FolderPath { get; init; }
+}
+public sealed record AiAttachmentItem(string DisplayPath, bool IsFolder, IReadOnlyList<AiAttachedFile> Files)
+{
+    public string DisplayStem => IsFolder ? DisplayPath[..^1] : DisplayPath;
+    public string DisplayTerminator => IsFolder ? DisplayPath[^1..] : "";
+}
 public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
 {
     // Semantic text offset survives responsive columns changing the FlowDocument structure.
@@ -53,13 +62,52 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
     [JsonIgnore] public string DisplayTitle => Number > 0 ? $"#{Number} · {Title}" : Title;
     private bool _selected = true;
     public bool Selected { get => _selected; set { if (_selected == value) return; _selected = value; PropertyChanged?.Invoke(this, new(nameof(Selected))); } }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? ReferenceSelection { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? AttachmentSelection { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? SentReferencePart { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? SentAttachmentPart { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? EntryKind { get; set; }
+    [JsonIgnore] public bool ReferenceSelected { get => ReferenceSelection ?? Selected; set { ReferenceSelection = value; PropertyChanged?.Invoke(this, new(nameof(ReferenceSelected))); } }
+    [JsonIgnore] public bool AttachmentSelected { get => AttachmentSelection ?? Selected; set { AttachmentSelection = value; PropertyChanged?.Invoke(this, new(nameof(AttachmentSelected))); } }
     public string State { get; set; } = "待提交";
     public List<AiSourceBlock> Sources { get; set; } = [];
     public List<AiPdfBlock> PdfBlocks { get; set; } = [];
     public System.Collections.ObjectModel.ObservableCollection<AiPastedImage> Images { get; set; } = [];
     public List<AiAttachedFile> Files { get; set; } = [];
+    [JsonIgnore] public bool HasAttachmentImages => Images.Count > 0 && (EntryKind == "attachment" ||
+        EntryKind is null && Title == "粘贴的图片" && AnswerAnchor is null && Sources.Count == 0 && PdfBlocks.Count == 0);
+    [JsonIgnore] public bool HasAttachments => Files.Count > 0 || HasAttachmentImages;
+    [JsonIgnore] public bool HasReference => AnswerAnchor is not null || Sources.Count > 0 || PdfBlocks.Count > 0 ||
+        EntryKind != "attachment" && (!HasAttachments || !string.IsNullOrWhiteSpace(Question));
+    [JsonIgnore] public IReadOnlyList<AiAttachmentItem> AttachmentItems
+    {
+        get
+        {
+            var items = new List<AiAttachmentItem>();
+            var groups = new Dictionary<string, List<AiAttachedFile>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in Files)
+            {
+                var folder = file.FolderPath;
+                if (string.IsNullOrWhiteSpace(folder))
+                {
+                    // Earlier versions saved directory attachments as relative paths.
+                    var slash = file.Name.IndexOfAny(['/', '\\']);
+                    if (slash > 0 && !Path.IsPathRooted(file.Name)) folder = file.Name[..(slash + 1)];
+                }
+                if (string.IsNullOrWhiteSpace(folder)) { items.Add(new(file.Name, false, [file])); continue; }
+                folder = folder.TrimEnd('/', '\\') + (folder.Contains('\\') ? "\\" : "/");
+                if (!groups.TryGetValue(folder, out var files))
+                {
+                    groups.Add(folder, files = []);
+                    items.Add(new(folder, true, files));
+                }
+                files.Add(file);
+            }
+            return items;
+        }
+    }
     public string PdfRevision { get; set; } = "";
-    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], Images = new(Images), Files = [.. Files], PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
+    public AiEntry Snapshot(int? number = null) => new() { Id = Id, Number = number ?? Number, Title = Title, Question = Question, Selected = Selected, ReferenceSelection = ReferenceSelection, AttachmentSelection = AttachmentSelection, SentReferencePart = SentReferencePart, SentAttachmentPart = SentAttachmentPart, EntryKind = EntryKind, State = State, AnswerAnchor = AnswerAnchor, Sources = [.. Sources], PdfBlocks = [.. PdfBlocks], Images = new(Images), Files = [.. Files], PdfRevision = PdfRevision, IsPoint = IsPoint, AdditionalData = AdditionalData is null ? null : new(AdditionalData) };
     public bool IsPoint { get; set; }
 }
 public sealed record AiTurn(string Question, string Answer)
@@ -176,15 +224,47 @@ public sealed class AiConversation
             Turns[i] = turn with { Prompt = prompt.Trim('\n'), SentAnnotations = entries.Select((e, n) => e.Snapshot(n + 1)).ToList() };
             changed = true;
         }
-        var sent = Turns.SelectMany(t => t.SentAnnotations).GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.Last());
+        var sent = Turns.SelectMany(t => t.SentAnnotations).GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.ToArray());
         // Acceptance, rather than successful completion, consumes a pending entry.
         // Compare the payload too so an edited/replaced draft remains untouched.
-        return Entries.RemoveAll(e => sent.TryGetValue(e.Id, out var snapshot)
-            && e.Title == snapshot.Title && e.Question == snapshot.Question
-            && e.PdfRevision == snapshot.PdfRevision && e.IsPoint == snapshot.IsPoint
-            && e.AnswerAnchor == snapshot.AnswerAnchor
-            && e.Sources.SequenceEqual(snapshot.Sources) && e.PdfBlocks.SequenceEqual(snapshot.PdfBlocks)
-            && e.Images.SequenceEqual(snapshot.Images) && e.Files.SequenceEqual(snapshot.Files)) > 0 || changed;
+        foreach (var entry in Entries.ToArray())
+        {
+            if (!sent.TryGetValue(entry.Id, out var snapshots)) continue;
+            foreach (var snapshot in snapshots)
+            {
+                if (snapshot.SentReferencePart is null && snapshot.SentAttachmentPart is null)
+                {
+                    if (entry.Title == snapshot.Title && entry.Question == snapshot.Question && entry.PdfRevision == snapshot.PdfRevision && entry.IsPoint == snapshot.IsPoint &&
+                        entry.AnswerAnchor == snapshot.AnswerAnchor && entry.Sources.SequenceEqual(snapshot.Sources) && entry.PdfBlocks.SequenceEqual(snapshot.PdfBlocks) &&
+                        entry.Images.SequenceEqual(snapshot.Images) && entry.Files.SequenceEqual(snapshot.Files))
+                    { Entries.Remove(entry); changed = true; break; }
+                    continue;
+                }
+                // Only consume an accepted part while its content still matches the checkpoint.
+                if (entry.AdditionalData is { Count: > 0 }) continue;
+                var imageIsAttachment = entry.HasAttachmentImages;
+                var referenceMatches = snapshot.SentReferencePart == true && entry.HasReference && entry.Title == snapshot.Title &&
+                    entry.Question == snapshot.Question && entry.AnswerAnchor == snapshot.AnswerAnchor && entry.PdfRevision == snapshot.PdfRevision &&
+                    entry.IsPoint == snapshot.IsPoint && entry.Sources.SequenceEqual(snapshot.Sources) && entry.PdfBlocks.SequenceEqual(snapshot.PdfBlocks) &&
+                    (imageIsAttachment || entry.Images.SequenceEqual(snapshot.Images));
+                var attachmentMatches = snapshot.SentAttachmentPart == true && entry.HasAttachments && entry.Title == snapshot.Title &&
+                    entry.Files.SequenceEqual(snapshot.Files) && (!imageIsAttachment || entry.Images.SequenceEqual(snapshot.Images));
+                if (!referenceMatches && !attachmentMatches) continue;
+                var keepReference = entry.HasReference && !referenceMatches;
+                var keepAttachment = entry.HasAttachments && !attachmentMatches;
+                if (!keepReference && !keepAttachment) { Entries.Remove(entry); changed = true; break; }
+                if (referenceMatches)
+                {
+                    entry.AnswerAnchor = null; entry.Sources.Clear(); entry.PdfBlocks.Clear(); entry.PdfRevision = "";
+                    if (!imageIsAttachment) entry.Images.Clear();
+                    entry.Question = ""; entry.EntryKind = "attachment"; entry.ReferenceSelection = false;
+                }
+                if (attachmentMatches)
+                { entry.Files.Clear(); if (imageIsAttachment) entry.Images.Clear(); entry.AttachmentSelection = false; }
+                changed = true;
+            }
+        }
+        return changed;
     }
     internal AiConversation Snapshot() => new()
     {

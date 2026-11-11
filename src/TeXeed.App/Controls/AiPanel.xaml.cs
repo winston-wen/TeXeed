@@ -76,8 +76,10 @@ public partial class AiPanel : UserControl, IDisposable
         SizeChanged += (_, _) =>
         {
             ContextScroll.MaxHeight = Math.Clamp(ActualHeight * .35, 40, 260);
+            AttachmentsScroll.MaxHeight = Math.Clamp(ActualHeight * .35, 40, 260);
             LimitComposerHeight();
             if (EntriesPopup.Child is FrameworkElement surface) surface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
+            if (AttachmentsPopup.Child is FrameworkElement attachmentsSurface) attachmentsSurface.Width = Math.Clamp(ActualWidth - 24, 230, 480);
             ScheduleViewportCapture(); ResizeChoices();
         };
         _saveTimer.Tick += async (_, _) => { _saveTimer.Stop(); try { await SaveAsync(); } catch (Exception ex) { ShowError(ex); } };
@@ -140,10 +142,15 @@ public partial class AiPanel : UserControl, IDisposable
         AnnotationsChanged?.Invoke(this, EventArgs.Empty);
         foreach (var layer in _answerLayers.Values) layer.Refresh();
         Entries.ItemsSource = null;
-        Entries.ItemsSource = _book.Entries.ToArray();
-        ContextExpander.Visibility = _book.Entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        ContextExpander.Header = $"引用与批注 · {_book.Entries.Count}";
-        EntriesButton.Content = $"引用 · {_book.Entries.Count}";
+        var references = _book.Entries.Where(entry => entry.HasReference).ToArray();
+        var attachments = _book.Entries.Where(entry => entry.HasAttachments).ToArray();
+        Entries.ItemsSource = references;
+        Attachments.ItemsSource = null;
+        Attachments.ItemsSource = attachments;
+        ContextExpander.Visibility = references.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        ContextExpander.Header = $"引用与批注 · {references.Length}";
+        EntriesButton.Content = $"引用 · {references.Length}";
+        AttachmentsButton.Content = $"附件 · {attachments.Sum(entry => entry.AttachmentItems.Count + (entry.HasAttachmentImages ? entry.Images.Count : 0))}";
         _refreshBranchNavigation?.Invoke();
     }
     private void Dirty() { if (_updating || _disposed) return; _saveTimer.Stop(); _saveTimer.Start(); }
@@ -160,17 +167,38 @@ public partial class AiPanel : UserControl, IDisposable
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
         if (_operation is not null) return;
-        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; if (_ownsSettings) Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false;
+        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; if (_ownsSettings) Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false; Attachments.IsEnabled = false;
         UpdateRetryActions();
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；本轮已保留，可继续提问。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; UpdateRetryActions(); } _operationDone = null; done.TrySetResult(); }
+        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; Attachments.IsEnabled = true; UpdateRetryActions(); } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。问题已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
     private void Remove_Click(object sender, RoutedEventArgs e) { if ((sender as FrameworkElement)?.DataContext is AiEntry entry) RemoveAnnotation(entry); }
-    private void SelectAll_Click(object sender, RoutedEventArgs e) { foreach (var entry in _book.Entries) entry.Selected = true; Rebind(); Dirty(); }
+    private void RemoveReference_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not AiEntry entry || entry.State == "提交中") return;
+        RemoveReference(entry);
+    }
+    private void RemoveReference(AiEntry entry)
+    {
+        if (!entry.HasAttachments) { RemoveAnnotation(entry); return; }
+        entry.AnswerAnchor = null; entry.Sources.Clear(); entry.PdfBlocks.Clear(); entry.PdfRevision = "";
+        if (!entry.HasAttachmentImages) entry.Images.Clear();
+        entry.Question = ""; entry.EntryKind = "attachment"; entry.ReferenceSelection = false;
+        Rebind(); Dirty();
+    }
+    private void RemoveAttachmentEntry_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not AiEntry entry || entry.State == "提交中") return;
+        var keepReference = entry.HasReference;
+        entry.Files.Clear(); if (entry.HasAttachmentImages) entry.Images.Clear(); entry.AttachmentSelection = false;
+        if (!keepReference) { RemoveAnnotation(entry); return; }
+        Rebind(); Dirty();
+    }
+    private void SelectAll_Click(object sender, RoutedEventArgs e) { foreach (var entry in _book.Entries) { entry.Selected = true; entry.ReferenceSelected = true; entry.AttachmentSelected = true; } Rebind(); Dirty(); }
     private void ClearDone_Click(object sender, RoutedEventArgs e) { _book.Entries.RemoveAll(e => e.State == "已完成"); Rebind(); Dirty(); }
     private void Entry_Changed(object sender, RoutedEventArgs e) => Dirty();
     private void Question_Changed(object sender, TextChangedEventArgs e) => Dirty();
@@ -178,12 +206,59 @@ public partial class AiPanel : UserControl, IDisposable
     {
         if (sender is not TextBox { DataContext: AiEntry entry } input || input.Tag is AiEntry) return;
         input.Tag = entry;
-        AiAnnotationImages.EnablePaste(input, entry, () => { Dirty(); SaveAnnotationChanges(); }, message => StatusText.Text = message);
+        var separated = false;
+        AiAnnotationImages.EnablePaste(input, entry, () =>
+        {
+            if (separated)
+            {
+                var caret = input.CaretIndex; Rebind();
+                _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+                {
+                    if (!EntriesPopup.IsOpen || EntriesPopup.Child is not DependencyObject root) return;
+                    var replacement = VisualChildren<TextBox>(root).FirstOrDefault(box => ReferenceEquals(box.DataContext, entry) && ReferenceEquals(box.Tag, entry));
+                    if (replacement is not null) { replacement.Focus(); replacement.CaretIndex = Math.Min(caret, replacement.Text.Length); }
+                }));
+            }
+            Dirty(); SaveAnnotationChanges();
+        }, message => StatusText.Text = message, addImage: bitmap =>
+        {
+            var success = AddReferenceImage(entry, bitmap, out var error, out separated);
+            return (success, error);
+        });
+    }
+    internal bool AddReferenceImage(AiEntry entry, BitmapSource image, out string error, out bool separated)
+    {
+        separated = false;
+        if (!entry.HasReference || !entry.HasAttachmentImages) return AiAnnotationImages.Add(entry, image, out error);
+        if (!_book.Entries.Contains(entry)) { error = "引用已不可用，请重新选择。"; return false; }
+        var encoded = new AiEntry();
+        if (!AiAnnotationImages.Add(encoded, image, out error)) return false;
+        var attachment = new AiEntry
+        {
+            Title = entry.Title, EntryKind = "attachment", Selected = entry.Selected,
+            AttachmentSelection = entry.AttachmentSelection,
+            Images = new(entry.Images), Files = [.. entry.Files],
+            AdditionalData = entry.AdditionalData is null ? null : new(entry.AdditionalData)
+        };
+        var position = _book.Entries.IndexOf(entry);
+        _book.Entries.Insert(position + 1, attachment);
+        entry.Images.Clear(); entry.Files.Clear(); entry.EntryKind = "reference"; entry.AttachmentSelection = false;
+        entry.Images.Add(encoded.Images[0]); separated = true;
+        return true;
     }
     private void AnnotationImages_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is ContentControl { DataContext: AiEntry entry, Content: null } control)
-            control.Content = AiAnnotationImages.Create(entry, () => { Dirty(); SaveAnnotationChanges(); });
+        {
+            if (Equals(control.Tag, "ReferenceImages") && entry.HasAttachmentImages) return;
+            var attachmentImage = entry.HasAttachmentImages;
+            control.Content = AiAnnotationImages.Create(entry, () =>
+            {
+                if (attachmentImage && entry.Files.Count == 0 && entry.Images.Count == 0 && entry.AnswerAnchor is null && entry.Sources.Count == 0 && entry.PdfBlocks.Count == 0 && string.IsNullOrWhiteSpace(entry.Question)) RemoveAnnotation(entry);
+                else if (attachmentImage) Rebind();
+                Dirty(); SaveAnnotationChanges();
+            });
+        }
     }
     private void Stop_Click(object sender, RoutedEventArgs e) => _operation?.Cancel();
     private void Thumbnail_Loaded(object sender, RoutedEventArgs e)
@@ -213,6 +288,41 @@ public partial class AiPanel : UserControl, IDisposable
         if (!e.IsRepeat) await SubmitAsync();
     }
     internal static bool IsSendGesture(Key key, ModifierKeys modifiers) => key == Key.Enter && modifiers == ModifierKeys.Control;
+    internal static AiEntry SnapshotSelectedParts(AiEntry entry, bool reference, bool attachment, int number)
+    {
+        var imageIsAttachment = entry.HasAttachmentImages;
+        var snapshot = entry.Snapshot(number);
+        if (entry.HasReference && entry.HasAttachments && reference != attachment)
+        { snapshot.SentReferencePart = reference; snapshot.SentAttachmentPart = attachment; }
+        if (!attachment) { snapshot.Files.Clear(); if (imageIsAttachment) snapshot.Images.Clear(); }
+        if (!reference)
+        {
+            snapshot.AnswerAnchor = null; snapshot.Sources.Clear(); snapshot.PdfBlocks.Clear(); snapshot.PdfRevision = "";
+            if (!imageIsAttachment) snapshot.Images.Clear();
+            snapshot.Question = ""; snapshot.EntryKind = "attachment";
+        }
+        return snapshot;
+    }
+    internal void ConsumeSelectedParts(AiNotebook book, AiEntry entry, bool reference, bool attachment)
+    {
+        var imageIsAttachment = entry.HasAttachmentImages;
+        var referenceRemains = entry.HasReference && !reference;
+        var attachmentRemains = entry.HasAttachments && !attachment;
+        if (!referenceRemains && !attachmentRemains)
+        {
+            entry.State = "提交中"; entry.PropertyChanged -= AnnotationChanged; book.Entries.Remove(entry); return;
+        }
+        if (reference)
+        {
+            entry.AnswerAnchor = null; entry.Sources.Clear(); entry.PdfBlocks.Clear(); entry.PdfRevision = "";
+            if (!imageIsAttachment) entry.Images.Clear();
+            entry.Question = ""; entry.EntryKind = "attachment"; entry.ReferenceSelection = false;
+        }
+        if (attachment)
+        {
+            entry.Files.Clear(); if (imageIsAttachment) entry.Images.Clear(); entry.AttachmentSelection = false;
+        }
+    }
     private async void Submit_Click(object sender, RoutedEventArgs e) => await SubmitAsync();
     internal async Task SubmitAsync(AiTurn? retry = null)
     {
@@ -221,14 +331,15 @@ public partial class AiPanel : UserControl, IDisposable
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
         var submittedDraft = Composer.Text;
         var prompt = retry is null ? submittedDraft.Trim() : retry.Prompt ?? (retry.SentAnnotations.Count == 0 ? retry.DisplayQuestion : "");
-        var selected = retry is null ? _book.Entries.Where(e => e.Selected).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
-        if (selected.Length == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
-        if (prompt.Length == 0 && selected.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
-        if (selected.Length > 20 || selected.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || selected.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
+        var selectedParts = retry is null ? _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray() : [];
+        var selected = retry is null ? selectedParts.Select(x => x.Entry).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
+        var sentAnnotations = retry is null ? selectedParts.Select((item, i) => SnapshotSelectedParts(item.Entry, item.Reference, item.Attachment, i + 1)).ToList() : selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
+        if (sentAnnotations.Count == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
+        if (prompt.Length == 0 && sentAnnotations.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
+        if (sentAnnotations.Count > 20 || sentAnnotations.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || sentAnnotations.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
-        if (selected.Sum(e => e.Files.Sum(f => (long)f.Base64.Length) + e.Images.Sum(i => (long)i.ImageBase64.Length)) > 24_000_000)
+        if (sentAnnotations.Sum(e => e.Files.Sum(f => (long)f.Base64.Length) + e.Images.Sum(i => (long)i.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批附件与批注图片合计最多约 18 MB，请分批提交。"; return; }
-        var sentAnnotations = selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
         await RunOperationAsync(async token =>
         {
             var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), Files = [.. x.Files], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
@@ -259,11 +370,9 @@ public partial class AiPanel : UserControl, IDisposable
             book.Active.LastSentAt = sentAt;
             if (retry is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
             if (retry is null)
-                foreach (var entry in selected)
+                foreach (var item in selectedParts)
                 {
-                    entry.State = "提交中";
-                    entry.PropertyChanged -= AnnotationChanged;
-                    book.Entries.Remove(entry);
+                    ConsumeSelectedParts(book, item.Entry, item.Reference, item.Attachment);
                 }
             Rebind();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
@@ -315,12 +424,12 @@ public partial class AiPanel : UserControl, IDisposable
                     }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
-                foreach (var entry in selected) { entry.State = "已完成"; entry.Selected = false; }
+                foreach (var entry in selected.Where(entry => !book.Entries.Contains(entry))) { entry.State = "已完成"; entry.Selected = false; }
             }
             catch (Exception ex)
             {
                 endReason = token.IsCancellationRequested ? "user" : "program";
-                foreach (var entry in selected) entry.State = "未完成，可重试";
+                foreach (var entry in selected.Where(entry => !book.Entries.Contains(entry))) entry.State = "未完成，可重试";
                 buffer.Add(new("failure", "activity", token.IsCancellationRequested ? "已停止。已完成的修改保留；可继续提问。" : "本轮未完成：" + ex.Message));
             }
             finally
