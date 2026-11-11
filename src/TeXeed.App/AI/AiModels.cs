@@ -25,6 +25,26 @@ public sealed record AiAttachmentItem(string DisplayPath, bool IsFolder, IReadOn
 {
     public string DisplayStem => IsFolder ? DisplayPath[..^1] : DisplayPath;
     public string DisplayTerminator => IsFolder ? DisplayPath[^1..] : "";
+    [JsonIgnore] public string DisplayPrefix
+    {
+        get
+        {
+            if (!IsFolder) return DisplayPath;
+            var previous = DisplayPath.Length > 1 ? DisplayPath.LastIndexOfAny(['/', '\\'], DisplayPath.Length - 2) : -1;
+            return previous >= 0 ? DisplayPath[..previous] : "";
+        }
+    }
+    [JsonIgnore] public string DisplayMiddleSeparator
+    {
+        get
+        {
+            if (!IsFolder) return "";
+            var previous = DisplayPath.Length > 1 ? DisplayPath.LastIndexOfAny(['/', '\\'], DisplayPath.Length - 2) : -1;
+            return previous >= 0 ? DisplayPath[previous..(previous + 1)] : "";
+        }
+    }
+    [JsonIgnore] public string DisplayTail => IsFolder ? DisplayPath[(DisplayPrefix.Length + DisplayMiddleSeparator.Length)..] : "";
+    [JsonIgnore] public string DisplayLeaf => IsFolder ? DisplayTail[..^1] : "";
 }
 public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
 {
