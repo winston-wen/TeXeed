@@ -28,9 +28,11 @@ internal sealed partial class AiResponses
     private static string Fingerprint(IEnumerable<AiTurn> turns) => AiStorage.Hash(string.Join("\n", turns.Select(TurnContext)));
 
     private async Task<JsonArray> PrepareContextAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history,
-        AiContextMemory? memory, Action<AiContextMemory>? compacted, Action<AiStreamEvent>? activity, AiContextBudget budget, CancellationToken token, string identity)
+        AiContextMemory? memory, Action<AiContextMemory>? compacted, Action<AiStreamEvent>? activity, AiContextBudget budget, CancellationToken token, string identity, string attachmentManifest)
     {
         var currentInput = MakeInput(entries, []);
+        if (attachmentManifest.Length > 0)
+            currentInput[0]!["content"]!.AsArray().Add(new JsonObject { ["type"] = "input_text", ["text"] = attachmentManifest });
         var currentSize = budget.Size(ContextText(currentInput));
         var clearlyTooLarge = budget.Window is > 0 && currentSize > budget.Window.Value * 2d;
         var covered = memory?.TurnIds.Length ?? 0;

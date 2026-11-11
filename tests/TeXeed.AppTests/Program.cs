@@ -105,6 +105,11 @@ internal static partial class Program
                     await CheckAiAttachmentGroupingAsync(window, output);
                     await CloseAndObserveAsync(window, "AI attachment grouping"); result = 0; return;
                 }
+                if (args.Contains("--ai-lazy-attachments-only"))
+                {
+                    await CheckAiLazyAttachmentsAsync();
+                    await CloseAndObserveAsync(window, "AI lazy attachments"); result = 0; return;
+                }
                 if (args.Contains("--ai-toolbar-alignment-only"))
                 {
                     await CheckAiToolbarAlignmentAsync(window, output);
@@ -297,6 +302,7 @@ internal static partial class Program
                 }
                 if (args.Contains("--ai-only"))
                 {
+                    await CheckAiLazyAttachmentsAsync();
                     await CheckAiAsync(window, output);
                     await CheckAiRenderingAsync(window, output);
                     await CloseAndObserveAsync(window, "AI workspace regression"); result = 0; return;

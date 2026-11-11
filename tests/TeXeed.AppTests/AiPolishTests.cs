@@ -117,17 +117,17 @@ internal static partial class Program
         var attachment = new AiEntry { Question = "保留文件原文", Files = [new("fixture.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(attachmentText)))] };
         var freshHandler = new CompactionHandler(); using var freshConnection = new AiConnection(freshHandler);
         await new AiResponses(freshConnection).RunAsync("fixture", [attachment], [], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
-        Check(freshHandler.Summaries == 0 && freshHandler.LastInput.Contains(attachmentText), "A fresh oversized attachment was summarized or altered");
+        Check(freshHandler.Summaries == 0 && !freshHandler.LastInput.Contains(attachmentText) && freshHandler.LastInput.Contains("附件快照目录"), "A fresh attachment was inlined or its catalog omitted");
         var withHistory = new CompactionHandler(); using var historyConnection = new AiConnection(withHistory);
         await new AiResponses(historyConnection).RunAsync("fixture", [attachment], [new("旧问题", new string('z', 1300))], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
-        Check(withHistory.Summaries == 0 && withHistory.LastInput.Contains(attachmentText) && withHistory.LastInput.Contains("旧问题"), "Large current attachment caused unnecessary history summarization");
+        Check(withHistory.Summaries == 0 && !withHistory.LastInput.Contains(attachmentText) && withHistory.LastInput.Contains("附件快照目录") && withHistory.LastInput.Contains("旧问题"), "Attachment catalog lost history or inlined content");
         var nearWindowText = "NEAR_WINDOW_ATTACHMENT" + new string('q', 24000);
-        var nearWindow = new AiEntry { Question = "按原文处理", Files = [new("near.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(nearWindowText)))] };
+        var nearWindow = new AiEntry { Question = "按原文处理" + nearWindowText };
         var nearHandler = new CompactionHandler(); using var nearConnection = new AiConnection(nearHandler);
         await new AiResponses(nearConnection).RunAsync("fixture", [nearWindow], [new("历史约束", new string('h', 9000))], [], _ => { }, _ => { }, CancellationToken.None, contextWindow: 10000);
         Check(nearHandler.Summaries == 1 && !nearHandler.NearAttachmentInSummary && nearHandler.LastInput.Contains(nearWindowText), "Near-window current message failed to compress substantial history safely");
         var tightText = "TIGHT_WINDOW_ATTACHMENT" + new string('q', 280000);
-        var tight = new AiEntry { Question = "保持原文", Files = [new("tight.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(tightText)))] };
+        var tight = new AiEntry { Question = "保持原文" + tightText };
         foreach (var historyLength in new[] { 30000, 21000 })
         {
             var tightHandler = new CompactionHandler(); using var tightConnection = new AiConnection(tightHandler);
@@ -135,7 +135,7 @@ internal static partial class Program
             Check(tightHandler.Summaries == 1 && !tightHandler.TightAttachmentInSummary && tightHandler.LastInput.Contains(tightText), "Current content near the full window did not compact a smaller but material history");
         }
         var farText = "FAR_WINDOW_ATTACHMENT" + new string('f', 70000);
-        var far = new AiEntry { Question = "完整处理", Files = [new("far.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(farText)))] };
+        var far = new AiEntry { Question = "完整处理" + farText };
         var farHandler = new CompactionHandler(); using var farConnection = new AiConnection(farHandler);
         var farEvents = new AiStreamBuffer();
         await new AiResponses(farConnection).RunAsync("fixture", [far], [new("保留历史", new string('h', 25000))], [], _ => { }, _ => { }, CancellationToken.None, activity: farEvents.Add, contextWindow: 10000);
@@ -143,7 +143,7 @@ internal static partial class Program
         var multiHandler = new CompactionHandler { Working = true, WorkingRounds = 3 }; using var multiConnection = new AiConnection(multiHandler);
         await new AiResponses(multiConnection).RunAsync("fixture", [attachment], [], [], _ => { }, _ => { }, CancellationToken.None,
             toolRunner: (name, _, _) => Task.FromResult(name == "list_files" ? "目录" : multiHandler.NormalRequests == 1 ? new string('y', 10000) : "小型结果"), compactThreshold: 4000);
-        Check(multiHandler.Summaries == 1 && !multiHandler.AttachmentInSummary && multiHandler.LastInput.Contains(attachmentText), "Working compaction summarized the current attachment or repeated without substantial new context");
+        Check(multiHandler.Summaries == 1 && !multiHandler.AttachmentInSummary && !multiHandler.LastInput.Contains(attachmentText) && multiHandler.LastInput.Contains("附件快照目录"), "Working compaction lost the attachment catalog or repeated without substantial new context");
         var pdf = new AiEntry { Question = "查看 PDF", Files = [new("fixture.pdf", "application/pdf", "PDF_BINARY_MARKER" + new string('A', 50000))] };
         var pdfHandler = new CompactionHandler(); using var pdfConnection = new AiConnection(pdfHandler);
         await new AiResponses(pdfConnection).RunAsync("fixture", [pdf], [], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);

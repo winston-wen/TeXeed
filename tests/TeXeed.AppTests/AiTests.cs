@@ -90,8 +90,12 @@ internal static partial class Program
         var attached = book.Entries.Last();
         Check(attached.Files.Single().Name.EndsWith("attachment-fixture/notes.tex") && Encoding.UTF8.GetString(Convert.FromBase64String(attached.Files[0].Base64)) == "附件内容", "Folder path or content was lost");
         var attachmentInput = AiResponses.MakeInput([attached.Snapshot()], []);
-        var attachmentText = attachmentInput[0]!["content"]!.AsArray().Select(part => part?["text"]?.GetValue<string>() ?? "");
-        Check(attachmentText.Any(text => text.Contains("notes.tex") && text.Contains("附件内容")), "Text attachment did not reach model input");
+        var attachmentText = attachmentInput.ToJsonString();
+        var attachedCatalog = new AiAttachmentCatalog([], [attached.Snapshot()]);
+        var attachedList = JsonNode.Parse(attachedCatalog.Execute("list_attachments", "{\"offset\":0,\"limit\":30}"))!;
+        var attachedHandle = attachedList["items"]![0]!["handle"]!.GetValue<string>();
+        var attachedContent = JsonNode.Parse(attachedCatalog.Execute("read_attachment", JsonSerializer.Serialize(new { handle = attachedHandle, offset = 0, max_chars = 100 })))!;
+        Check(!attachmentText.Contains("附件内容") && attachedContent["content"]!.GetValue<string>() == "附件内容", "Text attachment was not available as a saved snapshot");
         var sentAttachment = attached.Snapshot();
         var reconciliation = new AiConversation { Entries = [attached.Snapshot()], Turns = [new AiTurn("问题", "回答") { Prompt = "问题", SentAnnotations = [sentAttachment] }] };
         reconciliation.Entries[0].Files.Add(new AiAttachedFile("new.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("new"))));
@@ -112,9 +116,8 @@ internal static partial class Program
         fileButtons[0].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
         attachmentPopup.IsOpen = false;
         Check(attached.Files.Count == 1 && attached.Files[0].Name == "loose.txt" && book.Entries.Contains(attached), "Removing one folder removed the wrong attachment or whole group");
-        var filesAfterRemoval = AiResponses.MakeInput([attached.Snapshot()], [])[0]!["content"]!.AsArray();
-        Check(filesAfterRemoval.Any(part => part?["text"]?.GetValue<string>()?.Contains("loose.txt") == true) &&
-              !filesAfterRemoval.Any(part => part?["text"]?.GetValue<string>()?.Contains("notes.tex") == true), "Removed attachment still entered the request");
+        var filesAfterRemoval = new AiAttachmentCatalog([], [attached.Snapshot()]).Execute("list_attachments", "{\"offset\":0,\"limit\":30}");
+        Check(filesAfterRemoval.Contains("loose.txt") && !filesAfterRemoval.Contains("notes.tex"), "Removed attachment still entered the request");
         book.Entries.Remove(attached);
         var mixed = new AiEntry { Question = "引用评论", AnswerAnchor = new("turn", "segment", 0, 2, "原文", "rev"), Files = [new AiAttachedFile("sample.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("file")))] };
         mixed.Images.Add(new AiPastedImage("comment-image"));
