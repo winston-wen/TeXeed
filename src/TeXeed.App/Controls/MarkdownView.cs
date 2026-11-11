@@ -157,7 +157,7 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); _strongRuns.Clear(); _waves = null; ClearMedia(); ClearCodeSurfaces(); }
+    { _branchLinkBlocks.Clear(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); _strongRuns.Clear(); _waves = null; ClearMedia(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
         ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));

@@ -1,0 +1,145 @@
+{
+  "fixture": "900x760; 60 paragraphs x 180 chars; 2 warmups \u002B 7 paired ApplicationIdle; branch creation persists to local isolated file",
+  "samples": [
+    {
+      "op": "add-branch-existing-parent",
+      "rawMs": 44.2677,
+      "idleMs": 0.5532,
+      "correctedMs": 43.7145,
+      "rawBytes": 2667592,
+      "idleBytes": 1768,
+      "correctedBytes": 2665824,
+      "visibleControls": 30
+    },
+    {
+      "op": "add-branch-existing-parent",
+      "rawMs": 42.4461,
+      "idleMs": 0.0559,
+      "correctedMs": 42.3902,
+      "rawBytes": 2672816,
+      "idleBytes": 1768,
+      "correctedBytes": 2671048,
+      "visibleControls": 31
+    },
+    {
+      "op": "add-branch-existing-parent",
+      "rawMs": 44.6818,
+      "idleMs": 0.4054,
+      "correctedMs": 44.2764,
+      "rawBytes": 2677456,
+      "idleBytes": 1768,
+      "correctedBytes": 2675688,
+      "visibleControls": 32
+    },
+    {
+      "op": "add-branch-existing-parent",
+      "rawMs": 49.2122,
+      "idleMs": 0.0497,
+      "correctedMs": 49.1625,
+      "rawBytes": 2682680,
+      "idleBytes": 1768,
+      "correctedBytes": 2680912,
+      "visibleControls": 33
+    },
+    {
+      "op": "add-branch-existing-parent",
+      "rawMs": 55.2369,
+      "idleMs": 0.1303,
+      "correctedMs": 55.1066,
+      "rawBytes": 2687904,
+      "idleBytes": 1768,
+      "correctedBytes": 2686136,
+      "visibleControls": 34
+    },
+    {
+      "op": "add-branch-existing-parent",
+      "rawMs": 48.1665,
+      "idleMs": 0.1387,
+      "correctedMs": 48.0278,
+      "rawBytes": 2694728,
+      "idleBytes": 1768,
+      "correctedBytes": 2692960,
+      "visibleControls": 35
+    },
+    {
+      "op": "add-branch-existing-parent",
+      "rawMs": 54.1841,
+      "idleMs": 0.2938,
+      "correctedMs": 53.8903,
+      "rawBytes": 2700472,
+      "idleBytes": 1768,
+      "correctedBytes": 2698704,
+      "visibleControls": 36
+    },
+    {
+      "op": "fold-unfold-long-answer",
+      "rawMs": 157.9754,
+      "idleMs": 0.0537,
+      "correctedMs": 157.92170000000002,
+      "rawBytes": 5124888,
+      "idleBytes": 1768,
+      "correctedBytes": 5123120,
+      "visibleControls": 36
+    },
+    {
+      "op": "fold-unfold-long-answer",
+      "rawMs": 95.4665,
+      "idleMs": 0.0626,
+      "correctedMs": 95.4039,
+      "rawBytes": 5124688,
+      "idleBytes": 1768,
+      "correctedBytes": 5122920,
+      "visibleControls": 36
+    },
+    {
+      "op": "fold-unfold-long-answer",
+      "rawMs": 91.3204,
+      "idleMs": 0.1363,
+      "correctedMs": 91.1841,
+      "rawBytes": 5124688,
+      "idleBytes": 1768,
+      "correctedBytes": 5122920,
+      "visibleControls": 36
+    },
+    {
+      "op": "fold-unfold-long-answer",
+      "rawMs": 92.3506,
+      "idleMs": 0.061,
+      "correctedMs": 92.2896,
+      "rawBytes": 5124688,
+      "idleBytes": 1768,
+      "correctedBytes": 5122920,
+      "visibleControls": 36
+    },
+    {
+      "op": "fold-unfold-long-answer",
+      "rawMs": 90.4471,
+      "idleMs": 0.0406,
+      "correctedMs": 90.40650000000001,
+      "rawBytes": 5134264,
+      "idleBytes": 1768,
+      "correctedBytes": 5132496,
+      "visibleControls": 36
+    },
+    {
+      "op": "fold-unfold-long-answer",
+      "rawMs": 96.045,
+      "idleMs": 0.144,
+      "correctedMs": 95.901,
+      "rawBytes": 5124688,
+      "idleBytes": 1768,
+      "correctedBytes": 5122920,
+      "visibleControls": 36
+    },
+    {
+      "op": "fold-unfold-long-answer",
+      "rawMs": 109.0215,
+      "idleMs": 0.4417,
+      "correctedMs": 108.5798,
+      "rawBytes": 5123920,
+      "idleBytes": 1768,
+      "correctedBytes": 5122152,
+      "visibleControls": 36
+    }
+  ]
+}

@@ -14,6 +14,34 @@ internal static partial class Program
     private static async Task CheckAiBranchesAsync(MainWindow owner, string output)
     {
         static IEnumerable<Paragraph> Paragraphs(BlockCollection blocks) => blocks.SelectMany(block => block switch { Paragraph p => [p], Section s => Paragraphs(s.Blocks), _ => [] });
+        var graphVertices = new[] { new AiRelationVertex("a", "A"), new AiRelationVertex("b", "B"), new AiRelationVertex("c", "C"), new AiRelationVertex("d", "D"), new AiRelationVertex("unrelated", "Unrelated") };
+        var graphEdges = new[] { new AiRelationEdge("a", "b"), new AiRelationEdge("b", "c"), new AiRelationEdge("c", "a"), new AiRelationEdge("a", "d"), new AiRelationEdge("b", "d"), new AiRelationEdge("a", "a"), new AiRelationEdge("a", "d"), new AiRelationEdge("d", "a") };
+        var graphLayout = AiRelationGraphLayout.Build(graphVertices, graphEdges, "c");
+        if (graphLayout.Nodes.Count != 4 || graphLayout.Edges.Count != 8 || graphLayout.Nodes.Any(n => n.Vertex.Id == "unrelated")) throw new Exception("Graph lost a cycle, shared descendant, or component boundary");
+        var routes = AiRelationGraphLayout.Routes(graphLayout.Edges);
+        if (!routes.Where(r => r.Edge.From == "a" && r.Edge.To == "d" || r.Edge.From == "d" && r.Edge.To == "a").Select(r => r.Lane).SequenceEqual([0, 1, 2]) || !routes.Any(r => r.Edge.From == "a" && r.Edge.To == "a")) throw new Exception("Parallel, opposite, or self-loop edges were not preserved as distinct directed routes");
+        if (graphLayout.Nodes.Select(n => n.Vertex.Id).Distinct().Count() != 4 || graphLayout.Nodes.Select(n => n.Bounds.Y).Distinct().Count() != 4) throw new Exception("Graph produced duplicate or overlapping nodes");
+        string? graphOpened = null; var graphControl = new AiConversationGraph(graphVertices, graphEdges, "c", id => graphOpened = id);
+        if (graphControl.ActivateAt(new Point(0, 0), 2) || graphOpened is not null) throw new Exception("Graph opened a node from blank space");
+        var nodeBounds = graphControl.Layout.Nodes.Single(n => n.Vertex.Id == "d").Bounds;
+        if (!graphControl.ActivateAt(new Point(nodeBounds.X + 4, nodeBounds.Y + 4), 2) || graphOpened != "d") throw new Exception("Graph double click did not open the chosen node");
+        var cycleWindow = new Window { Owner = owner, Content = new ScrollViewer { Content = graphControl, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, Width = 540, Height = 500 };
+        cycleWindow.Show(); cycleWindow.UpdateLayout();
+        var graphRevision = graphControl.SceneRevision;
+        graphControl.ActivateAt(new Point(nodeBounds.X + 4, nodeBounds.Y + 4), 1); cycleWindow.UpdateLayout();
+        if (graphRevision == 0 || graphControl.SceneRevision != graphRevision) throw new Exception("Selecting a node rebuilt the static graph drawing");
+        Capture(cycleWindow, Path.Combine(output, "branch-graph-cycles.png")); cycleWindow.Close();
+        var stressVertices = Enumerable.Range(0, 501).Select(i => new AiRelationVertex("stress-" + i, new string('长', 80) + i)).ToArray();
+        var stressEdges = stressVertices.Skip(1).Select(v => new AiRelationEdge("stress-0", v.Id)).ToArray();
+        var stressGraph = new AiConversationGraph(stressVertices, stressEdges, "stress-0", _ => { });
+        var stressScroll = new ScrollViewer { Content = stressGraph, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var stressWindow = new Window { Owner = owner, Content = stressScroll, Width = 540, Height = 500 };
+        stressWindow.Show(); stressWindow.UpdateLayout(); await stressWindow.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); stressWindow.UpdateLayout();
+        if (stressGraph.RenderedNodeCount is < 1 or > 20 || stressGraph.FirstRenderedNodeId != "stress-0") throw new Exception("Graph drew wrong or offscreen nodes on first open");
+        var initialScene = stressGraph.SceneRevision;
+        stressScroll.ScrollToVerticalOffset(7800); stressWindow.UpdateLayout(); await stressWindow.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); stressWindow.UpdateLayout();
+        if (stressGraph.SceneRevision <= initialScene || stressGraph.RenderedNodeCount is < 1 or > 20 || stressGraph.FirstRenderedNodeId == "stress-0") throw new Exception("Scrolling did not update the visible graph efficiently");
+        stressWindow.Close();
         var project = Path.Combine(output, "branches.tex");
         var panel = new AiPanel(new AiConnection(new AiFakeHandler()));
         panel.InitializeBranchUi();
@@ -108,9 +136,9 @@ internal static partial class Program
             if (tabs.FocusedTab != relationKey || TabWorkspace.IsSource(relationKey)) throw new Exception("Relations did not open in a workspace tab");
             var relationViews = (Dictionary<string, FrameworkElement>)Field(owner, "_aiRelationViews")!;
             if (!relationViews[relationKey].IsVisible || Application.Current.Windows.OfType<Window>().Any(w => w.Title == "会话关系")) throw new Exception("Relations opened as a separate window instead of a tab");
-            var relationTree = Descendants<TreeView>(relationViews[relationKey]).Single();
-            if (relationTree.Items.Count != 1) throw new Exception("Relations tab included an unrelated root");
-            if (!Descendants<TextBlock>(relationTree).Any(t => t.Text.Contains("（当前）"))) throw new Exception("Current conversation is not identified in the relationship tab");
+            var relationTree = Descendants<AiConversationGraph>(relationViews[relationKey]).Single();
+            if (relationTree.Layout.Nodes.Any(n => n.Vertex.Id == unrelated.Id)) throw new Exception("Relations tab included an unrelated conversation");
+            if (!relationTree.Layout.Nodes.Any(n => n.Vertex.Id == child.Id)) throw new Exception("Current conversation is absent from the relationship tab");
             Capture(owner, Path.Combine(output, "branch-tab.png"));
             await CallAsync(owner, "OpenAiConversationAsync", child.Id);
             var workspaceBook = ((AiWorkspaceStore)Field(owner, "_aiStore")!).Book;
@@ -118,8 +146,8 @@ internal static partial class Program
             tabs.Select(tabs.Owner(relationKey)!.Value, relationKey);
             Invoke(owner, "RefreshWorkspaceViews"); owner.UpdateLayout();
             await owner.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            relationTree = Descendants<TreeView>(relationViews[relationKey]).Single();
-            if (!Descendants<TextBlock>(relationTree).Any(t => t.Text == "稍后新追问")) throw new Exception("Returning to relations omitted a newly created branch");
+            relationTree = Descendants<AiConversationGraph>(relationViews[relationKey]).Single();
+            if (!relationTree.Layout.Nodes.Any(n => n.Vertex.Title == "稍后新追问")) throw new Exception("Returning to relations omitted a newly created branch");
             var buttons = Descendants<Button>(panel).Where(b => b.Content is string s && (s == "会话关系" || s == "↑ 上游会话" || s == "↓ 下游会话")).ToArray();
             if (buttons.Length != 3 || buttons.Select(b => b.TranslatePoint(new Point(0, b.ActualHeight / 2), panel).Y).Max() - buttons.Select(b => b.TranslatePoint(new Point(0, b.ActualHeight / 2), panel).Y).Min() > 0.5) throw new Exception("Navigation controls are not vertically aligned");
             if (buttons.Single(b => Equals(b.Content, "↑ 上游会话")).IsEnabled || !buttons.Single(b => Equals(b.Content, "↓ 下游会话")).IsEnabled) throw new Exception("Relationship navigation availability is incorrect");

@@ -1,0 +1,59 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class Perf {
+const BindingFlags P=BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public;
+static object Field(object x,string name)=>x.GetType().GetField(name,P)!.GetValue(x)!;
+static object? Invoke(object x,string name,params object?[] a)=>x.GetType().GetMethod(name,P)!.Invoke(x,a);
+static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);w.UpdateLayout(); }
+static IEnumerable<T> Children<T>(DependencyObject d) where T:DependencyObject { for(int i=0;i<VisualTreeHelper.GetChildrenCount(d);i++){var c=VisualTreeHelper.GetChild(d,i); if(c is T t) yield return t; foreach(var x in Children<T>(c)) yield return x; } }
+static int Visible(DependencyObject root,Window host) {int n=0;for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var c=VisualTreeHelper.GetChild(root,i);if(c is Control t && t.IsVisible && t.ActualWidth>0 && t.ActualHeight>0){try{if(t.TransformToAncestor(host).TransformBounds(new Rect(0,0,t.ActualWidth,t.ActualHeight)).IntersectsWith(new Rect(0,0,host.ActualWidth,host.ActualHeight)))n++;}catch(InvalidOperationException){}}n+=Visible(c,host);}return n;}
+[STAThread] static int Main(string[] args){var path=Path.GetFullPath(args[0]);Directory.CreateDirectory(path);Environment.SetEnvironmentVariable("TEXEED_HOME",Path.Combine(path,"profile"));var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("/TeXeed;component/Theme.xaml",UriKind.Relative)});var main=new MainWindow(){Width=900,Height=760,Left=20,Top=20};int result=1;app.DispatcherUnhandledException+=(_,e)=>{Console.Error.WriteLine(e.Exception);e.Handled=true;app.Shutdown(1);};main.Loaded+=async(_,_)=>{try{
+await (Task)Invoke(main,"InitializeAiProjectAsync",Path.Combine(path,"fixture.tex"))!;
+((FrameworkElement)main.FindName("Welcome")).Visibility=Visibility.Collapsed;((FrameworkElement)main.FindName("Workspace")).Visibility=Visibility.Visible;
+var store=Field(main,"_aiStore");var book=(AiNotebook)store.GetType().GetProperty("Book",P)!.GetValue(store)!;var root=book.Conversations.First();var panel=(AiPanel)Field(main,"_aiPanel");
+var nodeCount=args.Length>1?int.Parse(args[1]):60;for(int i=0;i<nodeCount;i++)book.Conversations.Add(new AiConversation{Title="追问 "+i,ParentConversationId=root.Id});
+await Idle(main);var graphMethod=main.GetType().GetMethod("OpenAiRelations",P);var oldGraph=panel.GetType().GetMethod("ShowConversationRelations",P);if(graphMethod==null&&oldGraph==null)throw new Exception("No relation entry");
+var samples=new List<object>();for(int i=0;i<9;i++){
+var empty=GC.GetAllocatedBytesForCurrentThread();var idle=Stopwatch.StartNew();await Idle(main);idle.Stop();empty=GC.GetAllocatedBytesForCurrentThread()-empty;
+var bytes=GC.GetAllocatedBytesForCurrentThread();var sw=Stopwatch.StartNew();if(graphMethod!=null)graphMethod.Invoke(main,new object[]{root.Id});else oldGraph!.Invoke(panel,null);await Idle(main);Window? graph=graphMethod==null?Application.Current.Windows.OfType<Window>().Single(w=>w.Title=="会话关系"):null;graph?.UpdateLayout();sw.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+if(i>=2)samples.Add(new{op="open-related",rawMs=sw.Elapsed.TotalMilliseconds,idleMs=idle.Elapsed.TotalMilliseconds,correctedMs=sw.Elapsed.TotalMilliseconds-idle.Elapsed.TotalMilliseconds,rawBytes=bytes,idleBytes=empty,correctedBytes=bytes-empty,visibleControls=Visible(graph??main,graph??main),mode=graph==null?"tab":"window"});
+if(i==8){
+var scope=(DependencyObject)(graph??main);
+var viewer=Children<ScrollViewer>(scope).Where(x=>x.IsVisible && x.ScrollableHeight>0).OrderByDescending(x=>x.ScrollableHeight).FirstOrDefault();
+if(viewer==null)throw new Exception("No scrollable graph viewport");
+var control=Children<FrameworkElement>(scope).FirstOrDefault(x=>x.GetType().Name=="AiConversationGraph") ?? Children<TreeView>(scope).FirstOrDefault() as FrameworkElement;
+if(control==null)throw new Exception("No graph or tree control");
+control.Focus(); System.Windows.Input.Keyboard.Focus(control); var ps=PresentationSource.FromVisual(control) ?? throw new Exception("No graph presentation source");
+for(int k=0;k<9;k++){
+var eb2=GC.GetAllocatedBytesForCurrentThread();var ew2=Stopwatch.StartNew();await Idle(graph??main);ew2.Stop();eb2=GC.GetAllocatedBytesForCurrentThread()-eb2;
+var kb=GC.GetAllocatedBytesForCurrentThread();var kw=Stopwatch.StartNew();var key=new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice,ps,Environment.TickCount,k%2==0?System.Windows.Input.Key.Down:System.Windows.Input.Key.Up){RoutedEvent=System.Windows.Input.Keyboard.KeyDownEvent};control.RaiseEvent(key);await Idle(graph??main);kw.Stop();kb=GC.GetAllocatedBytesForCurrentThread()-kb;
+if(k>=2)samples.Add(new{op="select-related",rawMs=kw.Elapsed.TotalMilliseconds,idleMs=ew2.Elapsed.TotalMilliseconds,correctedMs=kw.Elapsed.TotalMilliseconds-ew2.Elapsed.TotalMilliseconds,rawBytes=kb,idleBytes=eb2,correctedBytes=kb-eb2,visibleControls=Visible(graph??main,graph??main),mode=graph==null?"tab":"window",handled=key.Handled});
+}
+for(int j=0;j<9;j++){
+var eb=GC.GetAllocatedBytesForCurrentThread();var ew=Stopwatch.StartNew();await Idle(graph??main);ew.Stop();eb=GC.GetAllocatedBytesForCurrentThread()-eb;
+var sb=GC.GetAllocatedBytesForCurrentThread();var swScroll=Stopwatch.StartNew();viewer.ScrollToVerticalOffset(j%2==0?viewer.ScrollableHeight*.8:0);await Idle(graph??main);swScroll.Stop();sb=GC.GetAllocatedBytesForCurrentThread()-sb;
+if(j>=2)samples.Add(new{op="scroll-related",rawMs=swScroll.Elapsed.TotalMilliseconds,idleMs=ew.Elapsed.TotalMilliseconds,correctedMs=swScroll.Elapsed.TotalMilliseconds-ew.Elapsed.TotalMilliseconds,rawBytes=sb,idleBytes=eb,correctedBytes=sb-eb,visibleControls=Visible(graph??main,graph??main),mode=graph==null?"tab":"window"});
+}}
+if(graph!=null)graph.Close();else {var tabs=Field(main,"_workspaceTabs");var close=tabs.GetType().GetMethod("Close",P)!;var enumType=close.GetParameters()[1].ParameterType;var key=(string)tabs.GetType().GetMethod("AiRelationsKey",BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic)!.Invoke(null,new object[]{root.Id})!;close.Invoke(tabs,new[]{key,Enum.Parse(enumType,"This")});Invoke(main,"RemoveAiRelations",key);Invoke(main,"RefreshWorkspaceViews");}await Idle(main);
+}
+Invoke(main,"OpenAiHistory"); await Idle(main);
+var history=(FrameworkElement)Field(main,"_aiHistory");
+var refresh=Children<Button>(history).Single(b=> Equals(b.ToolTip,"刷新历史"));
+for(int i=0;i<9;i++){
+var idleBytes=GC.GetAllocatedBytesForCurrentThread(); var idleWatch=Stopwatch.StartNew(); await Idle(main); idleWatch.Stop(); idleBytes=GC.GetAllocatedBytesForCurrentThread()-idleBytes;
+var bytes=GC.GetAllocatedBytesForCurrentThread();var watch=Stopwatch.StartNew();refresh.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Idle(main);watch.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+if(i>=2)samples.Add(new {op="history-refresh",rawMs=watch.Elapsed.TotalMilliseconds,idleMs=idleWatch.Elapsed.TotalMilliseconds,correctedMs=watch.Elapsed.TotalMilliseconds-idleWatch.Elapsed.TotalMilliseconds,rawBytes=bytes,idleBytes,correctedBytes=bytes-idleBytes,visibleControls=Visible(main,main),mode="history"});
+}
+File.WriteAllText(Path.Combine(path,"graph.json"),JsonSerializer.Serialize(new{fixture=$"900x760 MainWindow; {nodeCount} related sessions; 2 warmups + 7 paired ApplicationIdle samples",samples},new JsonSerializerOptions{WriteIndented=true}));result=0;
+}catch(Exception ex){Console.Error.WriteLine(ex);}finally{try{await (Task)Invoke(main,"StopAiWorkspaceAsync")!;}catch{}main.Close();app.Shutdown(result);}};main.Show();app.Run();return result;}
+}

@@ -22,6 +22,11 @@ public partial class MainWindow
         panel.InitializeBranchUi();
         panel.ConversationRelationsRequested += (_, id) => OpenAiRelations(id);
         panel.ConversationOpenRequested += async (_, id) => await OpenAiConversationAsync(id);
+        panel.AnswerSourceRequested += async (id, anchor, before, after) =>
+        {
+            await OpenAiConversationAsync(id);
+            if (_aiPanels.TryGetValue(id, out var source) && !await source.NavigateBranchSourceAsync(anchor, before, after)) Status("无法定位引用出处，原回答可能已改变。");
+        };
         panel.BranchSourceRequested += async (_, branch) =>
         {
             if (branch.ParentConversationId is not { } id || branch.BranchAnchor is not { } anchor) return;
@@ -114,7 +119,7 @@ public partial class MainWindow
         if (_aiStore is null || string.IsNullOrWhiteSpace(title) || title.Length>200) return;
         var c=_aiStore.Book.Conversations.FirstOrDefault(c=>c.Id==id); if(c is null)return;
         var previous=c.Title; c.Title=title.Trim();
-        try { await _aiStore.SaveAsync(); }
+        try { await _aiStore.SaveAsync(); if (c.ParentConversationId is { } parent && _aiPanels.TryGetValue(parent, out var source)) source.RefreshVisibleBranchLinks(); }
         catch { c.Title=previous; AiStoreChanged(); throw; }
     }
     private void ShowAiConversationRename(string key)
@@ -153,10 +158,14 @@ public partial class MainWindow
         {
             foreach(var id in ids)
                 if(_aiPanels.Remove(id,out var panel)) { await panel.StopAndSaveAsync(); panel.Dispose(); }
+            var affectedParents = _aiStore.Book.Conversations.Where(c => ids.Contains(c.Id) && c.ParentConversationId is not null)
+                .Select(c => c.ParentConversationId!).Distinct().ToArray();
             _aiStore.Book.Conversations.RemoveAll(c=>ids.Contains(c.Id));
             var active=_aiStore.Book.Active;
             if(!_aiPanels.Values.Contains(_aiPanel)) _aiPanel=EnsureAiPanel(active.Id);
             await _aiStore.SaveAsync();
+            foreach (var parent in affectedParents)
+                if (_aiPanels.TryGetValue(parent, out var source)) source.RefreshVisibleBranchLinks();
             foreach (var id in ids)
             {
                 var key = TabWorkspace.AiRelationsKey(id);

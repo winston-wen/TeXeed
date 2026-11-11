@@ -19,6 +19,7 @@ public partial class AiPanel
     }
     internal event EventHandler<string>? ConversationOpenRequested;
     internal event EventHandler<AiConversation>? BranchSourceRequested;
+    internal event Action<string, AiAnswerAnchor, string?, string?>? AnswerSourceRequested;
     internal event EventHandler<string>? ConversationRelationsRequested;
     private Action? _refreshBranchNavigation;
 
@@ -26,7 +27,8 @@ public partial class AiPanel
     {
         foreach (UIElement element in ChatRoot.Children) Grid.SetRow(element, Grid.GetRow(element) + 1);
         ChatRoot.RowDefinitions.Insert(0, new RowDefinition { Height = GridLength.Auto });
-        var bar = new DockPanel { Margin = new Thickness(20, 3, 14, 3), VerticalAlignment = VerticalAlignment.Center, LastChildFill = false };
+        History.Margin = new Thickness(0, 4, 8, 0);
+        var bar = new DockPanel { Margin = new Thickness(20, 7, 14, 3), VerticalAlignment = VerticalAlignment.Center, LastChildFill = false };
         var map = new Button { Content = "会话关系", Padding = new Thickness(8, 3, 8, 3), VerticalAlignment = VerticalAlignment.Center };
         var parent = new Button { Content = "↑ 上游会话", Padding = new Thickness(8, 3, 8, 3), VerticalAlignment = VerticalAlignment.Center };
         var children = new Button { Content = "↓ 下游会话", Padding = new Thickness(8, 3, 8, 3), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
@@ -73,19 +75,69 @@ public partial class AiPanel
         var conversationId = _book.Active.Id;
         await view.RenderTask;
         if (_disposed || _book.Active.Id != conversationId || !view.IsLoaded) return;
-        foreach (var branch in _book.Conversations.Where(c => c.ParentConversationId == conversationId && c.BranchAnchor?.TurnId == turn.Id && c.BranchAnchor.SegmentId == segment.Id).ToArray())
+        var branches = _book.Conversations.Where(c => c.ParentConversationId == conversationId && c.BranchAnchor?.TurnId == turn.Id && c.BranchAnchor.SegmentId == segment.Id).ToArray();
+        if (branches.Length == 0 && view.BranchLinkBlocks.Count == 0) return;
+        var branchIds = branches.Select(branch => branch.Id).ToHashSet(StringComparer.Ordinal);
+        var obsolete = view.BranchLinkBlocks.Where(pair => !branchIds.Contains(pair.Key)).ToArray();
+        var visibleTurn = obsolete.Length > 0 && view.IsVisible ? ActiveReadingTurn() : null;
+        var previousTop = visibleTurn?.TranslatePoint(new Point(), MessagesScroll).Y;
+        var previousOffset = MessagesScroll.VerticalOffset;
+        foreach (var (id, block) in obsolete)
+        {
+            var owner = block.Parent switch { Section section => section.Blocks, FlowDocument document => document.Blocks, _ => null };
+            owner?.Remove(block);
+            view.BranchLinkBlocks.Remove(id);
+        }
+        if (visibleTurn is not null && previousTop is { } top)
+        {
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            if (!_disposed && _book.Active.Id == conversationId && visibleTurn.IsLoaded && Math.Abs(MessagesScroll.VerticalOffset - previousOffset) < .5)
+            {
+                var currentTop = visibleTurn.TranslatePoint(new Point(), MessagesScroll).Y;
+                MessagesScroll.ScrollToVerticalOffset(Math.Max(0, previousOffset + currentTop - top));
+            }
+        }
+        if (_disposed || _book.Active.Id != conversationId || !view.IsLoaded) return;
+        foreach (var branch in branches)
         {
             var anchor = branch.BranchAnchor!;
-            var pointer = view.ResolveUserBookmark(new AiUserBookmark { Anchor = anchor, ContextBefore = branch.BranchContextBefore, ContextAfter = branch.BranchContextAfter });
+            if (view.BranchLinkBlocks.TryGetValue(branch.Id, out var linked) && linked.Child is Button existingLink)
+            { existingLink.Content = "🗨️ " + branch.Title; continue; }
+            TextPointer? pointer = null;
+            if (anchor.Revision == view.Revision && anchor.TextOffset >= 0 && anchor.Length > 0 &&
+                !turn.CollapsedSections.Any(pair => pair.Value && pair.Key.StartsWith(segment.Id + ":", StringComparison.Ordinal)))
+            {
+                var start = view.BookmarkPointer(branch.Id + ":direct", anchor);
+                var end = start?.GetPositionAtOffset(anchor.Length);
+                if (start is not null && end is not null && start.IsInSameDocument(end) &&
+                    view.CopySource(start, end).Trim() == anchor.Quote.Trim()) pointer = start;
+            }
+            pointer ??= view.ResolveUserBookmark(new AiUserBookmark { Anchor = anchor, ContextBefore = branch.BranchContextBefore, ContextAfter = branch.BranchContextAfter });
             var paragraph = pointer?.Paragraph;
+            if (pointer is not null && pointer.IsInSameDocument(view.Document.ContentStart) && anchor.Quote.Contains('\n'))
+            {
+                var start = view.CopySource(view.Document.ContentStart, pointer).Length;
+                var end = start + anchor.Quote.TrimStart().Length - 1;
+                if (end >= start)
+                    paragraph = view.BookmarkPointer(branch.Id + ":end", anchor with { TextOffset = end })?.Paragraph ?? paragraph;
+            }
             var blocks = paragraph?.Parent switch { Section section => section.Blocks, FlowDocument document => document.Blocks, _ => null };
-            if (paragraph is null || blocks is null || blocks.OfType<BlockUIContainer>().Any(b => Equals(b.Tag, branch.Id))) continue;
+            if (paragraph is null || blocks is null) continue;
+            var existing = blocks.OfType<BlockUIContainer>().FirstOrDefault(b => Equals(b.Tag, branch.Id));
+            if (existing?.Child is Button oldLink) { view.BranchLinkBlocks[branch.Id] = existing; oldLink.Content = "🗨️ " + branch.Title; continue; }
             var link = new Button { Content = "🗨️ " + branch.Title, FontSize = view.FontSize, FontFamily = view.FontFamily,
                 HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(0), BorderThickness = new Thickness(0), Background = System.Windows.Media.Brushes.Transparent };
             link.SetResourceReference(Control.ForegroundProperty, "ChatFocus");
             link.Click += (_, _) => OpenRelatedConversation(branch.Id);
-            blocks.InsertAfter(paragraph, new BlockUIContainer(link) { Tag = branch.Id, Margin = new Thickness(0, 2, 0, 2) });
+            var container = new BlockUIContainer(link) { Tag = branch.Id, Margin = new Thickness(0, 2, 0, 2) };
+            view.BranchLinkBlocks[branch.Id] = container;
+            blocks.InsertAfter(paragraph, container);
         }
+    }
+
+    internal void RefreshVisibleBranchLinks()
+    {
+        foreach (var answer in _answerLayers.Keys.Where(view => view.IsVisible).ToArray()) AddBranchLinks(answer);
     }
 
     internal async Task BranchFromSelectionAsync(MarkdownView view)
@@ -104,9 +156,38 @@ public partial class AiPanel
             InheritedTurns = snapshot.InheritedTurns.Concat(snapshot.Turns.Take(turnIndex + 1)).ToList(),
             Entries = [new AiEntry { Title = "追问出处", AnswerAnchor = anchor }] };
         _book.Conversations.Add(branch);
+        foreach (var answer in _answerLayers.Keys.ToArray()) AddBranchLinks(answer);
         _refreshBranchNavigation?.Invoke();
         if (_store is not null) await _store.SaveAsync(); else await SaveAsync();
         OpenRelatedConversation(branch.Id);
+    }
+
+    private bool OpenAnswerReference(AiEntry entry)
+    {
+        if (entry.AnswerAnchor is not { } anchor) return false;
+        var candidates = _book.Conversations.Where(c => c.Turns.Any(t => t.Id == anchor.TurnId &&
+            t.DisplaySegments.Any(s => s.Id == anchor.SegmentId))).ToArray();
+        if (candidates.Length != 1) return false;
+        var active = _book.Active;
+        var branchAnchor = active.BranchAnchor;
+        var matchesBranch = branchAnchor is not null && branchAnchor.TurnId == anchor.TurnId &&
+            branchAnchor.SegmentId == anchor.SegmentId && branchAnchor.Revision == anchor.Revision && branchAnchor.Quote == anchor.Quote;
+        var before = matchesBranch ? active.BranchContextBefore : null;
+        var after = matchesBranch ? active.BranchContextAfter : null;
+        if (candidates[0].Id == active.Id)
+        {
+            _ = NavigateAnswerReferenceAsync(anchor, before, after);
+            return true;
+        }
+        if (AnswerSourceRequested is null) return false;
+        AnswerSourceRequested(candidates[0].Id, anchor, before, after);
+        return true;
+    }
+
+    private async Task NavigateAnswerReferenceAsync(AiAnswerAnchor anchor, string? before, string? after)
+    {
+        try { if (!await NavigateBranchSourceAsync(anchor, before, after)) StatusText.Text = "无法定位引用出处，原回答可能已改变。"; }
+        catch (Exception ex) { ShowError(ex); }
     }
 
     internal async Task<bool> NavigateBranchSourceAsync(AiAnswerAnchor anchor, string? before = null, string? after = null)

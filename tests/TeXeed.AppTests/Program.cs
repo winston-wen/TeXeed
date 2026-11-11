@@ -95,6 +95,16 @@ internal static partial class Program
                     await CheckAiBranchesAsync(window, output);
                     await CloseAndObserveAsync(window, "AI branch navigation"); result = 0; return;
                 }
+                if (args.Contains("--ai-reference-navigation-only"))
+                {
+                    await CheckAiReferenceNavigationAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI reference navigation"); result = 0; return;
+                }
+                if (args.Contains("--ai-toolbar-alignment-only"))
+                {
+                    await CheckAiToolbarAlignmentAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI toolbar alignment"); result = 0; return;
+                }
                 if (args.Contains("--ai-emphasis-only"))
                 {
                     await CheckAiEmphasisAsync(window, output);

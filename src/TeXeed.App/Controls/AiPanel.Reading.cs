@@ -104,6 +104,8 @@ public partial class AiPanel
         view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
+        view.AnswerFoldingChanged = AddBranchLinks;
+        view.AnswerReferenceRequested = OpenAnswerReference;
         view.AnswerGone = answer => Answer_Unloaded(answer, new RoutedEventArgs());
         view.QuestionReady = BookmarkQuestionLoaded;
         view.QuestionGone = BookmarkQuestionUnloaded;

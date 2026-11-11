@@ -22,6 +22,8 @@ public sealed class AiTurnView : StackPanel
     public string? ImageBaseDirectory { get => _imageBaseDirectory; set { _imageBaseDirectory = value; foreach (var answer in Answers) answer.ImageBaseDirectory = value; } }
     internal Action? Changed;
     internal Action<MarkdownView>? AnswerReady, AnswerGone, QuestionReady, QuestionGone;
+    internal Action<MarkdownView>? AnswerFoldingChanged;
+    internal Func<AiEntry, bool>? AnswerReferenceRequested;
     internal Action<AiEntry>? PreviewChanged;
     internal Action<string>? SourceRequested;
     internal Action? RetryRequested;
@@ -75,7 +77,12 @@ public sealed class AiTurnView : StackPanel
         var prompt = entries.Count == 0 ? Turn.DisplayQuestion : Turn.Prompt ?? Turn.DisplayQuestion;
         var annotationsOnly = entries.Count > 0 && string.IsNullOrWhiteSpace(prompt);
         var annotationText = string.Join("\n", entries.Select((e, i) => $"{i + 1}. [{LinkLabel(e)}](#snapshot-{i + 1})"));
-        void OpenSnapshot(string key) { if (int.TryParse(key.AsSpan("snapshot-".Length), out var n) && n > 0 && n <= entries.Count) ShowPreview(entries[n - 1], n); }
+        void OpenSnapshot(string key)
+        {
+            if (!int.TryParse(key.AsSpan("snapshot-".Length), out var n) || n <= 0 || n > entries.Count) return;
+            var entry = entries[n - 1];
+            if (entry.AnswerAnchor is null || AnswerReferenceRequested?.Invoke(entry) != true) ShowPreview(entry, n);
+        }
         var questionRow = new Grid(); questionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(AiChatTypography.TextLeft) }); questionRow.ColumnDefinitions.Add(new ColumnDefinition());
         var content = Rich(annotationsOnly ? annotationText : prompt, new Thickness(0, 8, 12, entries.Count == 0 || annotationsOnly ? -AiChatTypography.RichTextInset : 0), annotationsOnly); Grid.SetColumn(content, 1);
         RegisterQuestion(content);
@@ -130,7 +137,7 @@ public sealed class AiTurnView : StackPanel
                 var answer = Rich("", new Thickness(0, 2, 0, 0)); answer.Padding = new Thickness(0, 0, 34, 0); answer.DataContext = segment;
                 answer.HeadingSeed = headings.Snapshot();
                 answer.ChatMode = true; answer.TurnNumber = TurnNumber; answer.ImageBaseDirectory = ImageBaseDirectory;
-                answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => Changed?.Invoke());
+                answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => { Changed?.Invoke(); AnswerFoldingChanged?.Invoke(answer); });
                 answer.Markdown = segment.Text;
                 answer.Loaded += (_, _) => AnswerReady?.Invoke(answer); answer.Unloaded += (_, _) => AnswerGone?.Invoke(answer);
                 Answers.Add(answer); _body.Children.Add(answer);

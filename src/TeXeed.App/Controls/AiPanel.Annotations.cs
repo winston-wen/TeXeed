@@ -54,6 +54,7 @@ public partial class AiPanel
         AddBranchLinks(view);
         RefreshBookmarkMarker(view, false);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
+        view.IsVisibleChanged += Answer_VisibilityChanged;
         var menu = new ContextMenu();
         var annotate = new MenuItem { Header = "批注所选内容" };
         annotate.Click += (_, _) => AnnotateAnswer(view);
@@ -87,8 +88,10 @@ public partial class AiPanel
     private void Answer_Unloaded(object sender, RoutedEventArgs e)
     {
         // Layers follow Loaded/Unloaded themselves; keep only currently attached answers in the panel.
-        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; }
+        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; view.IsVisibleChanged -= Answer_VisibilityChanged; }
     }
+    private void Answer_VisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
+    { if (sender is MarkdownView { IsVisible: true } view) AddBranchLinks(view); }
     private void Answer_MouseUp(object sender, MouseButtonEventArgs e)
     {
         if (!IsMarking || sender is not MarkdownView view || Keyboard.Modifiers != ModifierKeys.None || ImagePreview.IsPreviewImage(e.OriginalSource)) return;

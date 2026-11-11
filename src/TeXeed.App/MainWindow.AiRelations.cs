@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using TeXeed.App.Controls;
 using TeXeed.Core;
 
 namespace TeXeed.App;
@@ -16,8 +17,9 @@ public partial class MainWindow
         var version = string.Join("\u001e", _aiStore.Book.Conversations.Select(c => c.Id + "\u001f" + c.ParentConversationId + "\u001f" + c.Title));
         if (_aiRelationViews.ContainsKey(key) && _aiRelationVersions.GetValueOrDefault(key) == version) return;
         RemoveAiRelations(key);
-        var panel = EnsureAiPanel(id);
-        var tree = panel.CreateConversationRelations(conversation => _ = OpenAiConversationAsync(conversation));
+        var graph = new AiConversationGraph(_aiStore.Book.Conversations, id, conversation => _ = OpenAiConversationAsync(conversation));
+        graph.HorizontalAlignment = HorizontalAlignment.Left; graph.VerticalAlignment = VerticalAlignment.Top;
+        var tree = new ScrollViewer { Content = graph, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Top };
         var title = new TextBlock { Text = "会话关系", FontSize = 17, Margin = new Thickness(20, 16, 20, 0) };
         title.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
         var header = new TextBlock { Text = "双击打开会话", FontSize = 12, Margin = new Thickness(20, 4, 20, 0) };
