@@ -9,6 +9,10 @@ public sealed class TabWorkspace
     public const string AiSettingsKey = "@texeed:ai-settings";
     public const string AiKey = "@texeed:ai";
     public const string AiHistoryKey = "@texeed:ai-history";
+    private const string AiRelationsPrefix = "@texeed:ai-relations:";
+    public static string AiRelationsKey(string id) => AiRelationsPrefix + id;
+    public static bool IsAiRelations(string key) => key.StartsWith(AiRelationsPrefix, StringComparison.Ordinal);
+    public static string AiRelationsId(string key) => key[AiRelationsPrefix.Length..];
     public static string AiConversationKey(string id) => AiKey + ":" + id;
     public static bool IsAiConversation(string key) => key == AiKey || key.StartsWith(AiKey + ":", StringComparison.Ordinal);
     public const string PreviewKey = "@texeed:preview";
@@ -16,7 +20,7 @@ public sealed class TabWorkspace
     public static string PreviewKeyFor(string entryPath) => EntryPreviewPrefix + Path.GetFullPath(entryPath);
     public static bool IsPreview(string key) => key == PreviewKey || key.StartsWith(EntryPreviewPrefix, StringComparison.OrdinalIgnoreCase);
     public static string? PreviewEntry(string key) => key.StartsWith(EntryPreviewPrefix, StringComparison.OrdinalIgnoreCase) ? key[EntryPreviewPrefix.Length..] : null;
-    public static bool IsSource(string key) => !IsPreview(key) && !IsAiConversation(key) && key != AiSettingsKey && key != AiHistoryKey;
+    public static bool IsSource(string key) => !IsPreview(key) && !IsAiConversation(key) && !IsAiRelations(key) && key != AiSettingsKey && key != AiHistoryKey;
     private List<string> _left = [], _right = [PreviewKey];
     private string? _leftActive, _rightActive = PreviewKey;
     public TabSide FocusedSide { get; private set; } = TabSide.Left;

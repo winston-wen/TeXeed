@@ -214,6 +214,33 @@ public sealed class AiNotebook
     [JsonIgnore] public List<AiTurn> Turns { get => Active.Turns; set => Active.Turns = value; }
     [JsonIgnore] public string Draft { get => Active.Draft; set => Active.Draft = value; }
 
+    private static bool HasEmptyNewConversationContent(AiConversation c) =>
+        c.Title == "新对话" && c.Draft is { Length: 0 } && c.Turns is { Count: 0 } && c.Entries is { Count: 0 } &&
+        c.Bookmarks is { Count: 0 } && c.LastSentAt is null && c.ParentConversationId is null && c.BranchAnchor is null &&
+        c.BranchContextBefore is null && c.BranchContextAfter is null && c.InheritedTurns is { Count: 0 } &&
+        c.ContextUsage is null && c.ContextMemory is null && !c.HeaderPinned && c.ReadingOffset == 0 &&
+        c.ReadingTurnId is null && c.ReadingTurnOffset == 0 && c.BookmarkBallX is null && c.BookmarkBallY is null &&
+        c.BookmarkSort == "document" && c.Permission == AiPermission.FullAccess && c.ShellApprovals.Count == 0 &&
+        (c.AdditionalData is null || c.AdditionalData.Count == 0);
+
+    internal bool IsEmptyNewConversation(AiConversation c) => HasEmptyNewConversationContent(c) &&
+        !Conversations.Any(other => other.ParentConversationId == c.Id);
+
+    internal IReadOnlyList<AiConversation> EmptyNewConversations()
+    {
+        var parents = Conversations.Select(c => c.ParentConversationId).Where(id => id is not null).ToHashSet();
+        return Conversations.Where(c => HasEmptyNewConversationContent(c) && !parents.Contains(c.Id)).ToArray();
+    }
+
+    internal bool PruneEmptyNewConversations()
+    {
+        var empty = EmptyNewConversations();
+        if (empty.Count <= 1) return false;
+        var keep = empty.FirstOrDefault(c => c.Id == ActiveConversationId) ?? empty[0];
+        var remove = empty.Where(c => c != keep).ToHashSet();
+        return Conversations.RemoveAll(remove.Contains) > 0;
+    }
+
     internal AiConversation NewConversation()
     {
         var conversation = new AiConversation();

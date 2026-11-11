@@ -1,0 +1,159 @@
+{
+  "fixture": "900x760 MainWindow; 60 related sessions; 2 warmups \u002B 7 paired ApplicationIdle samples",
+  "samples": [
+    {
+      "op": "open-60-related",
+      "rawMs": 46.7807,
+      "idleMs": 0.0307,
+      "correctedMs": 46.75,
+      "rawBytes": 4138488,
+      "idleBytes": 2232,
+      "correctedBytes": 4136256,
+      "visibleControls": 58,
+      "mode": "tab"
+    },
+    {
+      "op": "open-60-related",
+      "rawMs": 46.8346,
+      "idleMs": 0.0376,
+      "correctedMs": 46.797000000000004,
+      "rawBytes": 4322696,
+      "idleBytes": 2232,
+      "correctedBytes": 4320464,
+      "visibleControls": 58,
+      "mode": "tab"
+    },
+    {
+      "op": "open-60-related",
+      "rawMs": 47.0343,
+      "idleMs": 0.0293,
+      "correctedMs": 47.005,
+      "rawBytes": 4302704,
+      "idleBytes": 2232,
+      "correctedBytes": 4300472,
+      "visibleControls": 58,
+      "mode": "tab"
+    },
+    {
+      "op": "open-60-related",
+      "rawMs": 88.2509,
+      "idleMs": 0.0289,
+      "correctedMs": 88.22200000000001,
+      "rawBytes": 4353424,
+      "idleBytes": 2232,
+      "correctedBytes": 4351192,
+      "visibleControls": 58,
+      "mode": "tab"
+    },
+    {
+      "op": "open-60-related",
+      "rawMs": 69.5003,
+      "idleMs": 0.0361,
+      "correctedMs": 69.46419999999999,
+      "rawBytes": 4138488,
+      "idleBytes": 2232,
+      "correctedBytes": 4136256,
+      "visibleControls": 58,
+      "mode": "tab"
+    },
+    {
+      "op": "open-60-related",
+      "rawMs": 65.8627,
+      "idleMs": 0.0357,
+      "correctedMs": 65.827,
+      "rawBytes": 4209640,
+      "idleBytes": 2232,
+      "correctedBytes": 4207408,
+      "visibleControls": 58,
+      "mode": "tab"
+    },
+    {
+      "op": "open-60-related",
+      "rawMs": 55.4596,
+      "idleMs": 0.0674,
+      "correctedMs": 55.3922,
+      "rawBytes": 4273472,
+      "idleBytes": 2232,
+      "correctedBytes": 4271240,
+      "visibleControls": 58,
+      "mode": "tab"
+    },
+    {
+      "op": "history-refresh",
+      "rawMs": 11.4808,
+      "idleMs": 0.0424,
+      "correctedMs": 11.4384,
+      "rawBytes": 620408,
+      "idleBytes": 2232,
+      "correctedBytes": 618176,
+      "visibleControls": 58,
+      "mode": "history"
+    },
+    {
+      "op": "history-refresh",
+      "rawMs": 10.6215,
+      "idleMs": 0.041,
+      "correctedMs": 10.580499999999999,
+      "rawBytes": 619920,
+      "idleBytes": 2232,
+      "correctedBytes": 617688,
+      "visibleControls": 58,
+      "mode": "history"
+    },
+    {
+      "op": "history-refresh",
+      "rawMs": 10.4328,
+      "idleMs": 0.041,
+      "correctedMs": 10.3918,
+      "rawBytes": 621456,
+      "idleBytes": 2232,
+      "correctedBytes": 619224,
+      "visibleControls": 58,
+      "mode": "history"
+    },
+    {
+      "op": "history-refresh",
+      "rawMs": 10.7846,
+      "idleMs": 0.0401,
+      "correctedMs": 10.744499999999999,
+      "rawBytes": 619920,
+      "idleBytes": 2232,
+      "correctedBytes": 617688,
+      "visibleControls": 58,
+      "mode": "history"
+    },
+    {
+      "op": "history-refresh",
+      "rawMs": 11.1597,
+      "idleMs": 0.0544,
+      "correctedMs": 11.105300000000002,
+      "rawBytes": 621040,
+      "idleBytes": 2232,
+      "correctedBytes": 618808,
+      "visibleControls": 58,
+      "mode": "history"
+    },
+    {
+      "op": "history-refresh",
+      "rawMs": 27.1996,
+      "idleMs": 0.0403,
+      "correctedMs": 27.1593,
+      "rawBytes": 630024,
+      "idleBytes": 2232,
+      "correctedBytes": 627792,
+      "visibleControls": 58,
+      "mode": "history"
+    },
+    {
+      "op": "history-refresh",
+      "rawMs": 11.2546,
+      "idleMs": 0.0486,
+      "correctedMs": 11.206,
+      "rawBytes": 620568,
+      "idleBytes": 2232,
+      "correctedBytes": 618336,
+      "visibleControls": 58,
+      "mode": "history"
+    }
+  ]
+}

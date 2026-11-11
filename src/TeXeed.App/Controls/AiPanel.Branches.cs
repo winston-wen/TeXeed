@@ -11,26 +11,47 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
-    private sealed class RelationNode(AiConversation conversation)
+    private sealed class RelationNode(AiConversation conversation, bool current)
     {
         public string Id { get; } = conversation.Id;
-        public string Title { get; } = conversation.Title;
+        public string Title { get; } = conversation.Title + (current ? "（当前）" : "");
         public List<RelationNode> Children { get; } = [];
     }
     internal event EventHandler<string>? ConversationOpenRequested;
     internal event EventHandler<AiConversation>? BranchSourceRequested;
+    internal event EventHandler<string>? ConversationRelationsRequested;
+    private Action? _refreshBranchNavigation;
 
     internal void InitializeBranchUi()
     {
         foreach (UIElement element in ChatRoot.Children) Grid.SetRow(element, Grid.GetRow(element) + 1);
         ChatRoot.RowDefinitions.Insert(0, new RowDefinition { Height = GridLength.Auto });
-        var bar = new DockPanel { Margin = new Thickness(20, 3, 14, 3) };
-        var map = new Button { Content = "会话关系", Padding = new Thickness(8, 3, 8, 3), HorizontalAlignment = HorizontalAlignment.Right };
-        var parent = new Button { Content = "← 返回提问出处", Padding = new Thickness(8, 3, 8, 3), HorizontalAlignment = HorizontalAlignment.Left };
+        var bar = new DockPanel { Margin = new Thickness(20, 3, 14, 3), VerticalAlignment = VerticalAlignment.Center, LastChildFill = false };
+        var map = new Button { Content = "会话关系", Padding = new Thickness(8, 3, 8, 3), VerticalAlignment = VerticalAlignment.Center };
+        var parent = new Button { Content = "↑ 上游会话", Padding = new Thickness(8, 3, 8, 3), VerticalAlignment = VerticalAlignment.Center };
+        var children = new Button { Content = "↓ 下游会话", Padding = new Thickness(8, 3, 8, 3), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
         parent.Click += (_, _) => { if (_book.Active.ParentConversationId is not null) BranchSourceRequested?.Invoke(this, _book.Active); };
-        parent.Loaded += (_, _) => parent.Visibility = _book.Active.ParentConversationId is null ? Visibility.Collapsed : Visibility.Visible;
-        map.Click += (_, _) => ShowConversationRelations();
-        DockPanel.SetDock(map, Dock.Right); bar.Children.Add(map); bar.Children.Add(parent);
+        void UpdateNavigation()
+        {
+            parent.IsEnabled = _book.Active.ParentConversationId is not null;
+            children.IsEnabled = _book.Conversations.Any(c => c.ParentConversationId == _book.Active.Id);
+        }
+        _refreshBranchNavigation = UpdateNavigation;
+        bar.Loaded += (_, _) => UpdateNavigation();
+        bar.IsVisibleChanged += (_, _) => { if (bar.IsVisible) UpdateNavigation(); };
+        children.Click += (_, _) =>
+        {
+            var menu = new ContextMenu { PlacementTarget = children, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+            foreach (var child in _book.Conversations.Where(c => c.ParentConversationId == _book.Active.Id))
+            {
+                var item = new MenuItem { Header = child.Title, ToolTip = child.Title };
+                item.Click += (_, _) => OpenRelatedConversation(child.Id); menu.Items.Add(item);
+            }
+            children.ContextMenu = menu;
+            if (menu.Items.Count > 0) menu.IsOpen = true;
+        };
+        map.Click += (_, _) => ConversationRelationsRequested?.Invoke(this, _book.Active.Id);
+        DockPanel.SetDock(map, Dock.Right); bar.Children.Add(map); bar.Children.Add(parent); bar.Children.Add(children);
         ChatRoot.Children.Add(bar); Grid.SetRow(bar, 0);
     }
 
@@ -83,6 +104,7 @@ public partial class AiPanel
             InheritedTurns = snapshot.InheritedTurns.Concat(snapshot.Turns.Take(turnIndex + 1)).ToList(),
             Entries = [new AiEntry { Title = "追问出处", AnswerAnchor = anchor }] };
         _book.Conversations.Add(branch);
+        _refreshBranchNavigation?.Invoke();
         if (_store is not null) await _store.SaveAsync(); else await SaveAsync();
         OpenRelatedConversation(branch.Id);
     }
@@ -118,22 +140,32 @@ public partial class AiPanel
         else _ = SelectConversationAsync(id);
     }
 
-    private void ShowConversationRelations()
+    internal TreeView CreateConversationRelations(Action<string> open)
     {
-        var window = new Window { Owner = Window.GetWindow(this), Title = "会话关系", Width = 480, Height = 560, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var tree = new TreeView { Margin = new Thickness(12), FontSize = 15 };
-        var all = _book.Conversations.ToArray();
+        var conversations = _book.Conversations.ToArray();
+        var byId = conversations.GroupBy(c => c.Id).ToDictionary(g => g.Key, g => g.First());
+        var root = _book.Active;
+        var visited = new HashSet<string>();
+        while (visited.Add(root.Id) && root.ParentConversationId is { } parent && byId.TryGetValue(parent, out var next) && !visited.Contains(next.Id)) root = next;
+        var selected = new HashSet<string> { root.Id };
+        var childrenByParent = conversations.Where(c => c.ParentConversationId is not null).GroupBy(c => c.ParentConversationId!).ToDictionary(g => g.Key, g => g.ToArray());
+        var pending = new Queue<string>(); pending.Enqueue(root.Id);
+        while (pending.TryDequeue(out var parent))
+            foreach (var child in childrenByParent.GetValueOrDefault(parent, []))
+                if (selected.Add(child.Id)) pending.Enqueue(child.Id);
+        var all = conversations.Where(c => selected.Contains(c.Id)).ToArray();
         if (all.Length <= 24)
         {
             TreeViewItem MakeSmallNode(AiConversation conversation, HashSet<string> ancestors)
             {
-                var node = new TreeViewItem { Header = conversation.Title, Tag = conversation.Id, IsExpanded = true, Padding = new Thickness(2, 5, 2, 5) };
+                var node = new TreeViewItem { Header = conversation.Title + (conversation.Id == _book.Active.Id ? "（当前）" : ""), Tag = conversation.Id, IsExpanded = true, Padding = new Thickness(2, 5, 2, 5) };
                 if (!ancestors.Add(conversation.Id)) return node;
                 foreach (var child in all.Where(c => c.ParentConversationId == conversation.Id && !ancestors.Contains(c.Id)))
                     node.Items.Add(MakeSmallNode(child, new HashSet<string>(ancestors)));
                 return node;
             }
-            foreach (var root in all.Where(c => c.ParentConversationId is null || all.All(p => p.Id != c.ParentConversationId))) tree.Items.Add(MakeSmallNode(root, []));
+            tree.Items.Add(MakeSmallNode(root, []));
         }
         else
         {
@@ -149,7 +181,7 @@ public partial class AiPanel
         label.SetBinding(TextBlock.TextProperty, new Binding(nameof(RelationNode.Title)));
         template.VisualTree = label;
         tree.ItemTemplate = template;
-        var nodes = all.ToDictionary(c => c.Id, c => new RelationNode(c));
+        var nodes = all.ToDictionary(c => c.Id, c => new RelationNode(c, c.Id == _book.Active.Id));
         var children = all.Where(c => c.ParentConversationId is not null).GroupBy(c => c.ParentConversationId!).ToDictionary(g => g.Key, g => g.ToArray());
         RelationNode MakeNode(AiConversation conversation, HashSet<string> ancestors)
         {
@@ -159,13 +191,13 @@ public partial class AiPanel
                 node.Children.Add(MakeNode(child, new HashSet<string>(ancestors)));
             return node;
         }
-        foreach (var root in all.Where(c => c.ParentConversationId is null || all.All(p => p.Id != c.ParentConversationId))) tree.Items.Add(MakeNode(root, []));
+        tree.Items.Add(MakeNode(root, []));
         }
         tree.MouseDoubleClick += (_, e) =>
         {
             for (var current = e.OriginalSource as DependencyObject; current is not null && current != tree; current = current is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D ? System.Windows.Media.VisualTreeHelper.GetParent(current) : LogicalTreeHelper.GetParent(current))
-                if (current is TreeViewItem item && (item.Tag as string ?? (item.DataContext as RelationNode)?.Id) is { } id) { e.Handled = true; window.Close(); OpenRelatedConversation(id); break; }
+                if (current is TreeViewItem item && (item.Tag as string ?? (item.DataContext as RelationNode)?.Id) is { } id) { e.Handled = true; open(id); break; }
         };
-        window.Content = tree; window.Show();
+        return tree;
     }
 }

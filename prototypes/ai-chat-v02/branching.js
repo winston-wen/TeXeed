@@ -31,9 +31,17 @@
   ];
   const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, bookmarks: [], sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
   const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; if (loaded.pending?.parentId && !loaded.pendingBySession[loaded.pending.parentId]) loaded.pendingBySession[loaded.pending.parentId] = loaded.pending; for (const s of loaded.sessions) { s.references ||= []; s.attachments ||= []; const references = JSON.parse(localStorage.getItem(referencesKey(s.id)) || 'null'); if (Array.isArray(references)) s.references = references; const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.attachments) s.attachments = draft.attachments; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } const old = loaded.pendingBySession[s.id]; if (old?.kind === 'quote') { if (!s.references.some(r => r.legacyPending)) s.references.push({ id: uid(), blockId: old.blockId, quote: old.quote, textOffset: old.sourceTextOffset, comment: '', selected: true, attachments: [], legacyPending: old }); delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
-  let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, pendingFileReads = 0;
+  let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, relationAnchor = null, pendingFileReads = 0;
   const session = id => state.sessions.find(s => s.id === id);
   const current = () => session(state.active) || state.sessions[0];
+  function isBlankSession(s) { return s.title === '新对话' && !s.parent && !s.source && !(s.turns || []).length && !s.draft && !(s.references || []).length && !(s.attachments || []).length && !state.pendingBySession?.[s.id] && !(state.bookmarks || []).some(b => b.sessionId === s.id) && !state.sessions.some(child => child.parent === s.id) && Object.keys(s).every(k => ['id','title','parent','source','draft','turns','references','attachments','viewport'].includes(k)); }
+  function trimBlankSessions() {
+    const blanks = state.sessions.filter(isBlankSession); if (blanks.length < 2) return;
+    const keep = blanks.find(s => s.id === state.active) || blanks[0];
+    state.sessions = state.sessions.filter(s => !isBlankSession(s) || s === keep);
+    if (!session(state.selected)) state.selected = state.active;
+  }
+  trimBlankSessions();
   function ensureSession(s) { s.references ||= []; s.attachments ||= []; return s; }
   function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(draftKey(state.active)); localStorage.removeItem(referencesKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存示例会话。'; return false; } }
   function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, attachments: ensureSession(current()).attachments, pending: state.pending?.parentId === state.active ? state.pending : null })); return true; } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; return false; } }
@@ -98,7 +106,9 @@
     const s = current();
     s.turns.forEach((turn, i) => transcript.appendChild(renderTurn(turn, i)));
     $('session-title').textContent = s.title;
-    $('back-source').hidden = !s.parent;
+    $('back-source').disabled = !s.parent;
+    $('child-sessions').disabled = !state.sessions.some(child => child.parent === s.id);
+    $('child-menu').hidden = true;
     focusedBlock = null; $('bookmark-paragraph').disabled = true;
     renderComposerContext(); renderReferencesButton(); renderMainAttachments();
   }
@@ -242,12 +252,13 @@
     navigate(bookmark.sessionId, { blockId: bookmark.blockId, textOffset: bookmark.textOffset, lineY: 18, offset: -18 });
     $('status').textContent = '已跳转到书签：' + bookmark.label;
   }
-  function makeNode(s) {
+  function makeNode(s, visited = new Set()) {
+    visited.add(s.id);
     const branch = document.createElement('div'); branch.className = 'tree-node';
     const node = document.createElement('button'); node.type = 'button'; node.className = 'node-card'; node.dataset.nodeId = s.id; node.setAttribute('aria-current', String(s.id === state.selected));
     appendText('span', 'node-title', s.title, node); appendText('span', 'node-meta', s.parent ? `${s.turns.length} 轮讨论` : '主会话', node); branch.appendChild(node);
-    const children = state.sessions.filter(other => other.parent === s.id);
-    if (children.length) { const wrap = document.createElement('div'); wrap.className = 'tree-children'; for (const child of children) { const container = document.createElement('div'); container.className = 'tree-child'; container.appendChild(makeNode(child)); wrap.appendChild(container); } branch.appendChild(wrap); }
+    const children = state.sessions.filter(other => other.parent === s.id && !visited.has(other.id));
+    if (children.length) { const wrap = document.createElement('div'); wrap.className = 'tree-children'; for (const child of children) { const container = document.createElement('div'); container.className = 'tree-child'; container.appendChild(makeNode(child, new Set(visited))); wrap.appendChild(container); } branch.appendChild(wrap); }
     return branch;
   }
   function mapDetails() {
@@ -257,11 +268,15 @@
     const open = document.createElement('button'); open.type = 'button'; open.dataset.mapOpen = s.id; open.textContent = '打开会话'; box.appendChild(open);
     if (s.parent) { const source = document.createElement('button'); source.type = 'button'; source.dataset.mapSource = s.id; source.textContent = '查看提问出处'; box.appendChild(source); }
   }
-  function renderMap() { $('map-tree').replaceChildren(); const roots = state.sessions.filter(s => !s.parent || !session(s.parent)); for (const root of roots) $('map-tree').appendChild(makeNode(root)); mapDetails(); }
-  function openMap() { persistCurrent(); mapOpen = true; state.selected = state.active; $('reader-view').hidden = true; $('composer-pane').hidden = true; $('relation-map').hidden = false; $('map-toggle').setAttribute('aria-expanded', 'true'); $('selection-tools').hidden = true; renderMap(); save(); }
-  function closeMap() { mapOpen = false; $('reader-view').hidden = false; $('composer-pane').hidden = false; $('relation-map').hidden = true; $('map-toggle').setAttribute('aria-expanded', 'false'); }
-  $('map-toggle').addEventListener('click', () => mapOpen ? closeMap() : openMap()); $('map-close').addEventListener('click', closeMap);
+  function renderMap() { $('map-tree').replaceChildren(); let root = session(relationAnchor) || current(); const visited = new Set(); while (root.parent && session(root.parent) && !visited.has(root.parent)) { visited.add(root.id); root = session(root.parent); } $('map-tree').appendChild(makeNode(root)); mapDetails(); }
+  function openMap(fresh = true) { persistCurrent(); if (fresh || !relationAnchor) { relationAnchor = state.active; state.selected = state.active; } mapOpen = true; $('relation-tab-wrap').hidden = false; $('conversation-toolbar').hidden = true; $('reader-view').hidden = true; $('composer-pane').hidden = true; $('relation-map').hidden = false; $('map-toggle').setAttribute('aria-expanded', 'true'); $('conversation-tab').classList.remove('active'); $('relation-tab').classList.add('active'); $('selection-tools').hidden = true; renderMap(); save(); }
+  function closeMap() { mapOpen = false; $('conversation-toolbar').hidden = false; $('reader-view').hidden = false; $('composer-pane').hidden = false; $('relation-map').hidden = true; $('map-toggle').setAttribute('aria-expanded', 'false'); $('conversation-tab').classList.add('active'); $('relation-tab').classList.remove('active'); }
+  $('map-toggle').addEventListener('click', () => openMap()); $('map-close').addEventListener('click', closeMap);
+  $('conversation-tab').addEventListener('click', closeMap); $('relation-tab').addEventListener('click', () => openMap(false));
+  $('relation-tab-close').addEventListener('click', () => { closeMap(); relationAnchor = null; $('relation-tab-wrap').hidden = true; });
+  $('new-conversation').addEventListener('click', () => { persistCurrent(); trimBlankSessions(); let blank = state.sessions.find(isBlankSession); if (!blank) { blank = { id: uid(), title: '新对话', parent: null, source: null, draft: '', turns: [], references: [], attachments: [] }; state.sessions.push(blank); } navigate(blank.id); save(); });
   $('back-source').addEventListener('click', () => parentSource(current()));
+  $('child-sessions').addEventListener('click', () => { const children = state.sessions.filter(s => s.parent === current().id); if (children.length === 1) { navigate(children[0].id); return; } const menu = $('child-menu'); menu.replaceChildren(); for (const child of children) { const button = document.createElement('button'); button.type = 'button'; button.textContent = child.title; button.addEventListener('click', () => { menu.hidden = true; navigate(child.id); }); menu.appendChild(button); } menu.hidden = !menu.hidden; });
   $('selection-tools').addEventListener('pointerdown', e => e.preventDefault()); $('selection-branch').addEventListener('click', () => setPending('branch')); $('selection-quote').addEventListener('click', () => setPending('quote')); $('selection-bookmark').addEventListener('click', () => openBookmark(currentSelection));
   $('context-menu').addEventListener('pointerdown', e => e.preventDefault()); $('context-branch').addEventListener('click', () => { $('context-menu').hidden = true; setPending('branch'); }); $('context-quote').addEventListener('click', () => setPending('quote')); $('context-bookmark').addEventListener('click', () => { $('context-menu').hidden = true; openBookmark(currentSelection); });
   reader.addEventListener('contextmenu', e => { const el = e.target.closest('[data-block-id]'); if (!el) return; const selection = selectionInfo(); currentSelection = selection?.blockId === el.dataset.blockId ? selection : blockContext(el); if (!currentSelection) return; e.preventDefault(); $('selection-tools').hidden = true; const menu = $('context-menu'); menu.hidden = false; requestAnimationFrame(() => { menu.style.left = Math.max(6, Math.min(innerWidth - menu.offsetWidth - 6, e.clientX)) + 'px'; menu.style.top = Math.max(55, Math.min(innerHeight - menu.offsetHeight - 6, e.clientY)) + 'px'; }); });

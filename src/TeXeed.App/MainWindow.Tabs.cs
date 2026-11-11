@@ -106,6 +106,7 @@ public partial class MainWindow
             }
         }
         var closed = _workspaceTabs.Close(path, range);
+        foreach (var key in closed.Where(TabWorkspace.IsAiRelations)) RemoveAiRelations(key);
         foreach (var editor in Editors)
             if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
         RefreshTabs();
@@ -210,6 +211,12 @@ public partial class MainWindow
                     if (_aiHistory.Parent is Panel oldHistory && oldHistory != GroupBody(side)) oldHistory.Children.Remove(_aiHistory);
                     if (_aiHistory.Parent is null) GroupBody(side).Children.Add(_aiHistory);
                 }
+                if (active is not null && TabWorkspace.IsAiRelations(active)) EnsureAiRelations(TabWorkspace.AiRelationsId(active));
+                if (active is not null && _aiRelationViews.TryGetValue(active, out var relations))
+                {
+                    if (relations.Parent is Panel oldRelations && oldRelations != GroupBody(side)) oldRelations.Children.Remove(relations);
+                    if (relations.Parent is null) GroupBody(side).Children.Add(relations);
+                }
                 UpdateTabStrip(side);
             }
             foreach(var (id,panel) in _aiPanels)
@@ -219,6 +226,8 @@ public partial class MainWindow
             }
             _aiSettings.Visibility = _workspaceTabs.Owner(TabWorkspace.AiSettingsKey) is { } settingsSide && _workspaceTabs.Active(settingsSide)==TabWorkspace.AiSettingsKey ? Visibility.Visible : Visibility.Collapsed;
             if(_aiHistory is not null) _aiHistory.Visibility=_workspaceTabs.Owner(TabWorkspace.AiHistoryKey) is { } historySide && _workspaceTabs.Active(historySide)==TabWorkspace.AiHistoryKey ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var (key, relations) in _aiRelationViews)
+                relations.Visibility = _workspaceTabs.Owner(key) is { } relationsSide && _workspaceTabs.Active(relationsSide) == key ? Visibility.Visible : Visibility.Collapsed;
             var activePreviewKey = _activePreviewEntry is null ? TabWorkspace.PreviewKey : PreviewKeyForEntry(_activePreviewEntry);
             var previewSide = _workspaceTabs.Owner(activePreviewKey);
             PreviewContent.Visibility = previewSide is { } ps && _workspaceTabs.Active(ps) == activePreviewKey ? Visibility.Visible : Visibility.Collapsed;

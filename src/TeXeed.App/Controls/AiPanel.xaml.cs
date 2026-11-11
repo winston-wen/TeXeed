@@ -144,6 +144,7 @@ public partial class AiPanel : UserControl, IDisposable
         ContextExpander.Visibility = _book.Entries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         ContextExpander.Header = $"引用与批注 · {_book.Entries.Count}";
         EntriesButton.Content = $"引用 · {_book.Entries.Count}";
+        _refreshBranchNavigation?.Invoke();
     }
     private void Dirty() { if (_updating || _disposed) return; _saveTimer.Stop(); _saveTimer.Start(); }
     public async Task SaveAsync()

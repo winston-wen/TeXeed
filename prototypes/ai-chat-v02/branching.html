@@ -12,19 +12,23 @@
   <header class="topbar">
     <span class="app-name">TeXeed</span>
     <span class="top-divider"></span>
-    <span class="tab-title">AI 对话</span>
+    <button id="conversation-tab" class="workspace-tab active" type="button">AI 对话</button>
+    <span id="relation-tab-wrap" class="workspace-tab-wrap" hidden><button id="relation-tab" class="workspace-tab" type="button">会话关系</button><button id="relation-tab-close" class="workspace-tab-close" type="button" aria-label="关闭会话关系标签">×</button></span>
+    <button id="new-conversation" class="new-conversation" type="button" aria-label="新建会话">＋</button>
     <span class="top-spacer"></span>
     <span class="demo-label">交互示例 · 未连接 AI</span>
   </header>
   <main class="workspace">
-    <div class="toolbar">
-      <button id="back-source" class="quiet" type="button" hidden>← 返回提问出处</button>
+    <div class="toolbar" id="conversation-toolbar">
       <span id="session-title" class="session-title"></span>
       <span class="toolbar-spacer"></span>
       <button id="bookmark-paragraph" class="quiet" type="button" title="先点击正文中的段落" disabled>为段落加书签</button>
       <button id="bookmarks-toggle" class="quiet" type="button" aria-expanded="false">书签</button>
       <button id="demo-assets" class="quiet" type="button">添加图文示例</button>
+      <button id="back-source" class="quiet" type="button" title="返回提问出处">↑ 上游</button>
+      <button id="child-sessions" class="quiet" type="button" title="打开从当前会话发起的追问">↓ 下游</button>
       <button id="map-toggle" class="map-toggle" type="button" aria-expanded="false">会话关系</button>
+      <div id="child-menu" class="child-menu" hidden></div>
     </div>
     <section id="reader-view" class="reader-view" aria-label="会话阅读区">
       <div id="reader" class="reader" tabindex="0"><div id="transcript" class="transcript"></div></div>

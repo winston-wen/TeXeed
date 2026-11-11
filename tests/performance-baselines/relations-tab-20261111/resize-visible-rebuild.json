@@ -1,0 +1,89 @@
+{
+  "fixture": "120 turns, 3 activities, 200 detail lines; 900/620 x760 WPF; two warmups and seven samples; paired 800ms queue and save gate",
+  "samples": [
+    {
+      "op": "resize",
+      "feedbackMs": 18.145,
+      "feedbackBytes": 577016,
+      "rawMs": 823.3358,
+      "idleMs": 812.6649,
+      "correctedMs": 10.67089999999996,
+      "rawBytes": 580744,
+      "idleBytes": 3768,
+      "correctedBytes": 576976,
+      "visibleControls": 44
+    },
+    {
+      "op": "resize",
+      "feedbackMs": 25.7564,
+      "feedbackBytes": 576704,
+      "rawMs": 826.1005,
+      "idleMs": 813.6307,
+      "correctedMs": 12.469799999999964,
+      "rawBytes": 580432,
+      "idleBytes": 3768,
+      "correctedBytes": 576664,
+      "visibleControls": 44
+    },
+    {
+      "op": "resize",
+      "feedbackMs": 22.4048,
+      "feedbackBytes": 577024,
+      "rawMs": 828.0633,
+      "idleMs": 812.1665,
+      "correctedMs": 15.896799999999985,
+      "rawBytes": 580752,
+      "idleBytes": 3768,
+      "correctedBytes": 576984,
+      "visibleControls": 44
+    },
+    {
+      "op": "resize",
+      "feedbackMs": 16.1406,
+      "feedbackBytes": 576000,
+      "rawMs": 829.8648,
+      "idleMs": 813.72,
+      "correctedMs": 16.14479999999992,
+      "rawBytes": 579728,
+      "idleBytes": 3768,
+      "correctedBytes": 575960,
+      "visibleControls": 44
+    },
+    {
+      "op": "resize",
+      "feedbackMs": 16.1365,
+      "feedbackBytes": 575376,
+      "rawMs": 830.2601,
+      "idleMs": 814.4003,
+      "correctedMs": 15.85979999999995,
+      "rawBytes": 579104,
+      "idleBytes": 3768,
+      "correctedBytes": 575336,
+      "visibleControls": 44
+    },
+    {
+      "op": "resize",
+      "feedbackMs": 16.6506,
+      "feedbackBytes": 575280,
+      "rawMs": 827.5762,
+      "idleMs": 812.1963,
+      "correctedMs": 15.37990000000002,
+      "rawBytes": 579008,
+      "idleBytes": 3768,
+      "correctedBytes": 575240,
+      "visibleControls": 44
+    },
+    {
+      "op": "resize",
+      "feedbackMs": 17.1499,
+      "feedbackBytes": 575376,
+      "rawMs": 827.2996,
+      "idleMs": 811.0133,
+      "correctedMs": 16.286300000000097,
+      "rawBytes": 579104,
+      "idleBytes": 3768,
+      "correctedBytes": 575336,
+      "visibleControls": 44
+    }
+  ]
+}

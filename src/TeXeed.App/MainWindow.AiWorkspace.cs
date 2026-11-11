@@ -20,6 +20,7 @@ public partial class MainWindow
     {
         var panel = new AiPanel(_aiConnection, _aiSettings);
         panel.InitializeBranchUi();
+        panel.ConversationRelationsRequested += (_, id) => OpenAiRelations(id);
         panel.ConversationOpenRequested += async (_, id) => await OpenAiConversationAsync(id);
         panel.BranchSourceRequested += async (_, branch) =>
         {
@@ -57,12 +58,14 @@ public partial class MainWindow
     {
         await StopAiWorkspaceAsync();
         _aiStore = await AiWorkspaceStore.LoadAsync(project);
+        if (_aiStore.EmptyCleanupBackupFailed) Status("无法备份会话，已保留空白会话。");
         _aiStore.Changed += AiStoreChanged;
         _aiHistory = null;
         _aiPanel = EnsureAiPanel(_aiStore.Book.Active.Id);
     }
     private async Task StopAiWorkspaceAsync()
     {
+        foreach (var key in _aiRelationViews.Keys.ToArray()) RemoveAiRelations(key);
         // Tab closing saves asynchronously after removing its view from the map.
         // Finish it before a project switch snapshots/disposes the remaining panels.
         if (_aiCloseTasks.Count > 0) await Task.WhenAll(_aiCloseTasks.ToArray());
@@ -94,8 +97,10 @@ public partial class MainWindow
     private async Task OpenNewAiConversationAsync()
     {
         if (_aiStore is null) { Status("请先打开项目，再使用 AI。"); return; }
-        var c = _aiStore.Book.Active;
-        if (IsAiConversationOpen(c.Id) || c.Turns.Count>0 || c.Entries.Count>0 || c.Draft.Length>0) c = _aiStore.Book.NewConversation();
+        var c = _aiStore.Book.Conversations.FirstOrDefault(item => _aiStore.Book.IsEmptyNewConversation(item) &&
+            !_closingAi.Contains(item.Id) && !_deletingAi.Contains(item.Id) &&
+            (!_aiPanels.TryGetValue(item.Id, out var existing) || !existing.HasActiveOperation))
+            ?? _aiStore.Book.NewConversation();
         await OpenAiConversationAsync(c.Id);
     }
     private void OpenAiHistory()
@@ -151,7 +156,14 @@ public partial class MainWindow
             _aiStore.Book.Conversations.RemoveAll(c=>ids.Contains(c.Id));
             var active=_aiStore.Book.Active;
             if(!_aiPanels.Values.Contains(_aiPanel)) _aiPanel=EnsureAiPanel(active.Id);
-            await _aiStore.SaveAsync(); RefreshAiAnnotations();
+            await _aiStore.SaveAsync();
+            foreach (var id in ids)
+            {
+                var key = TabWorkspace.AiRelationsKey(id);
+                _workspaceTabs.Close(key, TabCloseRange.This);
+                RemoveAiRelations(key);
+            }
+            RefreshTabs(); RefreshAiAnnotations();
         }
         finally { foreach (var id in ids) _deletingAi.Remove(id); }
     }
@@ -167,7 +179,22 @@ public partial class MainWindow
                 try
                 {
                     if (!_aiPanels.Remove(id, out var panel)) continue;
-                    try { await panel.StopAndSaveAsync(); }
+                    try
+                    {
+                        await panel.StopAndSaveAsync();
+                        if (_aiStore is { } store)
+                        {
+                            if (store.RemoveClosedDuplicateBlank(id))
+                            {
+                                await store.SaveAsync();
+                                var key = TabWorkspace.AiRelationsKey(id);
+                                _workspaceTabs.Close(key, TabCloseRange.This);
+                                RemoveAiRelations(key);
+                                RefreshTabs();
+                            }
+                            else if (store.EmptyCleanupBackupFailed) Status("无法备份会话，已保留空白会话。");
+                        }
+                    }
                     finally
                     {
                         if (panel.Parent is Panel parent) parent.Children.Remove(panel);
@@ -186,7 +213,7 @@ public partial class MainWindow
         }
         if (failure is not null) throw failure;
     }
-    private string AiTabTitle(string key) => AiConversationForKey(key)?.TabTitle ?? (key==TabWorkspace.AiHistoryKey ? "AI 会话历史" : key==TabWorkspace.AiSettingsKey ? "AI 设置" : "AI 对话");
+    private string AiTabTitle(string key) => AiConversationForKey(key)?.TabTitle ?? (TabWorkspace.IsAiRelations(key) ? "会话关系" : key==TabWorkspace.AiHistoryKey ? "AI 会话历史" : key==TabWorkspace.AiSettingsKey ? "AI 设置" : "AI 对话");
     private AiConversation? AiConversationForKey(string key) => _aiStore?.Book.Conversations.FirstOrDefault(c=>TabWorkspace.AiConversationKey(c.Id)==key);
     private void AiStoreChanged()
     {

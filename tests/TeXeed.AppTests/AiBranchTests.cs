@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using TeXeed.App;
 using TeXeed.App.AI;
 using TeXeed.App.Controls;
+using TeXeed.Core;
 
 internal static partial class Program
 {
@@ -15,6 +16,7 @@ internal static partial class Program
         static IEnumerable<Paragraph> Paragraphs(BlockCollection blocks) => blocks.SelectMany(block => block switch { Paragraph p => [p], Section s => Paragraphs(s.Blocks), _ => [] });
         var project = Path.Combine(output, "branches.tex");
         var panel = new AiPanel(new AiConnection(new AiFakeHandler()));
+        panel.InitializeBranchUi();
         var host = new Window { Owner = owner, Content = panel, Width = 850, Height = 560 };
         host.Show();
         try
@@ -54,10 +56,11 @@ internal static partial class Program
             await rootView.RenderTask; await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             if (!Descendants<Button>(rootView).Any(button => button.Content?.ToString()?.StartsWith("🗨️") == true)) throw new Exception("Branch link was not shown in source answer");
             Capture(host, Path.Combine(output, "branch-source-link.png"));
-            Invoke(panel, "ShowConversationRelations"); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            var graph = Application.Current.Windows.OfType<Window>().Single(w => w.Title == "会话关系");
+            var unrelated = new AiConversation { Title = "无关会话" }; book.Conversations.Add(unrelated);
+            var tree = panel.CreateConversationRelations(id => opened = id);
+            var graph = new Window { Owner = host, Content = tree, Width = 480, Height = 560 }; graph.Show(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             graph.UpdateLayout(); Capture(graph, Path.Combine(output, "branch-graph.png"));
-            var tree = (TreeView)graph.Content;
+            if (tree.Items.Count != 1) throw new Exception("Unrelated conversation appeared in the relationship tree");
             var rootNode = (TreeViewItem)tree.ItemContainerGenerator.ContainerFromIndex(0);
             rootNode.UpdateLayout();
             var childNode = (TreeViewItem)rootNode.ItemContainerGenerator.ContainerFromIndex(0);
@@ -67,17 +70,18 @@ internal static partial class Program
             tree.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Control.MouseDoubleClickEvent });
             if (!graph.IsVisible || opened is not null) throw new Exception("Double-clicking graph background opened a conversation");
             tree.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Control.MouseDoubleClickEvent, Source = grandchildNode });
-            if (graph.IsVisible || opened != grandchild.Id) throw new Exception("Double-clicking a graph node did not open its conversation");
+            if (!graph.IsVisible || opened != grandchild.Id) throw new Exception("Double-clicking a graph node did not open its conversation");
+            graph.Close();
             for (var i = 0; i < 30; i++) book.Conversations.Add(new AiConversation { Title = "追问 " + i, ParentConversationId = root.Id });
-            Invoke(panel, "ShowConversationRelations"); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            graph = Application.Current.Windows.OfType<Window>().Single(w => w.Title == "会话关系"); graph.UpdateLayout();
-            tree = (TreeView)graph.Content;
+            tree = panel.CreateConversationRelations(id => opened = id);
+            graph = new Window { Owner = host, Content = tree, Width = 480, Height = 560 }; graph.Show(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); graph.UpdateLayout();
             rootNode = (TreeViewItem)tree.ItemContainerGenerator.ContainerFromIndex(0); rootNode.UpdateLayout();
             childNode = (TreeViewItem)rootNode.ItemContainerGenerator.ContainerFromIndex(0); childNode.UpdateLayout();
             grandchildNode = (TreeViewItem)childNode.ItemContainerGenerator.ContainerFromIndex(0);
             opened = null;
             tree.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Control.MouseDoubleClickEvent, Source = grandchildNode });
-            if (graph.IsVisible || opened != grandchild.Id) throw new Exception("Virtualized graph did not open the nested conversation");
+            if (!graph.IsVisible || opened != grandchild.Id) throw new Exception("Virtualized graph did not open the nested conversation");
+            graph.Close();
             var resumed = Paragraphs(rootView.Document.Blocks).First(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains("继续阅读"));
             rootView.Selection.Select(resumed.ContentStart, resumed.ContentEnd);
             if (!rootView.GetAnnotationSelection().Quote.Contains("继续阅读")) throw new Exception("Branch link disrupted subsequent text selection");
@@ -95,6 +99,44 @@ internal static partial class Program
             await panel.SaveAsync();
             var restored = AiStorage.Load(project);
             if (restored.Conversations.Single(c => c.Id == grandchild.Id).InheritedTurns.Count != 2 || restored.Conversations.Single(c => c.Id == root.Id).Draft != "保留主会话草稿") throw new Exception("Reload lost branch context or draft");
+            await CallAsync(owner, "InitializeAiProjectAsync", project);
+            ((FrameworkElement)owner.FindName("Welcome")).Visibility = Visibility.Collapsed;
+            ((FrameworkElement)owner.FindName("Workspace")).Visibility = Visibility.Visible;
+            Invoke(owner, "OpenAiRelations", child.Id); owner.UpdateLayout();
+            var tabs = (TabWorkspace)Field(owner, "_workspaceTabs")!;
+            var relationKey = TabWorkspace.AiRelationsKey(child.Id);
+            if (tabs.FocusedTab != relationKey || TabWorkspace.IsSource(relationKey)) throw new Exception("Relations did not open in a workspace tab");
+            var relationViews = (Dictionary<string, FrameworkElement>)Field(owner, "_aiRelationViews")!;
+            if (!relationViews[relationKey].IsVisible || Application.Current.Windows.OfType<Window>().Any(w => w.Title == "会话关系")) throw new Exception("Relations opened as a separate window instead of a tab");
+            var relationTree = Descendants<TreeView>(relationViews[relationKey]).Single();
+            if (relationTree.Items.Count != 1) throw new Exception("Relations tab included an unrelated root");
+            if (!Descendants<TextBlock>(relationTree).Any(t => t.Text.Contains("（当前）"))) throw new Exception("Current conversation is not identified in the relationship tab");
+            Capture(owner, Path.Combine(output, "branch-tab.png"));
+            await CallAsync(owner, "OpenAiConversationAsync", child.Id);
+            var workspaceBook = ((AiWorkspaceStore)Field(owner, "_aiStore")!).Book;
+            workspaceBook.Conversations.Add(new AiConversation { Title = "稍后新追问", ParentConversationId = child.Id });
+            tabs.Select(tabs.Owner(relationKey)!.Value, relationKey);
+            Invoke(owner, "RefreshWorkspaceViews"); owner.UpdateLayout();
+            await owner.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            relationTree = Descendants<TreeView>(relationViews[relationKey]).Single();
+            if (!Descendants<TextBlock>(relationTree).Any(t => t.Text == "稍后新追问")) throw new Exception("Returning to relations omitted a newly created branch");
+            var buttons = Descendants<Button>(panel).Where(b => b.Content is string s && (s == "会话关系" || s == "↑ 上游会话" || s == "↓ 下游会话")).ToArray();
+            if (buttons.Length != 3 || buttons.Select(b => b.TranslatePoint(new Point(0, b.ActualHeight / 2), panel).Y).Max() - buttons.Select(b => b.TranslatePoint(new Point(0, b.ActualHeight / 2), panel).Y).Min() > 0.5) throw new Exception("Navigation controls are not vertically aligned");
+            if (buttons.Single(b => Equals(b.Content, "↑ 上游会话")).IsEnabled || !buttons.Single(b => Equals(b.Content, "↓ 下游会话")).IsEnabled) throw new Exception("Relationship navigation availability is incorrect");
+            var childButton = buttons.Single(b => Equals(b.Content, "↓ 下游会话"));
+            opened = null; childButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var childMenu = childButton.ContextMenu ?? throw new Exception("Child conversation menu was not created");
+            if (opened is not null) throw new Exception("Opening the child menu unexpectedly navigated");
+            var childItem = childMenu.Items.OfType<MenuItem>().Single(item => Equals(item.ToolTip, child.Title));
+            childItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); childMenu.IsOpen = false;
+            if (opened != child.Id) throw new Exception("Child navigation opened the wrong conversation");
+            await panel.SelectConversationAsync(child.Id); host.UpdateLayout();
+            AiConversation? origin = null; panel.BranchSourceRequested += (_, conversation) => origin = conversation;
+            var parentButton = buttons.Single(b => Equals(b.Content, "↑ 上游会话"));
+            if (!parentButton.IsEnabled) throw new Exception("Parent navigation was not enabled on a branch");
+            parentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (origin?.Id != child.Id) throw new Exception("Parent navigation did not request this branch's source");
             Console.WriteLine("AI branches: nested context, origin navigation and reload passed.");
         }
         finally

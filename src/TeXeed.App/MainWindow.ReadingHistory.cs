@@ -83,6 +83,12 @@ public partial class MainWindow
         bool Valid(string key)
         {
             if (key == TabWorkspace.PreviewKey || key == TabWorkspace.AiSettingsKey || key == TabWorkspace.AiHistoryKey) return true;
+            if (TabWorkspace.IsAiRelations(key))
+            {
+                var id = TabWorkspace.AiRelationsId(key);
+                if (_aiStore?.Book.Conversations.Any(c => c.Id == id) != true) return false;
+                EnsureAiRelations(id); return true;
+            }
             if (TabWorkspace.IsPreview(key)) return PreviewEntryForKey(key) is { } entry && _entryPreviews.ContainsKey(entry);
             if (TabWorkspace.IsAiConversation(key))
             {
