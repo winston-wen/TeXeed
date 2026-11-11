@@ -18,6 +18,7 @@ internal static partial class Program
 {
     private static async Task CheckAiAsync(MainWindow window, string output)
     {
+        CheckAiAttachmentCompatibility();
         var count = 0;
         void Check(bool condition, string message) { if (!condition) throw new Exception(message); count++; }
         var lockedDestination = Path.Combine(output, "atomic-config.json");
@@ -86,16 +87,33 @@ internal static partial class Program
         Check(imageReload.Entries.Single().Images.Count == 2 && imageReload.Entries.Single().Images[0].ImageBase64 == pastedSnapshot.Images[0].ImageBase64 && imageReload.Turns.Single().SentAnnotations.Single().Images.Count == 2, "Draft or sent image was lost when saving or restoring");
         var attachmentFolder = Path.Combine(output, "attachment-fixture"); Directory.CreateDirectory(attachmentFolder);
         File.WriteAllText(Path.Combine(attachmentFolder, "notes.tex"), "附件内容");
+        File.WriteAllBytes(Path.Combine(attachmentFolder, "unsupported.bin"), [0, 1, 2]);
         Check(await ai.AddAttachmentsAsync([attachmentFolder]), "Folder attachment was not captured");
         var attached = book.Entries.Last();
-        Check(attached.Files.Single().Name.EndsWith("attachment-fixture/notes.tex") && Encoding.UTF8.GetString(Convert.FromBase64String(attached.Files[0].Base64)) == "附件内容", "Folder path or content was lost");
+        var folderReference = attached.Files.Single();
+        Check(folderReference.ReferenceKind == "directory" && folderReference.ReferencePath == Path.GetFullPath(attachmentFolder) + Path.DirectorySeparatorChar &&
+            folderReference.FolderPath == folderReference.ReferencePath && folderReference.Base64.Length == 0,
+            "Folder selection must retain a directory reference rather than copying its children");
         var attachmentInput = AiResponses.MakeInput([attached.Snapshot()], []);
         var attachmentText = attachmentInput.ToJsonString();
-        var attachedCatalog = new AiAttachmentCatalog([], [attached.Snapshot()]);
-        var attachedList = JsonNode.Parse(attachedCatalog.Execute("list_attachments", "{\"offset\":0,\"limit\":30}"))!;
-        var attachedHandle = attachedList["items"]![0]!["handle"]!.GetValue<string>();
-        var attachedContent = JsonNode.Parse(attachedCatalog.Execute("read_attachment", JsonSerializer.Serialize(new { handle = attachedHandle, offset = 0, max_chars = 100 })))!;
-        Check(!attachmentText.Contains("附件内容") && attachedContent["content"]!.GetValue<string>() == "附件内容", "Text attachment was not available as a saved snapshot");
+        Check(!attachmentText.Contains("附件内容") && !attachmentText.Contains("data:application/vnd.texeed.directory-reference"),
+            "Directory reference was sent as copied file content");
+        var savedFolder = JsonSerializer.Deserialize<AiEntry>(JsonSerializer.Serialize(attached.Snapshot()))!;
+        Check(savedFolder.Files.Single() == folderReference && savedFolder.AttachmentItems.Single().IsFolder,
+            "Directory draft or its display path changed during serialization");
+        var directorySnapshot = AiPanel.SnapshotSelectedParts(attached, false, true, 1);
+        Check(directorySnapshot.Files.Single() == folderReference, "Sending lost the selected directory reference");
+        var noDirectorySnapshot = AiPanel.SnapshotSelectedParts(attached, true, false, 1);
+        Check(noDirectorySnapshot.Files.Count == 0, "An unselected directory entered the submitted snapshot");
+        var liveProject = Path.Combine(output, "directory-reference-fixture.tex");
+        var directoryBook = new AiNotebook(); directoryBook.Entries.Add(attached.Snapshot());
+        directoryBook.Turns.Add(new AiTurn("问题", "回答") { Prompt = "问题", SentAnnotations = [directorySnapshot.Snapshot()] });
+        directoryBook.Entries[0].Files[0] = folderReference with { ReferencePath = folderReference.ReferencePath + "changed" };
+        AiStorage.Save(liveProject, directoryBook.Snapshot());
+        var directoryReload = AiStorage.Load(liveProject);
+        Check(directoryReload.Entries.Single().Files.Single().ReferencePath!.EndsWith("changed") &&
+            directoryReload.Turns.Single().SentAnnotations.Single().Files.Single() == folderReference,
+            "Recovery consumed an edited directory draft or altered the sent reference");
         var sentAttachment = attached.Snapshot();
         var reconciliation = new AiConversation { Entries = [attached.Snapshot()], Turns = [new AiTurn("问题", "回答") { Prompt = "问题", SentAnnotations = [sentAttachment] }] };
         reconciliation.Entries[0].Files.Add(new AiAttachedFile("new.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("new"))));
@@ -119,6 +137,100 @@ internal static partial class Program
         var filesAfterRemoval = new AiAttachmentCatalog([], [attached.Snapshot()]).Execute("list_attachments", "{\"offset\":0,\"limit\":30}");
         Check(filesAfterRemoval.Contains("loose.txt") && !filesAfterRemoval.Contains("notes.tex"), "Removed attachment still entered the request");
         book.Entries.Remove(attached);
+        var referencedPath = Path.Combine(attachmentFolder, "notes.tex");
+        Check(ai.AddFileReferences([referencedPath]), "Selecting a file path reference failed");
+        var referencedEntry = book.Entries.Last();
+        var referencedFile = referencedEntry.Files.Single();
+        var referencedItem = referencedEntry.AttachmentItems.Single();
+        Check(referencedFile.ReferenceKind == "file" && referencedFile.ReferencePath == Path.GetFullPath(referencedPath) &&
+            referencedFile.Base64.Length == 0 && referencedItem.DisplayPath == Path.GetFullPath(referencedPath) &&
+            referencedItem.DisplayPrefix + referencedItem.DisplayMiddleSeparator + referencedItem.DisplayLeaf == referencedItem.DisplayPath,
+            "File path reference did not preserve its full path for display and later reads");
+        var referenceRoundTrip = JsonSerializer.Deserialize<AiEntry>(JsonSerializer.Serialize(referencedEntry.Snapshot()))!;
+        Check(referenceRoundTrip.Files.Single() == referencedFile && AiPanel.SnapshotSelectedParts(referenceRoundTrip, false, true, 1).Files.Single() == referencedFile,
+            "File path reference was lost from saved draft or sent snapshot");
+        book.Entries.Remove(referencedEntry);
+        Check(await ai.AddAttachmentsAsync([referencedPath]), "Uploading a single file failed");
+        var uploadedEntry = book.Entries.Last();
+        var uploadedFile = uploadedEntry.Files.Single();
+        Check(uploadedFile.ReferenceKind is null && uploadedFile.BlobId is not null && uploadedFile.Base64.Length == 0 &&
+            Encoding.UTF8.GetString(AiAttachmentBlobStore.ReadAllBytes(uploadedFile.BlobId!)) == "附件内容",
+            "Uploading a file must preserve its byte snapshot separately from file references");
+        File.WriteAllText(referencedPath, "修改后的磁盘文件");
+        var uploadedBook = new AiNotebook(); uploadedBook.Entries.Add(uploadedEntry.Snapshot());
+        var uploadedTurnEntry = uploadedEntry.Snapshot(); uploadedTurnEntry.Id = Guid.NewGuid().ToString("N");
+        uploadedBook.Turns.Add(new AiTurn("问题", "回答") { Prompt = "问题", SentAnnotations = [uploadedTurnEntry] });
+        var uploadedProject = Path.Combine(output, "uploaded-blob-fixture.tex"); AiStorage.Save(uploadedProject, uploadedBook.Snapshot());
+        var reloadedUpload = AiStorage.Load(uploadedProject);
+        Check(reloadedUpload.Entries.Single().Files.Single().BlobId == uploadedFile.BlobId &&
+            reloadedUpload.Turns.Single().SentAnnotations.Single().Files.Single().BlobId == uploadedFile.BlobId &&
+            Encoding.UTF8.GetString(AiAttachmentBlobStore.ReadAllBytes(uploadedFile.BlobId!)) == "附件内容",
+            "Uploaded draft or sent snapshot changed after reload or source modification");
+        File.WriteAllText(referencedPath, "附件内容");
+        book.Entries.Remove(uploadedEntry);
+        var repeatedPaths = Enumerable.Repeat(referencedPath, 51).ToArray();
+        Check(ai.AddFileReferences(repeatedPaths) && book.Entries.Last().Files.Count == 51,
+            "Referencing more than 50 files was blocked by a local count limit");
+        book.Entries.Remove(book.Entries.Last());
+        Check(await ai.AddAttachmentsAsync(repeatedPaths) && book.Entries.Last().Files.Count == 51 &&
+            book.Entries.Last().Files.Select(f => f.BlobId).Distinct().Count() == 1,
+            "Uploading more than 50 files failed or lost shared snapshot identity");
+        book.Entries.Remove(book.Entries.Last());
+        var largePath = Path.Combine(output, "large-upload.txt");
+        using (var large = new FileStream(largePath, FileMode.Create, FileAccess.Write)) large.SetLength(9L * 1024 * 1024);
+        Check(await ai.AddAttachmentsAsync([largePath, largePath]) && book.Entries.Last().Files.Count == 2,
+            "Uploading a file larger than 8 MiB or a batch larger than 16 MiB was blocked locally");
+        book.Entries.Remove(book.Entries.Last());
+        var unsupportedPath = Path.Combine(attachmentFolder, "unsupported.bin");
+        var emptyPath = Path.Combine(output, "empty-upload.txt"); File.WriteAllBytes(emptyPath, []);
+        var knownTextPath = Path.Combine(output, "additional-text.ps1"); File.WriteAllText(knownTextPath, "Write-Output ok");
+        Check(await ai.AddAttachmentsAsync([unsupportedPath, emptyPath, knownTextPath]) &&
+            book.Entries.Last().Files.Single().MimeType == "text/plain" &&
+            ((TextBlock)ai.FindName("StatusText")).Text.Contains("不支持的文件") && ((TextBlock)ai.FindName("StatusText")).Text.Contains("空文件"),
+            "Supported text was lost or unsupported/empty uploads were not reported");
+        book.Entries.Remove(book.Entries.Last());
+        var corruptPath = Path.Combine(output, "corrupt-blob-fixture.txt"); File.WriteAllText(corruptPath, Guid.NewGuid().ToString("N"));
+        var (corruptId, _) = AiAttachmentBlobStore.Store(corruptPath);
+        var corruptBlobPath = Path.Combine(AiStorage.Home, "attachments", corruptId);
+        File.WriteAllText(corruptBlobPath, "corrupted");
+        var invalidBlob = false;
+        try { using var ignored = AiAttachmentBlobStore.OpenRead(corruptId); }
+        catch (InvalidDataException) { invalidBlob = true; }
+        Check(invalidBlob, "A corrupted attachment snapshot was read without checking its content hash");
+        File.Delete(corruptBlobPath);
+        var missingBlob = false;
+        try { using var ignored = AiAttachmentBlobStore.OpenRead(corruptId); }
+        catch (FileNotFoundException) { missingBlob = true; }
+        Check(missingBlob, "A missing attachment snapshot was silently replaced");
+        var insufficientMemory = false;
+        try { AiAttachmentBlobStore.EnsureBufferCapacity(1024 * 1024, 2 * 1024 * 1024); }
+        catch (IOException ex) { insufficientMemory = ex.Message.Contains("附件仍已保留"); }
+        Check(insufficientMemory, "Preparing a large media snapshot did not fail safely under memory pressure");
+        var emptyFolder = Path.Combine(output, "empty-directory-fixture"); Directory.CreateDirectory(emptyFolder);
+        Check(await ai.AddAttachmentsAsync([emptyFolder]), "An empty directory reference could not be added");
+        Check(book.Entries.Last().Files.Single().ReferenceKind == "directory", "Empty directory was not stored as a reference");
+        book.Entries.Remove(book.Entries.Last());
+        var legacyFile = JsonSerializer.Deserialize<AiAttachedFile>("{\"Name\":\"old-folder/old.txt\",\"MimeType\":\"text/plain\",\"Base64\":\"b2xk\"}")!;
+        var legacyEntry = new AiEntry { EntryKind = "attachment", Files = [legacyFile, folderReference] };
+        var legacyBook = new AiNotebook(); legacyBook.Entries.Add(legacyEntry);
+        var legacyDirectoryProject = Path.Combine(output, "directory-reference-legacy.tex");
+        AiStorage.Save(legacyDirectoryProject, legacyBook.Snapshot());
+        var legacyReload = AiStorage.Load(legacyDirectoryProject).Entries.Single();
+        var legacySent = AiPanel.SnapshotSelectedParts(legacyReload, false, true, 1);
+        Check(legacyReload.Files[0].ReferenceKind is null && legacyReload.Files[0].ReferencePath is null &&
+            Encoding.UTF8.GetString(Convert.FromBase64String(legacyReload.Files[0].Base64)) == "old" &&
+            legacySent.Files[0] == legacyFile && legacySent.Files[1] == folderReference && legacyReload.AttachmentItems.Count == 2,
+            "Mixing old folder snapshots with new directory references changed the legacy bytes or sending state");
+        var mixedDirectory = new AiEntry { Question = "保留目录", AnswerAnchor = new("t", "s", 0, 2, "原文", "rev"), Files = [folderReference] };
+        var sentTextOnly = AiPanel.SnapshotSelectedParts(mixedDirectory, true, false, 1);
+        var mixedDirectoryBook = new AiNotebook(); mixedDirectoryBook.Entries.Add(mixedDirectory);
+        mixedDirectoryBook.Turns.Add(new AiTurn("问题", "回答") { Prompt = "问题", SentAnnotations = [sentTextOnly] });
+        var mixedDirectoryProject = Path.Combine(output, "directory-reference-mixed.tex");
+        AiStorage.Save(mixedDirectoryProject, mixedDirectoryBook.Snapshot());
+        var mixedDirectoryReload = AiStorage.Load(mixedDirectoryProject).Entries.Single();
+        Check(!mixedDirectoryReload.HasReference && mixedDirectoryReload.Files.Single() == folderReference,
+            "Recovery removed an unselected directory when accepting a separate text reference");
+        Invoke(ai, "Rebind");
         var mixed = new AiEntry { Question = "引用评论", AnswerAnchor = new("turn", "segment", 0, 2, "原文", "rev"), Files = [new AiAttachedFile("sample.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("file")))] };
         mixed.Images.Add(new AiPastedImage("comment-image"));
         mixed.ReferenceSelected = true; mixed.AttachmentSelected = false;

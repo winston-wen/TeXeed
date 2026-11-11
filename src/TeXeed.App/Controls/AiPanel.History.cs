@@ -54,6 +54,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        CloseMentions();
         ClearBookmarkMarkers();
         _autoScroll.Stop();
         RestoreBookmarkBallPosition();

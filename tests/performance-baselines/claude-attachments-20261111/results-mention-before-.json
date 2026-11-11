@@ -1,0 +1,96 @@
+{
+  "fixture": "120 turns, 3 activities, 200 detail lines; 40-file project; @ candidate open; 900x760 WPF; two warmups and seven samples; paired 800ms queue and save gate",
+  "samples": [
+    {
+      "op": "mention",
+      "feedbackMs": 3.1239,
+      "feedbackBytes": 73560,
+      "rawMs": 803.4998,
+      "idleMs": 800.4108,
+      "correctedMs": 3.0890000000000555,
+      "rawBytes": 271624,
+      "idleBytes": 38064,
+      "correctedBytes": 233560,
+      "visibleControls": 45,
+      "popupItems": 0
+    },
+    {
+      "op": "mention",
+      "feedbackMs": 3.5664,
+      "feedbackBytes": 74512,
+      "rawMs": 803.8633,
+      "idleMs": 800.2754,
+      "correctedMs": 3.5878999999999905,
+      "rawBytes": 275440,
+      "idleBytes": 45352,
+      "correctedBytes": 230088,
+      "visibleControls": 45,
+      "popupItems": 0
+    },
+    {
+      "op": "mention",
+      "feedbackMs": 2.6342,
+      "feedbackBytes": 73416,
+      "rawMs": 825.9014,
+      "idleMs": 800.5249,
+      "correctedMs": 25.376499999999965,
+      "rawBytes": 274696,
+      "idleBytes": 36664,
+      "correctedBytes": 238032,
+      "visibleControls": 45,
+      "popupItems": 0
+    },
+    {
+      "op": "mention",
+      "feedbackMs": 2.6708,
+      "feedbackBytes": 73912,
+      "rawMs": 803.3812,
+      "idleMs": 800.448,
+      "correctedMs": 2.933200000000056,
+      "rawBytes": 272592,
+      "idleBytes": 40640,
+      "correctedBytes": 231952,
+      "visibleControls": 45,
+      "popupItems": 0
+    },
+    {
+      "op": "mention",
+      "feedbackMs": 2.6593,
+      "feedbackBytes": 73032,
+      "rawMs": 803.4776,
+      "idleMs": 800.0618,
+      "correctedMs": 3.415800000000104,
+      "rawBytes": 274304,
+      "idleBytes": 49848,
+      "correctedBytes": 224456,
+      "visibleControls": 45,
+      "popupItems": 0
+    },
+    {
+      "op": "mention",
+      "feedbackMs": 2.796,
+      "feedbackBytes": 73912,
+      "rawMs": 803.5014,
+      "idleMs": 800.5689,
+      "correctedMs": 2.9325000000000045,
+      "rawBytes": 278096,
+      "idleBytes": 40392,
+      "correctedBytes": 237704,
+      "visibleControls": 45,
+      "popupItems": 0
+    },
+    {
+      "op": "mention",
+      "feedbackMs": 2.2586,
+      "feedbackBytes": 73632,
+      "rawMs": 824.6678,
+      "idleMs": 800.1963,
+      "correctedMs": 24.471500000000106,
+      "rawBytes": 276120,
+      "idleBytes": 44128,
+      "correctedBytes": 231992,
+      "visibleControls": 45,
+      "popupItems": 0
+    }
+  ]
+}

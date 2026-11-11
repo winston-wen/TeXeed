@@ -155,6 +155,11 @@ internal static partial class Program
                 if (editor.CurrentFilePath != main) throw new Exception("Main editor did not open fixture");
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
+                if (args.Contains("--ai-mentions-only"))
+                {
+                    await CheckAiMentionsAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI path mentions"); result = 0; return;
+                }
                 var existingFollow = Array.IndexOf(args, "--follow-existing");
                 if (args.Contains("--scroll-bounce-only"))
                 {

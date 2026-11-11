@@ -44,7 +44,7 @@ public partial class AiPanel : UserControl, IDisposable
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
     {
-        _connection = connection; InitializeComponent(); InitializeComposer(); InitializeBookmarkUi();
+        _connection = connection; InitializeComponent(); InitializeComposer(); InitializeBookmarkUi(); InitializeMentions(); InitializeComposerDrop();
         LiveQuestion.Loaded += (_, _) => BookmarkQuestionLoaded(LiveQuestion);
         LiveQuestion.Unloaded += (_, _) => BookmarkQuestionUnloaded(LiveQuestion);
         LiveTurnNumber.FontFamily = LiveQuestion.FontFamily;
@@ -294,7 +294,13 @@ public partial class AiPanel : UserControl, IDisposable
         var snapshot = entry.Snapshot(number);
         if (entry.HasReference && entry.HasAttachments && reference != attachment)
         { snapshot.SentReferencePart = reference; snapshot.SentAttachmentPart = attachment; }
-        if (!attachment) { snapshot.Files.Clear(); if (imageIsAttachment) snapshot.Images.Clear(); }
+        if (!attachment)
+        {
+            snapshot.Files.Clear(); if (imageIsAttachment) snapshot.Images.Clear();
+            snapshot.AdditionalData?.Remove(AiAttachmentMetadataCompatibility.Key);
+            snapshot.AdditionalData?.Remove(AiEntry.MentionTokenKey);
+            if (snapshot.AdditionalData?.Count == 0) snapshot.AdditionalData = null;
+        }
         if (!reference)
         {
             snapshot.AnswerAnchor = null; snapshot.Sources.Clear(); snapshot.PdfBlocks.Clear(); snapshot.PdfRevision = "";
@@ -334,12 +340,12 @@ public partial class AiPanel : UserControl, IDisposable
         var selectedParts = retry is null ? _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray() : [];
         var selected = retry is null ? selectedParts.Select(x => x.Entry).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
         var sentAnnotations = retry is null ? selectedParts.Select((item, i) => SnapshotSelectedParts(item.Entry, item.Reference, item.Attachment, i + 1)).ToList() : selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
+        if (sentAnnotations.Any(entry => entry.HasUnresolvedAttachmentMetadata))
+        { StatusText.Text = "附件经过旧版本处理后无法安全匹配，原数据已保留；请从备份恢复，或在新会话重新添加附件。"; return; }
         if (sentAnnotations.Count == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
         if (prompt.Length == 0 && sentAnnotations.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
         if (sentAnnotations.Count > 20 || sentAnnotations.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || sentAnnotations.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
-        if (sentAnnotations.Sum(e => e.Files.Sum(f => (long)f.Base64.Length) + e.Images.Sum(i => (long)i.ImageBase64.Length)) > 24_000_000)
-        { StatusText.Text = "每批附件与批注图片合计最多约 18 MB，请分批提交。"; return; }
         await RunOperationAsync(async token =>
         {
             var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), Files = [.. x.Files], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
@@ -368,7 +374,14 @@ public partial class AiPanel : UserControl, IDisposable
             try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
             catch { LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
             book.Active.LastSentAt = sentAt;
-            if (retry is null && Composer.Text == submittedDraft) Composer.Clear(); StatusText.Text = "";
+            if (retry is null && Composer.Text == submittedDraft)
+            {
+                DetachUnsentMentions(selectedParts.Where(item => item.Attachment).Select(item => item.Entry));
+                _editingMention = true;
+                try { Composer.Clear(); }
+                finally { _editingMention = false; }
+            }
+            StatusText.Text = "";
             if (retry is null)
                 foreach (var item in selectedParts)
                 {

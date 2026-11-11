@@ -13,8 +13,8 @@ internal sealed record AiPermissionChoice(AiPermission Value, string Name, strin
     ];
     internal static bool Allows(AiPermission permission, string tool) => permission switch
     {
-        AiPermission.FullAccess or AiPermission.AskBeforeShell => tool is "ask_user" or "list_files" or "list_directory" or "read_source" or "search_source" or "replace_source" or "create_source" or "save_project" or "compile_project" or "shell" or "list_attachments" or "read_attachment" or "search_attachments",
-        _ => tool is "ask_user" or "list_files" or "list_directory" or "read_source" or "search_source" or "list_attachments" or "read_attachment" or "search_attachments"
+        AiPermission.FullAccess or AiPermission.AskBeforeShell => tool is "ask_user" or "list_files" or "list_directory" or "read_source" or "search_source" or "replace_source" or "create_source" or "save_project" or "compile_project" or "shell" or "list_attachments" or "list_attachment_directory" or "read_attachment" or "read_attachment_media" or "search_attachments",
+        _ => tool is "ask_user" or "list_files" or "list_directory" or "read_source" or "search_source" or "list_attachments" or "list_attachment_directory" or "read_attachment" or "read_attachment_media" or "search_attachments"
     };
     internal static string Instructions(AiPermission permission) => permission switch
     {

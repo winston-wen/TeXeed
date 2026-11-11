@@ -81,6 +81,7 @@
     const groups = [], directories = new Map();
     for (const file of attachments || []) {
       const path = (file.path || file.name || '').replaceAll('\\', '/');
+      if (file.referenceKind === 'file') { groups.push({ files: [file], label: path, directory: false }); continue; }
       const directory = file.directory || (path.includes('/') ? path.split('/')[0] + '/' : '');
       if (!directory) { groups.push({ files: [file], label: path, directory: false }); continue; }
       const key = file.attachmentGroup || 'legacy:' + directory;
@@ -138,6 +139,7 @@
     composer.placeholder = pending && pending.kind === 'branch' ? '写下追问；发送后创建追问会话……' : '继续当前会话……';
   }
   function setComposer() {
+    $('mention-menu').hidden = true;
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     composer.value = pending && pending.kind === 'branch' ? (pending.draft || '') : (current().draft || '');
     renderComposerContext(); renderReferencesButton(); renderMainAttachments();
@@ -206,6 +208,47 @@
   }
   function mainAttachments() { const pending = state.pending?.kind === 'branch' && state.pending.parentId === state.active ? state.pending : null; if (pending) { pending.attachments ||= []; return pending.attachments; } return ensureSession(current()).attachments; }
   function renderMainAttachments() { const box = $('attachment-list'); box.replaceChildren(); const attachments = mainAttachments(); renderAttachments(box, attachments, 'main'); if (!attachments.length) appendText('p', 'bookmarks-empty', '还没有附件。', box); $('attachments-toggle').textContent = '附件 · ' + attachmentGroups(attachments).length; }
+  function addPathReferences(names, kind) {
+    const target = mainAttachments(), added = names.map(name => kind === 'directory'
+      ? { id: uid(), name, path: name + '/', directory: name + '/', referenceKind: kind }
+      : { id: uid(), name, path: name, referenceKind: kind });
+    target.push(...added);
+    if (!saveDraft()) { target.splice(target.length - added.length, added.length); return; }
+    renderMainAttachments(); $('status').textContent = '已添加路径引用示例；原型不能读取本机路径。';
+  }
+  const mentionExamples = [{ path: 'main.tex', kind: 'file' }, { path: 'chapters/', kind: 'directory' }, { path: 'chapters/introduction.tex', kind: 'file' }];
+  let mentionSelection = 0, mentionHistoryInput = false;
+  const mentionUndo = new Map();
+  function mentionQuery() {
+    const before = composer.value.slice(0, composer.selectionStart), match = before.match(/(?:^|[\s([])@([^\s@]*)$/);
+    return match ? { start: before.length - match[1].length - 1, query: match[1].toLowerCase() } : null;
+  }
+  function showMentions() {
+    const menu = $('mention-menu'), query = mentionQuery(); menu.replaceChildren();
+    if (!query) { menu.hidden = true; return; }
+    const items = mentionExamples.filter(item => item.path.toLowerCase().includes(query.query));
+    if (!items.length) { menu.hidden = true; return; }
+    mentionSelection = Math.min(mentionSelection, items.length - 1);
+    items.forEach((item, index) => { const button = document.createElement('button'); button.type = 'button'; button.textContent = item.path; button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(index === mentionSelection)); button.addEventListener('mousedown', event => event.preventDefault()); button.addEventListener('click', () => insertMention(item)); menu.appendChild(button); });
+    menu.hidden = false;
+  }
+  function insertMention(item) {
+    const query = mentionQuery(); if (!query) return;
+    const token = '@' + item.path, end = composer.selectionStart;
+    composer.setRangeText(token + ' ', query.start, end, 'end');
+    const target = mainAttachments(), name = item.kind === 'directory' ? item.path.replace(/\/$/, '') : item.path;
+    const undoKey = state.active + (state.pending?.kind === 'branch' ? ':branch' : ''); mentionUndo.set(undoKey, (mentionUndo.get(undoKey) || []).filter(old => old.mentionToken !== token));
+    target.push({ id: uid(), name, path: item.path, ...(item.kind === 'directory' ? { directory: item.path } : {}), referenceKind: item.kind, mentionToken: token });
+    composer.dispatchEvent(new Event('input', { bubbles: true })); renderMainAttachments(); $('mention-menu').hidden = true; composer.focus();
+  }
+  function mentionCount(text, token) { let count = 0, position = 0; while ((position = text.indexOf(token, position)) >= 0) { const end = position + token.length; if ((position === 0 || /[\s([]/.test(text[position - 1])) && (end === text.length || /[\s,.)\]]/.test(text[end]))) count++; position = end; } return count; }
+  function reconcileMentions(attachments, stash) {
+    const groups = new Map(); for (const item of attachments) if (item.mentionToken) { const group = groups.get(item.mentionToken) || []; group.push(item); groups.set(item.mentionToken, group); }
+    const removed = []; for (const [token, group] of groups) removed.push(...group.slice(mentionCount(composer.value, token)));
+    if (removed.length) { stash.push(...removed); attachments.splice(0, attachments.length, ...attachments.filter(item => !removed.includes(item))); }
+    for (let i = stash.length - 1; i >= 0; i--) { const item = stash[i], needed = mentionCount(composer.value, item.mentionToken) - attachments.filter(existing => existing.mentionToken === item.mentionToken).length; if (needed <= 0) continue; if (mentionHistoryInput) attachments.push(item); stash.splice(i, 1); }
+    return removed.length > 0 || attachments.some(item => item.mentionToken);
+  }
   async function appendFiles(files, referenceId) {
     const originSession = state.active;
     const ref = referenceId ? ensureSession(current()).references.find(r => r.id === referenceId) : null; if (referenceId && !ref) return;
@@ -241,6 +284,7 @@
       current().draft = ''; current().attachments = []; state.pending = null;
     }
     if (!save()) { state = JSON.parse(previousState); $('status').textContent = '无法保存本次问题，输入内容已保留。'; composer.focus(); return; }
+    mentionUndo.delete(previousSessionId); mentionUndo.delete(previousSessionId + ':branch'); mentionHistoryInput = false;
     if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); localStorage.removeItem(referencesKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
     composer.value = ''; if (branching) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
     requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
@@ -316,13 +360,16 @@
   function removeAttachment(e) { const button = e.target.closest('[data-attachment-remove]'); if (!button) return; const ref = button.dataset.attachmentScope === 'reference' ? ensureSession(current()).references.find(r => r.id === button.dataset.referenceId) : null; const target = ref ? ref.attachments : mainAttachments(); const group = attachmentGroups(target).find(item => item.files[0].id === button.dataset.attachmentRemove); if (!group) return; const previous = target.slice(), removing = new Set(group.files); target.splice(0, target.length, ...target.filter(file => !removing.has(file))); if (!(ref ? saveReferences() : saveDraft())) { target.splice(0, target.length, ...previous); return; } if (ref) renderReferenceEditor(); else renderMainAttachments(); }
   $('attachment-list').addEventListener('click', removeAttachment); $('reference-attachments').addEventListener('click', removeAttachment);
   function pasteImages(e, referenceId) { const files = Array.from(e.clipboardData?.files || []).filter(file => file.type.startsWith('image/')); if (!files.length) return; if (!e.clipboardData.getData('text/plain')) e.preventDefault(); appendFiles(files, referenceId); }
-  async function collectEntry(entry, prefix = '') { const path = prefix + entry.name; if (entry.isFile) { const file = await new Promise((resolve, reject) => entry.file(resolve, reject)); return [{ file, path }]; } if (!entry.isDirectory) return []; const reader = entry.createReader(), out = []; while (true) { const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject)); if (!batch.length) break; for (const child of batch) out.push(...await collectEntry(child, path + '/')); } return out; }
-  function pasteMain(e) { const data = e.clipboardData; if (!data) return; let entries = []; try { entries = Array.from(data.items || []).filter(item => item.kind === 'file').map(item => typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null).filter(Boolean); } catch { /* Some browsers do not expose file system entries. */ } const files = Array.from(data.files || []); if (entries.some(entry => entry.isDirectory)) { e.preventDefault(); pendingFileReads++; $('send').disabled = true; $('status').textContent = '正在读取文件夹。'; Promise.all(entries.map(entry => collectEntry(entry))).then(groups => { const collected = groups.flat(); if (collected.length) appendFiles(collected); else $('status').textContent = '文件夹中没有可添加的文件。'; }).catch(() => { $('status').textContent = '浏览器无法读取粘贴的文件夹，请使用“添加文件夹”。'; }).finally(() => { pendingFileReads--; $('send').disabled = pendingFileReads > 0; }); return; } if (files.length) { if (!data.getData('text/plain')) e.preventDefault(); appendFiles(files); return; } if (Array.from(data.types || []).includes('Files')) { e.preventDefault(); $('status').textContent = '浏览器无法读取粘贴的文件或文件夹，请使用添加附件。'; } }
+  function pasteMain(e) { const data = e.clipboardData; if (!data) return; let entries = []; try { entries = Array.from(data.items || []).filter(item => item.kind === 'file').map(item => typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null).filter(Boolean); } catch { /* Some browsers do not expose file system entries. */ } const files = Array.from(data.files || []); if (entries.some(entry => entry.isDirectory)) { e.preventDefault(); addPathReferences(entries.filter(entry => entry.isDirectory).map(entry => entry.name), 'directory'); if (files.length) appendFiles(files.filter(file => !entries.some(entry => entry.isDirectory && entry.name === file.name))); return; } if (files.length) { if (!data.getData('text/plain')) e.preventDefault(); appendFiles(files); return; } if (Array.from(data.types || []).includes('Files')) { e.preventDefault(); $('status').textContent = '浏览器无法读取粘贴的文件或文件夹，请使用添加附件。'; } }
   composer.addEventListener('paste', pasteMain); $('reference-comment').addEventListener('paste', e => pasteImages(e, editingReference));
+  composer.addEventListener('dragover', e => { if (Array.from(e.dataTransfer?.types || []).includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+  composer.addEventListener('drop', e => { const data = e.dataTransfer; if (!data || !Array.from(data.types || []).includes('Files')) return; e.preventDefault(); const items = Array.from(data.items || []), directories = items.map(item => item.webkitGetAsEntry?.()).filter(entry => entry?.isDirectory); if (directories.length) addPathReferences(directories.map(entry => entry.name), 'directory'); const files = Array.from(data.files || []).filter(file => !directories.some(directory => directory.name === file.name)); if (files.length) { if (e.shiftKey) addPathReferences(files.map(file => file.name), 'file'); else appendFiles(files); } });
   $('attach-toggle').addEventListener('click', () => { const open = $('attach-menu').hidden; $('attach-menu').hidden = !open; $('attach-toggle').setAttribute('aria-expanded', String(open)); });
-  $('attach-files').addEventListener('click', () => { $('attach-menu').hidden = true; $('file-input').click(); }); $('attach-folder').addEventListener('click', () => { $('attach-menu').hidden = true; $('folder-input').click(); });
-  for (const id of ['file-input', 'folder-input']) $(id).addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) appendFiles(files); else if (id === 'folder-input') $('status').textContent = '文件夹中没有可添加的文件，或选择已取消。'; });
-  if (!('webkitdirectory' in $('folder-input'))) { $('attach-folder').disabled = true; $('attach-folder').textContent = '添加文件夹（浏览器不支持）'; }
+  $('attach-files').addEventListener('click', () => { $('attach-menu').hidden = true; $('file-input').click(); }); $('attach-path-file').addEventListener('click', () => { $('attach-menu').hidden = true; $('path-file-input').click(); }); $('attach-folder').addEventListener('click', () => { $('attach-menu').hidden = true; $('folder-input').click(); });
+  $('file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) appendFiles(files); });
+  $('path-file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) addPathReferences(files.map(file => file.name), 'file'); });
+  $('folder-input').addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) addPathReferences([...new Set(files.map(file => file.webkitRelativePath.split('/')[0]))], 'directory'); else $('status').textContent = '浏览器无法选择空文件夹，或选择已取消。'; });
+  if (!('webkitdirectory' in $('folder-input'))) { $('attach-folder').disabled = true; $('attach-folder').textContent = '引用文件夹（浏览器不支持）'; }
   $('demo-assets').addEventListener('click', () => { const turn = { id: uid(), question: '图文交互示例', answer: demoAssetBlocks(), demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } transcript.appendChild(renderTurn(turn, current().turns.length - 1)); requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '已添加图文示例；右键公式或图片可操作。'; });
   reader.addEventListener('pointerup', showSelection); reader.addEventListener('keyup', showSelection);
   reader.addEventListener('scroll', () => { if (!mapOpen) { current().viewport = reader.scrollTop; try { localStorage.setItem(viewportKey(state.active), String(reader.scrollTop)); } catch { $('status').textContent = '当前浏览器无法保存视口位置。'; } } }, { passive: true });
@@ -330,8 +377,9 @@
   transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const source = e.target.closest('[data-source-session]')?.dataset.sourceSession; if (source) { parentSource(session(source)); return; } const reference = e.target.closest('[data-reference-session]'); if (reference) { const target = session(reference.dataset.referenceSession); if (!target) { $('status').textContent = '无法定位引用出处。'; return; } const blockId = reference.dataset.referenceBlock; unfoldFor(target, blockId); const offset = reference.dataset.referenceOffset; navigate(target.id, { blockId, textOffset: offset === undefined ? undefined : Number(offset), lineY: 18, offset: -18 }); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
   transcript.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-heading-id]')) { e.preventDefault(); toggleHeading(e.target); } });
   $('composer-context').addEventListener('click', e => { if (e.target.id !== 'cancel-context') return; if (state.pending?.kind === 'branch') state.pending = null; else state.pending = null; setComposer(); save(); });
-  composer.addEventListener('input', () => { if (state.pending?.kind === 'branch' && state.pending.parentId === state.active) state.pending.draft = composer.value; else current().draft = composer.value; saveDraft(); });
-  composer.addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); send(); } }); $('send').addEventListener('click', send);
+  composer.addEventListener('beforeinput', e => { mentionHistoryInput = e.inputType === 'historyUndo' || e.inputType === 'historyRedo'; });
+  composer.addEventListener('input', () => { if (state.pending?.kind === 'branch' && state.pending.parentId === state.active) state.pending.draft = composer.value; else current().draft = composer.value; const attachments = mainAttachments(), key = state.active + (state.pending?.kind === 'branch' ? ':branch' : ''), stash = mentionUndo.get(key) || []; const changed = reconcileMentions(attachments, stash); mentionUndo.set(key, stash); mentionHistoryInput = false; if (changed) renderMainAttachments(); saveDraft(); showMentions(); });
+  composer.addEventListener('keydown', e => { const menu = $('mention-menu'); if (!menu.hidden && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) { const buttons = [...menu.querySelectorAll('button')]; if (e.key === 'Escape') { e.preventDefault(); menu.hidden = true; return; } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); mentionSelection = Math.max(0, Math.min(buttons.length - 1, mentionSelection + (e.key === 'ArrowDown' ? 1 : -1))); buttons.forEach((button, index) => button.setAttribute('aria-selected', String(index === mentionSelection))); return; } if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); buttons[mentionSelection]?.click(); return; } } if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); send(); } }); $('send').addEventListener('click', send);
   $('map-tree').addEventListener('click', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (!id) return; state.selected = id; $('map-tree').querySelectorAll('[data-node-id]').forEach(node => node.setAttribute('aria-current', String(node.dataset.nodeId === id))); mapDetails(); save(); });
   $('map-tree').addEventListener('dblclick', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (id) navigate(id); });
   $('map-tree').addEventListener('keydown', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (id && e.key === 'Enter') { e.preventDefault(); navigate(id); } });

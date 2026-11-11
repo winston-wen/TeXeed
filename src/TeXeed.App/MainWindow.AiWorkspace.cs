@@ -35,6 +35,7 @@ public partial class MainWindow
         };
         panel.SettingsRequested += (_,_) => OpenAiSettings();
         panel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
+        panel.ProjectRoot = () => _project?.Root;
         panel.CreateToolRunner = () => CreateAiToolRunner(panel.Permission, panel.ShellApprovals);
         panel.AnnotationsChanged += (_,_) => { if (ReferenceEquals(_aiPanel,panel)) RefreshAiAnnotations(); };
         panel.PreviewMouseDown += (_,_) => SetAiTarget(panel);

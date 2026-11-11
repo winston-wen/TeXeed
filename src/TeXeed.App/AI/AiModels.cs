@@ -20,31 +20,36 @@ public sealed record AiAttachedFile(string Name, string MimeType, string Base64)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FolderPath { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReferenceKind { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReferencePath { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BlobId { get; init; }
 }
 public sealed record AiAttachmentItem(string DisplayPath, bool IsFolder, IReadOnlyList<AiAttachedFile> Files)
 {
     public string DisplayStem => IsFolder ? DisplayPath[..^1] : DisplayPath;
     public string DisplayTerminator => IsFolder ? DisplayPath[^1..] : "";
+    private int LastSeparator => DisplayStem.LastIndexOfAny(['/', '\\']);
     [JsonIgnore] public string DisplayPrefix
     {
         get
         {
-            if (!IsFolder) return DisplayPath;
-            var previous = DisplayPath.Length > 1 ? DisplayPath.LastIndexOfAny(['/', '\\'], DisplayPath.Length - 2) : -1;
-            return previous >= 0 ? DisplayPath[..previous] : "";
+            var previous = LastSeparator;
+            return previous >= 0 ? DisplayPath[..previous] : IsFolder ? "" : DisplayPath;
         }
     }
     [JsonIgnore] public string DisplayMiddleSeparator
     {
         get
         {
-            if (!IsFolder) return "";
-            var previous = DisplayPath.Length > 1 ? DisplayPath.LastIndexOfAny(['/', '\\'], DisplayPath.Length - 2) : -1;
+            var previous = LastSeparator;
             return previous >= 0 ? DisplayPath[previous..(previous + 1)] : "";
         }
     }
-    [JsonIgnore] public string DisplayTail => IsFolder ? DisplayPath[(DisplayPrefix.Length + DisplayMiddleSeparator.Length)..] : "";
-    [JsonIgnore] public string DisplayLeaf => IsFolder ? DisplayTail[..^1] : "";
+    [JsonIgnore] public string DisplayTail => IsFolder || LastSeparator >= 0 ? DisplayPath[(DisplayPrefix.Length + DisplayMiddleSeparator.Length)..] : "";
+    [JsonIgnore] public string DisplayLeaf => IsFolder ? DisplayTail[..^1] : DisplayTail;
 }
 public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
 {
@@ -69,9 +74,19 @@ public sealed record AiUserBookmark
     public string? ContextAfter { get; init; }
 }
 
-public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged
+public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged, IJsonOnDeserializing, IJsonOnDeserialized
 {
-    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
+    internal const string MentionTokenKey = "__texeed_mention_token_v1";
+    [JsonIgnore] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
+    private bool _readingJson;
+    [JsonExtensionData] public Dictionary<string, JsonElement>? SerializationExtensions
+    {
+        get => _readingJson ? AdditionalData : AiAttachmentMetadataCompatibility.Prepare(Files, AdditionalData);
+        set => AdditionalData = value;
+    }
+    void IJsonOnDeserializing.OnDeserializing() => _readingJson = true;
+    void IJsonOnDeserialized.OnDeserialized() { _readingJson = false; AiAttachmentMetadataCompatibility.Restore(this); }
+    [JsonIgnore] internal bool HasUnresolvedAttachmentMetadata => AdditionalData?.ContainsKey(AiAttachmentMetadataCompatibility.Key) == true;
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "问题";
     private string _question = "";
@@ -261,7 +276,7 @@ public sealed class AiConversation
                     continue;
                 }
                 // Only consume an accepted part while its content still matches the checkpoint.
-                if (entry.AdditionalData is { Count: > 0 }) continue;
+                if (entry.AdditionalData is { Count: > 0 } && entry.AdditionalData.Keys.Any(key => key != AiEntry.MentionTokenKey)) continue;
                 var imageIsAttachment = entry.HasAttachmentImages;
                 var referenceMatches = snapshot.SentReferencePart == true && entry.HasReference && entry.Title == snapshot.Title &&
                     entry.Question == snapshot.Question && entry.AnswerAnchor == snapshot.AnswerAnchor && entry.PdfRevision == snapshot.PdfRevision &&

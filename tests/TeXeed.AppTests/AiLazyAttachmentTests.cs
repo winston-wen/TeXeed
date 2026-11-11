@@ -8,6 +8,8 @@ internal static partial class Program
     // Uses saved attachment bytes rather than depending on the user's files or a live model.
     private static async Task CheckAiLazyAttachmentsAsync()
     {
+        CheckAiDirectoryReferences();
+        await CheckAiHistoricalAttachmentsAsync();
         static void CheckLazy(bool ok, string message)
         {
             if (!ok) throw new Exception(message);
@@ -76,6 +78,49 @@ internal static partial class Program
         CheckLazy(activities.Any(eventItem => eventItem.Text == "已读取附件片段" && eventItem.Details.Contains("returned_chars")) &&
             activities.All(eventItem => !eventItem.Details.Contains("CONTENT_SENTINEL_00")),
             "Attachment activity must retain read coverage without storing the source text");
+
+        var mediaEntry = new AiEntry { Id = "media-entry", Files = [new AiAttachedFile("image.png", "image/png", png)] };
+        var mediaCatalog = new AiAttachmentCatalog([], [mediaEntry]);
+        var mediaHandle = (string)JsonNode.Parse(mediaCatalog.Execute("list_attachments", "{\"offset\":0,\"limit\":1}"))!["items"]![0]!["handle"]!;
+        using var mediaHandler = new AiSequenceHandler((step, body) =>
+        {
+            if (step == 0) return Complete(Call("read_attachment_media", new { handle = mediaHandle }));
+            var output = body["input"]!.AsArray().Last(item => item?["type"]?.ToString() == "function_call_output")!["output"]!.AsArray();
+            CheckLazy(output.Any(part => part?["type"]?.ToString() == "input_image" && part["image_url"]!.ToString().Contains(png)), "Media tool did not deliver image to the model");
+            return Complete(answer.DeepClone());
+        });
+        using var mediaConnection = new AiConnection(mediaHandler);
+        var mediaActivities = new List<AiStreamEvent>();
+        await new AiResponses(mediaConnection).RunAsync("fixture", [mediaEntry], [], [], _ => { }, _ => { }, CancellationToken.None, activity: mediaActivities.Add);
+        CheckLazy(mediaActivities.Any(eventItem => eventItem.Text == "已读取图像或 PDF 附件") && mediaActivities.All(eventItem => !eventItem.Details.Contains(png)),
+            "Media bytes leaked into the persistent activity record");
+
+        var uploadedText = "USER_UPLOADED_TEXT_BEGIN\n" + new string('A', 270000) + "\nUSER_UPLOADED_TEXT_END";
+        var upload = new AiEntry { Files = [new("manual.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(uploadedText)))] };
+        var uploadInput = AiResponses.MakeInput([upload], [])[0]!["content"]!.AsArray();
+        var uploadPart = uploadInput.Single(part => part?["text"]?.ToString().Contains("USER_UPLOADED_TEXT_BEGIN") == true)!;
+        CheckLazy(uploadPart["text"]!.ToString().Contains("manual.txt") && uploadPart["text"]!.ToString().EndsWith("USER_UPLOADED_TEXT_END"),
+            "Separately uploaded text was truncated or failed to reach the current message");
+        using var uploadHandler = new AiSequenceHandler((_, _) => Complete(answer.DeepClone()));
+        using var uploadConnection = new AiConnection(uploadHandler);
+        var uploadActivity = new List<AiStreamEvent>();
+        await new AiResponses(uploadConnection).RunAsync("fixture", [upload], [], [], _ => { }, _ => { }, CancellationToken.None,
+            activity: uploadActivity.Add, contextWindow: 10000);
+        CheckLazy(uploadHandler.Inputs.Count == 1 && uploadHandler.Inputs[0].ToJsonString().Contains("USER_UPLOADED_TEXT_END") &&
+            uploadActivity.Any(eventItem => eventItem.Id == "context-size-warning"),
+            "Large text upload was truncated or did not warn when exceeding the context window");
+        var refs = new AiEntry { Files = [
+            new("fixture/", "application/vnd.texeed.directory-reference", "") { ReferenceKind = "directory", ReferencePath = "fixture/" },
+            new("future.txt", "text/plain", "") { ReferenceKind = "file", ReferencePath = "future.txt" },
+            new("old/nested.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes("LEGACY_DIRECTORY_CONTENT"))) ] };
+        var refsInput = AiResponses.MakeInput([refs], []).ToJsonString();
+        CheckLazy(!refsInput.Contains("LEGACY_DIRECTORY_CONTENT") && !refsInput.Contains("input_file"),
+            "Directory snapshots or path references were directly included as uploaded files");
+        var invalid = new AiEntry { Files = [new("invalid.txt", "text/plain", Convert.ToBase64String([0xff, 0xfe]))] };
+        var rejectedEncoding = false;
+        try { AiResponses.MakeInput([invalid], []); }
+        catch (InvalidOperationException ex) { rejectedEncoding = ex.Message.Contains("invalid.txt") && ex.Message.Contains("UTF-8"); }
+        CheckLazy(rejectedEncoding, "Invalid UTF-8 was silently replaced or the error omitted the file name");
     }
 
     private static void CheckAiAttachmentCatalog(AiEntry entry)
@@ -113,7 +158,7 @@ internal static partial class Program
         do
         {
             var page = Tool(catalog, "search_attachments", new { query = "CONTENT_SENTINEL_", offset, limit = 7 });
-            CheckCatalog((int)page["total_files"]! == 31 && (int)page["scanned_text_files"]! == 25 &&
+            CheckCatalog((int)page["total_attachments"]! == 31 && (int)page["scanned_text_files"]! == 25 &&
                 (int)page["unsupported_files"]! == 6 && (int)page["failed_files"]! == 0 && (int)page["total_matches"]! == 25 &&
                 !(bool)page["search_complete"]! && (bool)page["text_search_complete"]!,
                 "Search coverage omitted documents, images or match totals");

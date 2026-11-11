@@ -1,0 +1,54 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class Perf
+{
+    const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    static object Field(object x,string name)=>x.GetType().GetField(name,Private)!.GetValue(x)!;
+    static void Call(object x,string name,params object?[] args)=>x.GetType().GetMethod(name,Private)!.Invoke(x,args);
+    static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(()=>{}, DispatcherPriority.ApplicationIdle); w.UpdateLayout(); }
+    static async Task Drain(AiPanel panel, Window w) { await Task.Delay(800); var timer=(DispatcherTimer)Field(panel,"_saveTimer"); for(int i=0;timer.IsEnabled && i<250;i++) await Task.Delay(20); if(timer.IsEnabled) throw new TimeoutException("The draft save timer did not drain."); var gate=(SemaphoreSlim)Field(panel,"_saveGate"); await gate.WaitAsync(); gate.Release(); await Idle(w); }
+    static int Visible(DependencyObject root,Window host) { int count=0; for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++) { var child=VisualTreeHelper.GetChild(root,i); if(child is Control c && c.IsVisible && c.ActualWidth>0 && c.ActualHeight>0) { try { var rect=c.TransformToAncestor(host).TransformBounds(new Rect(0,0,c.ActualWidth,c.ActualHeight)); if(rect.IntersectsWith(new Rect(0,0,host.ActualWidth,host.ActualHeight))) count++; } catch(InvalidOperationException){} } count+=Visible(child,host); } return count; }
+    static int PopupVisible(DependencyObject root){
+ var size=root is FrameworkElement r?new Rect(0,0,r.ActualWidth,r.ActualHeight):Rect.Empty;int count=0;
+ void Walk(DependencyObject node){for(int i=0;i<VisualTreeHelper.GetChildrenCount(node);i++){var child=VisualTreeHelper.GetChild(node,i);if(child is Control c&&c.IsVisible&&c.ActualWidth>0&&c.ActualHeight>0){try{var rect=c.TransformToAncestor((Visual)root).TransformBounds(new Rect(0,0,c.ActualWidth,c.ActualHeight));rect.Intersect(size);for(DependencyObject? p=VisualTreeHelper.GetParent(c);p is not null&&p!=root;p=VisualTreeHelper.GetParent(p)){if(p is FrameworkElement f&&(f.ClipToBounds||f is ScrollViewer||f is ScrollContentPresenter)){var clip=f.TransformToAncestor((Visual)root).TransformBounds(new Rect(0,0,f.ActualWidth,f.ActualHeight));rect.Intersect(clip);}}if(!rect.IsEmpty&&rect.Width>0&&rect.Height>0)count++;}catch(InvalidOperationException){}}Walk(child);}}Walk(root);return count;}
+
+    [STAThread] static int Main(string[] args)
+    {
+        var output=Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME",Path.Combine(output,"profile"));
+        var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("/TeXeed;component/Theme.xaml",UriKind.Relative)});
+        var panel=new AiPanel(); typeof(AiPanel).GetMethod("InitializeBranchUi", Private)?.Invoke(panel, null); var w=new Window{Width=900,Height=760,Left=20,Top=20,WindowStartupLocation=WindowStartupLocation.Manual,Content=panel}; int exit=1;
+        app.DispatcherUnhandledException+=(_,e)=>{Console.Error.WriteLine(e.Exception);e.Handled=true;app.Shutdown(1);};
+        w.Loaded+=async(_,_)=>{try{
+            var project=Path.Combine(output,"project");Directory.CreateDirectory(project);for(var i=0;i<40;i++)File.WriteAllText(Path.Combine(project,$"file-{i:00}.tex"),"fixture");await panel.SetProjectAsync(Path.Combine(project,"file-00.tex")); var book=(AiNotebook)Field(panel,"_book");
+            for(int i=0;i<120;i++) book.Turns.Add(new AiTurn("如何检查结果？ "+i,"样例回答：说明步骤和依据。") { SentAt=DateTimeOffset.UnixEpoch,Segments=Enumerable.Range(0,3).Select(k=>new AiSegment{Kind="activity",Text="检查步骤 "+k,Details=string.Join('\n',Enumerable.Range(0,200).Select(n=>"示例日志 "+n))}).Append(new AiSegment{Kind="final",Text="样例回答：说明步骤和依据。"}).ToList() });
+            Call(panel,"RefreshTranscript"); await Drain(panel,w);
+            var scroll=(ScrollViewer)panel.FindName("MessagesScroll"); var composer=(TextBox)panel.FindName("Composer"); var thumb=(Thumb)panel.FindName("ComposerResize");
+            var samples=new List<object>();
+            async Task Measure(string op,Action<int> act){for(int i=0;i<5;i++){
+                if(op!="mention-reuse"){composer.Text="";composer.CaretIndex=0;await Drain(panel,w);}var qb=GC.GetAllocatedBytesForCurrentThread();var qw=Stopwatch.StartNew();await Drain(panel,w);qw.Stop();qb=GC.GetAllocatedBytesForCurrentThread()-qb;
+                var bytes=GC.GetAllocatedBytesForCurrentThread();var sw=Stopwatch.StartNew();act(i);await Idle(w);var feedback=sw.Elapsed.TotalMilliseconds;var immediate=GC.GetAllocatedBytesForCurrentThread()-bytes;await Drain(panel,w);sw.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                if(i>=2)samples.Add(new{op,feedbackMs=feedback,feedbackBytes=immediate,rawMs=sw.Elapsed.TotalMilliseconds,idleMs=qw.Elapsed.TotalMilliseconds,correctedMs=sw.Elapsed.TotalMilliseconds-qw.Elapsed.TotalMilliseconds,rawBytes=bytes,idleBytes=qb,correctedBytes=bytes-qb,visibleControls=Visible(w,w),popupControls=(panel.GetType().GetField("_mentionPopup",Private)?.GetValue(panel) is Popup shownPopup && shownPopup.IsOpen && shownPopup.Child is DependencyObject child)?PopupVisible(child):0,popupItems=(panel.GetType().GetField("_mentionPopup",Private)?.GetValue(panel) is Popup popup && popup.IsOpen && panel.GetType().GetField("_mentionList",Private)?.GetValue(panel) is ListBox list)?list.Items.Count:0});
+            }}
+            w.Activate(); composer.Focus(); await Idle(w);
+            await Measure("mention",i=>{composer.Text="@";composer.CaretIndex=1;});
+            await Measure("mention-reuse",i=>{composer.Text=i%2==0?"@f":"@";composer.CaretIndex=composer.Text.Length;});
+            await Measure("mention-one",i=>{composer.Text="@file-00";composer.CaretIndex=composer.Text.Length;});
+            await Measure("mention-none",i=>{composer.Text="@not-found";composer.CaretIndex=composer.Text.Length;});
+            File.WriteAllText(Path.Combine(output,"results.json"),JsonSerializer.Serialize(new{fixture="120 turns, 3 activities, 200 detail lines; 40-file project; @ candidates all, reuse, one, none; 900x760 WPF; two warmups and three samples; paired 800ms queue and save gate",samples},new JsonSerializerOptions{WriteIndented=true}));
+            exit=0;
+        }catch(Exception e){Console.Error.WriteLine(e);}finally{panel.Dispose();w.Close();app.Shutdown(exit);}};
+        w.Show();app.Run();return exit;
+    }
+}

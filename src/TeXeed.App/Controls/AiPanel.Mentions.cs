@@ -1,0 +1,239 @@
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+
+namespace TeXeed.App.Controls;
+
+public partial class AiPanel
+{
+    internal sealed record MentionCandidate(string FullPath, string RelativePath, bool IsDirectory)
+    {
+        public override string ToString() => RelativePath.Replace('\\', '/') + (IsDirectory ? "/" : "");
+    }
+    public Func<string?>? ProjectRoot { get; set; }
+    private Popup? _mentionPopup;
+    private ListBox? _mentionList;
+    private Task<AiWorkspaceFiles.Catalog>? _mentionDiscovery;
+    private string? _mentionDiscoveryRoot;
+    private int _mentionRevision;
+    private bool _editingMention;
+    private sealed record RemovedMention(AiEntry Entry, int Index);
+    private readonly List<RemovedMention> _removedMentions = [];
+    private AiConversation? _mentionUndoConversation;
+    private CancellationTokenSource? _mentionUndoOperation;
+    private string _lastMentionText = "";
+
+    private void InitializeMentions()
+    {
+        Composer.TextChanged += (_, e) =>
+        {
+            var before = _lastMentionText;
+            _lastMentionText = Composer.Text;
+            if (!ReferenceEquals(_mentionUndoConversation, _book.Active) || !ReferenceEquals(_mentionUndoOperation, _operation))
+            {
+                _removedMentions.Clear(); _mentionUndoConversation = _book.Active; _mentionUndoOperation = _operation;
+                before = Composer.Text;
+            }
+            if (e.UndoAction is not (UndoAction.Undo or UndoAction.Redo)) ForgetManuallyRecreatedMentions(before, Composer.Text);
+            if (_updating || _editingMention || _disposed) return;
+            if (e.UndoAction is UndoAction.Undo or UndoAction.Redo) RestoreMentionsFromUndo(before, Composer.Text);
+            if (_operation is null || Composer.Text.Length > 0) RemoveMissingMentions();
+            var revision = ++_mentionRevision;
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => RefreshMentions(revision)));
+        };
+        Composer.PreviewKeyDown += MentionKeyDown;
+        Composer.LostKeyboardFocus += (_, _) => CloseMentions();
+    }
+
+    internal static bool TryMentionQuery(string text, int caret, out int start, out string query)
+    {
+        start = -1; query = "";
+        if (caret <= 0 || caret > text.Length) return false;
+        var at = text.LastIndexOf('@', caret - 1);
+        if (at < 0 || at > 0 && !char.IsWhiteSpace(text[at - 1]) && text[at - 1] is not '(' and not '[') return false;
+        var fragment = text[(at + 1)..caret];
+        if (fragment.StartsWith('"'))
+        {
+            fragment = fragment[1..];
+            if (fragment.Contains('"') || fragment.Contains('\n') || fragment.Contains('\r')) return false;
+        }
+        else if (fragment.Any(char.IsWhiteSpace)) return false;
+        start = at; query = fragment.Replace('\\', '/'); return true;
+    }
+
+    private async void RefreshMentions(int revision)
+    {
+        if (revision != _mentionRevision || _disposed || _updating) return;
+        if (!Composer.IsKeyboardFocusWithin || !TryMentionQuery(Composer.Text, Composer.CaretIndex, out _, out var query)) { CloseMentions(); return; }
+        var root = ProjectRoot?.Invoke() ?? (_project is null ? null : Path.GetDirectoryName(_project));
+        if (string.IsNullOrEmpty(root)) { CloseMentions(); return; }
+        var conversation = _book.Active;
+        if (_mentionDiscovery is null || !string.Equals(root, _mentionDiscoveryRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            _mentionDiscoveryRoot = root;
+            _mentionDiscovery = Task.Run(() => AiWorkspaceFiles.Discover(root, ".", AiWorkspaceFiles.MaximumDepth, _lifetime.Token), _lifetime.Token);
+        }
+        try
+        {
+            var catalog = await _mentionDiscovery;
+            if (revision != _mentionRevision || _disposed || !ReferenceEquals(conversation, _book.Active) ||
+                !Composer.IsKeyboardFocusWithin || !TryMentionQuery(Composer.Text, Composer.CaretIndex, out _, out var current) || current != query) return;
+            var candidates = catalog.Entries.Where(entry => entry.RelativePath.Replace('\\', '/').Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Take(12).Select(entry => new MentionCandidate(entry.Path, entry.RelativePath, entry.IsDirectory)).ToArray();
+            if (candidates.Length == 0) { CloseMentions(); return; }
+            EnsureMentionPopup();
+            if (_mentionList!.ItemsSource is not MentionCandidate[] previous || !previous.SequenceEqual(candidates))
+                _mentionList.ItemsSource = candidates;
+            _mentionList.SelectedIndex = 0;
+            _mentionPopup!.IsOpen = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException or InvalidOperationException or ArgumentException or NotSupportedException or System.Security.SecurityException)
+        { if (revision == _mentionRevision) { CloseMentions(); _mentionDiscovery = null; } }
+    }
+
+    private void EnsureMentionPopup()
+    {
+        if (_mentionPopup is not null) return;
+        _mentionList = new ListBox { MinWidth = 260, MaxWidth = 520, MaxHeight = 220, Focusable = false, FontSize = 13 };
+        var itemStyle = new Style(typeof(ListBoxItem));
+        itemStyle.Setters.Add(new Setter(FocusableProperty, false));
+        _mentionList.ItemContainerStyle = itemStyle;
+        _mentionList.SetResourceReference(BackgroundProperty, "PanelBackground");
+        _mentionList.SetResourceReference(ForegroundProperty, "Ink");
+        _mentionList.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            var item = ItemsControl.ContainerFromElement(_mentionList, (DependencyObject)e.OriginalSource) as ListBoxItem;
+            if (item?.DataContext is MentionCandidate candidate) { InsertMention(candidate); e.Handled = true; }
+        };
+        var border = new Border { BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5), Child = _mentionList };
+        border.SetResourceReference(Border.BorderBrushProperty, "Guide");
+        border.SetResourceReference(Border.BackgroundProperty, "PanelBackground");
+        _mentionPopup = new Popup { PlacementTarget = Composer, Placement = PlacementMode.Top, Child = border, AllowsTransparency = true, StaysOpen = true, Focusable = false };
+    }
+
+    private void MentionKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_mentionPopup?.IsOpen != true || _mentionList is null) return;
+        if (e.Key == Key.Escape) { CloseMentions(); e.Handled = true; return; }
+        if (Keyboard.Modifiers != ModifierKeys.None) return;
+        if (e.Key is Key.Up or Key.Down)
+        {
+            var direction = e.Key == Key.Down ? 1 : -1;
+            _mentionList.SelectedIndex = Math.Clamp(_mentionList.SelectedIndex + direction, 0, _mentionList.Items.Count - 1);
+            _mentionList.ScrollIntoView(_mentionList.SelectedItem); e.Handled = true; return;
+        }
+        if (e.Key is Key.Tab or Key.Enter && _mentionList.SelectedItem is MentionCandidate candidate)
+        { InsertMention(candidate); e.Handled = true; }
+    }
+
+    internal bool InsertMention(MentionCandidate candidate)
+    {
+        if (!TryMentionQuery(Composer.Text, Composer.CaretIndex, out var start, out _)) return false;
+        if (candidate.IsDirectory ? !Directory.Exists(candidate.FullPath) : !File.Exists(candidate.FullPath))
+        { StatusText.Text = "所选路径已不存在。"; CloseMentions(); return false; }
+        var relative = candidate.RelativePath.Replace('\\', '/') + (candidate.IsDirectory ? "/" : "");
+        var token = "@" + (relative.Any(char.IsWhiteSpace) ? "\"" + relative + "\"" : relative);
+        var path = Path.GetFullPath(candidate.FullPath);
+        if (candidate.IsDirectory && !Path.EndsInDirectorySeparator(path)) path += Path.DirectorySeparatorChar;
+        var file = new AiAttachedFile(path, candidate.IsDirectory ? "application/vnd.texeed.directory-reference" : "application/vnd.texeed.file-reference", "")
+        { ReferenceKind = candidate.IsDirectory ? "directory" : "file", ReferencePath = path, FolderPath = candidate.IsDirectory ? path : null };
+        var entry = new AiEntry { Title = "路径引用：" + path, EntryKind = "attachment", Files = [file], AdditionalData = new() { [AiEntry.MentionTokenKey] = JsonSerializer.SerializeToElement(token) } };
+        _editingMention = true;
+        try
+        {
+            if (!AddEntry(entry, focusComposer: false)) return false;
+            var length = Composer.CaretIndex - start;
+            Composer.Select(start, length); Composer.SelectedText = token + " "; Composer.Focus();
+            CloseMentions(); return true;
+        }
+        finally { _editingMention = false; }
+    }
+
+    private void RemoveMissingMentions()
+    {
+        var groups = _book.Entries.Where(entry => entry.AdditionalData?.TryGetValue(AiEntry.MentionTokenKey, out var value) == true && value.ValueKind == JsonValueKind.String)
+            .GroupBy(entry => entry.AdditionalData![AiEntry.MentionTokenKey].GetString()!, StringComparer.Ordinal).ToArray();
+        var removed = false;
+        foreach (var group in groups)
+        {
+            var token = group.Key; var count = CountMentionTokens(Composer.Text, token);
+            foreach (var entry in group.Skip(count).ToArray())
+            {
+                var index = _book.Entries.IndexOf(entry);
+                if (index < 0) continue;
+                _removedMentions.RemoveAll(item => ReferenceEquals(item.Entry, entry));
+                _removedMentions.Add(new(entry, index));
+                _book.Entries.RemoveAt(index); entry.PropertyChanged -= AnnotationChanged; removed = true;
+            }
+        }
+        if (removed) { Rebind(); Dirty(); }
+    }
+
+    private static int CountMentionTokens(string text, string token)
+    {
+        if (token.Length == 0) return 0;
+        var count = 0; var position = 0;
+        while ((position = text.IndexOf(token, position, StringComparison.Ordinal)) >= 0)
+        {
+            var end = position + token.Length;
+            if ((position == 0 || char.IsWhiteSpace(text[position - 1]) || text[position - 1] is '(' or '[') &&
+                (end == text.Length || char.IsWhiteSpace(text[end]) || text[end] is ',' or '.' or ')' or ']')) count++;
+            position = end;
+        }
+        return count;
+    }
+
+    private void RestoreMentionsFromUndo(string before, string after)
+    {
+        var restored = false;
+        foreach (var group in _removedMentions.Where(item => item.Entry.AdditionalData?.TryGetValue(AiEntry.MentionTokenKey, out var value) == true && value.ValueKind == JsonValueKind.String)
+                     .GroupBy(item => item.Entry.AdditionalData![AiEntry.MentionTokenKey].GetString()!, StringComparer.Ordinal).ToArray())
+        {
+            var token = group.Key;
+            var added = CountMentionTokens(after, token) - CountMentionTokens(before, token);
+            if (added <= 0) continue;
+            var alreadyPresent = _book.Entries.Count(entry => entry.AdditionalData?.TryGetValue(AiEntry.MentionTokenKey, out var value) == true && value.ValueKind == JsonValueKind.String && value.GetString() == token);
+            var restoreCount = Math.Min(added, Math.Max(0, CountMentionTokens(after, token) - alreadyPresent));
+            foreach (var item in group.OrderBy(item => item.Index).Take(restoreCount).ToArray())
+            {
+                _book.Entries.Insert(Math.Clamp(item.Index, 0, _book.Entries.Count), item.Entry);
+                _removedMentions.Remove(item); restored = true;
+            }
+        }
+        if (restored) { Rebind(); Dirty(); }
+    }
+
+    private void ForgetManuallyRecreatedMentions(string before, string after)
+    {
+        var recreated = _removedMentions.Where(item => item.Entry.AdditionalData?.TryGetValue(AiEntry.MentionTokenKey, out var value) == true && value.ValueKind == JsonValueKind.String)
+            .Select(item => item.Entry.AdditionalData![AiEntry.MentionTokenKey].GetString()!)
+            .Where(token => CountMentionTokens(after, token) > CountMentionTokens(before, token))
+            .ToHashSet(StringComparer.Ordinal);
+        if (recreated.Count == 0) return;
+        _removedMentions.RemoveAll(item => item.Entry.AdditionalData?.TryGetValue(AiEntry.MentionTokenKey, out var value) == true &&
+            value.ValueKind == JsonValueKind.String && recreated.Contains(value.GetString()!));
+    }
+
+    internal void DetachUnsentMentions(IEnumerable<AiEntry> sentAttachments)
+    {
+        _removedMentions.Clear();
+        var sent = new HashSet<AiEntry>(sentAttachments, ReferenceEqualityComparer.Instance);
+        foreach (var entry in _book.Entries)
+        {
+            if (sent.Contains(entry) || entry.AdditionalData?.Remove(AiEntry.MentionTokenKey) != true) continue;
+            if (entry.AdditionalData.Count == 0) entry.AdditionalData = null;
+        }
+    }
+
+    private void CloseMentions()
+    {
+        if (_mentionPopup is not null) _mentionPopup.IsOpen = false;
+        _mentionDiscovery = null; _mentionDiscoveryRoot = null;
+    }
+}

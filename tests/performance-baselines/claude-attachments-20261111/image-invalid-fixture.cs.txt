@@ -1,0 +1,54 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+class Perf {
+static async Task Idle(Window w){await w.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);w.UpdateLayout();await w.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.Render);await w.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);w.UpdateLayout();}
+static async Task SettleThumbnails(DependencyObject? root,Window host){
+ var tasks=new List<Task>();
+ void Walk(DependencyObject? node){if(node is null)return;if(node.GetType().Name=="AttachmentThumbnail" && node.GetType().GetProperty("LoadTask",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(node) is Task task)tasks.Add(task);for(var i=0;i<VisualTreeHelper.GetChildrenCount(node);i++)Walk(VisualTreeHelper.GetChild(node,i));}
+ Walk(root);try{await Task.WhenAll(tasks);}catch(OperationCanceledException){}await Idle(host);
+}
+static int VisibleImages(DependencyObject? root){if(root is null)return 0;var count=root is Image img&&img.IsVisible&&img.Source is not null?1:0;for(var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)count+=VisibleImages(VisualTreeHelper.GetChild(root,i));return count;}
+static int Visible(DependencyObject root){
+ var size=root is FrameworkElement r?new Rect(0,0,r.ActualWidth,r.ActualHeight):Rect.Empty;int count=0;
+ void Walk(DependencyObject node){for(int i=0;i<VisualTreeHelper.GetChildrenCount(node);i++){var child=VisualTreeHelper.GetChild(node,i);if(child is Control c&&c.IsVisible&&c.ActualWidth>0&&c.ActualHeight>0){try{var rect=c.TransformToAncestor((Visual)root).TransformBounds(new Rect(0,0,c.ActualWidth,c.ActualHeight));rect.Intersect(size);for(DependencyObject? p=VisualTreeHelper.GetParent(c);p is not null&&p!=root;p=VisualTreeHelper.GetParent(p)){if(p is FrameworkElement f&&(f.ClipToBounds||f is ScrollViewer||f is ScrollContentPresenter)){var clip=f.TransformToAncestor((Visual)root).TransformBounds(new Rect(0,0,f.ActualWidth,f.ActualHeight));rect.Intersect(clip);}}if(!rect.IsEmpty&&rect.Width>0&&rect.Height>0)count++;}catch(InvalidOperationException){}}Walk(child);}}Walk(root);return count;}
+[STAThread] static int Main(string[] args){
+var output=Path.GetFullPath(args[0]);Directory.CreateDirectory(output);Environment.SetEnvironmentVariable("TEXEED_HOME",Path.Combine(output,"profile"));
+var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("/TeXeed;component/Theme.xaml",UriKind.Relative)});
+var panel=new AiPanel();typeof(AiPanel).GetMethod("InitializeBranchUi",BindingFlags.Instance|BindingFlags.NonPublic)?.Invoke(panel,null);var host=new Window{Width=900,Height=760,Left=20,Top=20,Content=panel};int result=1;
+app.DispatcherUnhandledException+=(_,e)=>{Console.Error.WriteLine(e.Exception);e.Handled=true;app.Shutdown(1);};
+host.Loaded+=async(_,_)=>{try{
+await panel.SetProjectAsync(Path.Combine(output,"fixture.tex"));
+var quote=new AiEntry{Title="引用",Question="评论",AnswerAnchor=new("turn","segment",0,2,"引用","revision")};
+var folderPath=args.Length > 1 && args[1] == "long" ? @"C:\Users\Example\Documents\" + string.Concat(Enumerable.Repeat("资料目录长期内容", 16)) + @"\" : @"C:\资料\"; var files=Enumerable.Range(0,31).Select(i=>new AiAttachedFile($"资料目录/{i:00}.md","text/plain",Convert.ToBase64String(new byte[16])){FolderPath=folderPath}).ToList();
+var folder=new AiEntry{Title="附件：31 个文件",Files=files}; var pixels=new byte[256*256*4];for(var i=3;i<pixels.Length;i+=4)pixels[i]=255;var bitmap=BitmapSource.Create(256,256,96,96,PixelFormats.Bgra32,null,pixels,256*4);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using var imageBytes=new MemoryStream();encoder.Save(imageBytes);var image=new AiEntry{Title="附件：image.png",EntryKind="attachment",Files=[new AiAttachedFile("image.png","image/png",Convert.ToBase64String(new byte[]{0,1,2,3}))]};
+if(!panel.AddEntry(quote,false)||!panel.AddEntry(folder,false)||!panel.AddEntry(image,false))throw new Exception("Fixture setup failed");
+await Idle(host);var reference=(Popup)panel.FindName("EntriesPopup");var attachments=panel.FindName("AttachmentsPopup") as Popup;var samples=new List<object>();
+foreach(var pair in attachments is null?new[]{("combined",reference)}:new[]{("reference",reference),("attachment",attachments)}){
+for(int i=0;i<9;i++){
+pair.Item2.IsOpen=false;await Idle(host);
+var qb=GC.GetAllocatedBytesForCurrentThread();var q=Stopwatch.StartNew();await Idle(host);await SettleThumbnails(pair.Item2.IsOpen?pair.Item2.Child:null,host);q.Stop();qb=GC.GetAllocatedBytesForCurrentThread()-qb;
+var bytes=GC.GetAllocatedBytesForCurrentThread();var watch=Stopwatch.StartNew();pair.Item2.IsOpen=true;await Idle(host);await SettleThumbnails(pair.Item2.Child,host);watch.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+if(i>=2)samples.Add(new{op=pair.Item1,rawMs=watch.Elapsed.TotalMilliseconds,idleMs=q.Elapsed.TotalMilliseconds,correctedMs=watch.Elapsed.TotalMilliseconds-q.Elapsed.TotalMilliseconds,rawBytes=bytes,idleBytes=qb,correctedBytes=bytes-qb,popupControls=pair.Item2.Child is DependencyObject child?Visible(child):0,popupImages=VisibleImages(pair.Item2.Child),windowControls=Visible(host)});
+}
+if(pair.Item1=="attachment"){
+ pair.Item2.IsOpen=true;await Idle(host);var surface=(FrameworkElement)pair.Item2.Child;
+ for(int i=0;i<9;i++){
+ var qb=GC.GetAllocatedBytesForCurrentThread();var q=Stopwatch.StartNew();await Idle(host);await SettleThumbnails(pair.Item2.IsOpen?pair.Item2.Child:null,host);q.Stop();qb=GC.GetAllocatedBytesForCurrentThread()-qb;
+ var bytes=GC.GetAllocatedBytesForCurrentThread();var watch=Stopwatch.StartNew();surface.Width=i%2==0?300:430;await Idle(host);await SettleThumbnails(pair.Item2.Child,host);watch.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+ if(i>=2)samples.Add(new{op="attachment-resize",rawMs=watch.Elapsed.TotalMilliseconds,idleMs=q.Elapsed.TotalMilliseconds,correctedMs=watch.Elapsed.TotalMilliseconds-q.Elapsed.TotalMilliseconds,rawBytes=bytes,idleBytes=qb,correctedBytes=bytes-qb,popupControls=Visible(surface),windowControls=Visible(host)});
+ }
+}
+}
+File.WriteAllText(Path.Combine(output,"results.json"),JsonSerializer.Serialize(new{fixture="900x760 WPF; one reference, one 31-file directory, and one invalid PNG snapshot; popup open; two warmups and seven paired ApplicationIdle including pending thumbnail decode",pathCase=args.Length > 1 ? args[1] : "short",samples},new JsonSerializerOptions{WriteIndented=true}));result=0;
+}catch(Exception e){Console.Error.WriteLine(e);}finally{panel.Dispose();host.Content=null;host.Close();app.Shutdown(result);}};host.Show();app.Run();return result;}
+}

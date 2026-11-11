@@ -114,13 +114,13 @@ internal static partial class Program
         Check(!workingHandler.ImageInSummary && workingHandler.LastInput.Contains("CURRENT_IMAGE_MARKER"), "Compaction summarized base64 or lost the current image");
         Check(!workingHandler.LastInput.Contains("function_call"), "Compaction replayed orphaned tool calls/results");
         var attachmentText = "CURRENT_ATTACHMENT_MARKER" + new string('x', 10000);
-        var attachment = new AiEntry { Question = "保留文件原文", Files = [new("fixture.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(attachmentText)))] };
+        var attachment = new AiEntry { Question = "保留文件原文", Files = [new AiAttachedFile("fixture.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(attachmentText))) { FolderPath = @"C:\fixture\" }] };
         var freshHandler = new CompactionHandler(); using var freshConnection = new AiConnection(freshHandler);
         await new AiResponses(freshConnection).RunAsync("fixture", [attachment], [], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
-        Check(freshHandler.Summaries == 0 && !freshHandler.LastInput.Contains(attachmentText) && freshHandler.LastInput.Contains("附件快照目录"), "A fresh attachment was inlined or its catalog omitted");
+        Check(freshHandler.Summaries == 0 && !freshHandler.LastInput.Contains(attachmentText) && freshHandler.LastInput.Contains("附件目录"), "A fresh attachment was inlined or its catalog omitted");
         var withHistory = new CompactionHandler(); using var historyConnection = new AiConnection(withHistory);
         await new AiResponses(historyConnection).RunAsync("fixture", [attachment], [new("旧问题", new string('z', 1300))], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
-        Check(withHistory.Summaries == 0 && !withHistory.LastInput.Contains(attachmentText) && withHistory.LastInput.Contains("附件快照目录") && withHistory.LastInput.Contains("旧问题"), "Attachment catalog lost history or inlined content");
+        Check(withHistory.Summaries == 0 && !withHistory.LastInput.Contains(attachmentText) && withHistory.LastInput.Contains("附件目录") && withHistory.LastInput.Contains("旧问题"), "Attachment catalog lost history or inlined content");
         var nearWindowText = "NEAR_WINDOW_ATTACHMENT" + new string('q', 24000);
         var nearWindow = new AiEntry { Question = "按原文处理" + nearWindowText };
         var nearHandler = new CompactionHandler(); using var nearConnection = new AiConnection(nearHandler);
@@ -143,7 +143,7 @@ internal static partial class Program
         var multiHandler = new CompactionHandler { Working = true, WorkingRounds = 3 }; using var multiConnection = new AiConnection(multiHandler);
         await new AiResponses(multiConnection).RunAsync("fixture", [attachment], [], [], _ => { }, _ => { }, CancellationToken.None,
             toolRunner: (name, _, _) => Task.FromResult(name == "list_files" ? "目录" : multiHandler.NormalRequests == 1 ? new string('y', 10000) : "小型结果"), compactThreshold: 4000);
-        Check(multiHandler.Summaries == 1 && !multiHandler.AttachmentInSummary && !multiHandler.LastInput.Contains(attachmentText) && multiHandler.LastInput.Contains("附件快照目录"), "Working compaction lost the attachment catalog or repeated without substantial new context");
+        Check(multiHandler.Summaries == 1 && !multiHandler.AttachmentInSummary && !multiHandler.LastInput.Contains(attachmentText) && multiHandler.LastInput.Contains("附件目录"), "Working compaction lost the attachment catalog or repeated without substantial new context");
         var pdf = new AiEntry { Question = "查看 PDF", Files = [new("fixture.pdf", "application/pdf", "PDF_BINARY_MARKER" + new string('A', 50000))] };
         var pdfHandler = new CompactionHandler(); using var pdfConnection = new AiConnection(pdfHandler);
         await new AiResponses(pdfConnection).RunAsync("fixture", [pdf], [], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
