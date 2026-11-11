@@ -113,23 +113,68 @@ internal static partial class Program
         Check(workingHandler.Summaries == 1 && workingEvents.Snapshot().Any(s => s.Text.StartsWith("已压缩工作上下文")), "Tool loop did not compact growing context");
         Check(!workingHandler.ImageInSummary && workingHandler.LastInput.Contains("CURRENT_IMAGE_MARKER"), "Compaction summarized base64 or lost the current image");
         Check(!workingHandler.LastInput.Contains("function_call"), "Compaction replayed orphaned tool calls/results");
+        var attachmentText = "CURRENT_ATTACHMENT_MARKER" + new string('x', 10000);
+        var attachment = new AiEntry { Question = "保留文件原文", Files = [new("fixture.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(attachmentText)))] };
+        var freshHandler = new CompactionHandler(); using var freshConnection = new AiConnection(freshHandler);
+        await new AiResponses(freshConnection).RunAsync("fixture", [attachment], [], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
+        Check(freshHandler.Summaries == 0 && freshHandler.LastInput.Contains(attachmentText), "A fresh oversized attachment was summarized or altered");
+        var withHistory = new CompactionHandler(); using var historyConnection = new AiConnection(withHistory);
+        await new AiResponses(historyConnection).RunAsync("fixture", [attachment], [new("旧问题", new string('z', 1300))], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
+        Check(withHistory.Summaries == 0 && withHistory.LastInput.Contains(attachmentText) && withHistory.LastInput.Contains("旧问题"), "Large current attachment caused unnecessary history summarization");
+        var nearWindowText = "NEAR_WINDOW_ATTACHMENT" + new string('q', 24000);
+        var nearWindow = new AiEntry { Question = "按原文处理", Files = [new("near.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(nearWindowText)))] };
+        var nearHandler = new CompactionHandler(); using var nearConnection = new AiConnection(nearHandler);
+        await new AiResponses(nearConnection).RunAsync("fixture", [nearWindow], [new("历史约束", new string('h', 9000))], [], _ => { }, _ => { }, CancellationToken.None, contextWindow: 10000);
+        Check(nearHandler.Summaries == 1 && !nearHandler.NearAttachmentInSummary && nearHandler.LastInput.Contains(nearWindowText), "Near-window current message failed to compress substantial history safely");
+        var tightText = "TIGHT_WINDOW_ATTACHMENT" + new string('q', 280000);
+        var tight = new AiEntry { Question = "保持原文", Files = [new("tight.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(tightText)))] };
+        foreach (var historyLength in new[] { 30000, 21000 })
+        {
+            var tightHandler = new CompactionHandler(); using var tightConnection = new AiConnection(tightHandler);
+            await new AiResponses(tightConnection).RunAsync("fixture", [tight], [new("历史约束", new string('h', historyLength))], [], _ => { }, _ => { }, CancellationToken.None, contextWindow: 100000);
+            Check(tightHandler.Summaries == 1 && !tightHandler.TightAttachmentInSummary && tightHandler.LastInput.Contains(tightText), "Current content near the full window did not compact a smaller but material history");
+        }
+        var farText = "FAR_WINDOW_ATTACHMENT" + new string('f', 70000);
+        var far = new AiEntry { Question = "完整处理", Files = [new("far.txt", "text/plain", Convert.ToBase64String(Encoding.UTF8.GetBytes(farText)))] };
+        var farHandler = new CompactionHandler(); using var farConnection = new AiConnection(farHandler);
+        var farEvents = new AiStreamBuffer();
+        await new AiResponses(farConnection).RunAsync("fixture", [far], [new("保留历史", new string('h', 25000))], [], _ => { }, _ => { }, CancellationToken.None, activity: farEvents.Add, contextWindow: 10000);
+        Check(farHandler.Summaries == 0 && farHandler.LastInput.Contains(farText) && farHandler.LastInput.Contains("保留历史") && farEvents.Snapshot().Any(e => e.Id == "context-size-warning"), "Obviously oversized current message triggered unhelpful history compaction or lost its warning");
+        var multiHandler = new CompactionHandler { Working = true, WorkingRounds = 3 }; using var multiConnection = new AiConnection(multiHandler);
+        await new AiResponses(multiConnection).RunAsync("fixture", [attachment], [], [], _ => { }, _ => { }, CancellationToken.None,
+            toolRunner: (name, _, _) => Task.FromResult(name == "list_files" ? "目录" : multiHandler.NormalRequests == 1 ? new string('y', 10000) : "小型结果"), compactThreshold: 4000);
+        Check(multiHandler.Summaries == 1 && !multiHandler.AttachmentInSummary && multiHandler.LastInput.Contains(attachmentText), "Working compaction summarized the current attachment or repeated without substantial new context");
+        var pdf = new AiEntry { Question = "查看 PDF", Files = [new("fixture.pdf", "application/pdf", "PDF_BINARY_MARKER" + new string('A', 50000))] };
+        var pdfHandler = new CompactionHandler(); using var pdfConnection = new AiConnection(pdfHandler);
+        await new AiResponses(pdfConnection).RunAsync("fixture", [pdf], [], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000);
+        Check(pdfHandler.Summaries == 0 && pdfHandler.LastInput.Contains("PDF_BINARY_MARKER"), "Binary attachment triggered text compaction or was lost");
+        var rejectHandler = new CompactionHandler { Reject = true }; using var rejectConnection = new AiConnection(rejectHandler);
+        var rejected = false;
+        try { await new AiResponses(rejectConnection).RunAsync("fixture", [attachment], [], [], _ => { }, _ => { }, CancellationToken.None, compactThreshold: 4000); }
+        catch (InvalidOperationException) { rejected = true; }
+        Check(rejected && rejectHandler.Summaries == 0 && attachment.Files.Count == 1 && attachment.Question == "保留文件原文", "Server rejection lost the original attachment or caused compaction");
+        var contextFailure = AiFailure.FromEvent(JsonNode.Parse("{\"error\":{\"code\":\"context_length_exceeded\",\"message\":\"too long\"}}"), 400);
+        Check(contextFailure.Message.Contains("减少附件或分批处理") && contextFailure.Message.Contains("已保留"), "Context length error did not explain recovery");
         File.WriteAllText(Path.Combine(output, "polish-checks.txt"), $"PASS: {count} checks");
         Console.WriteLine($"AI polish: {count} checks passed.");
     }
 
     private sealed class CompactionHandler : HttpMessageHandler
     {
-        internal int Summaries; internal string LastInput = ""; internal bool FailSummary, Working, ImageInSummary;
+        internal int Summaries; internal string LastInput = ""; internal bool FailSummary, Working, ImageInSummary, AttachmentInSummary, NearAttachmentInSummary, TightAttachmentInSummary, Reject;
+        internal int WorkingRounds = 1;
         private int normalRequests;
+        internal int NormalRequests => normalRequests;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
             var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(token))!;
             var summary = body["instructions"]!.ToString().Contains("会话状态整理器");
+            if (!summary && Reject) return new(HttpStatusCode.BadRequest) { Content = new StringContent("{\"error\":{\"message\":\"context length exceeded\"}}", Encoding.UTF8, "application/json") };
             if (summary && FailSummary) return new(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("Temporary test failure") };
-            if (summary) { Summaries++; ImageInSummary |= body["input"]!.ToJsonString().Contains("CURRENT_IMAGE_MARKER"); }
+            if (summary) { Summaries++; ImageInSummary |= body["input"]!.ToJsonString().Contains("CURRENT_IMAGE_MARKER"); AttachmentInSummary |= body["input"]!.ToJsonString().Contains("CURRENT_ATTACHMENT_MARKER"); NearAttachmentInSummary |= body["input"]!.ToJsonString().Contains("NEAR_WINDOW_ATTACHMENT"); TightAttachmentInSummary |= body["input"]!.ToJsonString().Contains("TIGHT_WINDOW_ATTACHMENT"); }
             else { normalRequests++; LastInput = body["input"]!.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }); }
-            var message = !summary && Working && normalRequests == 1
-                ? new JsonObject { ["type"] = "function_call", ["name"] = "read_source", ["call_id"] = "read", ["arguments"] = "{}" }
+            var message = !summary && Working && normalRequests <= WorkingRounds
+                ? new JsonObject { ["type"] = "function_call", ["name"] = "read_source", ["call_id"] = "read" + normalRequests, ["arguments"] = "{}" }
                 : new JsonObject { ["type"] = "message", ["role"] = "assistant", ["content"] = new JsonArray(new JsonObject { ["type"] = "output_text", ["text"] = summary ? "保留正文；已读取模板，尚未验证编译。" : "继续工作。" }) };
             return new(HttpStatusCode.OK) { Content = new StringContent("data: " + new JsonObject { ["type"] = "response.completed", ["response"] = new JsonObject { ["output"] = new JsonArray(message) } }.ToJsonString() + "\n\n", Encoding.UTF8, "text/event-stream") };
         }

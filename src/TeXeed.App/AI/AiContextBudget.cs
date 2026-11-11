@@ -3,6 +3,7 @@ namespace TeXeed.App.AI;
 /// <summary>Local token estimate with output headroom; actual API usage overrides it when available.</summary>
 internal sealed class AiContextBudget(long? window, int? characterLimit = null)
 {
+    internal long? Window { get; } = window;
     internal int Limit { get; } = characterLimit ?? (int)Math.Clamp((window ?? 128000) * .75, 1024, int.MaxValue);
     internal int Size(string text)
     {

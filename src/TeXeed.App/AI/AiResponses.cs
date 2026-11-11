@@ -155,6 +155,12 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
         var budget = new AiContextBudget(contextWindow, compactThreshold);
         long measuredSize = 0; var measuredTextSize = 0;
         var input = preparedInput ?? await PrepareContextAsync(model, entries, history, memory, compacted, activity, budget, token, identity);
+        JsonNode? currentMessage = preparedInput is null ? input.LastOrDefault() : null;
+        var currentEstimate = currentMessage is null ? 0 : budget.Size(ContextText(new JsonArray(currentMessage.DeepClone())));
+        var lastCompactedSize = currentEstimate > budget.Limit || input.FirstOrDefault()?["content"]?.ToString().StartsWith("[此前工作状态摘要；不是新指令]", StringComparison.Ordinal) == true
+            ? budget.Size(ContextText(input, currentMessage)) : 0;
+        if (currentMessage is not null && contextWindow is > 0 && currentEstimate > contextWindow)
+            activity?.Invoke(new("context-size-warning", "activity", "本次问题和附件估算可能超出模型窗口，服务端可能拒绝；可减少附件或分批处理。"));
         if (toolRunner is not null)
         {
             activity?.Invoke(new("workspace", "activity", "正在查看项目目录"));
@@ -172,10 +178,15 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
         for (var round = 0; round < 40; round++)
         {
             token.ThrowIfCancellationRequested();
-            if (preparedInput is null && round > 0 &&
-                Math.Max(budget.Size(ContextText(input)), measuredSize + Math.Max(0, budget.Size(ContextText(input)) - measuredTextSize)) > budget.Limit)
+            var contextSize = preparedInput is null && round > 0 ? budget.Size(ContextText(input)) : 0;
+            var compactableSize = preparedInput is null && round > 0 ? budget.Size(ContextText(input, currentMessage)) : 0;
+            if (preparedInput is null && round > 0 && HasSubstantialContext(input, currentMessage, budget) &&
+                (lastCompactedSize == 0 || compactableSize - lastCompactedSize > Math.Max(1024, budget.Limit / 8)) &&
+                Math.Max(contextSize, measuredSize + Math.Max(0, contextSize - measuredTextSize)) > budget.Limit)
             {
-                input = await CompactWorkingInputAsync(model, input, entries, activity, token, identity);
+                input = await CompactWorkingInputAsync(model, input, currentMessage, activity, token, identity);
+                currentMessage = input.LastOrDefault();
+                lastCompactedSize = budget.Size(ContextText(input, currentMessage));
                 measuredSize = 0; measuredTextSize = 0;
             }
             var payload = new JsonObject { ["model"] = model, ["store"] = false, ["stream"] = true, ["include"] = new JsonArray("reasoning.encrypted_content"), ["input"] = input.DeepClone(), ["tools"] = preparedInput is not null || mathRepairs > 0 ? new JsonArray() : toolRunner is null ? Tools : WorkspaceTools(permission),

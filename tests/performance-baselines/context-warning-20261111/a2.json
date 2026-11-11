@@ -1,0 +1,82 @@
+{
+  "fixture": "fresh live session; warning activity add; 900x760 DIP; 3 warmups, 7 paired ApplicationIdle",
+  "samples": [
+    {
+      "op": "warning-add",
+      "rawMs": 6.6199,
+      "idleMs": 0.4711,
+      "correctedMs": 6.1488000000000005,
+      "rawBytes": 360744,
+      "idleBytes": 2232,
+      "correctedBytes": 358512,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 5.8497,
+      "idleMs": 0.0988,
+      "correctedMs": 5.750900000000001,
+      "rawBytes": 361568,
+      "idleBytes": 2232,
+      "correctedBytes": 359336,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 6.3766,
+      "idleMs": 0.1605,
+      "correctedMs": 6.2161,
+      "rawBytes": 362392,
+      "idleBytes": 2232,
+      "correctedBytes": 360160,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 6.1031,
+      "idleMs": 0.172,
+      "correctedMs": 5.931100000000001,
+      "rawBytes": 362600,
+      "idleBytes": 2232,
+      "correctedBytes": 360368,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 6.0698,
+      "idleMs": 0.1848,
+      "correctedMs": 5.885,
+      "rawBytes": 362672,
+      "idleBytes": 2232,
+      "correctedBytes": 360440,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 5.3607,
+      "idleMs": 0.0865,
+      "correctedMs": 5.2741999999999996,
+      "rawBytes": 374176,
+      "idleBytes": 2232,
+      "correctedBytes": 371944,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 6.2699,
+      "idleMs": 0.1075,
+      "correctedMs": 6.1624,
+      "rawBytes": 364512,
+      "idleBytes": 2232,
+      "correctedBytes": 362280,
+      "baselineControls": 24,
+      "visibleControls": 26
+    }
+  ]
+}

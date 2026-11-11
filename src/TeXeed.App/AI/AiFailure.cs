@@ -27,6 +27,7 @@ internal static class AiFailure
             "subscription_sharing_usage_limit_exceeded" => "请检查 ChatGPT 设置中的 TeXeed 用量额度。",
             "subscription_sharing_user_not_eligible" => "当前账号或工作区不允许此项 ChatGPT 额度使用。",
             "subscription_sharing_unsupported_capability" => "请求包含当前登录通道不支持的能力。",
+            "context_length_exceeded" => "本次问题与附件的内容可能超过模型窗口；请减少附件或分批处理。本轮记录和附件已保留。",
             _ => httpStatus == 401 ? "请重新登录。" : "本次问题已保留，可在排除原因后重试。"
         };
         var message = string.Join("\n", new[] { $"AI 请求未完成{(httpStatus is null ? "" : $" · HTTP {httpStatus}")}", $"{code} {parameter}".Trim(), detail, recovery }.Where(s => !string.IsNullOrWhiteSpace(s)));

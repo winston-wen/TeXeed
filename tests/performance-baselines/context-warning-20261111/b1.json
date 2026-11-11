@@ -1,0 +1,82 @@
+{
+  "fixture": "fresh live session; warning activity add; 900x760 DIP; 3 warmups, 7 paired ApplicationIdle",
+  "samples": [
+    {
+      "op": "warning-add",
+      "rawMs": 6.9717,
+      "idleMs": 0.0434,
+      "correctedMs": 6.9283,
+      "rawBytes": 360744,
+      "idleBytes": 2232,
+      "correctedBytes": 358512,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 5.2272,
+      "idleMs": 0.0699,
+      "correctedMs": 5.1573,
+      "rawBytes": 361568,
+      "idleBytes": 2232,
+      "correctedBytes": 359336,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 6.1549,
+      "idleMs": 0.0447,
+      "correctedMs": 6.1102,
+      "rawBytes": 362392,
+      "idleBytes": 2232,
+      "correctedBytes": 360160,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 5.9217,
+      "idleMs": 0.1873,
+      "correctedMs": 5.734400000000001,
+      "rawBytes": 362600,
+      "idleBytes": 2232,
+      "correctedBytes": 360368,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 5.9168,
+      "idleMs": 0.1691,
+      "correctedMs": 5.7477,
+      "rawBytes": 362672,
+      "idleBytes": 2232,
+      "correctedBytes": 360440,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 4.9419,
+      "idleMs": 0.0457,
+      "correctedMs": 4.8962,
+      "rawBytes": 374176,
+      "idleBytes": 2232,
+      "correctedBytes": 371944,
+      "baselineControls": 24,
+      "visibleControls": 26
+    },
+    {
+      "op": "warning-add",
+      "rawMs": 5.0218,
+      "idleMs": 0.0389,
+      "correctedMs": 4.9829,
+      "rawBytes": 364512,
+      "idleBytes": 2232,
+      "correctedBytes": 362280,
+      "baselineControls": 24,
+      "visibleControls": 26
+    }
+  ]
+}

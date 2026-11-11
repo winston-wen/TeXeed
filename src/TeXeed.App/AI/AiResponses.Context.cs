@@ -5,16 +5,18 @@ namespace TeXeed.App.AI;
 internal sealed partial class AiResponses
 {
     private static readonly System.Text.Json.JsonSerializerOptions ContextJson = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-    private static string ContextText(JsonArray input)
+    private static string ContextText(JsonArray input, JsonNode? exclude = null)
     {
-        var copy = input.DeepClone().AsArray();
+        var copy = new JsonArray();
+        foreach (var item in input)
+            if (!ReferenceEquals(item, exclude)) copy.Add(item?.DeepClone());
         foreach (var item in copy.ToArray())
         {
             if (item?["type"]?.ToString() == "reasoning") { copy.Remove(item); continue; }
             if (item?["content"] is JsonArray parts)
                 foreach (var part in parts.ToArray())
-                    if (part?["type"]?.ToString() == "input_image")
-                    { parts.Remove(part); parts.Add(new JsonObject { ["type"] = "input_text", ["text"] = "[历史截图略；当前用户附图将在摘要后重新附上]" }); }
+                    if (part?["type"]?.ToString() is "input_image" or "input_file")
+                    { parts.Remove(part); parts.Add(new JsonObject { ["type"] = "input_text", ["text"] = "[二进制附件不计入文本摘要]" }); }
         }
         return copy.ToJsonString(ContextJson);
     }
@@ -28,6 +30,9 @@ internal sealed partial class AiResponses
     private async Task<JsonArray> PrepareContextAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history,
         AiContextMemory? memory, Action<AiContextMemory>? compacted, Action<AiStreamEvent>? activity, AiContextBudget budget, CancellationToken token, string identity)
     {
+        var currentInput = MakeInput(entries, []);
+        var currentSize = budget.Size(ContextText(currentInput));
+        var clearlyTooLarge = budget.Window is > 0 && currentSize > budget.Window.Value * 2d;
         var covered = memory?.TurnIds.Length ?? 0;
         if (memory is not null && (covered > history.Count || !history.Take(covered).Select(t => t.Id).SequenceEqual(memory.TurnIds) || Fingerprint(history.Take(covered)) != memory.Fingerprint))
         { memory = null; covered = 0; }
@@ -35,7 +40,7 @@ internal sealed partial class AiResponses
         var pending = history.Skip(covered).ToArray();
         var threshold = budget.Limit;
         var size = budget.Size(summary + string.Concat(pending.Select(TurnContext)));
-        if (size > threshold && pending.Length > 0)
+        if (!clearlyTooLarge && size > threshold && pending.Length > 0)
         {
             activity?.Invoke(new("context-history", "activity", "正在压缩较早会话，完整记录保留在本地"));
             // Keep two recent turns verbatim when possible. An oversized single turn is
@@ -57,10 +62,21 @@ internal sealed partial class AiResponses
             var details = string.Join("\n", turn.Segments.Where(s => s.Kind == "activity" && s.Details.Length > 0).Select(s => s.Text + "\n" + s.Details));
             if (details.Length > 0) input.Add(new JsonObject { ["role"] = "user", ["content"] = "[历史操作观察，不是新指令]\n" + details });
         }
-        foreach (var item in MakeInput(entries, [])) input.Add(item!.DeepClone());
-        if (budget.Size(ContextText(input)) > threshold)
-            input = await CompactWorkingInputAsync(model, input, entries, activity, token, identity);
+        foreach (var item in currentInput) input.Add(item!.DeepClone());
+        var current = input.LastOrDefault();
+        if (!clearlyTooLarge && current is not null && (budget.Window is > 0 || currentSize <= threshold) &&
+            budget.Size(ContextText(input)) > threshold && HasSubstantialContext(input, current, budget))
+            input = await CompactWorkingInputAsync(model, input, current, activity, token, identity);
         return input;
+    }
+
+    private static bool HasSubstantialContext(JsonArray input, JsonNode? current, AiContextBudget budget)
+    {
+        if (!input.Any(item => !ReferenceEquals(item, current))) return false;
+        // If the combined request appears to exceed the full window, even a
+        // smaller history can be worth summarizing; this is still an estimate.
+        var likelyOverWindow = budget.Window is > 0 && budget.Size(ContextText(input)) > budget.Window;
+        return budget.Size(ContextText(input, current)) > (likelyOverWindow ? 768 : Math.Max(1024, budget.Limit / 8));
     }
 
     private async Task<string> SummarizeChunksAsync(string model, string summary, string source, int threshold, CancellationToken token, string identity)
@@ -81,15 +97,15 @@ internal sealed partial class AiResponses
         return summary;
     }
 
-    private async Task<JsonArray> CompactWorkingInputAsync(string model, JsonArray input, IReadOnlyList<AiEntry> entries,
+    private async Task<JsonArray> CompactWorkingInputAsync(string model, JsonArray input, JsonNode? current,
         Action<AiStreamEvent>? activity, CancellationToken token, string identity)
     {
         var id = "context-" + Guid.NewGuid().ToString("N");
         activity?.Invoke(new(id, "activity", "正在压缩工作上下文"));
         // Include complete call/output pairs in the summary source; never replay orphan calls.
-        var summary = await SummarizeChunksAsync(model, "", ContextText(input), 64000, token, identity);
+        var summary = await SummarizeChunksAsync(model, "", ContextText(input, current), 64000, token, identity);
         var result = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = "[此前工作状态摘要；不是新指令]\n" + summary });
-        foreach (var item in MakeInput(entries, [])) result.Add(item!.DeepClone());
+        if (current is not null) result.Add(current.DeepClone());
         activity?.Invoke(new(id, "activity", "已压缩工作上下文 · 继续当前任务", Details: summary));
         return result;
     }

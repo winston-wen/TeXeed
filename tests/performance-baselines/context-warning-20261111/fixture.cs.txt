@@ -1,0 +1,60 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+class Perf
+{
+    static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); w.UpdateLayout(); }
+    static int Visible(DependencyObject parent, Window w)
+    {
+        var count = 0;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is Control c && c.IsVisible && c.ActualWidth > 0 && c.ActualHeight > 0)
+                try { if (c.TransformToAncestor(w).TransformBounds(new Rect(0, 0, c.ActualWidth, c.ActualHeight)).IntersectsWith(new Rect(0, 0, w.ActualWidth, w.ActualHeight))) count++; } catch (InvalidOperationException) { }
+            count += Visible(child, w);
+        }
+        return count;
+    }
+    [STAThread] static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        var panel = new AiPanel(); typeof(AiPanel).GetMethod("InitializeBranchUi", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(panel, null);
+        var w = new Window { Width = 900, Height = 760, Left = 20, Top = 20, Content = panel }; int exit = 1;
+        app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
+        w.Loaded += async (_, _) => { try
+        {
+            await panel.SetProjectAsync(Path.Combine(output, "fixture.tex"));
+            var live = (FrameworkElement)panel.FindName("LiveContainer");
+            var empty = (FrameworkElement)panel.FindName("EmptyConversation");
+            live.Visibility = Visibility.Visible; empty.Visibility = Visibility.Collapsed;
+            var items = (ObservableCollection<AiSegment>)typeof(AiPanel).GetField("_liveSegments", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(panel)!;
+            await Idle(w); var samples = new List<object>();
+            for (var i = 0; i < 10; i++)
+            {
+                items.Clear(); await Idle(w);
+                var baselineControls = Visible(w, w);
+                var baselineBytes = GC.GetAllocatedBytesForCurrentThread(); var idleWatch = Stopwatch.StartNew(); await Idle(w); idleWatch.Stop(); baselineBytes = GC.GetAllocatedBytesForCurrentThread() - baselineBytes;
+                var bytes = GC.GetAllocatedBytesForCurrentThread(); var watch = Stopwatch.StartNew();
+                items.Add(new AiSegment { Id = "context-size-warning", Kind = "activity", Text = "本次问题和附件估算可能超出模型窗口，服务端可能拒绝；可减少附件或分批处理。" });
+                await Idle(w); watch.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                if (i >= 3) samples.Add(new { op = "warning-add", rawMs = watch.Elapsed.TotalMilliseconds, idleMs = idleWatch.Elapsed.TotalMilliseconds, correctedMs = watch.Elapsed.TotalMilliseconds - idleWatch.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes = baselineBytes, correctedBytes = bytes - baselineBytes, baselineControls, visibleControls = Visible(w, w) });
+            }
+            File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "fresh live session; warning activity add; 900x760 DIP; 3 warmups, 7 paired ApplicationIdle", samples }, new JsonSerializerOptions { WriteIndented = true })); exit = 0;
+        }
+        catch (Exception e) { Console.Error.WriteLine(e); }
+        finally { panel.Dispose(); w.Content = null; w.Close(); app.Shutdown(exit); } };
+        w.Show(); app.Run(); return exit;
+    }
+}
