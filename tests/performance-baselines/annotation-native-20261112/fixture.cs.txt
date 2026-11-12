@@ -1,0 +1,89 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+using TeXeed.App.Services;
+
+internal static class Perf
+{
+    static IEnumerable<T> Descendants<T>(DependencyObject node) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is T match) yield return match;
+            foreach (var nested in Descendants<T>(child)) yield return nested;
+        }
+    }
+    static async Task Drain(Window host)
+    {
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+        await Task.Delay(250);
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+    }
+    static int CountControls(DependencyObject root) => Descendants<Control>(root).Count(control => control.IsVisible && control.ActualWidth > 0 && control.ActualHeight > 0);
+    [STAThread]
+    static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        ThemeManager.Apply("ristretto");
+        var document = new Border { Height = 1400, Background = ThemeManager.Brush("EditorBackground") };
+        var host = new Window { Width = 680, Height = 620, Left = 20, Top = 20, WindowStartupLocation = WindowStartupLocation.Manual, Content = new AdornerDecorator { Child = new ScrollViewer { Content = document } } };
+        var entry = new AiEntry { Title = "AI 回答批注", Number = 1, Question = "这是从这些定义推导出来的吗？" };
+        var entries = new List<AiEntry> { entry };
+        using var layer = new AiAnnotationLayer(document, () => entries, _ => new Point(100, 100), e => entries.Remove(e), confirm: e => e.Selected = true, commit: () => { });
+        var popup = (Popup)typeof(AiAnnotationLayer).GetField("_popup", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(layer)!;
+        var results = new List<object>(); var exit = 1;
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await Drain(host);
+                async Task<(double ms, long bytes, double feedback)> Run(Action action)
+                {
+                    var startBytes = GC.GetAllocatedBytesForCurrentThread(); var watch = Stopwatch.StartNew();
+                    action();
+                    await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                    host.UpdateLayout(); var feedback = watch.Elapsed.TotalMilliseconds;
+                    await Drain(host); watch.Stop();
+                    return (watch.Elapsed.TotalMilliseconds, GC.GetAllocatedBytesForCurrentThread() - startBytes, feedback);
+                }
+                for (var i = 0; i < 9; i++)
+                {
+                    var idleBeforeOpen = await Run(() => { });
+                    var open = await Run(() => layer.Edit(entry));
+                    if (!popup.IsOpen || popup.Child is null) throw new Exception("Popup did not open");
+                    var controls = CountControls(host) + CountControls(popup.Child);
+                    var idleBeforeConfirm = await Run(() => { });
+                    var button = Descendants<Button>(popup.Child).Single(b => b.Name == "AnnotationConfirm");
+                    var confirm = await Run(() => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));
+                    if (popup.IsOpen || !entries.Contains(entry)) throw new Exception("Confirm lost the annotation or left the popup open");
+                    if (i >= 2)
+                    {
+                        results.Add(new { op = "open", open.feedback, rawMs = open.ms, idleMs = idleBeforeOpen.ms, correctedMs = open.ms - idleBeforeOpen.ms, rawBytes = open.bytes, idleBytes = idleBeforeOpen.bytes, correctedBytes = open.bytes - idleBeforeOpen.bytes, visibleControls = controls });
+                        results.Add(new { op = "confirm", confirm.feedback, rawMs = confirm.ms, idleMs = idleBeforeConfirm.ms, correctedMs = confirm.ms - idleBeforeConfirm.ms, rawBytes = confirm.bytes, idleBytes = idleBeforeConfirm.bytes, correctedBytes = confirm.bytes - idleBeforeConfirm.bytes, visibleControls = CountControls(host) });
+                    }
+                }
+                var dpi = VisualTreeHelper.GetDpi(host);
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "One annotation, WPF 680x620; 2 warmups and 7 paired samples; 250ms and ApplicationIdle; in-memory commit", dpi = new { dpi.DpiScaleX, dpi.DpiScaleY }, framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription, system = Environment.OSVersion.VersionString, results }, new JsonSerializerOptions { WriteIndented = true }));
+                exit = 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); }
+            finally { host.Close(); app.Shutdown(exit); }
+        };
+        host.Show(); app.Run(); return exit;
+    }
+}

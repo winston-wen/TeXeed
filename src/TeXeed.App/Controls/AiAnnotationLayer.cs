@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -13,6 +14,8 @@ namespace TeXeed.App.Controls;
 /// <summary>One shared draft in the composer and at its original document position.</summary>
 internal sealed class AiAnnotationLayer : Adorner, IDisposable
 {
+    [DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
     private readonly FrameworkElement _host;
     private readonly Func<IReadOnlyList<AiEntry>> _entries;
     private readonly Func<AiEntry, Point?> _anchor;
@@ -254,9 +257,31 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
             System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
             Grid.SetColumn(button, column); header.Children.Add(button); return button;
         }
-        var remove = Icon("AnnotationDelete", "删除此条批注", "M3,5 H17 M7,5 V2 H13 V5 M5,5 L6,18 H14 L15,5 M8,8 V15 M12,8 V15", 1);
-        remove.Click += (_, _) => { _remove(entry); CloseEditor(); };
-        var confirm = Icon("AnnotationConfirm", "加入 AI 会话待发区 · Ctrl+Enter", "M8,15 V1 M2,7 L8,1 L14,7", 2);
+        var remove = Icon("AnnotationDelete", "双击删除此条批注", "M3,5 H17 M7,5 V2 H13 V5 M5,5 L6,18 H14 L15,5 M8,8 V15 M12,8 V15", 1);
+        System.Windows.Automation.AutomationProperties.SetName(remove, "删除此条批注，双击或连续按两次回车或空格");
+        long? previousKeyActivation = null;
+        void DeleteAnnotation() { _remove(entry); CloseEditor(); }
+        remove.PreviewMouseLeftButtonDown += (_, _) => previousKeyActivation = null;
+        remove.PreviewMouseDoubleClick += (_, e) => { if (e.ChangedButton != MouseButton.Left) return; e.Handled = true; DeleteAnnotation(); };
+        remove.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key is not (Key.Enter or Key.Space)) return;
+            e.Handled = true;
+            if (e.IsRepeat) return;
+            var now = Environment.TickCount64;
+            if (previousKeyActivation is { } previous && now - previous <= GetDoubleClickTime())
+            { previousKeyActivation = null; DeleteAnnotation(); }
+            else previousKeyActivation = now;
+        };
+        remove.LostKeyboardFocus += (_, _) => previousKeyActivation = null;
+        var confirm = Icon("AnnotationConfirm", "保存并关闭浮窗\nCtrl+Enter", "M2,8 L6,12 L14,3", 2);
+        var confirmIcon = (System.Windows.Shapes.Path)confirm.Content;
+        confirm.Content = null;
+        confirmIcon.Width = 14; confirmIcon.Height = 14;
+        var confirmContent = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        confirmContent.Children.Add(confirmIcon);
+        confirmContent.Children.Add(new TextBlock { Text = "完成", Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+        confirm.Content = confirmContent; confirm.Width = double.NaN; confirm.Padding = new Thickness(5, 0, 5, 0);
         confirm.Click += (_, _) => ConfirmEditor();
         var surface = new Border { Child = stack, Width = Math.Clamp(_host.ActualWidth - 24, 220, 340), Padding = new Thickness(12), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1) };
         surface.SetResourceReference(Border.BackgroundProperty, "PanelBackground"); surface.SetResourceReference(Border.BorderBrushProperty, "Accent"); surface.SetResourceReference(TextElement.ForegroundProperty, "Ink");

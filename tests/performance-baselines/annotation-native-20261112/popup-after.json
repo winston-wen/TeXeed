@@ -1,0 +1,165 @@
+{
+  "fixture": "One annotation, WPF 680x620; 2 warmups and 7 paired samples; 250ms and ApplicationIdle; in-memory commit",
+  "dpi": {
+    "DpiScaleX": 2,
+    "DpiScaleY": 2
+  },
+  "framework": ".NET 10.0.7",
+  "system": "Microsoft Windows NT 10.0.26300.0",
+  "results": [
+    {
+      "op": "open",
+      "feedback": 14.8097,
+      "rawMs": 294.1093,
+      "idleMs": 256.5521,
+      "correctedMs": 37.55720000000002,
+      "rawBytes": 371920,
+      "idleBytes": 5584,
+      "correctedBytes": 366336,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 16.933,
+      "rawMs": 275.6169,
+      "idleMs": 250.0012,
+      "correctedMs": 25.615699999999975,
+      "rawBytes": 42208,
+      "idleBytes": 18336,
+      "correctedBytes": 23872,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 17.3306,
+      "rawMs": 291.989,
+      "idleMs": 264.4928,
+      "correctedMs": 27.496199999999988,
+      "rawBytes": 367336,
+      "idleBytes": 5584,
+      "correctedBytes": 361752,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 14.3254,
+      "rawMs": 276.3782,
+      "idleMs": 250.0459,
+      "correctedMs": 26.332300000000004,
+      "rawBytes": 42672,
+      "idleBytes": 18464,
+      "correctedBytes": 24208,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 14.4567,
+      "rawMs": 266.3791,
+      "idleMs": 265.0956,
+      "correctedMs": 1.2835000000000036,
+      "rawBytes": 360728,
+      "idleBytes": 5584,
+      "correctedBytes": 355144,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 14.7033,
+      "rawMs": 275.3655,
+      "idleMs": 250.0785,
+      "correctedMs": 25.287000000000006,
+      "rawBytes": 40944,
+      "idleBytes": 22568,
+      "correctedBytes": 18376,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.7834,
+      "rawMs": 264.3629,
+      "idleMs": 265.6975,
+      "correctedMs": -1.3345999999999663,
+      "rawBytes": 368648,
+      "idleBytes": 5584,
+      "correctedBytes": 363064,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 58.7845,
+      "rawMs": 323.093,
+      "idleMs": 250.5002,
+      "correctedMs": 72.59280000000001,
+      "rawBytes": 46552,
+      "idleBytes": 18480,
+      "correctedBytes": 28072,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.314,
+      "rawMs": 279.5989,
+      "idleMs": 262.8682,
+      "correctedMs": 16.730700000000013,
+      "rawBytes": 367936,
+      "idleBytes": 5584,
+      "correctedBytes": 362352,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 43.7051,
+      "rawMs": 294.592,
+      "idleMs": 249.3421,
+      "correctedMs": 45.2499,
+      "rawBytes": 44456,
+      "idleBytes": 15256,
+      "correctedBytes": 29200,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 16.2865,
+      "rawMs": 280.9285,
+      "idleMs": 260.3083,
+      "correctedMs": 20.62020000000001,
+      "rawBytes": 365112,
+      "idleBytes": 5584,
+      "correctedBytes": 359528,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 14.5357,
+      "rawMs": 275.7771,
+      "idleMs": 250.9087,
+      "correctedMs": 24.86840000000001,
+      "rawBytes": 42848,
+      "idleBytes": 15632,
+      "correctedBytes": 27216,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 15.4101,
+      "rawMs": 294.9751,
+      "idleMs": 263.197,
+      "correctedMs": 31.778099999999995,
+      "rawBytes": 366376,
+      "idleBytes": 5584,
+      "correctedBytes": 360792,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 15.699,
+      "rawMs": 277.5554,
+      "idleMs": 250.4057,
+      "correctedMs": 27.149700000000024,
+      "rawBytes": 42840,
+      "idleBytes": 13608,
+      "correctedBytes": 29232,
+      "visibleControls": 4
+    }
+  ]
+}

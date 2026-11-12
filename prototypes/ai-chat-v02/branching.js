@@ -49,15 +49,58 @@
   function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(draftKey(state.active)); localStorage.removeItem(referencesKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存示例会话。'; return false; } }
   function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, attachments: ensureSession(current()).attachments, pending: state.pending?.parentId === state.active ? state.pending : null })); return true; } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; return false; } }
   function saveReferences() { try { localStorage.setItem(referencesKey(state.active), JSON.stringify(ensureSession(current()).references)); return true; } catch { $('status').textContent = '当前浏览器无法保存引用。'; return false; } }
+  let pendingAnchor = null;
+  function cancelPendingAnchor() {
+    if (!pendingAnchor) return;
+    const pending = pendingAnchor; pendingAnchor = null;
+    cancelAnimationFrame(pending.frame);
+    pending.cleanup();
+  }
   function jumpToAnchor(pos) {
-    requestAnimationFrame(() => {
+    cancelPendingAnchor();
+    const pending = { frame: 0, cleanup: () => {} };
+    pendingAnchor = pending;
+    if (pos?.center) {
+      const cancel = () => cancelPendingAnchor();
+      const key = event => {
+        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) return;
+        const target = event.target;
+        if (target instanceof Element && target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+        cancel();
+      };
+      const hidden = () => { if (document.hidden) cancel(); };
+      reader.addEventListener('wheel', cancel, { passive: true });
+      reader.addEventListener('pointerdown', cancel, { passive: true });
+      reader.addEventListener('touchstart', cancel, { passive: true });
+      document.addEventListener('keydown', key, true);
+      document.addEventListener('visibilitychange', hidden);
+      window.addEventListener('pagehide', cancel);
+      pending.cleanup = () => {
+        reader.removeEventListener('wheel', cancel);
+        reader.removeEventListener('pointerdown', cancel);
+        reader.removeEventListener('touchstart', cancel);
+        document.removeEventListener('keydown', key, true);
+        document.removeEventListener('visibilitychange', hidden);
+        window.removeEventListener('pagehide', cancel);
+      };
+    }
+    pending.frame = requestAnimationFrame(() => {
+      if (pendingAnchor !== pending) return;
+      pendingAnchor = null; pending.cleanup();
       const el = pos && pos.blockId ? transcript.querySelector(`[data-block-id="${CSS.escape(pos.blockId)}"]`) : null;
+      if (pos?.successMessage) $('status').textContent = el ? pos.successMessage : '无法定位提问出处。';
+      let anchorRect = null;
       if (el && Number.isInteger(pos.textOffset)) {
-        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let node, left = pos.textOffset, target = null;
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: node => node.parentElement?.closest('.associated') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT }); let node, left = pos.textOffset, target = null;
         while ((node = walker.nextNode())) { if (left <= node.length) { target = node; break; } left -= node.length; }
-        if (target) { const range = document.createRange(); range.setStart(target, Math.min(left, target.length)); range.collapse(true); const rect = range.getBoundingClientRect(); reader.scrollTop += rect.top - reader.getBoundingClientRect().top - (pos.lineY || 0); }
-        else reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top + (pos.offset || 0);
+        if (target) { const range = document.createRange(); range.setStart(target, Math.min(left, target.length)); range.collapse(true); anchorRect = range.getBoundingClientRect(); }
       }
+      if (el && pos.center) {
+        const rect = anchorRect || el.getBoundingClientRect();
+        const anchorY = rect.top + Math.min(rect.height, 24) / 2;
+        reader.scrollTop += anchorY - reader.getBoundingClientRect().top - reader.clientHeight / 2;
+      }
+      else if (el && anchorRect) reader.scrollTop += anchorRect.top - reader.getBoundingClientRect().top - (pos.lineY || 0);
       else if (el) reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().top + (pos.offset || 0);
       if (el) { el.classList.add('source-flash'); setTimeout(() => el.classList.remove('source-flash'), 3000); }
     });
@@ -95,15 +138,87 @@
     return groups;
   }
   function renderAttachments(parent, attachments, scope, ownerId) { for (const group of attachmentGroups(attachments)) { const file = group.files[0], chip = document.createElement('span'); chip.className = 'attachment-chip'; const image = !group.directory && file.type?.startsWith('image/') && file.data; const icon = parent.id === 'attachment-list' ? document.createElement('div') : chip; if (icon !== chip) { icon.className = 'attachment-icon'; chip.appendChild(icon); } if (image) { const img = document.createElement('img'); img.src = file.data; img.alt = file.name; icon.appendChild(img); } if (group.directory) { const label = document.createElement('span'); label.className = 'folder-path'; label.title = group.label; const path = group.label.slice(0, -1); const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')); const leaf = path.slice(separator + 1); const points = Array.from(leaf); const tail = separator >= 0 && points.length <= 12 ? path.slice(separator) : points.slice(-12).join(''); appendText('span', 'folder-path-stem', path.slice(0, path.length - tail.length), label); appendText('span', 'folder-path-tail', tail, label); appendText('span', 'folder-path-slash', '/', label); chip.appendChild(label); } else appendText('span', '', group.label, chip); if (scope) { const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.dataset.attachmentRemove = file.id; remove.dataset.attachmentScope = scope; if (ownerId) remove.dataset.referenceId = ownerId; remove.setAttribute('aria-label', '移除附件 ' + group.label); chip.appendChild(remove); } parent.appendChild(chip); } }
+  function textWithoutLinks(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return '';
+    if (node.nodeType === Node.ELEMENT_NODE && node.matches('.associated, .unresolved-associated')) return '';
+    const children = Array.from(node.childNodes), parts = [];
+    for (const child of children) {
+      const text = textWithoutLinks(child); if (!text) continue;
+      if (parts.length && child.nodeType === Node.ELEMENT_NODE && child.matches('.passage')) parts.push('\n');
+      parts.push(text);
+    }
+    return parts.join('');
+  }
+  function occurrenceOffsets(text, fragment) {
+    const matches = []; if (!fragment) return matches;
+    for (let at = 0; (at = text.indexOf(fragment, at)) !== -1; at++) matches.push(at);
+    return matches;
+  }
+  function legacyLinkOffset(item, source, markerLength) {
+    const text = item.text || '', quote = source.quote;
+    if (!quote || quote.length >= 2000) return null;
+    if (source.blockId === item.id) {
+      const start = Number.isInteger(source.textOffset) ? Math.max(0, source.textOffset - markerLength) : null;
+      if (start !== null) { const suffix = text.slice(start), leading = suffix.length - suffix.trimStart().length; if (suffix.slice(leading).startsWith(quote)) return start + leading + quote.length; }
+      const matches = occurrenceOffsets(text, quote); return matches.length === 1 ? matches[0] + quote.length : null;
+    }
+    const pieces = quote.split(/\r?\n+/).map(part => part.trim()).filter(Boolean);
+    if (pieces.length < 2) return null;
+    const turn = current().turns.find(t => t.answer.some(block => block.id === source.blockId) && t.answer.some(block => block.id === item.id));
+    if (!turn) return null;
+    const firstIndex = turn.answer.findIndex(block => block.id === source.blockId), lastIndex = turn.answer.findIndex(block => block.id === item.id);
+    if (lastIndex <= firstIndex) return null;
+    const between = turn.answer.slice(firstIndex + 1, lastIndex), first = turn.answer[firstIndex];
+    if (first.kind !== 'paragraph' || between.some(block => block.kind !== 'paragraph') || pieces.length !== between.length + 2) return null;
+    if (between.some((block, i) => (block.text || '').trim() !== pieces[i + 1])) return null;
+    const firstText = first.text || '', start = Number.isInteger(source.textOffset) ? Math.max(0, source.textOffset) : null;
+    if (start !== null) { if (firstText.slice(start).trim() !== pieces[0]) return null; }
+    else if (occurrenceOffsets(firstText, pieces[0]).filter(at => firstText.slice(at).trim() === pieces[0]).length !== 1) return null;
+    const last = pieces.at(-1), leading = text.length - text.trimStart().length;
+    return text.slice(leading).startsWith(last) ? leading + last.length : null;
+  }
+  function branchLink(child) { const link = document.createElement('button'); link.type = 'button'; link.className = 'associated'; link.textContent = '🗨️ ' + child.title; link.title = child.title; link.dataset.openSession = child.id; return link; }
   function renderBlock(parent, item, number, heading) {
-    let el;
-    if (item.kind === 'heading') { el = document.createElement('div'); el.className = 'passage passage-heading'; el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0'); el.dataset.headingId = item.id; const mark = document.createElement('span'); mark.className = 'heading-number'; mark.textContent = `[${number}:${heading}]`; el.append(mark, document.createTextNode(item.text)); }
+    let el, markerLength = 0;
+    if (item.kind === 'heading') { el = document.createElement('div'); el.className = 'passage passage-heading'; el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0'); el.dataset.headingId = item.id; const mark = document.createElement('span'); mark.className = 'heading-number'; mark.textContent = `[${number}:${heading}]`; markerLength = mark.textContent.length; el.append(mark); }
     else if (item.kind === 'math') { el = document.createElement('div'); el.className = 'passage formula'; try { katex.render(item.text, el, { displayMode: true, throwOnError: false, output: 'html' }); } catch { el.textContent = item.text; } if (item.number) appendText('span', 'formula-number', item.number, el); }
     else if (item.kind === 'image') { el = document.createElement('div'); el.className = 'passage'; const img = document.createElement('img'); img.src = item.src; img.alt = item.alt || ''; img.className = 'sample-image'; el.appendChild(img); }
-    else { el = document.createElement('p'); el.className = 'passage'; el.textContent = item.text; }
-    el.dataset.blockId = item.id; parent.appendChild(el);
+    else { el = document.createElement('p'); el.className = 'passage'; }
     const related = state.sessions.filter(s => s.parent === current().id && s.source && (s.source.endBlockId || s.source.blockId) === item.id);
-    if (related.length) { const links = document.createElement('div'); for (const child of related) { const link = document.createElement('button'); link.className = 'associated'; link.textContent = '🗨️ ' + child.title; link.dataset.openSession = child.id; links.appendChild(link); } parent.appendChild(links); }
+    if (item.kind !== 'math' && item.kind !== 'image') {
+      const placements = [], unresolved = [];
+      for (const child of related) {
+        const saved = child.source.endTextOffset;
+        const offset = Number.isInteger(saved) ? saved - markerLength : legacyLinkOffset(item, child.source, markerLength);
+        if (offset === null || offset < 0 || offset > item.text.length) unresolved.push(child);
+        else placements.push({ child, offset });
+      }
+      placements.sort((a, b) => a.offset - b.offset);
+      let cursor = 0;
+      for (const placement of placements) { el.appendChild(document.createTextNode(item.text.slice(cursor, placement.offset))); el.appendChild(branchLink(placement.child)); cursor = placement.offset; }
+      el.appendChild(document.createTextNode(item.text.slice(cursor)));
+      el.dataset.blockId = item.id; parent.appendChild(el);
+      if (unresolved.length) { const box = document.createElement('div'); box.className = 'unresolved-associated'; box.dataset.linkFor = item.id; appendText('span', '', '来源位置待确认：', box); for (const child of unresolved) box.appendChild(branchLink(child)); parent.appendChild(box); }
+      return;
+    }
+    for (const child of related) el.appendChild(branchLink(child));
+    el.dataset.blockId = item.id; parent.appendChild(el);
+  }
+  function headingLevel(item) { return Number.isInteger(item.level) && item.level > 0 ? item.level : 1; }
+  function syncFoldVisibility(wrap, turn) {
+    const elements = new Map(Array.from(wrap.querySelectorAll('[data-block-id]'), el => [el.dataset.blockId, el]));
+    const ancestors = [];
+    for (const item of turn.answer) {
+      if (item.kind === 'heading') { const level = headingLevel(item); while (ancestors.length && ancestors.at(-1).level >= level) ancestors.pop(); }
+      const hidden = ancestors.some(ancestor => ancestor.collapsed), el = elements.get(item.id);
+      if (el) {
+        el.hidden = hidden;
+        const links = el.nextElementSibling; if (links?.dataset.linkFor === item.id) links.hidden = hidden;
+        if (item.kind === 'heading') el.setAttribute('aria-expanded', String(!turn.collapsedSections?.[item.id]));
+      }
+      if (item.kind === 'heading') ancestors.push({ level: headingLevel(item), collapsed: Boolean(turn.collapsedSections?.[item.id]) });
+    }
   }
   function renderTurn(turn, i) {
       const wrap = document.createElement('section'); wrap.className = 'turn';
@@ -119,7 +234,16 @@
       if (turn.attachments?.length) { const media = document.createElement('div'); media.className = 'attachment-list'; renderAttachments(media, turn.attachments); wrap.appendChild(media); }
       const rule = document.createElement('hr'); rule.className = 'answer-rule'; wrap.appendChild(rule);
       if (turn.demo) appendText('div', 'example-label', '示例答复 · 未连接 AI', wrap);
-      let heading = 0, folded = false; for (const item of turn.answer) { const before = wrap.children.length; if (item.kind === 'heading') { heading++; folded = Boolean(turn.collapsedSections?.[item.id]); } renderBlock(wrap, item, i + 1, heading); const added = Array.from(wrap.children).slice(before); if (item.kind === 'heading') added[0].setAttribute('aria-expanded', String(!folded)); else if (folded) added.forEach(el => { el.hidden = true; }); }
+      let heading = 0; const ancestors = [];
+      for (const item of turn.answer) {
+        if (item.kind === 'heading') { heading++; const level = headingLevel(item); while (ancestors.length && ancestors.at(-1).level >= level) ancestors.pop(); }
+        const before = wrap.children.length, hidden = ancestors.some(ancestor => ancestor.collapsed);
+        renderBlock(wrap, item, i + 1, heading);
+        const el = wrap.children[before], links = wrap.children[before + 1];
+        if (el) { el.hidden = hidden; if (item.kind === 'heading') el.setAttribute('aria-expanded', String(!turn.collapsedSections?.[item.id])); }
+        if (links?.dataset.linkFor === item.id) links.hidden = hidden;
+        if (item.kind === 'heading') ancestors.push({ level: headingLevel(item), collapsed: Boolean(turn.collapsedSections?.[item.id]) });
+      }
       for (const steer of turn.steers || []) {
         const activity = document.createElement('div'); activity.className = 'example-steer';
         appendText('div', '', '引导：' + (steer.question || '引用与附件'), activity);
@@ -216,6 +340,7 @@
   });
   function navigate(id, position) {
     if (!session(id)) return;
+    cancelPendingAnchor();
     if (id === state.active && !position) { closeMap(); return; }
     persistCurrent(); state.active = id; state.selected = id; state.pending = state.pendingBySession?.[id] || null; currentSelection = null;
     const viewport = current().viewport || 0;
@@ -223,14 +348,22 @@
     if (position) jumpToAnchor(position); else requestAnimationFrame(() => { reader.scrollTop = viewport; }); save();
   }
   function unfoldFor(target, blockId) {
-    if (target) for (const turn of target.turns) { let headingId = null; for (const item of turn.answer) { if (item.kind === 'heading') headingId = item.id; if (item.id === blockId && headingId && turn.collapsedSections) turn.collapsedSections[headingId] = false; } }
+    if (!target || !blockId) return;
+    for (const turn of target.turns) {
+      const ancestors = [];
+      for (const item of turn.answer) {
+        if (item.kind === 'heading') { const level = headingLevel(item); while (ancestors.length && ancestors.at(-1).level >= level) ancestors.pop(); }
+        if (item.id === blockId) { if (turn.collapsedSections) for (const heading of ancestors) turn.collapsedSections[heading.id] = false; return; }
+        if (item.kind === 'heading') ancestors.push(item);
+      }
+    }
   }
   function parentSource(target) {
     if (!target || !target.parent) return;
     const source = target.source || {};
     unfoldFor(session(target.parent), source.blockId);
-    navigate(target.parent, { blockId: source.blockId, textOffset: source.textOffset, lineY: 18, offset: -18 });
-    $('status').textContent = '已定位提问出处。';
+    $('status').textContent = '';
+    navigate(target.parent, { blockId: source.blockId, textOffset: source.textOffset, center: true, successMessage: '已定位提问出处。' });
   }
   function blockContext(el) {
     if (!el?.dataset.blockId) return null;
@@ -242,16 +375,19 @@
     return { blockId: id, kind: 'text', quote: item.text };
   }
   function selectionInfo() {
-    const sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.toString().trim() || !sel.rangeCount) return null;
+    const sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
     const range = sel.getRangeAt(0); if (!transcript.contains(range.commonAncestorContainer)) return null;
+    const quote = textWithoutLinks(range.cloneContents()).trim(); if (!quote) return null;
     const element = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
     const source = element && element.closest('[data-block-id]'); if (!source) return null;
     const context = blockContext(source); if (!context) return null; if (context.kind === 'math' || context.kind === 'image') return { ...context, rect: range.getBoundingClientRect() };
     let textOffset;
-    if (!source.classList.contains('formula') && source.contains(range.startContainer)) { const prefix = document.createRange(); prefix.selectNodeContents(source); prefix.setEnd(range.startContainer, range.startOffset); textOffset = prefix.toString().length; }
+    if (!source.classList.contains('formula') && source.contains(range.startContainer)) { const prefix = document.createRange(); prefix.selectNodeContents(source); prefix.setEnd(range.startContainer, range.startOffset); textOffset = textWithoutLinks(prefix.cloneContents()).length; }
     const endElement = range.endContainer.nodeType === Node.ELEMENT_NODE ? range.endContainer : range.endContainer.parentElement;
     const endBlock = endElement?.closest('[data-block-id]');
-    return { ...context, quote: sel.toString().trim().slice(0, 2000), textOffset, endBlockId: endBlock?.dataset.blockId, rect: range.getBoundingClientRect() };
+    let endTextOffset;
+    if (endBlock && !endBlock.classList.contains('formula') && endBlock.contains(range.endContainer)) { const prefix = document.createRange(); prefix.selectNodeContents(endBlock); prefix.setEnd(range.endContainer, range.endOffset); endTextOffset = textWithoutLinks(prefix.cloneContents()).length; }
+    return { ...context, quote: quote.slice(0, 2000), textOffset, endBlockId: endBlock?.dataset.blockId, endTextOffset, rect: range.getBoundingClientRect() };
   }
   function showSelection() {
     const info = selectionInfo(); if (!info) { $('selection-tools').hidden = true; return; }
@@ -261,7 +397,7 @@
   function setPending(kind) {
     if (!currentSelection) return;
     if (kind === 'quote') { addReference(currentSelection); return; }
-    persistCurrent(); state.pending = { kind, parentId: state.active, quote: currentSelection.quote, blockId: currentSelection.blockId, endBlockId: currentSelection.endBlockId, sourceTextOffset: currentSelection.textOffset, sourceKind: currentSelection.kind, svg: currentSelection.svg, src: currentSelection.src, large: currentSelection.large, draft: '' };
+    persistCurrent(); state.pending = { kind, parentId: state.active, quote: currentSelection.quote, blockId: currentSelection.blockId, endBlockId: currentSelection.endBlockId, endTextOffset: currentSelection.endTextOffset, sourceTextOffset: currentSelection.textOffset, sourceKind: currentSelection.kind, svg: currentSelection.svg, src: currentSelection.src, large: currentSelection.large, draft: '' };
     $('selection-tools').hidden = true; window.getSelection()?.removeAllRanges(); setComposer(); composer.focus(); save();
   }
   function renderReferencesButton() { $('references-toggle').textContent = '引用 · ' + ensureSession(current()).references.length; }
@@ -347,7 +483,7 @@
     const branching = pending && pending.kind === 'branch';
     if (branching) {
       const parent = current();
-      const child = { id: uid(), title: (question || selected[0]?.comment || '追问').slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, endBlockId: pending.endBlockId, textOffset: pending.sourceTextOffset, quote: pending.quote, kind: pending.sourceKind, svg: pending.svg, src: pending.src }, draft: '', references: [], attachments: [], turns: [] };
+      const child = { id: uid(), title: (question || selected[0]?.comment || '追问').slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, endBlockId: pending.endBlockId, endTextOffset: pending.endTextOffset, textOffset: pending.sourceTextOffset, quote: pending.quote, kind: pending.sourceKind, svg: pending.svg, src: pending.src }, draft: '', references: [], attachments: [], turns: [] };
       if (state.pendingBySession) delete state.pendingBySession[parent.id]; state.sessions.push(child); state.active = child.id; state.selected = child.id; state.pending = null;
       child.turns.push({ id: uid(), question, references: sentReferences, attachments: sentAttachments, answer: demoAnswer(question, pending.quote), demo: true });
     } else {
@@ -444,8 +580,8 @@
   $('demo-assets').addEventListener('click', () => { const turn = { id: uid(), question: '图文交互示例', answer: demoAssetBlocks(), demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } transcript.appendChild(renderTurn(turn, current().turns.length - 1)); requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '已添加图文示例；右键公式或图片可操作。'; });
   reader.addEventListener('pointerup', showSelection); reader.addEventListener('keyup', showSelection);
   reader.addEventListener('scroll', () => { if (!mapOpen) { current().viewport = reader.scrollTop; try { localStorage.setItem(viewportKey(state.active), String(reader.scrollTop)); } catch { $('status').textContent = '当前浏览器无法保存视口位置。'; } } }, { passive: true });
-  function toggleHeading(target) { const heading = target.closest('[data-heading-id]'); if (!heading || window.getSelection()?.toString().trim()) return; const turnIndex = Array.from(transcript.children).indexOf(heading.closest('.turn')); const turn = current().turns[turnIndex]; if (!turn) return; const collapsed = heading.getAttribute('aria-expanded') === 'true'; turn.collapsedSections ||= {}; turn.collapsedSections[heading.dataset.headingId] = collapsed; heading.setAttribute('aria-expanded', String(!collapsed)); let sibling = heading.nextElementSibling; while (sibling && !sibling.matches('[data-heading-id], .answer-rule, .time')) { sibling.hidden = collapsed; sibling = sibling.nextElementSibling; } save(); }
-  transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const source = e.target.closest('[data-source-session]')?.dataset.sourceSession; if (source) { parentSource(session(source)); return; } const reference = e.target.closest('[data-reference-session]'); if (reference) { const target = session(reference.dataset.referenceSession); if (!target) { $('status').textContent = '无法定位引用出处。'; return; } const blockId = reference.dataset.referenceBlock; unfoldFor(target, blockId); const offset = reference.dataset.referenceOffset; navigate(target.id, { blockId, textOffset: offset === undefined ? undefined : Number(offset), lineY: 18, offset: -18 }); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
+  function toggleHeading(target) { const heading = target.closest('[data-heading-id]'); if (!heading || window.getSelection()?.toString().trim()) return; const section = heading.closest('.turn'), turnIndex = Array.from(transcript.children).indexOf(section); const turn = current().turns[turnIndex]; if (!turn) return; const collapsed = heading.getAttribute('aria-expanded') === 'true'; turn.collapsedSections ||= {}; turn.collapsedSections[heading.dataset.headingId] = collapsed; syncFoldVisibility(section, turn); save(); }
+  transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const source = e.target.closest('[data-source-session]')?.dataset.sourceSession; if (source) { parentSource(session(source)); return; } const reference = e.target.closest('[data-reference-session]'); if (reference) { const target = session(reference.dataset.referenceSession); if (!target) { $('status').textContent = '无法定位引用出处。'; return; } const blockId = reference.dataset.referenceBlock; unfoldFor(target, blockId); const offset = reference.dataset.referenceOffset; navigate(target.id, { blockId, textOffset: offset === undefined ? undefined : Number(offset), center: true }); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
   transcript.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-heading-id]')) { e.preventDefault(); toggleHeading(e.target); } });
   $('composer-context').addEventListener('click', e => { if (e.target.id !== 'cancel-context') return; if (state.pending?.kind === 'branch') state.pending = null; else state.pending = null; setComposer(); save(); });
   composer.addEventListener('beforeinput', e => { mentionHistoryInput = e.inputType === 'historyUndo' || e.inputType === 'historyRedo'; });
@@ -456,7 +592,7 @@
   $('map-tree').addEventListener('keydown', e => { const id = e.target.closest('[data-node-id]')?.dataset.nodeId; if (id && e.key === 'Enter') { e.preventDefault(); navigate(id); } });
   $('map-detail').addEventListener('click', e => { const id = e.target.closest('[data-map-open]')?.dataset.mapOpen; if (id) navigate(id); const sourceId = e.target.closest('[data-map-source]')?.dataset.mapSource; if (sourceId) parentSource(session(sourceId)); });
   window.addEventListener('beforeunload', persistCurrent);
-  document.addEventListener('copy', e => { const selection = window.getSelection(); if (!selection?.rangeCount || selection.isCollapsed || !e.clipboardData) return; const range = selection.getRangeAt(0); const folder = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest('.folder-path'); const start = folder(range.startContainer), end = folder(range.endContainer); if (!start || start !== end) return; e.clipboardData.setData('text/plain', selection.toString().replace(/[\r\n]/g, '')); e.preventDefault(); });
+  document.addEventListener('copy', e => { const selection = window.getSelection(); if (!selection?.rangeCount || selection.isCollapsed || !e.clipboardData) return; const range = selection.getRangeAt(0); const folder = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest('.folder-path'); const start = folder(range.startContainer), end = folder(range.endContainer); if (start && start === end) { e.clipboardData.setData('text/plain', selection.toString().replace(/[\r\n]/g, '')); e.preventDefault(); return; } if (!transcript.contains(range.commonAncestorContainer)) return; const fragment = range.cloneContents(), inLink = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest('.associated'); if (!fragment.querySelector?.('.associated, .unresolved-associated') && !inLink(range.startContainer) && !inLink(range.endContainer)) return; const copied = inLink(range.commonAncestorContainer) ? '' : textWithoutLinks(fragment); e.clipboardData.setData('text/plain', copied); e.preventDefault(); });
   document.addEventListener('pointerdown', e => { if (!e.target.closest('#selection-tools') && !reader.contains(e.target)) $('selection-tools').hidden = true; if (!e.target.closest('#context-menu')) $('context-menu').hidden = true; });
   window.branchDemo = {
     getState: () => JSON.parse(JSON.stringify(state)),

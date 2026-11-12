@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Threading;
 using TeXeed.App;
 using TeXeed.App.AI;
@@ -29,7 +30,7 @@ internal static partial class Program
             await panel.SetProjectAsync(project);
             var book = (AiNotebook)Field(panel, "_book")!;
             var parent = book.Active;
-            parent.Turns.Add(new AiTurn("起始问题", "# 章节\n\n前文。\n\n这里的 **Module** 是需要追问的定义。\n\n后文。\n\n" + new string('后', 7600)));
+            parent.Turns.Add(new AiTurn("起始问题", "# 章节\n\n前文。\n\n" + new string('前', 1800) + "\n\n这里的 **Module** 是需要追问的定义。\n\n后文。\n\n" + new string('后', 7600) + "\n\n# 保持折叠\n\n这个兄弟章节不应被回源操作展开。"));
             Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             var views = (Dictionary<string, AiTurnView>)Field(panel, "_turnViews")!;
@@ -50,9 +51,10 @@ internal static partial class Program
             answer.Selection.Select(paragraph.ContentStart, endingParagraph.ContentEnd);
             await panel.BranchFromSelectionAsync(answer);
             var spanning = book.Conversations.Last();
-            if (!spanning.BranchAnchor!.Quote.Contains('\n') || endingParagraph.NextBlock is not BlockUIContainer { Child: Button endingLink } ||
-                !Equals(endingLink.Content, "🗨️ " + spanning.Title))
-                throw new Exception("A multi-paragraph reference did not place its link after the final quoted paragraph");
+            if (!spanning.BranchAnchor!.Quote.Contains('\n') || !answer.BranchLinkBlocks.TryGetValue(spanning.Id, out var endingLink) ||
+                !Equals((endingLink.Child as Button)?.Content, "🗨️ " + spanning.Title) || endingLink.ElementStart.Paragraph != endingParagraph ||
+                answer.CopySource(endingParagraph.ContentStart, endingLink.ElementStart).TrimEnd() != "后文。")
+                throw new Exception("A multi-paragraph reference did not place its inline link at the end of the selected text");
 
             var firstHeading = Paragraphs(answer.Document.Blocks).First(p => p.Inlines.OfType<Hyperlink>().Any());
             firstHeading.Inlines.OfType<Hyperlink>().First().RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
@@ -65,6 +67,9 @@ internal static partial class Program
             host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             if (!Descendants<Button>(answer).Any(b => Equals(b.Content, "🗨️ 查 Module 定义")))
                 throw new Exception("Expanding a saved folded section did not restore the source link");
+            var siblingHeading = Paragraphs(answer.Document.Blocks).First(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains("保持折叠"));
+            siblingHeading.Inlines.OfType<Hyperlink>().First().RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+            var siblingFoldKey = parent.Turns[0].CollapsedSections.Single(pair => pair.Value).Key;
             Capture(host, Path.Combine(output, "branch-parent-reference.png"));
 
             child.Turns.Add(new AiTurn("请说明", "回答") { Prompt = "请说明", SentAnnotations = [new AiEntry { AnswerAnchor = child.BranchAnchor }] });
@@ -102,24 +107,100 @@ internal static partial class Program
             if (((AiPanel)Field(owner, "_aiPanel")!).ConversationId != parent.Id)
                 throw new Exception("Clicking the reference did not switch the actual workspace to the source conversation");
             var actualSource = (AiPanel)Field(owner, "_aiPanel")!;
+            bool AtCenteredSource(AiPanel sourcePanel)
+            {
+                var sourceViews = (Dictionary<string, AiTurnView>)Field(sourcePanel, "_turnViews")!;
+                if (!sourceViews.TryGetValue(parent.Turns[0].Id, out var sourceTurn) ||
+                    sourceTurn.Answers.FirstOrDefault() is not { } sourceAnswer || !sourceAnswer.RenderTask.IsCompletedSuccessfully) return false;
+                var location = sourceAnswer.ResolveUserBookmark(new AiUserBookmark { Anchor = child.BranchAnchor, ContextBefore = child.BranchContextBefore, ContextAfter = child.BranchContextAfter });
+                if (location is null || sourceAnswer.BookmarkPoint(location) is not { } point) return false;
+                var viewport = (ScrollViewer)sourcePanel.FindName("MessagesScroll");
+                var y = sourceAnswer.TranslatePoint(point, viewport).Y;
+                return viewport.VerticalOffset > 1 && viewport.VerticalOffset < viewport.ScrollableHeight - 1 && Math.Abs(y - viewport.ViewportHeight / 2) <= 4;
+            }
             var visibleAtSource = false;
             for (var i = 0; i < 100 && !visibleAtSource; i++)
             {
                 owner.UpdateLayout();
-                var sourceViews = (Dictionary<string, AiTurnView>)Field(actualSource, "_turnViews")!;
-                if (sourceViews.TryGetValue(parent.Turns[0].Id, out var sourceTurn) && sourceTurn.Answers.FirstOrDefault() is { } sourceAnswer && sourceAnswer.RenderTask.IsCompletedSuccessfully)
-                {
-                    var location = sourceAnswer.ResolveUserBookmark(new AiUserBookmark { Anchor = child.BranchAnchor, ContextBefore = child.BranchContextBefore, ContextAfter = child.BranchContextAfter });
-                    if (location is not null && sourceAnswer.BookmarkPoint(location) is { } point)
-                    {
-                        var viewport = (ScrollViewer)actualSource.FindName("MessagesScroll");
-                        var y = sourceAnswer.TranslatePoint(point, viewport).Y;
-                        visibleAtSource = viewport.VerticalOffset > 0 && y >= 0 && y <= 50;
-                    }
-                }
+                visibleAtSource = AtCenteredSource(actualSource);
                 if (!visibleAtSource) await Task.Delay(20);
             }
             if (!visibleAtSource) throw new Exception("The workspace did not scroll the reference origin into the expected viewport position");
+            var workspaceStore = (AiWorkspaceStore)Field(owner, "_aiStore")!;
+            if (!workspaceStore.Book.Conversations.Single(c => c.Id == parent.Id).Turns[0].CollapsedSections.GetValueOrDefault(siblingFoldKey))
+                throw new Exception("Clicking the source reference expanded an unrelated sibling");
+
+            var viewportBeforeUpstream = (ScrollViewer)actualSource.FindName("MessagesScroll");
+            viewportBeforeUpstream.ScrollToVerticalOffset(0); owner.UpdateLayout();
+            await owner.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); owner.UpdateLayout();
+            if (AtCenteredSource(actualSource)) throw new Exception("The upstream fixture was already centered before the button click");
+            await CallAsync(owner, "OpenAiConversationAsync", child.Id);
+            owner.UpdateLayout(); await owner.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var childPanel = (AiPanel)Field(owner, "_aiPanel")!;
+            var upstreamButton = Descendants<Button>(childPanel).Single(button => Equals(button.Content, "↑ 上游会话"));
+            if (!upstreamButton.IsEnabled) throw new Exception("The workspace upstream button is unavailable");
+            upstreamButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            for (var i = 0; i < 100 && ((AiPanel)Field(owner, "_aiPanel")!).ConversationId != parent.Id; i++)
+            { await Task.Delay(20); owner.UpdateLayout(); }
+            actualSource = (AiPanel)Field(owner, "_aiPanel")!;
+            if (actualSource.ConversationId != parent.Id) throw new Exception("Upstream button did not open the parent conversation");
+            visibleAtSource = false;
+            for (var i = 0; i < 100 && !visibleAtSource; i++)
+            { owner.UpdateLayout(); visibleAtSource = AtCenteredSource(actualSource); if (!visibleAtSource) await Task.Delay(20); }
+            if (!visibleAtSource) throw new Exception("Upstream button did not center the selected source position");
+            await owner.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); owner.UpdateLayout();
+            if (!AtCenteredSource(actualSource)) throw new Exception("Upstream position changed after navigation finished");
+            if (!workspaceStore.Book.Conversations.Single(c => c.Id == parent.Id).Turns[0].CollapsedSections.GetValueOrDefault(siblingFoldKey))
+                throw new Exception("Upstream button expanded an unrelated sibling section");
+
+            async Task CheckUserScrollDuringSaveAsync(bool reopenParent)
+            {
+                await CallAsync(owner, "OpenAiConversationAsync", child.Id);
+                if (reopenParent)
+                {
+                    Invoke(owner, "CloseTabs", TabWorkspace.AiConversationKey(parent.Id), TabCloseScope.This);
+                    for (var i = 0; i < 200 && ((HashSet<string>)Field(owner, "_closingAi")!).Contains(parent.Id); i++) await Task.Delay(10);
+                    if (((Dictionary<string, AiPanel>)Field(owner, "_aiPanels")!).ContainsKey(parent.Id))
+                        throw new Exception("The parent view did not close before the new-tab interruption case");
+                }
+                owner.UpdateLayout(); await owner.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                childPanel = (AiPanel)Field(owner, "_aiPanel")!;
+                upstreamButton = Descendants<Button>(childPanel).Single(button => Equals(button.Content, "↑ 上游会话"));
+                var saveGate = (SemaphoreSlim)Field(workspaceStore, "_gate")!;
+                await saveGate.WaitAsync();
+                AiPanel targetPanel;
+                ScrollViewer targetScroll;
+                TextBox targetComposer;
+                var focused = false;
+                try
+                {
+                    upstreamButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    targetPanel = (AiPanel)Field(owner, "_aiPanel")!;
+                    if (targetPanel.ConversationId != parent.Id) throw new Exception("Upstream tab was not made visible before saving");
+                    targetScroll = (ScrollViewer)targetPanel.FindName("MessagesScroll");
+                    targetScroll.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = UIElement.PreviewMouseWheelEvent });
+                    for (var i = 0; i < 100 && targetScroll.ScrollableHeight < 240; i++)
+                    { owner.UpdateLayout(); await Task.Delay(20); }
+                    if (targetScroll.ScrollableHeight < 240) throw new Exception("The interrupted parent did not finish rendering");
+                    targetScroll.ScrollToVerticalOffset(120); owner.UpdateLayout();
+                    targetComposer = (TextBox)targetPanel.FindName("Composer");
+                    focused = targetComposer.Focus();
+                }
+                finally { saveGate.Release(); }
+                await Task.Delay(200); owner.UpdateLayout();
+                await owner.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); owner.UpdateLayout();
+                targetPanel = (AiPanel)Field(owner, "_aiPanel")!;
+                targetScroll = (ScrollViewer)targetPanel.FindName("MessagesScroll");
+                targetComposer = (TextBox)targetPanel.FindName("Composer");
+                if (Math.Abs(targetScroll.VerticalOffset - 120) > 1)
+                    throw new Exception($"Upstream navigation overwrote the user's scroll while saving ({reopenParent}): {targetScroll.VerticalOffset}");
+                if (focused && !targetComposer.IsKeyboardFocusWithin) throw new Exception("Completing the save stole the user's focus");
+                if (((TextBlock)owner.FindName("StatusText")).Text.Contains("无法定位提问出处", StringComparison.Ordinal))
+                    throw new Exception("User-interrupted navigation displayed an incorrect source error");
+            }
+            await CheckUserScrollDuringSaveAsync(reopenParent: false);
+            await CheckUserScrollDuringSaveAsync(reopenParent: true);
+            actualSource = (AiPanel)Field(owner, "_aiPanel")!;
             var sourceTurnView = ((Dictionary<string, AiTurnView>)Field(actualSource, "_turnViews")!)[parent.Turns[0].Id];
             var sourceAnswerView = sourceTurnView.Answers.Single();
             if (!sourceAnswerView.BranchLinkBlocks.ContainsKey(child.Id) || !sourceAnswerView.BranchLinkBlocks.ContainsKey(spanning.Id))

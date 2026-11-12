@@ -1,0 +1,165 @@
+{
+  "fixture": "One annotation, WPF 680x620; 2 warmups and 7 paired samples; 250ms and ApplicationIdle; in-memory commit",
+  "dpi": {
+    "DpiScaleX": 2,
+    "DpiScaleY": 2
+  },
+  "framework": ".NET 10.0.7",
+  "system": "Microsoft Windows NT 10.0.26300.0",
+  "results": [
+    {
+      "op": "open",
+      "feedback": 21.1755,
+      "rawMs": 277.0428,
+      "idleMs": 260.7861,
+      "correctedMs": 16.256700000000023,
+      "rawBytes": 350448,
+      "idleBytes": 5584,
+      "correctedBytes": 344864,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 20.8057,
+      "rawMs": 275.7371,
+      "idleMs": 250.0507,
+      "correctedMs": 25.686399999999992,
+      "rawBytes": 42992,
+      "idleBytes": 18816,
+      "correctedBytes": 24176,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 17.9196,
+      "rawMs": 278.5689,
+      "idleMs": 265.1703,
+      "correctedMs": 13.398599999999988,
+      "rawBytes": 345808,
+      "idleBytes": 5584,
+      "correctedBytes": 340224,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 27.443,
+      "rawMs": 288.2851,
+      "idleMs": 250.4589,
+      "correctedMs": 37.8262,
+      "rawBytes": 42568,
+      "idleBytes": 15544,
+      "correctedBytes": 27024,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.1353,
+      "rawMs": 263.3183,
+      "idleMs": 262.2792,
+      "correctedMs": 1.039100000000019,
+      "rawBytes": 346488,
+      "idleBytes": 5584,
+      "correctedBytes": 340904,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 28.023,
+      "rawMs": 289.5809,
+      "idleMs": 250.41,
+      "correctedMs": 39.17089999999999,
+      "rawBytes": 45008,
+      "idleBytes": 15320,
+      "correctedBytes": 29688,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 17.9925,
+      "rawMs": 280.5239,
+      "idleMs": 260.8715,
+      "correctedMs": 19.6524,
+      "rawBytes": 345056,
+      "idleBytes": 5584,
+      "correctedBytes": 339472,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 16.1456,
+      "rawMs": 278.4903,
+      "idleMs": 249.9134,
+      "correctedMs": 28.576899999999995,
+      "rawBytes": 42568,
+      "idleBytes": 13608,
+      "correctedBytes": 28960,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 14.7841,
+      "rawMs": 278.7027,
+      "idleMs": 263.2908,
+      "correctedMs": 15.411900000000003,
+      "rawBytes": 343768,
+      "idleBytes": 5584,
+      "correctedBytes": 338184,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 14.1531,
+      "rawMs": 273.2086,
+      "idleMs": 249.4735,
+      "correctedMs": 23.73509999999999,
+      "rawBytes": 43208,
+      "idleBytes": 17568,
+      "correctedBytes": 25640,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 17.3396,
+      "rawMs": 277.5555,
+      "idleMs": 263.851,
+      "correctedMs": 13.704499999999996,
+      "rawBytes": 347800,
+      "idleBytes": 5584,
+      "correctedBytes": 342216,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 3.2368,
+      "rawMs": 260.3434,
+      "idleMs": 250.0157,
+      "correctedMs": 10.327699999999965,
+      "rawBytes": 43360,
+      "idleBytes": 13648,
+      "correctedBytes": 29712,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.4067,
+      "rawMs": 302.9882,
+      "idleMs": 265.0055,
+      "correctedMs": 37.98270000000002,
+      "rawBytes": 346000,
+      "idleBytes": 5584,
+      "correctedBytes": 340416,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 18.7402,
+      "rawMs": 269.5688,
+      "idleMs": 250.7866,
+      "correctedMs": 18.782200000000017,
+      "rawBytes": 43232,
+      "idleBytes": 14096,
+      "correctedBytes": 29136,
+      "visibleControls": 4
+    }
+  ]
+}

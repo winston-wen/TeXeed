@@ -1,0 +1,74 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class Perf
+{
+    const BindingFlags P = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+    static object Field(object x, string name) => x.GetType().GetField(name, P)!.GetValue(x)!;
+    static object? Invoke(object x, string name, params object?[] args) => x.GetType().GetMethod(name, P)!.Invoke(x, args);
+    static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); w.UpdateLayout(); }
+    static IEnumerable<T> Children<T>(DependencyObject d) where T : DependencyObject
+    { for (var i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++) { var c = VisualTreeHelper.GetChild(d, i); if (c is T t) yield return t; foreach (var x in Children<T>(c)) yield return x; } }
+    static IEnumerable<Paragraph> Paragraphs(BlockCollection blocks) => blocks.SelectMany(b => b switch { Paragraph p => [p], Section s => Paragraphs(s.Blocks), _ => [] });
+    static int Visible(DependencyObject root, Window w)
+    { var n = 0; foreach (var c in Children<Control>(root)) { if (!c.IsVisible || c.ActualWidth <= 0 || c.ActualHeight <= 0) continue; try { if (c.TransformToAncestor(w).TransformBounds(new Rect(0, 0, c.ActualWidth, c.ActualHeight)).IntersectsWith(new Rect(0, 0, w.ActualWidth, w.ActualHeight))) n++; } catch (InvalidOperationException) { } } return n; }
+    [STAThread] static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output); Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        var panel = new AiPanel(); typeof(AiPanel).GetMethod("InitializeBranchUi", P)?.Invoke(panel, null);
+        var host = new Window { Width = 900, Height = 760, Left = 20, Top = 20, Content = panel }; var result = 1;
+        app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await panel.SetProjectAsync(Path.Combine(output, "fixture.tex")); var book = (AiNotebook)Field(panel, "_book");
+                var paragraphs = Enumerable.Range(0, 60).Select(i => $"第 {i} 段需要理解的定义。" + new string('文', 180)).ToArray();
+                var body = "# 前兄弟\n\n" + string.Join("\n\n", paragraphs.Take(20)) + "\n\n# 目标章节\n\n" + string.Join("\n\n", paragraphs.Skip(20).Take(20)) + "\n\n# 后兄弟\n\n" + string.Join("\n\n", paragraphs.Skip(40));
+                book.Turns.Add(new AiTurn("解释定义", body)); Invoke(panel, "RefreshTranscript"); await Idle(host);
+                var view = Children<MarkdownView>(panel).First(v => v.Markdown == body); await (Task)view.GetType().GetProperty("RenderTask", P)!.GetValue(view)!; await Idle(host);
+                var paragraph = Paragraphs(view.Document.Blocks).First(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains("第 30 段"));
+                var ev = panel.GetType().GetEvent("ConversationOpenRequested", P)!; ev.GetAddMethod(true)!.Invoke(panel, [new EventHandler<string>((_, _) => { })]);
+                view.Selection.Select(paragraph.ContentStart, paragraph.ContentEnd); await (Task)Invoke(panel, "BranchFromSelectionAsync", view)!; await Idle(host);
+                var branch = book.Conversations.Last(); var anchor = branch.BranchAnchor!;
+                var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
+                void EnsureClosed(string title)
+                {
+                    var heading = Paragraphs(view.Document.Blocks).First(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains(title));
+                    if (!new TextRange(heading.ContentStart, heading.ContentEnd).Text.Contains("（已折叠）"))
+                        heading.Inlines.OfType<Hyperlink>().First().RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+                }
+                var samples = new List<object>();
+                for (var i = -1; i < 9; i++)
+                {
+                    EnsureClosed("前兄弟"); EnsureClosed("目标章节"); EnsureClosed("后兄弟"); await Idle(host);
+                    var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Idle(host); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                    var bytes = GC.GetAllocatedBytesForCurrentThread(); var watch = Stopwatch.StartNew();
+                    var found = await (Task<bool>)Invoke(panel, "NavigateBranchSourceAsync", anchor, branch.BranchContextBefore, branch.BranchContextAfter)!;
+                    await Idle(host); watch.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                    if (!found) throw new Exception("Origin navigation failed in fixture");
+                    var current = Paragraphs(view.Document.Blocks).First(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains("第 30 段"));
+                    var rect = current.ContentStart.GetCharacterRect(LogicalDirection.Forward);
+                    var y = view.TranslatePoint(rect.TopLeft, scroll).Y;
+                    var sibling = Paragraphs(view.Document.Blocks).First(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains("前兄弟"));
+                    var closed = new TextRange(sibling.ContentStart, sibling.ContentEnd).Text.Contains("（已折叠）");
+                    if (i == -1 || i >= 2) samples.Add(new { op = i == -1 ? "cold-navigation" : "navigate-folded-origin", rawMs = watch.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = watch.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = Visible(host, host), sourceY = y, scroll.ViewportHeight, scroll.VerticalOffset, scroll.ScrollableHeight, siblingClosed = closed });
+                }
+                File.WriteAllText(Path.Combine(output, "navigation.json"), JsonSerializer.Serialize(new { fixture = "900x760; 60 paragraphs x 180 chars; 3 headings; cold plus 2 warmups + 7 paired ApplicationIdle; target and siblings folded before each navigation", samples }, new JsonSerializerOptions { WriteIndented = true })); result = 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); }
+            finally { panel.Dispose(); host.Content = null; host.Close(); app.Shutdown(result); }
+        };
+        host.Show(); app.Run(); return result;
+    }
+}

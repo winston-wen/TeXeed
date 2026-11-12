@@ -24,14 +24,18 @@ public partial class MainWindow
         panel.ConversationOpenRequested += async (_, id) => await OpenAiConversationAsync(id);
         panel.AnswerSourceRequested += async (id, anchor, before, after) =>
         {
-            await OpenAiConversationAsync(id);
-            if (_aiPanels.TryGetValue(id, out var source) && !await source.NavigateBranchSourceAsync(anchor, before, after)) Status("无法定位引用出处，原回答可能已改变。");
+            await OpenAiConversationCoreAsync(id, async source =>
+            {
+                if (!await source.NavigateBranchSourceAsync(anchor, before, after)) Status("无法定位引用出处，原回答可能已改变。");
+            });
         };
         panel.BranchSourceRequested += async (_, branch) =>
         {
             if (branch.ParentConversationId is not { } id || branch.BranchAnchor is not { } anchor) return;
-            await OpenAiConversationAsync(id);
-            if (_aiPanels.TryGetValue(id, out var source) && !await source.NavigateBranchSourceAsync(anchor, branch.BranchContextBefore, branch.BranchContextAfter)) Status("无法定位提问出处，原回答可能已改变。");
+            await OpenAiConversationCoreAsync(id, async source =>
+            {
+                if (!await source.NavigateBranchSourceAsync(anchor, branch.BranchContextBefore, branch.BranchContextAfter)) Status("无法定位提问出处，原回答可能已改变。");
+            });
         };
         panel.SettingsRequested += (_,_) => OpenAiSettings();
         panel.ProjectFiles = () => CurrentFiles().Where(f => f.IsEditable).ToArray();
@@ -86,7 +90,8 @@ public partial class MainWindow
         _aiStore = null;
     }
     private bool IsAiConversationOpen(string id) => _closingAi.Contains(id) || _workspaceTabs.Owner(TabWorkspace.AiConversationKey(id)) is not null;
-    private async Task OpenAiConversationAsync(string id)
+    private Task OpenAiConversationAsync(string id) => OpenAiConversationCoreAsync(id, null);
+    private async Task OpenAiConversationCoreAsync(string id, Func<AiPanel, Task>? afterOpen)
     {
         if (_aiStore is null || !_aiStore.Book.Conversations.Any(c=>c.Id==id)) return;
         if (_closingAi.Contains(id)) { Status("该会话正在关闭并保存，请稍后再打开。"); return; }
@@ -96,7 +101,10 @@ public partial class MainWindow
             var panel = EnsureAiPanel(id); SetAiTarget(panel);
             _aiStore.Book.ActiveConversationId = id;
             _workspaceTabs.Open(TabWorkspace.AiConversationKey(id)); RefreshWorkspaceViews();
-            _aiHistory?.RefreshExternal(); await _aiStore.SaveAsync(); panel.Focus();
+            if (afterOpen is not null) panel.Focus();
+            var navigation = afterOpen?.Invoke(panel);
+            _aiHistory?.RefreshExternal(); await _aiStore.SaveAsync();
+            if (navigation is not null) await navigation; else panel.Focus();
         }
         catch(Exception ex) { Error(ex); }
     }

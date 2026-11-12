@@ -11,6 +11,8 @@ public sealed partial class MarkdownView
     private Action? _foldChanged;
     private readonly Dictionary<Section, Action> _revealSections = [];
     private readonly Dictionary<Section, string> _bookmarkSections = [];
+    private readonly Dictionary<Section, Section> _foldBodies = [];
+    private readonly Dictionary<Paragraph, Run> _foldHints = [];
     private void Reveal(FrameworkContentElement target)
     {
         for (FrameworkContentElement? node = target; node is not null; node = node.Parent as FrameworkContentElement)
@@ -27,7 +29,7 @@ public sealed partial class MarkdownView
     private void ApplyFolding(FlowDocument document)
     {
         if (_folds is null) return;
-        _revealSections.Clear(); _bookmarkSections.Clear();
+        _revealSections.Clear(); _bookmarkSections.Clear(); _foldBodies.Clear(); _foldHints.Clear();
         var blocks = document.Blocks.ToArray(); document.Blocks.Clear();
         var parents = new Stack<(int Level, Section Body)>();
         foreach (var block in blocks)
@@ -47,6 +49,7 @@ public sealed partial class MarkdownView
                 link.SetResourceReference(TextElement.ForegroundProperty, "Ink");
                 while (paragraph.Inlines.FirstInline is { } inline) { paragraph.Inlines.Remove(inline); link.Inlines.Add(inline); }
                 var hint = new Run("（已折叠）") { FontSize = paragraph.FontSize * .8 };
+                _foldBodies[owner] = body; _foldHints[paragraph] = hint;
                 if (!ChatMode) hint.FontWeight = FontWeights.Normal;
                 hint.SetResourceReference(TextElement.ForegroundProperty, "Muted");
                 paragraph.Inlines.Add(link);

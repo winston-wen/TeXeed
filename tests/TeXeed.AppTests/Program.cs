@@ -120,7 +120,18 @@ internal static partial class Program
                 if (args.Contains("--ai-reference-navigation-only"))
                 {
                     await CheckAiReferenceNavigationAsync(window, output);
+                    await CheckAiUpstreamNavigationAsync(window, output);
                     await CloseAndObserveAsync(window, "AI reference navigation"); result = 0; return;
+                }
+                if (args.Contains("--ai-upstream-only"))
+                {
+                    await CheckAiUpstreamNavigationAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI upstream navigation"); result = 0; return;
+                }
+                if (args.Contains("--ai-inline-branch-only"))
+                {
+                    await CheckAiInlineBranchAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI inline branch links"); result = 0; return;
                 }
                 if (args.Contains("--ai-attachment-grouping-only"))
                 {

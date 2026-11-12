@@ -1,0 +1,19 @@
+diff --git a/src/TeXeed.App/Controls/AiAnnotationLayer.cs b/artifacts/annotation-native-perf/control/src/TeXeed.App/Controls/AiAnnotationLayer.cs
+index 48c67ff..d630783 100644
+--- a/src/TeXeed.App/Controls/AiAnnotationLayer.cs
++++ b/artifacts/annotation-native-perf/control/src/TeXeed.App/Controls/AiAnnotationLayer.cs
+@@ -275,13 +275,7 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
+         };
+         remove.LostKeyboardFocus += (_, _) => previousKeyActivation = null;
+         var confirm = Icon("AnnotationConfirm", "保存并关闭浮窗\nCtrl+Enter", "M2,8 L6,12 L14,3", 2);
+-        var confirmIcon = (System.Windows.Shapes.Path)confirm.Content;
+-        confirm.Content = null;
+-        confirmIcon.Width = 14; confirmIcon.Height = 14;
+-        var confirmContent = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+-        confirmContent.Children.Add(confirmIcon);
+-        confirmContent.Children.Add(new TextBlock { Text = "完成", Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+-        confirm.Content = confirmContent; confirm.Width = double.NaN; confirm.Padding = new Thickness(5, 0, 5, 0);
++        ((System.Windows.Shapes.Path)confirm.Content).Width = 14; ((System.Windows.Shapes.Path)confirm.Content).Height = 14;
+         confirm.Click += (_, _) => ConfirmEditor();
+         var surface = new Border { Child = stack, Width = Math.Clamp(_host.ActualWidth - 24, 220, 340), Padding = new Thickness(12), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1) };
+         surface.SetResourceReference(Border.BackgroundProperty, "PanelBackground"); surface.SetResourceReference(Border.BorderBrushProperty, "Accent"); surface.SetResourceReference(TextElement.ForegroundProperty, "Ink");

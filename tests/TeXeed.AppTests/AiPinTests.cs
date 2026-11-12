@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -11,6 +12,8 @@ using TeXeed.App.Services;
 
 internal static partial class Program
 {
+    [DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
     private static async Task CheckAiPinsAsync(MainWindow owner, string output)
     {
         var checks = 0;
@@ -37,7 +40,8 @@ internal static partial class Program
             var numbers = Descendants<TextBoxLineNumbers>(popup.Child).Single();
             var buttons = Descendants<Button>(popup.Child).ToArray();
             Check(buttons.Length == 2 && buttons[0].Name == "AnnotationDelete" && buttons[1].Name == "AnnotationConfirm", "Header must contain only delete then confirm icons");
-            Check(buttons.All(b => b.Content is System.Windows.Shapes.Path) && buttons[0].TranslatePoint(new Point(), (UIElement)popup.Child).X < buttons[1].TranslatePoint(new Point(), (UIElement)popup.Child).X, "Header icon order is wrong");
+            Check(buttons[0].Content is System.Windows.Shapes.Path && buttons[1].Content is StackPanel confirmContent && confirmContent.Children.OfType<System.Windows.Shapes.Path>().Count() == 1 && confirmContent.Children.OfType<TextBlock>().Single().Text == "完成" && buttons[0].TranslatePoint(new Point(), (UIElement)popup.Child).X < buttons[1].TranslatePoint(new Point(), (UIElement)popup.Child).X, "Header actions or their order are wrong");
+            Check(Equals(buttons[0].ToolTip, "双击删除此条批注") && Equals(buttons[1].ToolTip, "保存并关闭浮窗\nCtrl+Enter"), "Annotation action tooltips do not explain their behavior");
             Check(buttons.All(b => b.TranslatePoint(new Point(), (UIElement)popup.Child).Y < input.TranslatePoint(new Point(), (UIElement)popup.Child).Y), "Actions remain below the editor");
             Check(input.BorderThickness == new Thickness(0) && input.Padding == new Thickness(8) && numbers.ActualWidth < 25, "Editor gutter does not match the AI composer");
             input.Text = new string('字', 100); input.ScrollToHome(); await Settle();
@@ -77,8 +81,40 @@ internal static partial class Program
             layer.HandleEditorKey(confirmKey, ModifierKeys.Control); await Settle();
             Check(confirmKey.Handled && confirmed == 2 && !popup.IsOpen && entries.Single() == entry && committed == 6, "Ctrl+Enter must be consumed, confirm locally and keep the entry");
             await Open();
-            Descendants<Button>(popup.Child).Single(b => b.Name == "AnnotationDelete").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Settle();
-            Check(entries.Count == 0 && !popup.IsOpen && confirmed == 2, "Delete icon confirmed content or left the editor open");
+            var deleteButton = Descendants<Button>(popup.Child).Single(b => b.Name == "AnnotationDelete");
+            deleteButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Settle();
+            Check(entries.Contains(entry) && popup.IsOpen, "A single delete click removed the annotation");
+            deleteButton.Focus();
+            var firstKey = CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent);
+            deleteButton.RaiseEvent(firstKey);
+            Check(firstKey.Handled && entries.Contains(entry) && popup.IsOpen, "A single keyboard activation deleted the annotation");
+            var interveningMouse = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent };
+            deleteButton.RaiseEvent(interveningMouse);
+            var secondKey = CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent);
+            deleteButton.RaiseEvent(secondKey);
+            Check(secondKey.Handled && entries.Contains(entry) && popup.IsOpen, "A mouse press did not reset the pending keyboard activation");
+            var thirdKey = CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent);
+            deleteButton.RaiseEvent(thirdKey); await Settle();
+            Check(thirdKey.Handled && entries.Count == 0 && !popup.IsOpen && confirmed == 2, "Two consecutive keyboard activations must delete without confirming");
+
+            entries.Add(entry); await Settle(); await Open();
+            deleteButton = Descendants<Button>(popup.Child).Single(b => b.Name == "AnnotationDelete");
+            GetCursorPos(out var priorPointer);
+            try
+            {
+                host.Activate();
+                var point = deleteButton.PointToScreen(new Point(deleteButton.ActualWidth / 2, deleteButton.ActualHeight / 2));
+                Check(SetCursorPos((int)point.X, (int)point.Y), "Could not place the pointer on the delete icon");
+                await Task.Delay(80);
+                mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+                await Settle(); Check(entries.Contains(entry) && popup.IsOpen, "A real single mouse click deleted the annotation");
+                await Task.Delay((int)GetDoubleClickTime() + 100);
+                mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+                await Task.Delay(45);
+                mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+                await Settle(); Check(entries.Count == 0 && !popup.IsOpen && confirmed == 2, "A real double mouse click did not delete the annotation");
+            }
+            finally { SetCursorPos(priorPointer.X, priorPointer.Y); }
         }
         finally { host.Close(); ThemeManager.Apply("ristretto"); }
         Console.WriteLine($"PASS: {checks} pin-editor checks: stable focus, shared editable content, logical lines, both themes, view-change save/close, local confirmation, key isolation and delete.");

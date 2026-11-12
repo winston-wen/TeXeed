@@ -4,6 +4,7 @@ using System.Windows.Documents;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using TeXeed.App.AI;
+using Block = System.Windows.Documents.Block;
 
 namespace TeXeed.App.Controls;
 
@@ -103,6 +104,80 @@ public sealed partial class MarkdownView
     }
 
     internal TextPointer? BookmarkPointer(string id, AiAnswerAnchor anchor) => AnnotationPointer(id, anchor);
+
+    private sealed record BranchTextBlock(Block Block, int Start, int Length, string[] FoldKeys);
+    private string? _branchFullText;
+    private List<BranchTextBlock>? _branchTextBlocks;
+    private void InvalidateBranchText() { _branchFullText = null; _branchTextBlocks = null; }
+
+    // Reconstruct the text of detached fold bodies without opening them in the reader.
+    internal TextPointer? ResolveBranchAnchor(AiAnswerAnchor anchor, string? before, string? after, bool reveal = true)
+    {
+        if (anchor.Revision != Revision || string.IsNullOrWhiteSpace(anchor.Quote)) return null;
+        if (_branchFullText is null || _branchTextBlocks is null) BuildBranchText();
+        var source = _branchFullText!;
+        var blocks = _branchTextBlocks!;
+        var quote = anchor.Quote.Trim();
+        var candidates = new List<int>();
+        for (var index = source.IndexOf(quote, StringComparison.Ordinal); index >= 0; index = source.IndexOf(quote, index + 1, StringComparison.Ordinal)) candidates.Add(index);
+        if (candidates.Count == 0) return null;
+        int match;
+        if (candidates.Count == 1) match = candidates[0];
+        else
+        {
+            var left = before ?? ""; var right = after ?? "";
+            // Fold labels are presentation text; they can change when unrelated sections open.
+            var useLeft = left.Length > 0 && !left.Contains("（已折叠）", StringComparison.Ordinal);
+            var useRight = right.Length > 0 && !right.Contains("（已折叠）", StringComparison.Ordinal);
+            if (!useLeft && !useRight) return null;
+            var matches = candidates.Where(index =>
+                (!useLeft || index >= left.Length && source.AsSpan(index - left.Length, left.Length).SequenceEqual(left)) &&
+                (!useRight || index + quote.Length + right.Length <= source.Length && source.AsSpan(index + quote.Length, right.Length).SequenceEqual(right))).ToArray();
+            if (matches.Length != 1) return null;
+            match = matches[0];
+        }
+        var target = blocks.FirstOrDefault(block => match >= block.Start && match < block.Start + block.Length);
+        if (target is null) return null;
+        if (reveal) RevealBookmarkFolds(target.FoldKeys);
+        else if (target.FoldKeys.Any(key => _folds?.GetValueOrDefault(key) == true)) return null;
+        if (!target.Block.ElementStart.IsInSameDocument(Document.ContentStart)) return null;
+        var offset = CopySource(Document.ContentStart, target.Block.ElementStart).Length + match - target.Start;
+        return AnnotationPointer("branch-source:" + anchor.TurnId + ":" + anchor.SegmentId + ":" + offset,
+            anchor with { TextOffset = offset });
+    }
+
+    private void BuildBranchText()
+    {
+        var text = new StringBuilder();
+        var blocks = new List<BranchTextBlock>();
+        var parents = new List<string>();
+        void Append(Block block)
+        {
+            if (block is Section section)
+            {
+                if (_foldBodies.TryGetValue(section, out var body))
+                {
+                    foreach (var child in section.Blocks.Where(item => !ReferenceEquals(item, body))) Append(child);
+                    parents.Add(_bookmarkSections[body]);
+                    Append(body);
+                    parents.RemoveAt(parents.Count - 1);
+                }
+                else foreach (var child in section.Blocks) Append(child);
+                return;
+            }
+            var start = text.Length;
+            if (block is Paragraph paragraph && _foldHints.TryGetValue(paragraph, out var hint) && hint.Parent is not null)
+            {
+                text.Append(CopySource(block.ElementStart, hint.ElementStart));
+                text.Append(CopySource(hint.ElementEnd, block.ElementEnd));
+            }
+            else text.Append(CopySource(block.ElementStart, block.ElementEnd));
+            if (text.Length > start) blocks.Add(new(block, start, text.Length - start, [.. parents]));
+        }
+        foreach (var block in Document.Blocks) Append(block);
+        _branchFullText = text.ToString();
+        _branchTextBlocks = blocks;
+    }
 
     internal TextPointer? ResolveUserBookmark(AiUserBookmark bookmark)
     {

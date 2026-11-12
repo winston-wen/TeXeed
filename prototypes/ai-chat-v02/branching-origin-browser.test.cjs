@@ -37,11 +37,13 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     let state = await page.evaluate(() => branchDemo.getState());
     const child = state.active;
     assert.equal(state.sessions.find(s => s.id === child).source.endBlockId, 'last');
+    assert.equal(state.sessions.find(s => s.id === child).source.endTextOffset, 6);
     await page.locator('.sent-origin').click(); await pause(120);
     assert.equal((await page.evaluate(() => branchDemo.getState())).active, 'root');
     assert.equal(await page.locator('.source-flash').getAttribute('data-block-id'), 'first');
     assert.equal(await page.locator('#composer').inputValue(), '保留根会话草稿');
-    assert.equal(await page.locator(`[data-open-session="${child}"]`).evaluate(el => el.parentElement.previousElementSibling.dataset.blockId), 'last', '跨段引用的链接放在最后一段之后');
+    assert.equal(await page.locator(`[data-open-session="${child}"]`).evaluate(el => el.parentElement.dataset.blockId), 'last', '跨段引用的链接位于最后一段内');
+    assert.equal(await page.locator(`[data-open-session="${child}"]`).evaluate(el => el.previousSibling.textContent.length), 6, '链接紧随选区末尾');
     await page.screenshot({ path: path.join(__dirname, '../../artifacts/branch-origin-parent.png') });
 
     await page.evaluate(() => {
@@ -59,7 +61,8 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     await page.locator('.sent-origin').click(); await pause(120);
     assert.equal((await page.evaluate(() => branchDemo.getState())).active, 'root');
     assert.equal(await page.locator('.source-flash').getAttribute('data-block-id'), 'first');
-    assert.equal(await page.locator('[data-open-session="legacy"]').evaluate(el => el.parentElement.previousElementSibling.dataset.blockId), 'first', '旧分支兼容起点段落');
+    assert.equal(await page.locator('[data-open-session="legacy"]').evaluate(el => el.parentElement.dataset.blockId), 'first', '旧分支根据原引用确定起点段落');
+    assert.equal(await page.locator('[data-open-session="legacy"]').evaluate(el => el.previousSibling.textContent), '第一段', '旧分支精确恢复引用末尾');
     assert.deepEqual(errors, []);
     console.log('PASS branch source click, legacy restore, cross-paragraph link position and draft preservation');
   } finally { await browser.close(); }

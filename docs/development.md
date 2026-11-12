@@ -50,6 +50,7 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build
 | `--ai-follow-up-queue-only`、`--ai-follow-up-panel-only`、`--ai-steering-only` | 排队持久化、面板模拟及引导请求交接 |
 | `--editor-font-only` | 两套主题的编辑字体及回退 |
 | `--ai-pins-only`、`--ai-reading-only`、`--ai-annotations-only` | 批注编辑、确认和主编辑框发送 |
+| `--ai-upstream-only`、`--ai-reference-navigation-only`、`--ai-inline-branch-only` | 上游回源、真实工作区导航与行内追问链接 |
 | `--ai-prototype-only` | 原生 AI 界面与原型约定 |
 | `--ai-math-scroll-only`、`--ai-math-copy-only`、`--ai-math-proofread-only` | 公式渲染、复制和校对 |
 | `--crop-only`、`--layout-only`、`--print-only` | 裁边、版心和打印输出 |

@@ -1,0 +1,165 @@
+{
+  "fixture": "One annotation, WPF 680x620; 2 warmups and 7 paired samples; 250ms and ApplicationIdle; in-memory commit",
+  "dpi": {
+    "DpiScaleX": 2,
+    "DpiScaleY": 2
+  },
+  "framework": ".NET 10.0.7",
+  "system": "Microsoft Windows NT 10.0.26300.0",
+  "results": [
+    {
+      "op": "open",
+      "feedback": 18.2006,
+      "rawMs": 279.2107,
+      "idleMs": 257.0092,
+      "correctedMs": 22.201499999999953,
+      "rawBytes": 370600,
+      "idleBytes": 5584,
+      "correctedBytes": 365016,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 11.3823,
+      "rawMs": 261.8852,
+      "idleMs": 251.1918,
+      "correctedMs": 10.693399999999997,
+      "rawBytes": 42624,
+      "idleBytes": 11744,
+      "correctedBytes": 30880,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.6313,
+      "rawMs": 276.9388,
+      "idleMs": 250.5018,
+      "correctedMs": 26.437000000000012,
+      "rawBytes": 360864,
+      "idleBytes": 5584,
+      "correctedBytes": 355280,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 15.6877,
+      "rawMs": 265.8833,
+      "idleMs": 249.8435,
+      "correctedMs": 16.039800000000014,
+      "rawBytes": 42088,
+      "idleBytes": 14920,
+      "correctedBytes": 27168,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 18.0776,
+      "rawMs": 277.0916,
+      "idleMs": 255.0245,
+      "correctedMs": 22.06710000000004,
+      "rawBytes": 368168,
+      "idleBytes": 5584,
+      "correctedBytes": 362584,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 17.9201,
+      "rawMs": 268.16,
+      "idleMs": 250.8878,
+      "correctedMs": 17.272200000000026,
+      "rawBytes": 42840,
+      "idleBytes": 11704,
+      "correctedBytes": 31136,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 12.6533,
+      "rawMs": 264.0781,
+      "idleMs": 258.6864,
+      "correctedMs": 5.391700000000014,
+      "rawBytes": 362424,
+      "idleBytes": 5584,
+      "correctedBytes": 356840,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 28.161,
+      "rawMs": 278.8348,
+      "idleMs": 250.8037,
+      "correctedMs": 28.03109999999998,
+      "rawBytes": 42176,
+      "idleBytes": 14880,
+      "correctedBytes": 27296,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.7803,
+      "rawMs": 278.0484,
+      "idleMs": 256.7311,
+      "correctedMs": 21.31729999999999,
+      "rawBytes": 363608,
+      "idleBytes": 5584,
+      "correctedBytes": 358024,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 16.1926,
+      "rawMs": 265.7882,
+      "idleMs": 249.381,
+      "correctedMs": 16.407200000000017,
+      "rawBytes": 42880,
+      "idleBytes": 13768,
+      "correctedBytes": 29112,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 15.437,
+      "rawMs": 278.5564,
+      "idleMs": 260.9451,
+      "correctedMs": 17.61129999999997,
+      "rawBytes": 360304,
+      "idleBytes": 5584,
+      "correctedBytes": 354720,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 10.3933,
+      "rawMs": 260.437,
+      "idleMs": 250.2247,
+      "correctedMs": 10.212299999999999,
+      "rawBytes": 42344,
+      "idleBytes": 16856,
+      "correctedBytes": 25488,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 14.1105,
+      "rawMs": 277.3652,
+      "idleMs": 252.3468,
+      "correctedMs": 25.018400000000014,
+      "rawBytes": 364200,
+      "idleBytes": 5584,
+      "correctedBytes": 358616,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 17.8622,
+      "rawMs": 278.121,
+      "idleMs": 250.0613,
+      "correctedMs": 28.059699999999992,
+      "rawBytes": 42840,
+      "idleBytes": 11664,
+      "correctedBytes": 31176,
+      "visibleControls": 4
+    }
+  ]
+}

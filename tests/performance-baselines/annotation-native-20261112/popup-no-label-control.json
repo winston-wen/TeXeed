@@ -1,0 +1,165 @@
+{
+  "fixture": "One annotation, WPF 680x620; 2 warmups and 7 paired samples; 250ms and ApplicationIdle; in-memory commit",
+  "dpi": {
+    "DpiScaleX": 2,
+    "DpiScaleY": 2
+  },
+  "framework": ".NET 10.0.7",
+  "system": "Microsoft Windows NT 10.0.26300.0",
+  "results": [
+    {
+      "op": "open",
+      "feedback": 22.4347,
+      "rawMs": 279.9333,
+      "idleMs": 260.2341,
+      "correctedMs": 19.699199999999962,
+      "rawBytes": 351384,
+      "idleBytes": 5584,
+      "correctedBytes": 345800,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 13.8551,
+      "rawMs": 272.89,
+      "idleMs": 250.8766,
+      "correctedMs": 22.01339999999999,
+      "rawBytes": 41840,
+      "idleBytes": 14880,
+      "correctedBytes": 26960,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.9871,
+      "rawMs": 278.8846,
+      "idleMs": 260.5472,
+      "correctedMs": 18.337400000000002,
+      "rawBytes": 346720,
+      "idleBytes": 5584,
+      "correctedBytes": 341136,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 76.6706,
+      "rawMs": 341.5428,
+      "idleMs": 250.1631,
+      "correctedMs": 91.37970000000001,
+      "rawBytes": 41024,
+      "idleBytes": 13728,
+      "correctedBytes": 27296,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 15.4947,
+      "rawMs": 276.6271,
+      "idleMs": 264.3078,
+      "correctedMs": 12.319299999999998,
+      "rawBytes": 344992,
+      "idleBytes": 5584,
+      "correctedBytes": 339408,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 12.7829,
+      "rawMs": 273.0869,
+      "idleMs": 250.1883,
+      "correctedMs": 22.898600000000016,
+      "rawBytes": 43120,
+      "idleBytes": 22704,
+      "correctedBytes": 20416,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 12.8206,
+      "rawMs": 276.6224,
+      "idleMs": 264.1201,
+      "correctedMs": 12.502300000000048,
+      "rawBytes": 350096,
+      "idleBytes": 5584,
+      "correctedBytes": 344512,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 14.8013,
+      "rawMs": 274.9627,
+      "idleMs": 250.433,
+      "correctedMs": 24.52969999999999,
+      "rawBytes": 43208,
+      "idleBytes": 20248,
+      "correctedBytes": 22960,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 14.6546,
+      "rawMs": 295.7097,
+      "idleMs": 259.3176,
+      "correctedMs": 36.39209999999997,
+      "rawBytes": 348512,
+      "idleBytes": 5584,
+      "correctedBytes": 342928,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 14.87,
+      "rawMs": 275.1855,
+      "idleMs": 249.2169,
+      "correctedMs": 25.96859999999998,
+      "rawBytes": 41256,
+      "idleBytes": 20456,
+      "correctedBytes": 20800,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 16.0292,
+      "rawMs": 296.4378,
+      "idleMs": 260.9365,
+      "correctedMs": 35.50129999999996,
+      "rawBytes": 347512,
+      "idleBytes": 5584,
+      "correctedBytes": 341928,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 3.1898,
+      "rawMs": 262.3077,
+      "idleMs": 249.85,
+      "correctedMs": 12.457700000000017,
+      "rawBytes": 43320,
+      "idleBytes": 17216,
+      "correctedBytes": 26104,
+      "visibleControls": 4
+    },
+    {
+      "op": "open",
+      "feedback": 13.6819,
+      "rawMs": 264.7412,
+      "idleMs": 262.2974,
+      "correctedMs": 2.44380000000001,
+      "rawBytes": 343312,
+      "idleBytes": 5584,
+      "correctedBytes": 337728,
+      "visibleControls": 9
+    },
+    {
+      "op": "confirm",
+      "feedback": 14.9124,
+      "rawMs": 277.1504,
+      "idleMs": 250.6939,
+      "correctedMs": 26.456499999999977,
+      "rawBytes": 43120,
+      "idleBytes": 20968,
+      "correctedBytes": 22152,
+      "visibleControls": 4
+    }
+  ]
+}

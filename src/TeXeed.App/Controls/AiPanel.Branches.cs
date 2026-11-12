@@ -82,11 +82,9 @@ public partial class AiPanel
         var visibleTurn = obsolete.Length > 0 && view.IsVisible ? ActiveReadingTurn() : null;
         var previousTop = visibleTurn?.TranslatePoint(new Point(), MessagesScroll).Y;
         var previousOffset = MessagesScroll.VerticalOffset;
-        foreach (var (id, block) in obsolete)
+        foreach (var (id, _) in obsolete)
         {
-            var owner = block.Parent switch { Section section => section.Blocks, FlowDocument document => document.Blocks, _ => null };
-            owner?.Remove(block);
-            view.BranchLinkBlocks.Remove(id);
+            view.RemoveBranchLink(id);
         }
         if (visibleTurn is not null && previousTop is { } top)
         {
@@ -101,37 +99,8 @@ public partial class AiPanel
         foreach (var branch in branches)
         {
             var anchor = branch.BranchAnchor!;
-            if (view.BranchLinkBlocks.TryGetValue(branch.Id, out var linked) && linked.Child is Button existingLink)
-            { existingLink.Content = "🗨️ " + branch.Title; continue; }
-            TextPointer? pointer = null;
-            if (anchor.Revision == view.Revision && anchor.TextOffset >= 0 && anchor.Length > 0 &&
-                !turn.CollapsedSections.Any(pair => pair.Value && pair.Key.StartsWith(segment.Id + ":", StringComparison.Ordinal)))
-            {
-                var start = view.BookmarkPointer(branch.Id + ":direct", anchor);
-                var end = start?.GetPositionAtOffset(anchor.Length);
-                if (start is not null && end is not null && start.IsInSameDocument(end) &&
-                    view.CopySource(start, end).Trim() == anchor.Quote.Trim()) pointer = start;
-            }
-            pointer ??= view.ResolveUserBookmark(new AiUserBookmark { Anchor = anchor, ContextBefore = branch.BranchContextBefore, ContextAfter = branch.BranchContextAfter });
-            var paragraph = pointer?.Paragraph;
-            if (pointer is not null && pointer.IsInSameDocument(view.Document.ContentStart) && anchor.Quote.Contains('\n'))
-            {
-                var start = view.CopySource(view.Document.ContentStart, pointer).Length;
-                var end = start + anchor.Quote.TrimStart().Length - 1;
-                if (end >= start)
-                    paragraph = view.BookmarkPointer(branch.Id + ":end", anchor with { TextOffset = end })?.Paragraph ?? paragraph;
-            }
-            var blocks = paragraph?.Parent switch { Section section => section.Blocks, FlowDocument document => document.Blocks, _ => null };
-            if (paragraph is null || blocks is null) continue;
-            var existing = blocks.OfType<BlockUIContainer>().FirstOrDefault(b => Equals(b.Tag, branch.Id));
-            if (existing?.Child is Button oldLink) { view.BranchLinkBlocks[branch.Id] = existing; oldLink.Content = "🗨️ " + branch.Title; continue; }
-            var link = new Button { Content = "🗨️ " + branch.Title, FontSize = view.FontSize, FontFamily = view.FontFamily,
-                HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(0), BorderThickness = new Thickness(0), Background = System.Windows.Media.Brushes.Transparent };
-            link.SetResourceReference(Control.ForegroundProperty, "ChatFocus");
-            link.Click += (_, _) => OpenRelatedConversation(branch.Id);
-            var container = new BlockUIContainer(link) { Tag = branch.Id, Margin = new Thickness(0, 2, 0, 2) };
-            view.BranchLinkBlocks[branch.Id] = container;
-            blocks.InsertAfter(paragraph, container);
+            view.AddBranchLink(branch.Id, branch.Title, anchor, branch.BranchContextBefore, branch.BranchContextAfter,
+                () => OpenRelatedConversation(branch.Id));
         }
     }
 
@@ -196,23 +165,51 @@ public partial class AiPanel
         var turn = conversation.Turns.FirstOrDefault(t => t.Id == anchor.TurnId);
         var index = turn is null ? -1 : _transcriptItems.IndexOf(turn);
         if (turn is null || index < 0) return false;
-        _readingRestoreVersion++; _restoringReading = false;
+        var userIntervened = false;
+        MouseButtonEventHandler mouse = (_, _) => userIntervened = true;
+        MouseWheelEventHandler wheel = (_, _) => userIntervened = true;
+        EventHandler<TouchEventArgs> touch = (_, _) => userIntervened = true;
+        KeyEventHandler key = (_, e) =>
+        {
+            if (e.Key is Key.Up or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End or Key.Space) userIntervened = true;
+        };
+        MessagesScroll.AddHandler(UIElement.PreviewMouseDownEvent, mouse, true);
+        MessagesScroll.AddHandler(UIElement.PreviewMouseWheelEvent, wheel, true);
+        MessagesScroll.AddHandler(UIElement.PreviewTouchDownEvent, touch, true);
+        MessagesScroll.AddHandler(UIElement.PreviewKeyDownEvent, key, true);
+        try
+        {
+        var readingVersion = ++_readingRestoreVersion; _restoringReading = false;
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
         VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var turnView)) return false;
         if (turn.Collapsed) turnView.Toggle();
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
         var view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment s && s.Id == anchor.SegmentId);
         if (view is null) return false;
         await view.RenderTask;
+        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || view.Revision != anchor.Revision) return false;
-        view.RevealAllBookmarkFolds();
-        var pointer = view.ResolveUserBookmark(new AiUserBookmark { Anchor = anchor, ContextBefore = before, ContextAfter = after });
+        var pointer = view.ResolveBranchAnchor(anchor, before, after);
         History.UpdateLayout(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (pointer is null || view.BookmarkPoint(pointer) is not { } point) return false;
         var position = view.TranslatePoint(point, MessagesScroll);
-        MessagesScroll.ScrollToVerticalOffset(Math.Max(0, MessagesScroll.VerticalOffset + position.Y - 24));
+        var centered = MessagesScroll.VerticalOffset + position.Y - MessagesScroll.ViewportHeight / 2;
+        MessagesScroll.ScrollToVerticalOffset(Math.Clamp(centered, 0, MessagesScroll.ScrollableHeight));
         return true;
+        }
+        finally
+        {
+            MessagesScroll.RemoveHandler(UIElement.PreviewMouseDownEvent, mouse);
+            MessagesScroll.RemoveHandler(UIElement.PreviewMouseWheelEvent, wheel);
+            MessagesScroll.RemoveHandler(UIElement.PreviewTouchDownEvent, touch);
+            MessagesScroll.RemoveHandler(UIElement.PreviewKeyDownEvent, key);
+        }
     }
 
     private void OpenRelatedConversation(string id)
