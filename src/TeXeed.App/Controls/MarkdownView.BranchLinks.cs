@@ -140,8 +140,8 @@ public sealed partial class MarkdownView
     private static readonly DataTemplate BranchLinkTemplate = CreateBranchLinkTemplate();
     private static DataTemplate CreateBranchLinkTemplate()
     {
-        var text = new FrameworkElementFactory(typeof(TextBlock));
-        text.SetBinding(TextBlock.TextProperty, new Binding());
+        var text = new FrameworkElementFactory(typeof(EmojiTextBlock));
+        text.SetBinding(EmojiTextBlock.SourceTextProperty, new Binding());
         text.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
         text.SetValue(TextBlock.LineHeightProperty, double.NaN);
         text.SetValue(TextBlock.LineStackingStrategyProperty, LineStackingStrategy.MaxHeight);

@@ -6,6 +6,10 @@
 
 本版使用轮次对话，已完成的 AI 回答不可直接修改，可对回答添加批注。旧共同文稿版本保存的文稿、评论草稿和请求快照会在会话保存时保留，但本版界面不能显示或编辑共同文稿；会话目录中的资源和版本历史仍保留。
 
+可以要求 AI 出可直接填写的练习；新回答能在正文或表格中安排单行、行间多行、单选、多选及文件控件。独占一行的单行框铺满宽度；多行框默认三行、显示行号，并随输入增高。文件控件添加的文件或文件夹进入原有附件列表，记录来自哪个回答控件及提供材料的用途；文件上传与文件夹引用沿用附件原有处理方式。需要很长的材料时，可以附上文件。填写内容与回答分开保存，切换或重开会话后可继续填写。发送下一条消息时，填写结果随消息提交给 AI，此后相应控件锁定；主编辑框为空时也可只提交已填写的结果。发送保存失败会保留内容并恢复编辑。生成过程中控件标记可能暂时以原文显示，回答完成后才转换为控件；旧回答不会自动插入控件。
+
+用户要求判题，或 AI 高度判断某份表单需要判对错时，AI 可以在回复后将判断显示在原控件旁，并重新开放该表单供修改、再次提交。修改字段后，该字段针对旧答案的标记不再显示；历史提交和判断保留。普通答复不会自动解锁，AI 的判定仍需结合具体理由核对。
+
 在 AI 设置中通过系统浏览器登录 ChatGPT，可添加和切换账号或工作区。模型及推理强度可在设置页和输入栏选择，支持选项来自账号模型目录。API Key 使用独立的 API 额度，需要手动启用。
 
 主编辑框中 Enter 与 Shift+Enter 换行，Ctrl+Enter 或发送按钮提交当前问题及勾选批注。发送后可继续写下一条草稿。停止会取消当前请求和本轮编译；已完成的文件修改保留。进展、工具操作和最终回答按时间排列，点击操作文字展开详情。双击问答时间折叠本轮，Ctrl+F 查找消息。
@@ -82,6 +86,8 @@ Responses 请求设置 `store:false` 与 `stream:true`，客户端维护历史�
 
 原生程序可在已完成回答的文字选区右键选择「从所选内容追问」。追问会话保存来源和创建时截至该轮的祖先会话上下文，发送时与当前会话历史一起传给 AI；项目文件仍由各会话共享。原回答在来源选区末尾显示行内 🗨️ 链接，后续正文自然向后排；复制正文不会包含链接。追问会话可返回并定位来源：只展开该位置所在章节及必要的上级，其他章节维持已有折叠状态；来源尽量居中，靠近头尾时受可滚动范围限制。会话关系使用纵向节点和有向连线，双击节点打开。旧会话无分叉数据时仍可照常读取。来源文本无法消歧或内容变化时，回源可能失败并显示提示。
 
+新建追问时，来源立即出现在新会话的引用列表中，暂不可删除；发送后保留但取消勾选，需要再次携带时可重新勾选。公式引用在发送中及完成后按公式呈现。回答阅读区、追问链接及源码编辑器优先使用离线 Noto Emoji，缺字回退 Twemoji；普通标签和输入框中的 emoji 仍由系统显示。
+
 「会话关系」在工作区的新标签中展示当前会话及其关联会话，上游按钮返回来源，下游按钮供选择直接追问；重新激活关系标签时会更新改变的会话关系。目前连线依据追问产生的来源关系，图的布局允许含环或多重来源的数据；程序尚不支持从其他会话主动添加引用。空白新会话最多保留一个，新建时优先复用。打开项目时检查重复的空白新会话，保留含草稿、引用、书签、亲缘关系、非默认设置或未知数据的会话；清理前备份原文件。检测到其他 TeXeed 进程或备份失败时跳过清理，其他版本未使用跨进程锁，启动时仍有竞态，应先关闭旧实例。
 
 ## 验证入口
@@ -95,6 +101,8 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-reliabi
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-retry-only --output artifacts/ai-retry
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-bookmark-only --output artifacts/ai-bookmarks
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-bookmark-ui-only --output artifacts/ai-bookmark-ui
+dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-forms-only --output artifacts/ai-forms
+dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-formula-reference-only --output artifacts/ai-formula-reference
 ```
 
 这些回归使用隔离配置和模拟服务，覆盖流式接收、工具、取消、权限、存储和恢复。批注回归见 [AI 批注](ai-annotations.md)，性能复测见 [UI 性能](ui-layout-and-performance.md)。

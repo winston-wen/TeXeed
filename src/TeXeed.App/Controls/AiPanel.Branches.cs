@@ -116,14 +116,17 @@ public partial class AiPanel
         if (quote.Length == 0 || quote.Length > 40000) return;
         var parent = _book.Active;
         var turnIndex = parent.Turns.IndexOf(turn); if (turnIndex < 0) return;
-        var anchor = new AiAnswerAnchor(turn.Id, segment.Id, selection.Offset, selection.Length, quote, view.Revision) { TextOffset = selection.TextOffset };
+        var preview = view.SelectedReferenceObject();
         var context = view.BookmarkSelectionContext();
+        var anchor = new AiAnswerAnchor(turn.Id, segment.Id, selection.Offset, selection.Length, quote, view.Revision)
+        { TextOffset = selection.TextOffset, PreviewKind = preview.Kind, PreviewSource = preview.Source,
+          PreviewNumber = preview.Number, PreviewBefore = context.Before, PreviewAfter = context.After };
         await SaveAsync();
         var snapshot = parent.Snapshot();
         var branch = new AiConversation { ParentConversationId = parent.Id, BranchAnchor = anchor, BranchContextBefore = context.Before, BranchContextAfter = context.After,
             Title = string.Concat(quote.EnumerateRunes().Take(16)),
             InheritedTurns = snapshot.InheritedTurns.Concat(snapshot.Turns.Take(turnIndex + 1)).ToList(),
-            Entries = [new AiEntry { Title = "追问出处", AnswerAnchor = anchor }] };
+            Entries = [AiSessionExcerptReferences.Create(parent.Id, anchor, context.Before, context.After, protectOrigin: true)] };
         _book.Conversations.Add(branch);
         foreach (var answer in _answerLayers.Keys.ToArray()) AddBranchLinks(answer);
         _refreshBranchNavigation?.Invoke();
@@ -133,23 +136,16 @@ public partial class AiPanel
 
     private bool OpenAnswerReference(AiEntry entry)
     {
-        if (entry.AnswerAnchor is not { } anchor) return false;
-        var candidates = _book.Conversations.Where(c => c.Turns.Any(t => t.Id == anchor.TurnId &&
-            t.DisplaySegments.Any(s => s.Id == anchor.SegmentId))).ToArray();
-        if (candidates.Length != 1) return false;
+        if (entry.AnswerAnchor is not { } anchor ||
+            !AiSessionExcerptReferences.TryResolve(_book, entry, out var source, out var before, out var after) || source is null) return false;
         var active = _book.Active;
-        var branchAnchor = active.BranchAnchor;
-        var matchesBranch = branchAnchor is not null && branchAnchor.TurnId == anchor.TurnId &&
-            branchAnchor.SegmentId == anchor.SegmentId && branchAnchor.Revision == anchor.Revision && branchAnchor.Quote == anchor.Quote;
-        var before = matchesBranch ? active.BranchContextBefore : null;
-        var after = matchesBranch ? active.BranchContextAfter : null;
-        if (candidates[0].Id == active.Id)
+        if (source.Id == active.Id)
         {
             _ = NavigateAnswerReferenceAsync(anchor, before, after);
             return true;
         }
         if (AnswerSourceRequested is null) return false;
-        AnswerSourceRequested(candidates[0].Id, anchor, before, after);
+        AnswerSourceRequested(source.Id, anchor, before, after);
         return true;
     }
 

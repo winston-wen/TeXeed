@@ -1,0 +1,43 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class Perf
+{
+    const BindingFlags Private=BindingFlags.Instance|BindingFlags.NonPublic;
+    static object Field(object x,string name)=>x.GetType().GetField(name,Private)!.GetValue(x)!;
+    static void Call(object x,string name)=>x.GetType().GetMethod(name,Private)!.Invoke(x,null);
+    static async Task Idle(Window w){await w.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);w.UpdateLayout();}
+    static async Task Drain(AiPanel p,Window w){await Task.Delay(800);var timer=(DispatcherTimer)Field(p,"_saveTimer");for(int i=0;timer.IsEnabled&&i<250;i++)await Task.Delay(20);if(timer.IsEnabled)throw new TimeoutException();var gate=(SemaphoreSlim)Field(p,"_saveGate");await gate.WaitAsync();gate.Release();await Idle(w);}
+    static IEnumerable<T> Desc<T>(DependencyObject p) where T:DependencyObject {for(int i=0;i<VisualTreeHelper.GetChildrenCount(p);i++){var c=VisualTreeHelper.GetChild(p,i);if(c is T t)yield return t;foreach(var v in Desc<T>(c))yield return v;}}
+    static int Visible(DependencyObject p,Window w){int n=0;foreach(var c in Desc<Control>(p)){if(!c.IsVisible||c.ActualWidth<=0||c.ActualHeight<=0)continue;try{if(c.TransformToAncestor(w).TransformBounds(new Rect(0,0,c.ActualWidth,c.ActualHeight)).IntersectsWith(new Rect(0,0,w.ActualWidth,w.ActualHeight)))n++;}catch(InvalidOperationException){}}return n;}
+    [STAThread] static int Main(string[] args){
+        var output=Path.GetFullPath(args[0]);Directory.CreateDirectory(output);Environment.SetEnvironmentVariable("TEXEED_HOME",Path.Combine(output,"profile"));
+        var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("/TeXeed;component/Theme.xaml",UriKind.Relative)});
+        var panel=new AiPanel();var w=new Window{Width=620,Height=760,Left=20,Top=20,Content=panel};int exit=1;
+        w.Loaded+=async(_,_)=>{try{
+            await panel.SetProjectAsync(Path.Combine(output,"fixture.tex"));var book=(AiNotebook)Field(panel,"_book");
+            var text="|题号|输入|a|b|c|\n|---|---|---|---|---|\n"+string.Join("\n",Enumerable.Range(1,6).Select(i=>$"|{i}|{80+i}|{{{{text:a-{i}}}}}|{{{{text:b-{i}}}}}|{{{{text:c-{i}}}}}|"))+"\n\n说明：\n\n{{textarea:reason}}\n\n{{text:solo}}\n\n{{radio:choice:yes:是}} {{radio:choice:no:否}} {{checkbox:check:核对}}\n\n{{file:materials:请提供材料}}";
+            for(int i=0;i<120;i++){var body=i==119?text:"样例回答：说明步骤和依据。";var t=new AiTurn("如何检查结果？ "+i,body){SentAt=DateTimeOffset.UnixEpoch,Segments=Enumerable.Range(0,3).Select(k=>new AiSegment{Kind="activity",Text="检查步骤 "+k,Details=string.Join('\n',Enumerable.Range(0,200).Select(n=>"示例日志 "+n))}).Append(new AiSegment{Kind="final",Text=body}).ToList()};book.Turns.Add(AiForms.WithSubmission(t,null));}
+            Call(panel,"RefreshTranscript");await Drain(panel,w);var scroll=(ScrollViewer)panel.FindName("MessagesScroll");scroll.ScrollToEnd();await Drain(panel,w);
+            var box=Desc<TextBox>(panel).FirstOrDefault(x=>System.Windows.Automation.AutomationProperties.GetName(x)=="reason")??throw new Exception("Missing multiline field.");
+            var longText=string.Join('\n',Enumerable.Range(1,200).Select(i=>$"第 {i} 行填写文字"))+"甲";box.Text=longText;box.BringIntoView();await Drain(panel,w);
+            var samples=new List<object>();async Task Measure(string op,Action<int> action){for(int i=0;i<9;i++){
+                var qb=GC.GetAllocatedBytesForCurrentThread();var qw=Stopwatch.StartNew();await Drain(panel,w);qw.Stop();qb=GC.GetAllocatedBytesForCurrentThread()-qb;
+                var bytes=GC.GetAllocatedBytesForCurrentThread();var sw=Stopwatch.StartNew();action(i);await Idle(w);var feedback=sw.Elapsed.TotalMilliseconds;await Drain(panel,w);sw.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                if(i>=2)samples.Add(new{op,feedbackMs=feedback,rawMs=sw.Elapsed.TotalMilliseconds,idleMs=qw.Elapsed.TotalMilliseconds,correctedMs=sw.Elapsed.TotalMilliseconds-qw.Elapsed.TotalMilliseconds,rawBytes=bytes,idleBytes=qb,correctedBytes=bytes-qb,visibleControls=Visible(w,w),boxHeight=box.ActualHeight});
+            }}
+            await Measure("keystroke-200-lines",i=>{box.Select(box.Text.Length-1,1);box.SelectedText=i%2==0?"甲":"乙";});
+
+            File.WriteAllText(Path.Combine(output,"results.json"),JsonSerializer.Serialize(new{fixture="200 logical lines, 620x760, 120 turns; 2 warmups 7 samples; paired 800ms and save gate",samples},new JsonSerializerOptions{WriteIndented=true}));exit=0;
+        }catch(Exception e){Console.Error.WriteLine(e);}finally{panel.Dispose();w.Close();app.Shutdown(exit);}};w.Show();app.Run();return exit;
+    }
+}
+

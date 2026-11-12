@@ -76,7 +76,8 @@ public sealed class AiTurnView : StackPanel
         var entries = Turn.SentAnnotations;
         var prompt = entries.Count == 0 ? Turn.DisplayQuestion : Turn.Prompt ?? Turn.DisplayQuestion;
         var annotationsOnly = entries.Count > 0 && string.IsNullOrWhiteSpace(prompt);
-        var annotationText = string.Join("\n", entries.Select((e, i) => $"{i + 1}. [{LinkLabel(e)}](#snapshot-{i + 1})"));
+        var legacyAnnotationText = string.Join("\n", entries.Select((e, i) => $"{i + 1}. [{LinkLabel(e)}](#snapshot-{i + 1})"));
+        var annotationText = AiReferencePresentation.Markup(entries);
         void OpenSnapshot(string key)
         {
             if (!int.TryParse(key.AsSpan("snapshot-".Length), out var n) || n <= 0 || n > entries.Count) return;
@@ -84,7 +85,7 @@ public sealed class AiTurnView : StackPanel
             if (entry.AnswerAnchor is null || AnswerReferenceRequested?.Invoke(entry) != true) ShowPreview(entry, n);
         }
         var questionRow = new Grid(); questionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(AiChatTypography.TextLeft) }); questionRow.ColumnDefinitions.Add(new ColumnDefinition());
-        var content = Rich(annotationsOnly ? annotationText : prompt, new Thickness(0, 8, 12, entries.Count == 0 || annotationsOnly ? -AiChatTypography.RichTextInset : 0), annotationsOnly); Grid.SetColumn(content, 1);
+        var content = Rich(annotationsOnly ? annotationText : prompt, new Thickness(0, 8, 12, entries.Count == 0 || annotationsOnly ? -AiChatTypography.RichTextInset : 0), annotationsOnly, annotationsOnly ? entries : null, annotationsOnly ? legacyAnnotationText : null); Grid.SetColumn(content, 1);
         RegisterQuestion(content);
         if (annotationsOnly)
         {
@@ -97,7 +98,7 @@ public sealed class AiTurnView : StackPanel
         _ordinalAlignment = new ChatOrdinalAlignment(content, _number);
         if (entries.Count > 0 && !annotationsOnly)
         {
-            var links = Rich(annotationText, new Thickness(AiChatTypography.TextLeft, 0, 12, -AiChatTypography.RichTextInset), true);
+            var links = Rich(annotationText, new Thickness(AiChatTypography.TextLeft, 0, 12, -AiChatTypography.RichTextInset), true, entries, legacyAnnotationText);
             RegisterQuestion(links);
             links.LocalLink = OpenSnapshot;
             Children.Add(links);
@@ -138,7 +139,9 @@ public sealed class AiTurnView : StackPanel
                 answer.HeadingSeed = headings.Snapshot();
                 answer.ChatMode = true; answer.TurnNumber = TurnNumber; answer.ImageBaseDirectory = ImageBaseDirectory;
                 answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => { Changed?.Invoke(); AnswerFoldingChanged?.Invoke(answer); });
-                answer.Markdown = segment.Text;
+                var gradedReply = AiFormGrading.IsApplied(Turn);
+                if (gradedReply) answer.RevisionSourceOverride = segment.Text;
+                answer.Markdown = gradedReply ? AiFormGrading.DisplayText(segment.Text) : segment.Text;
                 answer.Loaded += (_, _) => AnswerReady?.Invoke(answer); answer.Unloaded += (_, _) => AnswerGone?.Invoke(answer);
                 Answers.Add(answer); _body.Children.Add(answer);
                 if (--remainingAnswers > 0)
@@ -160,8 +163,14 @@ public sealed class AiTurnView : StackPanel
         text = string.Concat(text.EnumerateRunes().Take(80));
         return text;
     }
-    private MarkdownView Rich(string source, Thickness margin, bool numbers = false) => new() { SourceLink = source => SourceRequested?.Invoke(source), LinkListNumbers = numbers, UseWavyEmphasis = true, Markdown = source,
-        Margin = new Thickness(margin.Left - AiChatTypography.RichTextInset, margin.Top, margin.Right, margin.Bottom), Padding = new Thickness(0) };
+    private MarkdownView Rich(string source, Thickness margin, bool numbers = false, IReadOnlyList<AiEntry>? snapshots = null, string? revisionSource = null)
+    {
+        var view = new MarkdownView { SourceLink = value => SourceRequested?.Invoke(value), LinkListNumbers = numbers, UseWavyEmphasis = true,
+            SnapshotEntries = snapshots, RevisionSourceOverride = revisionSource,
+            Margin = new Thickness(margin.Left - AiChatTypography.RichTextInset, margin.Top, margin.Right, margin.Bottom), Padding = new Thickness(0) };
+        view.Markdown = source;
+        return view;
+    }
     internal void ShowPreview(AiEntry entry, int number)
     {
         if (_previewId == entry.Id) { ClosePreview(); return; }

@@ -10,6 +10,7 @@ internal static partial class Program
 {
     private static async Task CheckAiInlineBranchAsync(Window owner, string output)
     {
+        CheckAiEmoji(owner);
         static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
         static IEnumerable<Paragraph> Paragraphs(BlockCollection blocks) => blocks.SelectMany(block => block switch
         { Paragraph paragraph => [paragraph], Section section => Paragraphs(section.Blocks), System.Windows.Documents.List list => list.ListItems.SelectMany(item => Paragraphs(item.Blocks)), _ => [] });
@@ -66,7 +67,7 @@ internal static partial class Program
             host.UpdateLayout();
             var sourceRect = first.ElementStart.GetCharacterRect(LogicalDirection.Backward);
             var buttonRect = nestedButton.TransformToAncestor(view).TransformBounds(new Rect(0, 0, nestedButton.ActualWidth, nestedButton.ActualHeight));
-            var label = Descendants<TextBlock>(nestedButton).Single(text => text.Text == "🗨️ 已改名");
+            var label = Descendants<EmojiTextBlock>(nestedButton).Single(text => text.SourceText == "🗨️ 已改名");
             var labelRect = label.TransformToAncestor(view).TransformBounds(new Rect(0, 0, label.ActualWidth, label.ActualHeight));
             Console.WriteLine($"Inline baseline: source={sourceRect} button={buttonRect} label={labelRect} labelLineHeight={label.LineHeight:F2} buttonMinHeight={nestedButton.MinHeight:F2} initialHeight={initialLine.Height:F2}");
             SaveLiteralVisual(view, Path.Combine(output, "inline-branch-wide.png"));
@@ -84,7 +85,7 @@ internal static partial class Program
             await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             host.UpdateLayout();
             var longButton = (Button)view.BranchLinkBlocks["long"].Child;
-            var longText = Descendants<TextBlock>(longButton).Single(text => text.Text == "🗨️ " + longTitle);
+            var longText = Descendants<EmojiTextBlock>(longButton).Single(text => text.SourceText == "🗨️ " + longTitle);
             Check(longButton.ActualWidth <= view.ActualWidth - 19 && longText.ActualHeight > longText.FontSize * 1.5, "Long branch title did not wrap inside the available reading width");
             var longRect = longButton.TransformToAncestor(view).TransformBounds(new Rect(0, 0, longButton.ActualWidth, longButton.ActualHeight));
             var beforeRect = view.BranchLinkBlocks["long"].ElementStart.GetCharacterRect(LogicalDirection.Backward);

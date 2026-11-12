@@ -1,0 +1,13 @@
+diff --git a/artifacts/forms-perf-0414/optimized-source/src/TeXeed.App/Controls/TextBoxLineNumbers.cs b/artifacts/forms-perf-0414/opt-nopaint-source/src/TeXeed.App/Controls/TextBoxLineNumbers.cs
+index c980599..45dfd32 100644
+--- a/artifacts/forms-perf-0414/optimized-source/src/TeXeed.App/Controls/TextBoxLineNumbers.cs
++++ b/artifacts/forms-perf-0414/opt-nopaint-source/src/TeXeed.App/Controls/TextBoxLineNumbers.cs
+@@ -112,7 +112,7 @@ public sealed class TextBoxLineNumbers : Control
+         var oldDigits = _starts.Length.ToString(CultureInfo.InvariantCulture).Length;
+         _starts = next.ToArray(); _indexedText = after;
+         if (oldDigits != _starts.Length.ToString(CultureInfo.InvariantCulture).Length) InvalidateMeasure();
+-        QueuePaint(); return true;
++        return true;
+     }
+     private void QueuePaint()
+     {

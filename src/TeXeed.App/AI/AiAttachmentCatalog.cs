@@ -9,7 +9,7 @@ namespace TeXeed.App.AI;
 // Catalogs sent snapshots and explicitly selected live file references.
 internal sealed class AiAttachmentCatalog
 {
-    private sealed record Item(string Handle, AiAttachedFile File);
+    private sealed record Item(string Handle, AiAttachedFile File, AiFormAttachmentOrigin? FormOrigin);
     private readonly List<Item> items = [];
     private readonly List<Item> currentFileItems = [];
     private readonly Dictionary<string, Item> byHandle = new(StringComparer.Ordinal);
@@ -26,6 +26,7 @@ internal sealed class AiAttachmentCatalog
         foreach (var entry in history.SelectMany(t => t.SentAnnotations).Concat(current))
         {
             if (entry.HasUnresolvedAttachmentMetadata) { unresolvedEntries++; continue; }
+            AiFormAttachmentOrigins.TryGet(entry, out var formOrigin);
             for (var index = 0; index < entry.Files.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -37,7 +38,7 @@ internal sealed class AiAttachmentCatalog
                 foreach (var part in identity)
                 { hash.AppendData(Encoding.UTF8.GetBytes(part)); hash.AppendData([0]); }
                 var handle = "attachment_" + Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
-                if (!byHandle.TryGetValue(handle, out var item)) { item = new Item(handle, file); items.Add(item); byHandle.Add(handle, item); }
+                if (!byHandle.TryGetValue(handle, out var item)) { item = new Item(handle, file, formOrigin); items.Add(item); byHandle.Add(handle, item); }
                 if (currentEntries.Contains(entry) && file.ReferenceKind == "file" && !currentFileItems.Contains(item)) currentFileItems.Add(item);
             }
         }
@@ -124,7 +125,8 @@ internal sealed class AiAttachmentCatalog
     {
         var offset = Math.Clamp(args.GetProperty("offset").GetInt32(), 0, items.Count);
         var limit = Math.Clamp(args.GetProperty("limit").GetInt32(), 1, 30);
-        var page = items.Skip(offset).Take(limit).Select(item => new { handle = item.Handle, name = LimitLabel(item.File.Name), mime_type = LimitLabel(item.File.MimeType), folder = item.File.FolderPath is { } folder ? LimitLabel(folder) : null, reference_kind = item.File.ReferenceKind, name_truncated = item.File.Name.Length > 1000, folder_truncated = item.File.FolderPath?.Length > 1000, text_readable = item.File.ReferenceKind == "file" || item.File.ReferenceKind is null && item.File.MimeType == "text/plain", encoding_verified = false }).ToList();
+        var page = items.Skip(offset).Take(limit).Select(item => new { handle = item.Handle, name = LimitLabel(item.File.Name), mime_type = LimitLabel(item.File.MimeType), folder = item.File.FolderPath is { } folder ? LimitLabel(folder) : null, reference_kind = item.File.ReferenceKind, name_truncated = item.File.Name.Length > 1000, folder_truncated = item.File.FolderPath?.Length > 1000, text_readable = item.File.ReferenceKind == "file" || item.File.ReferenceKind is null && item.File.MimeType == "text/plain", encoding_verified = false,
+            source_form = item.FormOrigin is { } origin ? new { method = "answer_form", conversation_id = origin.ConversationId, conversation_title = origin.ConversationTitle, turn_id = origin.TurnId, turn_number = origin.TurnNumber, field_id = origin.FieldId, purpose = origin.Purpose } : null }).ToList();
         while (true)
         {
             var next = offset + page.Count;

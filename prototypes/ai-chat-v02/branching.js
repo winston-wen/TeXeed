@@ -1,9 +1,10 @@
 (() => {
   'use strict';
   const KEY = 'texeed-branch-reading-prototype-v1';
-  const draftKey = id => KEY + '/draft/' + id, viewportKey = id => KEY + '/viewport/' + id, referencesKey = id => KEY + '/references/' + id;
+  const draftKey = id => KEY + '/draft/' + id, viewportKey = id => KEY + '/viewport/' + id, referencesKey = id => KEY + '/references/' + id, formKey = (sessionId, turnId) => KEY + '/form/' + sessionId + '/' + turnId;
   const $ = id => document.getElementById(id);
   const reader = $('reader'), transcript = $('transcript'), composer = $('composer');
+  const formResizeObserver = globalThis.ResizeObserver ? new ResizeObserver(entries => { for (const entry of entries) { const note = entry.target; if (!note.isConnected) { formResizeObserver.unobserve(note); continue; } const width = entry.contentRect.width; if (width !== note.formMeasuredWidth) { note.formMeasuredWidth = width; note.resizeForm?.(); } } }) : null;
   const uid = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
   const block = (kind, text) => ({ id: uid(), kind, text });
   const longMath = Array.from({ length: 16 }, (_, i) => `A_{${i + 1}}`).join('+');
@@ -30,8 +31,9 @@
     block('paragraph', '继续阅读之后，如果在另一处遇到疑问，可以再创建一条追问会话。会话关系图会显示它们来自同一篇回答还是另一条追问，并允许你重新打开已经讨论过的问题。'), ...demoAssetBlocks()
   ];
   const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, bookmarks: [], sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
-  const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; if (loaded.pending?.parentId && !loaded.pendingBySession[loaded.pending.parentId]) loaded.pendingBySession[loaded.pending.parentId] = loaded.pending; for (const s of loaded.sessions) { s.references ||= []; s.attachments ||= []; const references = JSON.parse(localStorage.getItem(referencesKey(s.id)) || 'null'); if (Array.isArray(references)) s.references = references; const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.attachments) s.attachments = draft.attachments; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } const old = loaded.pendingBySession[s.id]; if (old?.kind === 'quote') { if (!s.references.some(r => r.legacyPending)) s.references.push({ id: uid(), blockId: old.blockId, quote: old.quote, textOffset: old.sourceTextOffset, comment: '', selected: true, attachments: [], legacyPending: old }); delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
+  const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; if (loaded.pending?.parentId && !loaded.pendingBySession[loaded.pending.parentId]) loaded.pendingBySession[loaded.pending.parentId] = loaded.pending; for (const s of loaded.sessions) { s.references ||= []; s.attachments ||= []; for (const turn of s.turns || []) { if (!turn.answer?.some(item => item.kind === 'exercise')) continue; try { const values = JSON.parse(localStorage.getItem(formKey(s.id, turn.id)) || 'null'); if (values && typeof values === 'object' && !Array.isArray(values)) { if (values.values && typeof values.values === 'object') { turn.formValues = values.values; turn.formInvalidations = values.invalidations || {}; } else turn.formValues = values; } } catch { /* Preserve the rest of the session if a form draft is unreadable. */ } } const references = JSON.parse(localStorage.getItem(referencesKey(s.id)) || 'null'); if (Array.isArray(references)) s.references = references; const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.attachments) s.attachments = draft.attachments; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } const old = loaded.pendingBySession[s.id]; if (old?.kind === 'quote') { if (!s.references.some(r => r.legacyPending)) s.references.push({ id: uid(), blockId: old.blockId, quote: old.quote, textOffset: old.sourceTextOffset, comment: '', selected: true, attachments: [], legacyPending: old }); delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
   let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, relationAnchor = null, pendingFileReads = 0;
+  let formAttachmentOrigin = null;
   state.pausedFollowups ||= {};
   for (const [id, items] of Object.entries(state.followups || {})) if (items.length) state.pausedFollowups[id] = true;
   const running = new Set();
@@ -49,6 +51,7 @@
   function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(draftKey(state.active)); localStorage.removeItem(referencesKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存示例会话。'; return false; } }
   function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, attachments: ensureSession(current()).attachments, pending: state.pending?.parentId === state.active ? state.pending : null })); return true; } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; return false; } }
   function saveReferences() { try { localStorage.setItem(referencesKey(state.active), JSON.stringify(ensureSession(current()).references)); return true; } catch { $('status').textContent = '当前浏览器无法保存引用。'; return false; } }
+  function saveForm(turn) { try { localStorage.setItem(formKey(state.active, turn.id), JSON.stringify({ values: turn.formValues, invalidations: turn.formInvalidations || {} })); return true; } catch { $('status').textContent = '无法保存填写内容，请检查浏览器存储。'; return false; } }
   let pendingAnchor = null;
   function cancelPendingAnchor() {
     if (!pendingAnchor) return;
@@ -137,7 +140,7 @@
     }
     return groups;
   }
-  function renderAttachments(parent, attachments, scope, ownerId) { for (const group of attachmentGroups(attachments)) { const file = group.files[0], chip = document.createElement('span'); chip.className = 'attachment-chip'; const image = !group.directory && file.type?.startsWith('image/') && file.data; const icon = parent.id === 'attachment-list' ? document.createElement('div') : chip; if (icon !== chip) { icon.className = 'attachment-icon'; chip.appendChild(icon); } if (image) { const img = document.createElement('img'); img.src = file.data; img.alt = file.name; icon.appendChild(img); } if (group.directory) { const label = document.createElement('span'); label.className = 'folder-path'; label.title = group.label; const path = group.label.slice(0, -1); const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')); const leaf = path.slice(separator + 1); const points = Array.from(leaf); const tail = separator >= 0 && points.length <= 12 ? path.slice(separator) : points.slice(-12).join(''); appendText('span', 'folder-path-stem', path.slice(0, path.length - tail.length), label); appendText('span', 'folder-path-tail', tail, label); appendText('span', 'folder-path-slash', '/', label); chip.appendChild(label); } else appendText('span', '', group.label, chip); if (scope) { const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.dataset.attachmentRemove = file.id; remove.dataset.attachmentScope = scope; if (ownerId) remove.dataset.referenceId = ownerId; remove.setAttribute('aria-label', '移除附件 ' + group.label); chip.appendChild(remove); } parent.appendChild(chip); } }
+  function renderAttachments(parent, attachments, scope, ownerId) { for (const group of attachmentGroups(attachments)) { const file = group.files[0], chip = document.createElement('span'); chip.className = 'attachment-chip'; const image = !group.directory && file.type?.startsWith('image/') && file.data; const icon = parent.id === 'attachment-list' ? document.createElement('div') : chip; if (icon !== chip) { icon.className = 'attachment-icon'; chip.appendChild(icon); } if (image) { const img = document.createElement('img'); img.src = file.data; img.alt = file.name; icon.appendChild(img); } if (group.directory) { const label = document.createElement('span'); label.className = 'folder-path'; label.title = group.label; const path = group.label.slice(0, -1); const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')); const leaf = path.slice(separator + 1); const points = Array.from(leaf); const tail = separator >= 0 && points.length <= 12 ? path.slice(separator) : points.slice(-12).join(''); appendText('span', 'folder-path-stem', path.slice(0, path.length - tail.length), label); appendText('span', 'folder-path-tail', tail, label); appendText('span', 'folder-path-slash', '/', label); chip.appendChild(label); } else appendText('span', '', group.label, chip); if (file.formOrigin) appendText('span', 'attachment-purpose', '来自回答控件 · ' + file.formOrigin.purpose, chip); if (scope) { const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.dataset.attachmentRemove = file.id; remove.dataset.attachmentScope = scope; if (ownerId) remove.dataset.referenceId = ownerId; remove.setAttribute('aria-label', '移除附件 ' + group.label); chip.appendChild(remove); } parent.appendChild(chip); } }
   function textWithoutLinks(node) {
     if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
     if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return '';
@@ -178,9 +181,56 @@
     const last = pieces.at(-1), leading = text.length - text.trimStart().length;
     return text.slice(leading).startsWith(last) ? leading + last.length : null;
   }
-  function branchLink(child) { const link = document.createElement('button'); link.type = 'button'; link.className = 'associated'; link.textContent = '🗨️ ' + child.title; link.title = child.title; link.dataset.openSession = child.id; return link; }
+  function branchLink(child) { const link = document.createElement('button'); link.type = 'button'; link.className = 'associated'; const icon = document.createElement('span'); icon.className = 'branch-emoji'; icon.textContent = '🗨️'; link.append(icon, document.createTextNode(' ' + child.title)); link.title = child.title; link.dataset.openSession = child.id; return link; }
+  function formState(turn) {
+    const turns = current().turns, index = turns.indexOf(turn); let submitted = -1, graded = -1, assessment = null;
+    for (let i = index + 1; i < turns.length; i++) { if ((turns[i].formResponses || []).some(item => item.turnId === turn.id)) submitted = i; if (turns[i].formAssessment?.turnId === turn.id) { graded = i; assessment = turns[i].formAssessment; } }
+    return { locked: submitted >= 0 && graded < submitted, assessment };
+  }
+  function gradeDemo(question, responses) {
+    if (!/批改|判题|判对错|对错|评分|检查.*答案/.test(question) && !(question.length === 0 && responses.length)) return null;
+    const latest = responses.at(-1) || current().turns.flatMap(turn => turn.formResponses || []).at(-1); if (!latest) return null;
+    const expected = { Aa: '83', Ab: '10', Ac: '10', Ba: '84', Bb: '11', Bc: '11' }, fields = {};
+    for (const [id, answer] of Object.entries(expected)) { const value = latest.values[id] || ''; if (value.trim()) fields[id] = { value, correct: value.trim() === answer }; }
+    return Object.keys(fields).length ? { id: uid(), turnId: latest.turnId, fields } : null;
+  }
   function renderBlock(parent, item, number, heading) {
     let el, markerLength = 0;
+    if (item.kind === 'exercise') {
+      const turn = current().turns[number - 1], form = formState(turn), locked = form.locked;
+      const values = turn.formValues ||= {};
+      el = document.createElement('div'); el.className = 'passage exercise'; el.dataset.blockId = item.id;
+      const table = document.createElement('table');
+      const header = table.createTHead().insertRow();
+      ['题号', '输入 y', 'a', 'b', '输出 c'].forEach(label => appendText('th', '', label, header));
+      const body = table.createTBody();
+      for (const [row, input] of [['A', '83'], ['B', '84']]) {
+        const tr = body.insertRow(); appendText('td', '', row, tr); appendText('td', '', input, tr);
+        for (const column of ['a', 'b', 'c']) { const cell = tr.insertCell(), id = row + column, field = document.createElement('input'); field.type = 'text'; field.value = values[id] || ''; field.disabled = locked; field.setAttribute('aria-label', `${row} 的 ${column}`); const verdict = document.createElement('span'); verdict.className = 'exercise-verdict'; verdict.setAttribute('role', 'status'); const updateVerdict = () => { const result = form.assessment?.fields?.[id]; verdict.textContent = result && turn.formInvalidations?.[id] !== form.assessment.id && result.value === field.value ? result.correct ? '✓ AI 判断正确' : '✗ AI 判断有误' : ''; verdict.classList.toggle('incorrect', Boolean(result && turn.formInvalidations?.[id] !== form.assessment.id && result.value === field.value && !result.correct)); }; field.addEventListener('input', () => { values[id] = field.value; if (form.assessment?.fields?.[id] && field.value !== form.assessment.fields[id].value) { turn.formInvalidations ||= {}; turn.formInvalidations[id] = form.assessment.id; } updateVerdict(); saveForm(turn); }); cell.append(field, verdict); updateVerdict(); }
+      }
+      el.appendChild(table);
+      const singleLabel = appendText('label', 'exercise-label', '用一句话写出结论：', el);
+      const summary = document.createElement('input'); summary.type = 'text'; summary.className = 'exercise-single-full'; summary.value = values.summary || ''; summary.disabled = locked; summary.addEventListener('input', () => { values.summary = summary.value; saveForm(turn); }); singleLabel.appendChild(summary);
+      const label = appendText('label', 'exercise-label', '解释为什么两个输出不同：', el);
+      const multiline = document.createElement('span'); multiline.className = 'exercise-multiline';
+      const numbers = document.createElement('span'); numbers.className = 'exercise-line-numbers'; numbers.setAttribute('aria-hidden', 'true');
+      const note = document.createElement('textarea'); note.rows = 3; note.value = values.explain || ''; note.disabled = locked;
+      const mirror = document.createElement('span'); mirror.className = 'exercise-line-mirror'; mirror.setAttribute('aria-hidden', 'true'); multiline.append(numbers, note, mirror); label.appendChild(multiline);
+      const sizeNote = () => { note.style.height = 'auto'; note.style.height = Math.max(note.scrollHeight + note.offsetHeight - note.clientHeight, parseFloat(getComputedStyle(note).lineHeight) * 3 + 10) + 'px'; numbers.replaceChildren(); mirror.replaceChildren(); const lines = note.value.split('\n'); while (lines.length < 3) lines.push(''); for (const [index, line] of lines.entries()) { const measured = document.createElement('span'); measured.textContent = line || '\u200b'; mirror.appendChild(measured); const n = document.createElement('span'); n.textContent = String(index + 1); numbers.appendChild(n); } requestAnimationFrame(() => { for (let i = 0; i < numbers.children.length; i++) numbers.children[i].style.height = mirror.children[i].getBoundingClientRect().height + 'px'; }); };
+      note.addEventListener('input', () => { values.explain = note.value; saveForm(turn); sizeNote(); }); note.resizeForm = sizeNote; formResizeObserver?.observe(note); requestAnimationFrame(sizeNote);
+      for (const [type, id, title, options] of [['radio', 'choice', '哪一种情况发生了？', ['进一格', '没有进一格']], ['checkbox', 'check', '适用的操作：', ['先取模', '再取整']]]) {
+        const group = document.createElement('fieldset'); const legend = document.createElement('legend'); legend.textContent = title; group.appendChild(legend);
+        for (const option of options) { const choice = document.createElement('label'), control = document.createElement('input'); control.type = type; control.name = `${turn.id}-${id}`; control.disabled = locked; control.checked = type === 'radio' ? values[id] === option : Boolean(values[id]?.includes(option)); control.addEventListener('change', () => { if (type === 'radio') values[id] = option; else { const checked = new Set(values[id] || []); control.checked ? checked.add(option) : checked.delete(option); values[id] = [...checked]; } saveForm(turn); }); choice.append(control, document.createTextNode(option)); group.appendChild(choice); }
+        el.appendChild(group);
+      }
+      const fileGroup = document.createElement('fieldset'), fileTitle = document.createElement('legend'); fileTitle.textContent = '提供参考资料以核对题目'; fileGroup.appendChild(fileTitle);
+      const choices = document.createElement('span'); choices.className = 'form-attachment-menu'; choices.hidden = true;
+      const pick = document.createElement('button'); pick.type = 'button'; pick.textContent = '添加附件'; pick.disabled = locked; pick.setAttribute('aria-expanded', 'false'); pick.addEventListener('click', () => { choices.hidden = !choices.hidden; pick.setAttribute('aria-expanded', String(!choices.hidden)); }); fileGroup.append(pick, choices);
+      for (const [title, picker] of [['上传文件', 'form-file-input'], ['引用文件', 'form-path-file-input'], ['引用文件夹', 'form-folder-input']]) { const button = document.createElement('button'); button.type = 'button'; button.textContent = title; button.disabled = locked; button.addEventListener('click', () => { choices.hidden = true; pick.setAttribute('aria-expanded', 'false'); formAttachmentOrigin = { sessionId: current().id, turnId: turn.id, fieldId: 'source-material', purpose: '核对题目的参考资料' }; $(picker).click(); }); choices.appendChild(button); } el.appendChild(fileGroup);
+      if (locked) appendText('small', 'exercise-locked', '已随下一条消息提交', el);
+      else if (form.assessment) appendText('small', 'exercise-locked', '已根据 AI 判题重新开放，可修改后再次提交。', el);
+      parent.appendChild(el); return;
+    }
     if (item.kind === 'heading') { el = document.createElement('div'); el.className = 'passage passage-heading'; el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0'); el.dataset.headingId = item.id; const mark = document.createElement('span'); mark.className = 'heading-number'; mark.textContent = `[${number}:${heading}]`; markerLength = mark.textContent.length; el.append(mark); }
     else if (item.kind === 'math') { el = document.createElement('div'); el.className = 'passage formula'; try { katex.render(item.text, el, { displayMode: true, throwOnError: false, output: 'html' }); } catch { el.textContent = item.text; } if (item.number) appendText('span', 'formula-number', item.number, el); }
     else if (item.kind === 'image') { el = document.createElement('div'); el.className = 'passage'; const img = document.createElement('img'); img.src = item.src; img.alt = item.alt || ''; img.className = 'sample-image'; el.appendChild(img); }
@@ -223,7 +273,7 @@
   function renderTurn(turn, i) {
       const wrap = document.createElement('section'); wrap.className = 'turn';
       const q = appendText('div', 'turn-question', turn.question, wrap); const num = document.createElement('span'); num.className = 'turn-number'; num.textContent = `[${i + 1}]`; q.prepend(num);
-      if (i === 0 && current().parent && current().source?.blockId && session(current().parent)) {
+      if (i === 0 && current().parent && current().source?.blockId && session(current().parent) && !(turn.references || []).some(ref => ref.sourceLocked)) {
         const origin = document.createElement('button'); origin.type = 'button'; origin.className = 'sent-origin'; origin.dataset.sourceSession = current().id;
         const sourceText = (current().source.quote || '提问出处').replace(/\s+/g, ' ').trim();
         origin.textContent = '引用：' + Array.from(sourceText).slice(0, 80).join(''); origin.title = sourceText; wrap.appendChild(origin);
@@ -313,7 +363,7 @@
     const question = composer.value.trim(); if (!question && !selected.length && !files.length) { composer.focus(); return; }
     if (!queued && !current().turns.length) { $('status').textContent = '没有可引导的模拟轮次。'; return; }
     const before = JSON.stringify(state), item = { id: uid(), question, references: structuredClone(selected), attachments: structuredClone(files) };
-    current().references = refs.filter(ref => ref.selected === false); current().attachments = []; current().draft = '';
+    current().references = refs.filter(ref => ref.sourceLocked || ref.selected === false); current().references.filter(ref => ref.sourceLocked && ref.selected !== false).forEach(ref => { ref.selected = false; }); current().attachments = []; current().draft = '';
     if (queued) { state.followups ||= {}; (state.followups[current().id] ||= []).push(item); }
     else { const turn = current().turns.at(-1); if (!turn) { $('status').textContent = '没有可引导的模拟轮次。'; return; } (turn.steers ||= []).push(item); }
     if (!save()) { state = JSON.parse(before); $('status').textContent = '无法保存，输入内容已保留。'; return; }
@@ -325,7 +375,8 @@
   function dispatchFollowup() {
     const id = current().id, items = state.followups?.[id] || [];
     if (state.pausedFollowups?.[id] || !items.length) { running.delete(id); return false; }
-    const item = items.shift(); current().turns.push({ ...item, answer: demoAnswer(item.question, ''), demo: true });
+    const item = items.shift(), formResponses = current().turns.filter(turn => turn.formValues && !formState(turn).locked).map(turn => ({ turnId: turn.id, values: structuredClone(turn.formValues) })), formAssessment = gradeDemo(item.question, formResponses);
+    current().turns.push({ ...item, formResponses, formAssessment, answer: formAssessment ? [block('paragraph', '示例判题已标在原表格中；这只是原型预设结果。')] : demoAnswer(item.question, ''), demo: true });
     if (!save()) { current().turns.pop(); items.unshift(item); running.delete(id); return false; }
     running.add(id); renderTranscript(); $('status').textContent = '示例队列已发送一条；未连接 AI。'; return true;
   }
@@ -397,8 +448,15 @@
   function setPending(kind) {
     if (!currentSelection) return;
     if (kind === 'quote') { addReference(currentSelection); return; }
-    persistCurrent(); state.pending = { kind, parentId: state.active, quote: currentSelection.quote, blockId: currentSelection.blockId, endBlockId: currentSelection.endBlockId, endTextOffset: currentSelection.endTextOffset, sourceTextOffset: currentSelection.textOffset, sourceKind: currentSelection.kind, svg: currentSelection.svg, src: currentSelection.src, large: currentSelection.large, draft: '' };
-    $('selection-tools').hidden = true; window.getSelection()?.removeAllRanges(); setComposer(); composer.focus(); save();
+    persistCurrent();
+    const previous = JSON.stringify(state), parent = current(), context = currentSelection;
+    const source = { blockId: context.blockId, endBlockId: context.endBlockId, endTextOffset: context.endTextOffset, textOffset: context.textOffset, quote: context.quote, kind: context.kind, svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large };
+    const origin = { id: uid(), sessionId: parent.id, ...source, sourceLocked: true, comment: '', selected: true, attachments: [] };
+    const child = { id: uid(), title: Array.from(context.quote || '追问').slice(0, 16).join(''), parent: parent.id, source, draft: '', references: [origin], attachments: [], turns: [] };
+    state.sessions.push(child);
+    if (!save()) { state = JSON.parse(previous); return; }
+    $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges();
+    navigate(child.id); composer.focus(); $('status').textContent = '追问来源已加入引用，可继续填写问题。';
   }
   function renderReferencesButton() { $('references-toggle').textContent = '引用 · ' + ensureSession(current()).references.length; }
   function renderReferenceEditor() { const ref = ensureSession(current()).references.find(r => r.id === editingReference); if (!ref) return; const preview = $('reference-preview'); preview.replaceChildren(); renderReferencePreview(preview, ref); $('reference-comment').value = ref.comment || ''; const media = $('reference-attachments'); media.replaceChildren(); renderAttachments(media, ref.attachments, 'reference', ref.id); }
@@ -410,14 +468,15 @@
   function renderReferenceList() {
     const list = $('references-list'); list.replaceChildren(); const refs = ensureSession(current()).references;
     if (!refs.length) { appendText('p', 'bookmarks-empty', '还没有引用。选择内容后可添加。', list); return; }
-    refs.forEach((ref, i) => { const row = document.createElement('section'); row.className = 'reference-row'; const head = document.createElement('div'); head.className = 'reference-head'; const check = document.createElement('input'); check.type = 'checkbox'; check.checked = ref.selected !== false; check.dataset.referenceSelected = ref.id; check.setAttribute('aria-label', '携带引用 ' + (i + 1)); head.appendChild(check); appendText('span', '', '引用 ' + (i + 1), head); const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.referenceEdit = ref.id; edit.textContent = '编辑'; head.appendChild(edit); const remove = document.createElement('button'); remove.type = 'button'; remove.dataset.referenceRemove = ref.id; remove.textContent = '删除'; head.appendChild(remove); row.appendChild(head); renderReferencePreview(row, ref); if (ref.comment) appendText('div', '', ref.comment, row); renderAttachments(row, ref.attachments); list.appendChild(row); });
+    refs.forEach((ref, i) => { const row = document.createElement('section'); row.className = 'reference-row'; const head = document.createElement('div'); head.className = 'reference-head'; const check = document.createElement('input'); check.type = 'checkbox'; check.checked = ref.selected !== false; check.dataset.referenceSelected = ref.id; check.setAttribute('aria-label', '携带引用 ' + (i + 1)); head.appendChild(check); appendText('span', '', ref.sourceLocked ? '追问来源' : '引用 ' + (i + 1), head); const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.referenceEdit = ref.id; edit.textContent = '编辑'; head.appendChild(edit); const remove = document.createElement('button'); remove.type = 'button'; remove.dataset.referenceRemove = ref.id; remove.textContent = '删除'; if (ref.sourceLocked) { remove.disabled = true; remove.title = '追问来源暂不可删除'; } head.appendChild(remove); row.appendChild(head); renderReferencePreview(row, ref); if (ref.comment) appendText('div', '', ref.comment, row); renderAttachments(row, ref.attachments); list.appendChild(row); });
   }
   function mainAttachments() { const pending = state.pending?.kind === 'branch' && state.pending.parentId === state.active ? state.pending : null; if (pending) { pending.attachments ||= []; return pending.attachments; } return ensureSession(current()).attachments; }
   function renderMainAttachments() { const box = $('attachment-list'); box.replaceChildren(); const attachments = mainAttachments(); renderAttachments(box, attachments, 'main'); if (!attachments.length) appendText('p', 'bookmarks-empty', '还没有附件。', box); $('attachments-toggle').textContent = '附件 · ' + attachmentGroups(attachments).length; }
-  function addPathReferences(names, kind) {
+  function addPathReferences(names, kind, formOrigin = null) {
     const target = mainAttachments(), added = names.map(name => kind === 'directory'
       ? { id: uid(), name, path: name + '/', directory: name + '/', referenceKind: kind }
       : { id: uid(), name, path: name, referenceKind: kind });
+    if (formOrigin) added.forEach(item => { item.formOrigin = formOrigin; });
     target.push(...added);
     if (!saveDraft()) { target.splice(target.length - added.length, added.length); return; }
     renderMainAttachments(); $('status').textContent = '已添加路径引用示例；原型不能读取本机路径。';
@@ -455,12 +514,12 @@
     for (let i = stash.length - 1; i >= 0; i--) { const item = stash[i], needed = mentionCount(composer.value, item.mentionToken) - attachments.filter(existing => existing.mentionToken === item.mentionToken).length; if (needed <= 0) continue; if (mentionHistoryInput) attachments.push(item); stash.splice(i, 1); }
     return removed.length > 0 || attachments.some(item => item.mentionToken);
   }
-  async function appendFiles(files, referenceId) {
+  async function appendFiles(files, referenceId, formOrigin = null) {
     const originSession = state.active;
     const ref = referenceId ? ensureSession(current()).references.find(r => r.id === referenceId) : null; if (referenceId && !ref) return;
     const target = ref ? (ref.attachments ||= []) : mainAttachments(); const staged = [], directoryGroups = new Map();
     pendingFileReads++; $('send').disabled = true; $('status').textContent = '正在读取附件。';
-    try { for (const entry of files) { const file = entry.file || entry; const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); }); const path = (entry.path || file.webkitRelativePath || file.name).replaceAll('\\', '/'); const directory = path.includes('/') ? path.split('/')[0] + '/' : ''; if (directory && !directoryGroups.has(directory)) directoryGroups.set(directory, uid()); staged.push({ id: uid(), name: file.name, path, ...(directory ? { directory, attachmentGroup: directoryGroups.get(directory) } : {}), type: file.type, size: file.size, data }); } if (ref && !session(originSession)?.references?.includes(ref)) throw new Error('reference removed'); target.push(...staged); const moved = state.active !== originSession; const ok = moved ? save() : ref ? saveReferences() : saveDraft(); if (!ok) throw new Error('storage'); if (moved) { localStorage.removeItem(referencesKey(originSession)); localStorage.removeItem(draftKey(originSession)); } else { if (ref) renderReferenceEditor(); else renderMainAttachments(); } $('status').textContent = '附件已保存在此浏览器的示例会话中。'; }
+    try { for (const entry of files) { const file = entry.file || entry; const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); }); const path = (entry.path || file.webkitRelativePath || file.name).replaceAll('\\', '/'); const directory = path.includes('/') ? path.split('/')[0] + '/' : ''; if (directory && !directoryGroups.has(directory)) directoryGroups.set(directory, uid()); staged.push({ id: uid(), name: file.name, path, ...(directory ? { directory, attachmentGroup: directoryGroups.get(directory) } : {}), ...(formOrigin ? { formOrigin } : {}), type: file.type, size: file.size, data }); } if (ref && !session(originSession)?.references?.includes(ref)) throw new Error('reference removed'); target.push(...staged); const moved = state.active !== originSession; const ok = moved ? save() : ref ? saveReferences() : saveDraft(); if (!ok) throw new Error('storage'); if (moved) { localStorage.removeItem(referencesKey(originSession)); localStorage.removeItem(draftKey(originSession)); } else { if (ref) renderReferenceEditor(); else renderMainAttachments(); } $('status').textContent = '附件已保存在此浏览器的示例会话中。'; }
     catch { for (const file of staged) { const i = target.indexOf(file); if (i >= 0) target.splice(i, 1); } $('status').textContent = '无法保存附件；文件可能超过浏览器存储容量。'; }
     finally { pendingFileReads--; $('send').disabled = pendingFileReads > 0 || running.has(current().id); }
   }
@@ -474,12 +533,16 @@
     if (running.has(current().id)) return;
     if (pendingFileReads) { $('status').textContent = '请等待附件读取完成。'; return; }
     const question = composer.value.trim(); const refs = ensureSession(current()).references; const selected = refs.filter(ref => ref.selected !== false); const files = mainAttachments();
-    if (!question && !selected.length && !files.length) { composer.focus(); return; }
+    const openForms = current().turns.filter(turn => turn.formValues && !formState(turn).locked), hasFormValues = openForms.some(turn => Object.values(turn.formValues).some(value => Array.isArray(value) ? value.length : value !== '' && value != null));
+    if (!question && !selected.length && !files.length && !hasFormValues) { composer.focus(); return; }
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     const previousState = JSON.stringify(state);
     const previousSessionId = state.active;
     const sentReferences = JSON.parse(JSON.stringify(selected)), sentAttachments = JSON.parse(JSON.stringify(files));
-    current().references = refs.filter(ref => ref.selected === false);
+    const formResponses = openForms.map(turn => ({ turnId: turn.id, values: structuredClone(turn.formValues) }));
+    const formAssessment = gradeDemo(question, formResponses);
+    current().references = refs.filter(ref => ref.sourceLocked || ref.selected === false);
+    current().references.filter(ref => ref.sourceLocked && ref.selected !== false).forEach(ref => { ref.selected = false; });
     const branching = pending && pending.kind === 'branch';
     if (branching) {
       const parent = current();
@@ -487,13 +550,13 @@
       if (state.pendingBySession) delete state.pendingBySession[parent.id]; state.sessions.push(child); state.active = child.id; state.selected = child.id; state.pending = null;
       child.turns.push({ id: uid(), question, references: sentReferences, attachments: sentAttachments, answer: demoAnswer(question, pending.quote), demo: true });
     } else {
-      current().turns.push({ id: uid(), question, references: sentReferences, attachments: sentAttachments, quote: pending && pending.kind === 'quote' ? pending.quote : '', answer: demoAnswer(question, pending && pending.quote), demo: true });
+      current().turns.push({ id: uid(), question: question || (hasFormValues ? '已提交填写内容' : ''), references: sentReferences, attachments: sentAttachments, formResponses, formAssessment, quote: pending && pending.kind === 'quote' ? pending.quote : '', answer: formAssessment ? [block('paragraph', '示例判题已标在原表格中；这只是原型预设结果。')] : demoAnswer(question, pending && pending.quote), demo: true });
       current().draft = ''; current().attachments = []; state.pending = null;
     }
     if (!save()) { state = JSON.parse(previousState); $('status').textContent = '无法保存本次问题，输入内容已保留。'; composer.focus(); return; }
     mentionUndo.delete(previousSessionId); mentionUndo.delete(previousSessionId + ':branch'); mentionHistoryInput = false;
     if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); localStorage.removeItem(referencesKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
-    composer.value = ''; if (branching) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
+    composer.value = ''; if (branching || formResponses.length || formAssessment) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
     requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
     $('status').textContent = '已保存示例问题和附件；下方是预设答复，未连接 AI。';
   }
@@ -558,7 +621,7 @@
   $('bookmarks-list').addEventListener('click', e => { const openId = e.target.closest('[data-bookmark-open]')?.dataset.bookmarkOpen; if (openId) { const bookmark = state.bookmarks.find(item => item.id === openId); if (bookmark) goBookmark(bookmark); return; } const deleteId = e.target.closest('[data-bookmark-delete]')?.dataset.bookmarkDelete; if (!deleteId) return; const index = state.bookmarks.findIndex(item => item.id === deleteId); if (index < 0) return; const removed = state.bookmarks.splice(index, 1)[0]; if (!save()) { state.bookmarks.splice(index, 0, removed); return; } renderBookmarks(); $('status').textContent = '已删除书签：' + removed.label; });
   $('references-toggle').addEventListener('click', () => { renderReferenceList(); $('references-panel').showModal(); }); $('references-close').addEventListener('click', () => $('references-panel').close());
   $('attachments-toggle').addEventListener('click', () => { renderMainAttachments(); $('attachments-panel').showModal(); }); $('attachments-close').addEventListener('click', () => $('attachments-panel').close());
-  $('references-list').addEventListener('click', e => { const edit = e.target.closest('[data-reference-edit]')?.dataset.referenceEdit; if (edit) { openReference(edit); return; } const remove = e.target.closest('[data-reference-remove]')?.dataset.referenceRemove; if (!remove) return; const refs = ensureSession(current()).references, index = refs.findIndex(r => r.id === remove); if (index < 0) return; const old = refs.splice(index, 1)[0]; if (!saveReferences()) { refs.splice(index, 0, old); return; } renderReferenceList(); renderReferencesButton(); });
+  $('references-list').addEventListener('click', e => { const edit = e.target.closest('[data-reference-edit]')?.dataset.referenceEdit; if (edit) { openReference(edit); return; } const remove = e.target.closest('[data-reference-remove]')?.dataset.referenceRemove; if (!remove) return; const refs = ensureSession(current()).references, index = refs.findIndex(r => r.id === remove); if (index < 0 || refs[index].sourceLocked) return; const old = refs.splice(index, 1)[0]; if (!saveReferences()) { refs.splice(index, 0, old); return; } renderReferenceList(); renderReferencesButton(); });
   $('references-list').addEventListener('change', e => { const id = e.target.dataset.referenceSelected; const ref = ensureSession(current()).references.find(r => r.id === id); if (ref) { const old = ref.selected; ref.selected = e.target.checked; if (!saveReferences()) { ref.selected = old; e.target.checked = old !== false; } } });
   $('reference-comment').addEventListener('input', () => { const ref = ensureSession(current()).references.find(r => r.id === editingReference); if (ref) { ref.comment = $('reference-comment').value; saveReferences(); } });
   $('reference-comment').addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); $('reference-confirm').click(); } });
@@ -576,8 +639,12 @@
   $('file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) appendFiles(files); });
   $('path-file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) addPathReferences(files.map(file => file.name), 'file'); });
   $('folder-input').addEventListener('change', e => { const files = Array.from(e.target.files || []); e.target.value = ''; if (files.length) addPathReferences([...new Set(files.map(file => file.webkitRelativePath.split('/')[0]))], 'directory'); else $('status').textContent = '浏览器无法选择空文件夹，或选择已取消。'; });
+  $('form-file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []), origin = formAttachmentOrigin; e.target.value = ''; formAttachmentOrigin = null; if (origin?.sessionId !== state.active) { $('status').textContent = '会话已切换，请在原会话重新选择文件。'; return; } if (files.length) appendFiles(files, null, origin); });
+  $('form-path-file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []), origin = formAttachmentOrigin; e.target.value = ''; formAttachmentOrigin = null; if (origin?.sessionId !== state.active) { $('status').textContent = '会话已切换，请在原会话重新选择文件。'; return; } if (files.length) addPathReferences(files.map(file => file.name), 'file', origin); });
+  $('form-folder-input').addEventListener('change', e => { const files = Array.from(e.target.files || []), origin = formAttachmentOrigin; e.target.value = ''; formAttachmentOrigin = null; if (origin?.sessionId !== state.active) { $('status').textContent = '会话已切换，请在原会话重新选择文件夹。'; return; } if (files.length) addPathReferences([...new Set(files.map(file => file.webkitRelativePath.split('/')[0]))], 'directory', origin); });
   if (!('webkitdirectory' in $('folder-input'))) { $('attach-folder').disabled = true; $('attach-folder').textContent = '引用文件夹（浏览器不支持）'; }
   $('demo-assets').addEventListener('click', () => { const turn = { id: uid(), question: '图文交互示例', answer: demoAssetBlocks(), demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } transcript.appendChild(renderTurn(turn, current().turns.length - 1)); requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '已添加图文示例；右键公式或图片可操作。'; });
+  $('demo-forms').addEventListener('click', () => { const turn = { id: uid(), question: '给我出几道可以填写的题。', answer: [block('heading', '什么时候进一格？'), block('paragraph', '填写下表，再说明两个相邻输入的输出为什么不同。'), { id: uid(), kind: 'exercise', text: '' }], demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } renderTranscript(); requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '填写示例已添加；发送下一条消息后锁定。'; });
   reader.addEventListener('pointerup', showSelection); reader.addEventListener('keyup', showSelection);
   reader.addEventListener('scroll', () => { if (!mapOpen) { current().viewport = reader.scrollTop; try { localStorage.setItem(viewportKey(state.active), String(reader.scrollTop)); } catch { $('status').textContent = '当前浏览器无法保存视口位置。'; } } }, { passive: true });
   function toggleHeading(target) { const heading = target.closest('[data-heading-id]'); if (!heading || window.getSelection()?.toString().trim()) return; const section = heading.closest('.turn'), turnIndex = Array.from(transcript.children).indexOf(section); const turn = current().turns[turnIndex]; if (!turn) return; const collapsed = heading.getAttribute('aria-expanded') === 'true'; turn.collapsedSections ||= {}; turn.collapsedSections[heading.dataset.headingId] = collapsed; syncFoldVisibility(section, turn); save(); }

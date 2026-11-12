@@ -1,0 +1,20 @@
+diff --git a/artifacts/forms-perf-0414/after-source/src/TeXeed.App/Controls/MarkdownView.Media.cs b/artifacts/forms-perf-0414/width-control-source/src/TeXeed.App/Controls/MarkdownView.Media.cs
+index 655e696..acc4ce7 100644
+--- a/artifacts/forms-perf-0414/after-source/src/TeXeed.App/Controls/MarkdownView.Media.cs
++++ b/artifacts/forms-perf-0414/width-control-source/src/TeXeed.App/Controls/MarkdownView.Media.cs
+@@ -57,15 +57,6 @@ public sealed partial class MarkdownView
+                 var text = new TextRange(cell.ContentStart, cell.ContentEnd).Text.Trim();
+                 var measured = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                     new Typeface(FontFamily, FontStyles.Normal, cell.FontWeight, FontStretches.Normal), FontSize, Brushes.Black, 1).WidthIncludingTrailingWhitespace;
+-                if (_forms is not null)
+-                {
+-                    for (var pointer = cell.ContentStart; pointer is not null && pointer.CompareTo(cell.ContentEnd) < 0; pointer = pointer.GetNextContextPosition(LogicalDirection.Forward))
+-                    {
+-                        if (pointer.GetPointerContext(LogicalDirection.Forward) != TextPointerContext.ElementStart || pointer.GetAdjacentElement(LogicalDirection.Forward) is not InlineUIContainer { Child: Control control } || !view._formControls.Contains(control)) continue;
+-                        control.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+-                        measured += control.DesiredSize.Width;
+-                    }
+-                }
+                 widths[i] = Math.Max(widths[i], Math.Clamp(measured + 18, 80, 360));
+             }
+         foreach (var width in widths) table.Columns.Add(new TableColumn { Width = new GridLength(width) });

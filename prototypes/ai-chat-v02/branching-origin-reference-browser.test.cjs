@@ -1,0 +1,53 @@
+'use strict';
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright');
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, ...(process.env.TEXEED_BROWSER_PATH ? { executablePath: process.env.TEXEED_BROWSER_PATH } : {}) });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.goto(pathToFileURL(path.join(__dirname, 'branching.html')).href);
+    await page.waitForFunction(() => !!window.branchDemo);
+    await page.evaluate(() => branchDemo.reset());
+    await page.locator('#composer').fill('上游尚未发送的草稿');
+    const math = page.locator('.passage.formula').first();
+    await math.scrollIntoViewIfNeeded();
+    await math.click({ button: 'right' });
+    await page.locator('#context-branch').click();
+    let snapshot = await page.evaluate(() => branchDemo.getState());
+    assert.equal(snapshot.sessions.length, 2, '从公式立即创建新会话');
+    assert.equal(snapshot.sessions[0].draft, '上游尚未发送的草稿');
+    let child = snapshot.sessions.find(session => session.id === snapshot.active);
+    assert.equal(child.turns.length, 0, '没有请求 AI');
+    assert.equal(child.parent, snapshot.sessions[0].id);
+    assert.equal(child.references.length, 1, '新会话应立即显示来源引用');
+    assert.equal(child.references[0].kind, 'math');
+    assert.ok(child.references[0].math && child.references[0].svg, '公式来源保存原 TeX 与 SVG');
+    assert.equal(child.references[0].sourceLocked, true);
+    await page.locator('#references-toggle').click();
+    assert.match(await page.locator('#references-list').innerText(), /追问来源/);
+    assert.equal(await page.locator('#references-list [data-reference-remove]').isDisabled(), true, '来源不可删除');
+    assert.equal(await page.locator('#references-list .formula-svg').count(), 1, '预览显示公式 SVG');
+    await page.locator('#references-close').click();
+    await page.locator('#composer').fill('出几道题验证这条公式');
+    await page.locator('#send').click();
+    snapshot = await page.evaluate(() => branchDemo.getState());
+    child = snapshot.sessions.find(session => session.id === snapshot.active);
+    assert.equal(child.turns.length, 1);
+    assert.equal(child.turns[0].references[0].math, child.references[0].math, '发送快照保留公式');
+    assert.equal(child.references[0].sourceLocked, true, '发送后来源仍保留');
+    assert.equal(child.references[0].selected, false, '发送后不重复携带来源');
+    assert.equal(await page.locator('#transcript .sent-reference .formula-svg').count(), 1, '发送后正确呈现公式引用');
+    await page.reload();
+    await page.waitForFunction(() => !!window.branchDemo);
+    snapshot = await page.evaluate(() => branchDemo.getState());
+    child = snapshot.sessions.find(session => session.id === snapshot.active);
+    assert.equal(child.references[0].sourceLocked, true, '重开后来源仍保留');
+    assert.equal(snapshot.sessions[0].draft, '上游尚未发送的草稿');
+    assert.deepEqual(errors, []);
+    console.log('PASS branch formula origin: immediate locked reference, SVG, sent snapshot, reload and parent draft.');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

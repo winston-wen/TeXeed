@@ -10,6 +10,18 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
+    private sealed class FormAttachmentReadBatch { internal int Count; internal bool Failed; }
+    private readonly Dictionary<AiConversation, FormAttachmentReadBatch> _pendingFormAttachmentReads = [];
+
+    private bool HasPendingFormAttachmentReads(AiConversation conversation) => _pendingFormAttachmentReads.ContainsKey(conversation);
+
+    private bool BlockPendingFormAttachmentRead(AiConversation conversation)
+    {
+        if (!HasPendingFormAttachmentReads(conversation)) return false;
+        StatusText.Text = "正在读取表单附件，请等待读取完成后再发送或排队。";
+        return true;
+    }
+
     private async void AttachFiles_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog { Multiselect = true, Title = "选择附件" };
@@ -22,7 +34,7 @@ public partial class AiPanel
         if (dialog.ShowDialog() == true) AddFileReferences(dialog.FileNames);
     }
 
-    internal bool AddFileReferences(IEnumerable<string> paths)
+    internal bool AddFileReferences(IEnumerable<string> paths, AiFormAttachmentOrigin? origin = null, Func<bool>? stillAvailable = null)
     {
         try
         {
@@ -35,7 +47,9 @@ public partial class AiPanel
                 { ReferenceKind = "file", ReferencePath = fullPath });
             }
             if (files.Count == 0) { StatusText.Text = "没有可引用的文件。"; return false; }
+            if (stillAvailable?.Invoke() == false) { StatusText.Text = "会话已切换或表单已提交，请在目标会话中重新添加附件。"; return false; }
             var entry = new AiEntry { Title = files.Count == 1 ? "文件引用：" + files[0].Name : $"文件引用：{files.Count} 个文件", EntryKind = "attachment", Files = files };
+            if (origin is not null) AiFormAttachmentOrigins.Set(entry, origin);
             if (!AddEntry(entry)) return false;
             StatusText.Text = "文件路径已添加到附件列表。"; return true;
         }
@@ -71,26 +85,53 @@ public partial class AiPanel
         { e.Handled = true; StatusText.Text = "无法读取剪贴板：" + ex.Message; }
     }
 
-    internal async Task<bool> AddAttachmentsAsync(IEnumerable<string> paths)
+    internal async Task<bool> AddAttachmentsAsync(IEnumerable<string> paths, AiFormAttachmentOrigin? origin = null, Func<bool>? stillAvailable = null,
+        Func<CancellationToken, Task>? beforeFormRead = null)
     {
         var conversation = _book.Active;
+        if (origin is not null && _queueDispatching && ReferenceEquals(conversation, _queueDispatchConversation))
+        { StatusText.Text = "排队消息正在发送，请稍后再添加表单附件。"; return false; }
+        var book = _book;
         var pathSnapshot = paths.ToArray();
+        FormAttachmentReadBatch? batch = null;
+        if (origin is not null)
+        {
+            if (!_pendingFormAttachmentReads.TryGetValue(conversation, out batch)) _pendingFormAttachmentReads[conversation] = batch = new();
+            batch.Count++;
+        }
         StatusText.Text = "正在读取附件…";
+        var added = false;
         try
         {
+            if (origin is not null && beforeFormRead is not null) await beforeFormRead(_lifetime.Token);
             var read = await Task.Run(() => ReadAttachmentFiles(pathSnapshot, _lifetime.Token));
             if (_disposed) return false;
-            if (!ReferenceEquals(_book.Active, conversation)) { StatusText.Text = "会话已切换，请在目标会话中重新添加附件。"; return false; }
+            if (!ReferenceEquals(_book.Active, conversation) || stillAvailable?.Invoke() == false) { StatusText.Text = "会话已切换或表单已提交，请在目标会话中重新添加附件。"; return false; }
             var files = read.Files;
             var notices = read.Notices.Count == 0 ? "" : " " + string.Join("；", read.Notices.Take(10)) + (read.Notices.Count > 10 ? $"；另有 {read.Notices.Count - 10} 项未添加。" : "。");
             if (files.Count == 0) { StatusText.Text = "没有可添加的文件。" + notices; return false; }
             var entry = new AiEntry { Title = files.Count == 1 ? "附件：" + files[0].Name : $"附件：{files.Count} 个文件", EntryKind = "attachment", Files = files };
+            if (origin is not null) AiFormAttachmentOrigins.Set(entry, origin);
             if (!AddEntry(entry)) return false;
+            added = true;
             StatusText.Text = "附件已添加到附件列表。" + notices; return true;
         }
         catch (OperationCanceledException) { if (!_disposed) StatusText.Text = "已取消读取附件。"; return false; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or NotSupportedException)
         { if (!_disposed) StatusText.Text = "无法添加附件：" + ex.Message; return false; }
+        finally
+        {
+            if (batch is not null)
+            {
+                batch.Failed |= !added;
+                if (--batch.Count == 0)
+                {
+                    if (!_disposed && !_followUpsClosing && ReferenceEquals(_book, book) && ReferenceEquals(book.Active, conversation))
+                        await PauseQueueForFormAttachmentAsync(book, !batch.Failed);
+                    if (batch.Count == 0) _pendingFormAttachmentReads.Remove(conversation);
+                }
+            }
+        }
     }
 
     private sealed record AttachmentReadResult(List<AiAttachedFile> Files, List<string> Notices);
@@ -156,9 +197,11 @@ public partial class AiPanel
     {
         if (!_book.Entries.Contains(entry) || entry.State == "提交中") return;
         if (!entry.Files.Remove(file)) return;
+        InvalidateAttachmentFeedback(entry);
         if (entry.Files.Count == 0 && entry.Images.Count == 0 && entry.AnswerAnchor is null && entry.Sources.Count == 0 && entry.PdfBlocks.Count == 0 && string.IsNullOrWhiteSpace(entry.Question))
             RemoveAnnotation(entry);
         else { UpdateAttachmentTitle(entry); Rebind(); Dirty(); }
+        RefreshFormEnabled();
     }
 
     internal void RemoveAttachmentItem(AiEntry entry, AiAttachmentItem item)
@@ -167,9 +210,11 @@ public partial class AiPanel
         var removed = false;
         foreach (var file in item.Files) removed |= entry.Files.Remove(file);
         if (!removed) return;
+        InvalidateAttachmentFeedback(entry);
         if (entry.Files.Count == 0 && entry.Images.Count == 0 && entry.AnswerAnchor is null && entry.Sources.Count == 0 && entry.PdfBlocks.Count == 0 && string.IsNullOrWhiteSpace(entry.Question))
             RemoveAnnotation(entry);
         else { UpdateAttachmentTitle(entry); Rebind(); Dirty(); }
+        RefreshFormEnabled();
     }
 
     private static void UpdateAttachmentTitle(AiEntry entry)

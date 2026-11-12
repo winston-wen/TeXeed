@@ -65,6 +65,26 @@ internal static partial class Program
             var child = book.Conversations.Single(c => c.ParentConversationId == root.Id);
             if (opened != child.Id || child.InheritedTurns.Count != 1 || child.BranchAnchor is null || root.Draft != "保留主会话草稿") throw new Exception("Branch failed to preserve origin, context or draft");
             await panel.SelectConversationAsync(child.Id);
+            var branchOrigin = child.Entries.Single();
+            if (branchOrigin.AnswerAnchor != child.BranchAnchor || !branchOrigin.ReferenceSelected || branchOrigin.CanRemoveReference ||
+                !AiSessionExcerptReferences.TryRead(branchOrigin, out var originInfo) || originInfo?.SourceConversationId != root.Id)
+                throw new Exception("New branch did not expose a protected, selected source reference");
+            Invoke(panel, "RemoveReference", branchOrigin);
+            if (!child.Entries.Contains(branchOrigin)) throw new Exception("Protected branch source was removed");
+            var sentOrigin = AiPanel.SnapshotSelectedParts(branchOrigin, true, false, 1);
+            panel.ConsumeSelectedParts(book, branchOrigin, true, false);
+            if (!child.Entries.Contains(branchOrigin) || branchOrigin.ReferenceSelected || !AiSessionExcerptReferences.TryRead(sentOrigin, out _))
+                throw new Exception("Sending discarded the branch source or its branchOrigin metadata");
+            branchOrigin.ReferenceSelected = true;
+            var other = new AiConversation { Title = "同标识的其他会话" };
+            other.Turns.Add(root.Turns[0]); book.Conversations.Add(other);
+            if (!AiSessionExcerptReferences.TryResolve(book, branchOrigin, out var foundSource, out _, out _) || foundSource != root)
+                throw new Exception("Explicit source was ambiguous when a different conversation contained the same turn");
+            book.Conversations.Remove(other);
+            var restoredOld = new AiConversation { ParentConversationId = root.Id, BranchAnchor = child.BranchAnchor, BranchContextBefore = child.BranchContextBefore, BranchContextAfter = child.BranchContextAfter, Draft = "旧草稿" };
+            restoredOld.Turns.Add(new AiTurn("旧问题", "旧回答"));
+            if (!AiSessionExcerptReferences.EnsureBranchOrigin(restoredOld) || restoredOld.Entries.Single().ReferenceSelected || restoredOld.Draft != "旧草稿" || AiSessionExcerptReferences.EnsureBranchOrigin(restoredOld))
+                throw new Exception("Old branch source restoration changed the draft, selection or duplicated the source");
             ((TextBox)panel.FindName("Composer")).Text = "保留追问草稿";
             child.Turns.Add(new AiTurn("继续问", "# 回答\n\n子会话中的追问内容。"));
             Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
@@ -127,6 +147,9 @@ internal static partial class Program
             await panel.SaveAsync();
             var restored = AiStorage.Load(project);
             if (restored.Conversations.Single(c => c.Id == grandchild.Id).InheritedTurns.Count != 2 || restored.Conversations.Single(c => c.Id == root.Id).Draft != "保留主会话草稿") throw new Exception("Reload lost branch context or draft");
+            var restoredOrigin = restored.Conversations.Single(c => c.Id == child.Id).Entries.Single(e => AiSessionExcerptReferences.IsProtected(e));
+            if (!restoredOrigin.ReferenceSelected || !AiSessionExcerptReferences.TryRead(restoredOrigin, out var restoredSource) || restoredSource?.SourceConversationId != root.Id)
+                throw new Exception("Reload lost branch source metadata or the user's selection");
             await CallAsync(owner, "InitializeAiProjectAsync", project);
             ((FrameworkElement)owner.FindName("Welcome")).Visibility = Visibility.Collapsed;
             ((FrameworkElement)owner.FindName("Workspace")).Visibility = Visibility.Visible;

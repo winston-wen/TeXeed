@@ -23,7 +23,8 @@ public partial class AiPanel
     }
     internal void RemoveAnnotation(AiEntry entry)
     {
-        if (entry.State == "提交中") return;
+        if (entry.State == "提交中" || AiSessionExcerptReferences.IsBranchOrigin(_book.Active, entry)) return;
+        InvalidateAttachmentFeedback(entry);
         if (entry.HasReference && entry.HasAttachments) { RemoveReference(entry); return; }
         _book.Entries.Remove(entry); entry.PropertyChanged -= AnnotationChanged; Rebind(); Dirty();
     }
@@ -45,6 +46,7 @@ public partial class AiPanel
         view.ChatMode = true;
         view.TurnNumber = AnswerTurn(view) is { } answerTurn ? _book.Turns.IndexOf(answerTurn) + 1 : _book.Turns.Count + 1;
         view.ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project);
+        if (AnswerTurn(view) is { } formTurn) ConfigureAnswerForms(view, formTurn);
         var layer = new AiAnnotationLayer(view, () => AnnotationEntries, entry =>
         {
             if (view.DataContext is not AiSegment segment || AnswerTurn(view) is not { } turn || entry.AnswerAnchor is not { } anchor

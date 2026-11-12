@@ -9,6 +9,7 @@ namespace TeXeed.App.Controls;
 public partial class AiPanel
 {
     private bool _followUpSaving, _queueDispatching;
+    private AiConversation? _queueDispatchConversation;
     private readonly SemaphoreSlim _followUpGate = new(1, 1);
     private TaskCompletionSource? _followUpIdle;
     private TaskCompletionSource? _queueDispatchIdle;
@@ -78,7 +79,8 @@ public partial class AiPanel
 
     private async Task AddFollowUpAsync(string kind)
     {
-        if (_project is null || _operation is null || _followUpsClosing || _followUpSaving || kind == "steer" && (_steering is null || _foldingLiveTurn is null)) return;
+        if (_project is null || _operation is null || _followUpsClosing || _followUpSaving || _formGradeCommitPending || kind == "steer" && (_steering is null || _foldingLiveTurn is null)) return;
+        if (BlockPendingFormAttachmentRead(_book.Active)) return;
         var draft = Composer.Text;
         var prompt = draft.Trim();
         var parts = _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray();
@@ -140,6 +142,7 @@ public partial class AiPanel
         var items = queue.Items;
         FollowUpDock.Visibility = items.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         FollowUpHeading.Text = queue.IsPaused ? "待处理消息 · 已暂停" : "待处理消息";
+        FollowUpHeading.ToolTip = queue.IsPaused ? queue.PauseReason : null;
         ResumeQueueButton.Visibility = queue.IsPaused && items.Any(x => x.Kind == "queue" && x.State == "pending") ? Visibility.Visible : Visibility.Collapsed;
         FollowUpItems.Children.Clear();
         foreach (var item in items)
@@ -181,6 +184,7 @@ public partial class AiPanel
     private async Task ConvertQueuedToSteerAsync(string id)
     {
         if (_followUpsClosing || _conversionIdle is not null || _operation is null || _steering is null || _foldingLiveTurn is null) return;
+        if (BlockPendingFormAttachmentRead(_book.Active)) return;
         _conversionIdle = new(TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
@@ -248,9 +252,11 @@ public partial class AiPanel
     private async Task DispatchNextQueuedAsync()
     {
         if (_queueDispatching || _followUpsClosing || _operation is not null || _disposed || _project is null) return;
+        if (BlockPendingFormAttachmentRead(_book.Active)) return;
         _queueDispatching = true;
         _queueDispatchIdle = new(TaskCreationOptions.RunContinuationsAsynchronously);
         var book = _book;
+        _queueDispatchConversation = book.Active;
         try
         {
             while (!_disposed && !_followUpsClosing && _operation is null)
@@ -258,6 +264,7 @@ public partial class AiPanel
                 AiFollowUpMessage? item = null;
                 await MutateFollowUpsAsync(book, queue =>
                 {
+                    if (BlockPendingFormAttachmentRead(book.Active)) return false;
                     item = queue.NextQueued();
                     return item is not null && queue.MarkDispatching([item.Id], null);
                 });
@@ -272,6 +279,23 @@ public partial class AiPanel
             }
         }
         catch (Exception ex) { ShowError(ex); }
-        finally { _queueDispatching = false; var idle = _queueDispatchIdle; _queueDispatchIdle = null; idle?.TrySetResult(); }
+        finally { _queueDispatching = false; _queueDispatchConversation = null; var idle = _queueDispatchIdle; _queueDispatchIdle = null; idle?.TrySetResult(); }
+    }
+
+    private async Task PauseQueueForFormAttachmentAsync(AiNotebook book, bool added)
+    {
+        try
+        {
+            var reason = added ? "表单附件已添加；已有排队消息不包含新附件，请检查后决定是否继续。" : "表单附件未能添加，请检查后决定是否继续排队。";
+            var paused = await MutateFollowUpsAsync(book, queue =>
+            {
+                if (!queue.Items.Any(item => item.Kind == "queue" && item.State == "pending")) return false;
+                queue.Pause(reason);
+                return true;
+            });
+            if (paused && !_disposed && ReferenceEquals(book, _book)) StatusText.Text = reason;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.IO.IOException or UnauthorizedAccessException)
+        { if (!_disposed && ReferenceEquals(book, _book)) ShowError(ex); }
     }
 }

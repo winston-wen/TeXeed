@@ -1,0 +1,52 @@
+'use strict';
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright');
+(async () => {
+  const browser = await chromium.launch({ headless: true, ...(process.env.TEXEED_BROWSER_PATH ? { executablePath: process.env.TEXEED_BROWSER_PATH } : {}) });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.goto(pathToFileURL(path.join(__dirname, 'branching.html')).href);
+    await page.evaluate(() => branchDemo.reset());
+    await page.locator('#demo-forms').click();
+    await page.getByLabel('A 的 a').fill('83');
+    await page.getByLabel('A 的 b').fill('99');
+    await page.locator('#composer').fill('请批改我的答案');
+    await page.locator('#send').click();
+    assert.equal(await page.getByLabel('A 的 a').isDisabled(), false, '判题后表单重新开放');
+    assert.equal(await page.locator('.exercise-verdict').filter({ hasText: 'AI 判断正确' }).count(), 1);
+    assert.equal(await page.locator('.exercise-verdict').filter({ hasText: 'AI 判断有误' }).count(), 1);
+    if (process.env.TEXEED_SCREENSHOT_PATH) { await page.getByLabel('A 的 a').scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.TEXEED_SCREENSHOT_PATH }); }
+    await page.getByLabel('A 的 b').fill('10');
+    assert.equal(await page.locator('.exercise-verdict').filter({ hasText: 'AI 判断有误' }).count(), 0, '修改后旧判断不再标在新答案上');
+    await page.getByLabel('A 的 b').fill('99');
+    assert.equal(await page.locator('.exercise-verdict').filter({ hasText: 'AI 判断有误' }).count(), 0, '改回原值也不恢复旧标记');
+    await page.getByLabel('A 的 b').fill('10');
+    await page.reload();
+    assert.equal(await page.getByLabel('A 的 b').inputValue(), '10');
+    assert.equal(await page.getByLabel('A 的 b').isDisabled(), false, '刷新保留修改与开放状态');
+    await page.locator('#composer').fill('继续讲解');
+    await page.locator('#send').click();
+    assert.equal(await page.getByLabel('A 的 b').isDisabled(), true, '再次发送后冻结');
+    let s = await page.evaluate(() => branchDemo.getState());
+    const turns = s.sessions.find(item => item.id === s.active).turns;
+    assert.equal(turns.at(-2).formAssessment.fields.Ab.value, '99', '保留上次判题的原答案');
+    assert.equal(turns.at(-1).formResponses[0].values.Ab, '10', '再次提交保存新答案');
+    await page.locator('#composer').fill('再帮我批改');
+    await page.locator('#send').click();
+    assert.equal(await page.getByLabel('A 的 b').isDisabled(), false, '针对之前的提交再次判题后开放');
+    assert.equal(await page.locator('.exercise-verdict').filter({ hasText: 'AI 判断正确' }).count(), 2);
+    s = await page.evaluate(() => branchDemo.getState());
+    assert.equal(s.sessions.find(item => item.id === s.active).turns.filter(turn => turn.formAssessment).length, 2);
+    await page.evaluate(() => branchDemo.reset());
+    await page.locator('#demo-forms').click();
+    await page.getByLabel('A 的 a').fill('83');
+    await page.locator('#send').click();
+    assert.equal(await page.getByLabel('A 的 a').isDisabled(), false, '示例练习可在未明确要求批改时判题并重开');
+    assert.equal(await page.locator('.exercise-verdict').filter({ hasText: 'AI 判断正确' }).count(), 1);
+    assert.deepEqual(errors, []);
+    console.log('PASS grading: inline marks, edit invalidation, persistence, resubmission and later regrading.');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

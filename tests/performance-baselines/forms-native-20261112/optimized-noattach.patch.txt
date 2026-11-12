@@ -1,0 +1,12 @@
+diff --git a/artifacts/forms-perf-0414/optimized-source/src/TeXeed.App/Controls/MarkdownView.Forms.cs b/artifacts/forms-perf-0414/opt-noattach-source/src/TeXeed.App/Controls/MarkdownView.Forms.cs
+index c0f668c..3ff34e2 100644
+--- a/artifacts/forms-perf-0414/optimized-source/src/TeXeed.App/Controls/MarkdownView.Forms.cs
++++ b/artifacts/forms-perf-0414/opt-noattach-source/src/TeXeed.App/Controls/MarkdownView.Forms.cs
+@@ -91,7 +91,6 @@ public sealed partial class MarkdownView
+                         numbers.SetResourceReference(Control.ForegroundProperty, "Muted");
+                         numbers.SetResourceReference(Control.BackgroundProperty, "PanelBackground");
+                         numbers.SetResourceReference(Control.BorderBrushProperty, "Guide");
+-                        numbers.Attach(box);
+                         Grid.SetColumn(box, 1); grid.Children.Add(numbers); grid.Children.Add(box);
+                         var border = new Border { Child = grid, BorderThickness = new Thickness(1) };
+                         border.SetResourceReference(Border.BorderBrushProperty, "Guide");

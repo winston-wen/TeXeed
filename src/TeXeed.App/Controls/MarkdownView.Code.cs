@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
@@ -81,7 +82,12 @@ public sealed partial class MarkdownView
         if (offset < 0) return null;
         foreach (var (pointer, length) in LegacySymbolRanges())
         {
-            if (offset < length) return pointer.GetPositionAtOffset(offset);
+            if (offset < length)
+            {
+                if (pointer.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Child: Image image }
+                    && ReferenceEquals(image.Tag, EmojiSprite.Marker)) return pointer;
+                return pointer.GetPositionAtOffset(offset);
+            }
             offset -= length;
         }
         return offset == 0 ? Document.ContentEnd : null;
@@ -98,6 +104,20 @@ public sealed partial class MarkdownView
                 pointer = table.Block.ElementEnd; continue;
             }
             var context = pointer.GetPointerContext(LogicalDirection.Forward);
+            if (context == TextPointerContext.ElementStart && pointer.GetAdjacentElement(LogicalDirection.Forward) is Span emojiSpan
+                && ReferenceEquals(emojiSpan.Tag, EmojiSprite.Marker))
+            {
+                // The old document contained one Run here. Reconstruct its symbol
+                // lengths so old anchors survive the visual substitution.
+                yield return (emojiSpan.ElementStart, 1);
+                foreach (var inline in emojiSpan.Inlines)
+                {
+                    if (inline is Run run) yield return (run.ContentStart, run.Text.Length);
+                    else if (inline is InlineUIContainer { Tag: string source } ui) yield return (ui.ElementStart, source.Length);
+                }
+                yield return (emojiSpan.ContentEnd, 1);
+                pointer = emojiSpan.ElementEnd; continue;
+            }
             if (context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
                 && pointer.GetAdjacentElement(LogicalDirection.Forward) is Span span && ReferenceEquals(span.Tag, CodeSpanMarker))
             { pointer = context == TextPointerContext.ElementStart ? span.ContentStart : span.ElementEnd; continue; }

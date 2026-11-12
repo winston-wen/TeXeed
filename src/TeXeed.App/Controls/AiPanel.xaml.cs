@@ -131,7 +131,7 @@ public partial class AiPanel : UserControl, IDisposable
         if (_book.Conversations.Sum(c => c.Entries.Concat(c.Turns.SelectMany(t => t.SentAnnotations)).Sum(e => e.PdfBlocks.Sum(p => (long)p.ImageBase64.Length))) + entry.PdfBlocks.Sum(p => (long)p.ImageBase64.Length) > 44_000_000) { StatusText.Text = "项目问题截图合计最多约 32 MB，请清除不再需要的条目。"; return false; }
         if (_book.Entries.Count >= 100) { StatusText.Text = "最多保留 100 个条目，请清除已完成条目。"; return false; }
         entry.Number = _book.Entries.Count + 1;
-        _book.Entries.Add(entry); Rebind(); Dirty();
+        _book.Entries.Add(entry); InvalidateAttachmentFeedback(entry); Rebind(); Dirty();
         if (focusComposer) Composer.Focus();
         return true;
     }
@@ -187,6 +187,7 @@ public partial class AiPanel : UserControl, IDisposable
     }
     private void RemoveReference(AiEntry entry)
     {
+        if (AiSessionExcerptReferences.IsBranchOrigin(_book.Active, entry)) return;
         if (!entry.HasAttachments) { RemoveAnnotation(entry); return; }
         entry.AnswerAnchor = null; entry.Sources.Clear(); entry.PdfBlocks.Clear(); entry.PdfRevision = "";
         if (!entry.HasAttachmentImages) entry.Images.Clear();
@@ -196,14 +197,15 @@ public partial class AiPanel : UserControl, IDisposable
     private void RemoveAttachmentEntry_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not AiEntry entry || entry.State == "提交中") return;
+        InvalidateAttachmentFeedback(entry);
         var keepReference = entry.HasReference;
         entry.Files.Clear(); if (entry.HasAttachmentImages) entry.Images.Clear(); entry.AttachmentSelection = false;
         if (!keepReference) { RemoveAnnotation(entry); return; }
         Rebind(); Dirty();
     }
     private void SelectAll_Click(object sender, RoutedEventArgs e) { foreach (var entry in _book.Entries) { entry.Selected = true; entry.ReferenceSelected = true; entry.AttachmentSelected = true; } Rebind(); Dirty(); }
-    private void ClearDone_Click(object sender, RoutedEventArgs e) { _book.Entries.RemoveAll(e => e.State == "已完成"); Rebind(); Dirty(); }
-    private void Entry_Changed(object sender, RoutedEventArgs e) => Dirty();
+    private void ClearDone_Click(object sender, RoutedEventArgs e) { _book.Entries.RemoveAll(e => e.State == "已完成" && !AiSessionExcerptReferences.IsBranchOrigin(_book.Active, e)); Rebind(); Dirty(); }
+    private void Entry_Changed(object sender, RoutedEventArgs e) { if ((sender as FrameworkElement)?.DataContext is AiEntry entry) InvalidateAttachmentFeedback(entry); Dirty(); RefreshFormEnabled(); }
     private void Question_Changed(object sender, TextChangedEventArgs e) => Dirty();
     private void AnnotationInput_Loaded(object sender, RoutedEventArgs e)
     {
@@ -297,6 +299,8 @@ public partial class AiPanel : UserControl, IDisposable
         var snapshot = entry.Snapshot(number);
         if (entry.HasReference && entry.HasAttachments && reference != attachment)
         { snapshot.SentReferencePart = reference; snapshot.SentAttachmentPart = attachment; }
+        if (reference && AiSessionExcerptReferences.IsProtected(entry))
+        { snapshot.SentReferencePart = true; snapshot.SentAttachmentPart = attachment; }
         if (!attachment)
         {
             snapshot.Files.Clear(); if (imageIsAttachment) snapshot.Images.Clear();
@@ -308,12 +312,16 @@ public partial class AiPanel : UserControl, IDisposable
         {
             snapshot.AnswerAnchor = null; snapshot.Sources.Clear(); snapshot.PdfBlocks.Clear(); snapshot.PdfRevision = "";
             if (!imageIsAttachment) snapshot.Images.Clear();
-            snapshot.Question = ""; snapshot.EntryKind = "attachment";
+            snapshot.EntryKind = "attachment";
+            snapshot.Question = attachment ? AiFormAttachmentOrigins.Description(snapshot) : "";
         }
         return snapshot;
     }
     internal void ConsumeSelectedParts(AiNotebook book, AiEntry entry, bool reference, bool attachment)
     {
+        if (reference && AiSessionExcerptReferences.IsBranchOrigin(book.Active, entry))
+        { entry.ReferenceSelected = false; reference = false; }
+        if (!reference && !attachment) return;
         var imageIsAttachment = entry.HasAttachmentImages;
         var referenceRemains = entry.HasReference && !reference;
         var attachmentRemains = entry.HasAttachments && !attachment;
@@ -336,6 +344,7 @@ public partial class AiPanel : UserControl, IDisposable
     internal async Task SubmitAsync(AiTurn? retry = null, AiFollowUpMessage? queued = null)
     {
         if (_project is null || _operation is not null || _queueDispatching && queued is null) return;
+        if (BlockPendingFormAttachmentRead(_book.Active)) return;
         if (retry is not null && (_book.Turns.LastOrDefault()?.Id != retry.Id || !retry.IsIncomplete)) return;
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
         var submittedDraft = Composer.Text;
@@ -343,33 +352,52 @@ public partial class AiPanel : UserControl, IDisposable
         var selectedParts = retry is null && queued is null ? _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray() : [];
         var selected = queued is not null ? queued.Entries.Select(e => e.Snapshot()).ToArray() : retry is null ? selectedParts.Select(x => x.Entry).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
         var sentAnnotations = queued is not null ? selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList() : retry is null ? selectedParts.Select((item, i) => SnapshotSelectedParts(item.Entry, item.Reference, item.Attachment, i + 1)).ToList() : selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
+        var submittedForms = retry is not null ? AiForms.AllFromTurn(retry).ToArray() : _book.Turns
+            .Where(turn => AiForms.SubmittedFor(_book.Active, turn.Id) is null)
+            .Select(AiForms.Snapshot).OfType<AiForms.Submission>().ToArray();
+        foreach (var submission in submittedForms) AiFormAttachmentOrigins.RecordSelected(submission, sentAnnotations);
+        var hasFormResponse = submittedForms.Any(submission => _book.Turns.FirstOrDefault(turn => turn.Id == submission.TurnId) is { } source && AiForms.HasResponse(source, submission));
         if (sentAnnotations.Any(entry => entry.HasUnresolvedAttachmentMetadata))
         { StatusText.Text = "附件经过旧版本处理后无法安全匹配，原数据已保留；请从备份恢复，或在新会话重新添加附件。"; return; }
-        if (sentAnnotations.Count == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
-        if (prompt.Length == 0 && sentAnnotations.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
-        if (sentAnnotations.Count > 20 || sentAnnotations.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || sentAnnotations.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
+        if (sentAnnotations.Count == 0 && prompt.Length == 0 && !hasFormResponse) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
+        if (prompt.Length == 0 && sentAnnotations.Any(e => string.IsNullOrWhiteSpace(e.Question)) && !hasFormResponse) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
+        if (sentAnnotations.Count > 20 || sentAnnotations.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length + submittedForms.Sum(form => (long)AiForms.Describe(form).Length + 100) > 80000 || sentAnnotations.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
         var followUpTurnSucceeded = false;
         var followUpBook = _book;
         await RunOperationAsync(async token =>
         {
-            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), Files = [.. x.Files], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
+            var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), Files = [.. x.Files], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint, AdditionalData = x.AdditionalData is null ? null : new(x.AdditionalData) }).ToList();
             if (prompt.Length > 0) batch.Insert(0, new AiEntry { Title = "统一问题", Question = prompt });
             var generation = _generation; var book = _book;
             var sentAt = DateTimeOffset.Now;
             DateTimeOffset? answeredAt = null;
             var permission = book.Active.Permission;
             var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.DisplayTitle}：{x.Question}"));
+            if (question.Length == 0 && submittedForms.Length > 0) question = "提交填写的答案";
             // Name the conversation as soon as the first valid question is accepted. The
             // initial save below persists it before any model request can fail or stall.
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             var buffer = new AiStreamBuffer();
-            var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations };
+            var pendingTurn = AiForms.WithSubmissions(new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations }, submittedForms);
+            foreach (var submission in submittedForms) batch.Add(new AiEntry { Title = "用户填写的控件", Question = "本次提交消息标识：" + pendingTurn.Id + "\n" + AiForms.Describe(submission) });
             _followUpBuffer = buffer;
             _steering = CreateSteeringController(book, pendingTurn.Id);
             _readingRestoreVersion++; _restoringReading = false;
-            _liveSegments.Clear(); LiveQuestion.Markdown = question;
+            _liveSegments.Clear();
+            LiveQuestion.SnapshotEntries = sentAnnotations;
+            LiveQuestion.RevisionSourceOverride = question;
+            LiveQuestion.LinkListNumbers = sentAnnotations.Count > 0;
+            LiveQuestion.LocalLink = key =>
+            {
+                if (key.StartsWith("snapshot-", StringComparison.Ordinal) && int.TryParse(key.AsSpan("snapshot-".Length), out var n) && n > 0 && n <= sentAnnotations.Count)
+                    OpenAnswerReference(sentAnnotations[n - 1]);
+            };
+            var liveReferences = AiReferencePresentation.Markup(sentAnnotations);
+            LiveQuestion.Markdown = sentAnnotations.Count == 0 ? question : (string.IsNullOrWhiteSpace(prompt) ? "" : prompt + "\n\n") + liveReferences;
+            if (string.IsNullOrWhiteSpace(prompt) && LiveQuestion.Document.Blocks.FirstBlock is System.Windows.Documents.List liveList)
+            { liveList.Padding = new Thickness(0); liveList.Margin = new Thickness(0); }
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
             _liveOrdinalAlignment.Schedule();
             _liveBookmarkCheckpointReady = false; _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
@@ -378,8 +406,13 @@ public partial class AiPanel : UserControl, IDisposable
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
             _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (_foldingLiveTurn == pendingTurn && !_disposed) RevealLiveTurn(); }));
             AiTurnCheckpoint checkpoint;
+            _pendingFormSubmissions.Clear();
+            foreach (var submission in submittedForms) _pendingFormSubmissions[submission.TurnId] = submission;
+            RefreshFormEnabled();
             try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
-            catch { LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            catch { _pendingFormSubmissions.Clear(); RefreshFormEnabled(); LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            foreach (var submission in submittedForms) AiForms.Lock(book.Active, submission);
+            RefreshFormEnabled();
             SteerButton.IsEnabled = true;
             RefreshFollowUps();
             book.Active.LastSentAt = sentAt;
@@ -428,6 +461,7 @@ public partial class AiPanel : UserControl, IDisposable
             }
             renderTimer.Tick += (_, _) => Flush(); Flush(); renderTimer.Start();
             var modelId = ""; var effort = ""; string? endReason = null;
+            IReadOnlySet<string> allowedGradingSources = new HashSet<string>(StringComparer.Ordinal);
             try
             {
                 await SaveAsync();
@@ -446,7 +480,7 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null, steering: _steering), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null, steering: _steering, formSourceIds: book.Turns.Select(turn => turn.Id).ToHashSet(StringComparer.Ordinal), formCurrentSubmissions: submittedForms, formCurrentSubmissionId: pendingTurn.Id, formGradingAvailable: ids => allowedGradingSources = ids.ToHashSet(StringComparer.Ordinal)), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected.Where(entry => !book.Entries.Contains(entry))) { entry.State = "已完成"; entry.Selected = false; }
@@ -468,13 +502,20 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    var completedTurn = pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, EndReason = endReason, Model = modelId, ReasoningEffort = effort, Segments = segments };
-                    book.Turns.Add(AttachSteeringHistory(completedTurn, AiFollowUpQueue.Load(book.Active).History));
-                    book.Active.UpdatedAt = DateTimeOffset.UtcNow;
-                    // Save the completed exchange before constructing its rich document.
-                    await SaveAsync(); checkpoint.Commit(); Rebind(); RefreshTranscript();
-                    await FinishFollowUpTurnAsync(book, pendingTurn.Id, queued, answeredAt is not null);
-                    followUpTurnSucceeded = answeredAt is not null;
+                    var completedTurn = AttachSteeringHistory(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, EndReason = endReason, Model = modelId, ReasoningEffort = effort, Segments = segments }, AiFollowUpQueue.Load(book.Active).History);
+                    _formGradeCommitPending = completedTurn.AnsweredAt is not null && AiFormGrading.HasCandidate(completedTurn.Answer);
+                    if (_formGradeCommitPending) { QueueButton.IsEnabled = false; SteerButton.IsEnabled = false; }
+                    try
+                    {
+                        if (_formGradeCommitPending && _followUpIdle is { } followUp) await followUp.Task;
+                        var grading = await SaveCompletedFormTurnAsync(book, completedTurn, allowedGradingSources);
+                        checkpoint.Commit(); _pendingFormSubmissions.Clear(); Rebind(); RefreshTranscript(); RefreshFormEnabled();
+                        await FinishFollowUpTurnAsync(book, pendingTurn.Id, queued, answeredAt is not null);
+                        if (grading.Invalid) StatusText.Text = "判题结果无法关联原表单，未解锁，请让 AI 核对后重试。";
+                        else if (grading.QueuePaused) StatusText.Text = "表单已重新开放；排队已暂停，请检查答案后选择是否继续。";
+                        followUpTurnSucceeded = answeredAt is not null;
+                    }
+                    finally { _formGradeCommitPending = false; }
                 }
                 if (ReferenceEquals(_foldingLiveTurn, pendingTurn)) { _foldingLiveTurn = null; _liveBookmarkCheckpointReady = false; }
             }

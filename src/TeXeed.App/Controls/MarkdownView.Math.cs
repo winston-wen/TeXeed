@@ -29,6 +29,7 @@ public sealed partial class MarkdownView
             _measuredWidth = availableSize.Width;
             foreach (var (grid, columns) in _formulaWidths) grid.Width = FormulaAvailableWidth(_measuredWidth, columns);
             SizeMedia();
+            foreach (var field in _formBlockWidths) field.Width = MediaWidth;
         }
         var measured = base.MeasureOverride(availableSize);
         return _renderPending ? new Size(measured.Width, Math.Max(measured.Height, _estimatedHeight)) : measured;
@@ -50,6 +51,7 @@ public sealed partial class MarkdownView
             }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             {
+                if (ui.Child is Image image && ReferenceEquals(image.Tag, EmojiSprite.Marker) && offset == source.Length) { result = ui.ElementEnd; break; }
                 if (offset <= source.Length) { result = p; break; }
                 offset -= source.Length; p = ui.ElementEnd; continue;
             }
@@ -71,7 +73,7 @@ public sealed partial class MarkdownView
         var offset = 0;
         foreach (Match match in Regex.Matches(text, Regex.Escape(_math.Prefix) + @"\d+END"))
         {
-            target.Add(MathRemainder(text[offset..match.Index]));
+            AddEmojiText(target, text[offset..match.Index]);
             var token = _math.Tokens[match.Value];
             if (token.Reference is { } reference)
             {
@@ -81,7 +83,23 @@ public sealed partial class MarkdownView
             else target.Add(FormulaInline(token));
             offset = match.Index + match.Length;
         }
-        target.Add(MathRemainder(text[offset..]));
+        AddEmojiText(target, text[offset..]);
+    }
+    private void AddEmojiText(InlineCollection target, string text)
+    {
+        if (!text.Any(c => char.IsSurrogate(c) || c is '\uFE0F' or '\u20E3'))
+        { target.Add(MathRemainder(text)); return; }
+        var plain = new StringBuilder();
+        var group = new Span { Tag = EmojiSprite.Marker };
+        foreach (var (value, emoji) in EmojiSprite.Split(text))
+        {
+            var image = emoji ? EmojiSprite.Create(value, FontSize) : null;
+            if (image is null) { plain.Append(value); continue; }
+            if (plain.Length > 0) { group.Inlines.Add(MathRemainder(plain.ToString())); plain.Clear(); }
+            group.Inlines.Add(new InlineUIContainer(image) { Tag = value, BaselineAlignment = BaselineAlignment.TextBottom });
+        }
+        if (plain.Length > 0) group.Inlines.Add(MathRemainder(plain.ToString()));
+        target.Add(group);
     }
     private Run MathRemainder(string text)
     {

@@ -1,0 +1,22 @@
+diff --git a/artifacts/forms-perf-0414/v050-source/src/TeXeed.App/Controls/EmojiSprite.cs b/artifacts/forms-perf-0414/editor-cache-source/src/TeXeed.App/Controls/EmojiSprite.cs
+index 2215b02..d9c4c6a 100644
+--- a/artifacts/forms-perf-0414/v050-source/src/TeXeed.App/Controls/EmojiSprite.cs
++++ b/artifacts/forms-perf-0414/editor-cache-source/src/TeXeed.App/Controls/EmojiSprite.cs
+@@ -15,6 +15,7 @@ internal static class EmojiSprite
+     private static readonly Lazy<Dictionary<string, int[]>> Index = new(LoadIndex);
+     private static readonly Lazy<BitmapSource> Noto = new(() => LoadSheet("noto.png"));
+     private static readonly Lazy<BitmapSource> Twemoji = new(() => LoadSheet("twemoji.png"));
++    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, BitmapSource> EditorCache = new();
+ 
+     internal static IEnumerable<(string Text, bool Emoji)> Split(string text) => SplitFromIndex(text, Index.Value);
+ 
+@@ -40,7 +41,8 @@ internal static class EmojiSprite
+             SnapsToDevicePixels = false, Focusable = false, IsHitTestVisible = false };
+     }
+ 
+-    internal static BitmapSource? BitmapFor(string text) => BitmapFromIndex(text, Index.Value);
++    internal static BitmapSource? BitmapFor(string text) => text.Contains('\uFE0E') || !Index.Value.ContainsKey(text)
++        ? null : EditorCache.GetOrAdd(text, key => BitmapFromIndex(key, Index.Value)!);
+ 
+     private static BitmapSource? BitmapFromIndex(string text, IReadOnlyDictionary<string, int[]> index)
+     {

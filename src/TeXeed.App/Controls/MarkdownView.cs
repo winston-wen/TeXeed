@@ -7,6 +7,7 @@ using System.Windows.Media;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
+using TeXeed.App.AI;
 using MdTable = Markdig.Extensions.Tables.Table;
 using MdRow = Markdig.Extensions.Tables.TableRow;
 using MdCell = Markdig.Extensions.Tables.TableCell;
@@ -47,7 +48,7 @@ public sealed partial class MarkdownView : RichTextBox
             if (_hasRelativeImages || _tableViews.Any(t => t.View._hasRelativeImages)) Render();
         }
     }
-    private Run? _streamRun;
+    private Paragraph? _streamParagraph;
     private string _streamText = "";
 
     internal Action<string>? SourceLink { get; set; }
@@ -107,33 +108,29 @@ public sealed partial class MarkdownView : RichTextBox
         var version = ++_renderVersion;
         _renderPending = false; _renderPaused = false;
         LayoutVersion++;
-        Revision = TeXeed.App.AI.AiStorage.Hash(Markdown ?? "");
+        Revision = TeXeed.App.AI.AiStorage.Hash(RevisionSourceOverride ?? Markdown ?? "");
         if (IsStreaming)
         {
-            // A growing stream is not a succession of complete documents. Reuse the
-            // text run and append the suffix; compile/render Markdown once it settles.
-            if (_streamRun is null)
+            // Keep appending to the existing document and re-evaluate only the final grapheme.
+            if (_streamParagraph is null)
             {
-                _streamRun = new Run();
                 ClearRichState();
-                var paragraph = new Paragraph(_streamRun);
-                Document = new FlowDocument(paragraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseWavyEmphasis ? ChatLineHeight : 25 };
+                _streamParagraph = new Paragraph();
+                Document = new FlowDocument(_streamParagraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseWavyEmphasis ? ChatLineHeight : 25 };
                 Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
             }
-            if (ChatMode && _streamRun.Parent is Paragraph streamParagraph)
+            if (ChatMode && _streamParagraph is { } streamParagraph)
             {
                 streamParagraph.Margin = new Thickness(0);
                 streamParagraph.LineHeight = ChatLineHeight;
                 streamParagraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
             }
             var next = Markdown ?? "";
-            if (next.StartsWith(_streamText, StringComparison.Ordinal)) _streamRun.ContentEnd.InsertTextInRun(next[_streamText.Length..]);
-            else _streamRun.Text = next;
-            _streamText = next;
+            AppendStreamEmoji(_streamParagraph, next);
             RenderTask = Task.CompletedTask;
             return;
         }
-        _streamRun = null; _streamText = "";
+        _streamParagraph = null; _streamText = ""; ResetStreamEmoji();
         var source = Markdown ?? "";
         if (source.Length > BackgroundRenderThreshold)
         {
@@ -157,7 +154,7 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _branchLinkBlocks.Clear(); _branchLineModes.Clear(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _foldBodies.Clear(); _foldHints.Clear(); InvalidateBranchText(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); _strongRuns.Clear(); _waves = null; ClearMedia(); ClearCodeSurfaces(); }
+    { _formControls.Clear(); _formFeedbackHosts.Clear(); _formBlockWidths.Clear(); _formCellCandidates.Clear(); _formCellColumns.Clear(); _branchLinkBlocks.Clear(); _branchLineModes.Clear(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _foldBodies.Clear(); _foldHints.Clear(); InvalidateBranchText(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); _strongRuns.Clear(); _waves = null; ClearMedia(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
         ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));
@@ -285,6 +282,7 @@ public sealed partial class MarkdownView : RichTextBox
     {
         var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, ChatParagraphSpacing) };
         if (ChatMode) paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+        var formCount = _formControls.Count;
         if (inline is not null) AddInlines(paragraph.Inlines, inline, depth + 1);
         if (ContainsStrongEmphasis(paragraph.Inlines))
         {
@@ -293,6 +291,7 @@ public sealed partial class MarkdownView : RichTextBox
             paragraph.Margin = new Thickness(0, 0, 0, ChatParagraphSpacing - FontSize / 16);
             paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         }
+        if (_formControls.Count != formCount) { paragraph.LineHeight = double.NaN; paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight; }
         return paragraph;
     }
 
@@ -303,7 +302,11 @@ public sealed partial class MarkdownView : RichTextBox
         {
             switch (inline)
             {
-                case LiteralInline literal: AddMathText(target, literal.Content.ToString()); break;
+                case LiteralInline literal:
+                    _standaloneFormLine = IsStandaloneFormLine(source, literal);
+                    try { AddFormText(target, literal.Content.ToString()); }
+                    finally { _standaloneFormLine = false; }
+                    break;
                 case CodeInline code:
                     target.Add(CodeSpan(code.Content)); break;
                 case LineBreakInline: target.Add(new LineBreak()); break;
@@ -326,7 +329,9 @@ public sealed partial class MarkdownView : RichTextBox
                     }
                     else if (!link.IsImage && link.Url?.StartsWith('#') == true)
                     {
-                        var local = EquationLink(Uri.UnescapeDataString(link.Url[1..]), null); AddInlines(local.Inlines, link, depth + 1);
+                        var key = Uri.UnescapeDataString(link.Url[1..]);
+                        var local = EquationLink(key, null);
+                        if (!TryRenderSnapshotLink(local, link, key)) AddInlines(local.Inlines, link, depth + 1);
                         if (ContainsStrongEmphasis(local.Inlines)) local.TextDecorations = null;
                         target.Add(local);
                     }

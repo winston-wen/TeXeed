@@ -41,6 +41,8 @@ public sealed partial class MarkdownView
         var width = Math.Max(MediaWidth, table.MinimumWidth); table.View.Width = width + 2 * AiChatTypography.RichTextInset;
         for (var i = 0; i < table.Columns.Length; i++)
             table.Table.Columns[i].Width = new GridLength(table.Columns[i] * width / table.MinimumWidth);
+        foreach (var (field, column) in table.View._formCellColumns)
+            field.StretchToWidth(Math.Max(field.Field.MinWidth, table.Table.Columns[column].Width.Value - 18));
     }
     private void AddScrollableTable(BlockCollection target, MdTable source, int depth)
     {
@@ -57,6 +59,19 @@ public sealed partial class MarkdownView
                 var text = new TextRange(cell.ContentStart, cell.ContentEnd).Text.Trim();
                 var measured = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                     new Typeface(FontFamily, FontStyles.Normal, cell.FontWeight, FontStretches.Normal), FontSize, Brushes.Black, 1).WidthIncludingTrailingWhitespace;
+                var candidateFields = new List<FormFeedbackHost>();
+                if (_forms is not null)
+                {
+                    for (var pointer = cell.ContentStart; pointer is not null && pointer.CompareTo(cell.ContentEnd) < 0; pointer = pointer.GetNextContextPosition(LogicalDirection.Forward))
+                    {
+                        if (pointer.GetPointerContext(LogicalDirection.Forward) != TextPointerContext.ElementStart || pointer.GetAdjacentElement(LogicalDirection.Forward) is not InlineUIContainer { Child: FormFeedbackHost field } || !view._formControls.Contains(field.Field)) continue;
+                        field.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        measured += field.DesiredSize.Width;
+                        if (view._formCellCandidates.ContainsKey(field)) candidateFields.Add(field);
+                    }
+                    if (candidateFields.Count == 1 && view.CopySource(cell.ContentStart, cell.ContentEnd).Trim() == view._formCellCandidates[candidateFields[0]])
+                        view._formCellColumns[candidateFields[0]] = i;
+                }
                 widths[i] = Math.Max(widths[i], Math.Clamp(measured + 18, 80, 360));
             }
         foreach (var width in widths) table.Columns.Add(new TableColumn { Width = new GridLength(width) });

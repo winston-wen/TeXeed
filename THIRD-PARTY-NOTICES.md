@@ -13,7 +13,12 @@ TeXeed uses the following separately licensed components. TeX distributions are 
 | .NET / WPF | 10 | MIT and third-party notices | https://github.com/dotnet/wpf |
 | Unicode East Asian Width data | 17.0.0 | Unicode License V3 | https://www.unicode.org/Public/17.0.0/ucd/EastAsianWidth.txt |
 | vscode-icons (selected explorer icons) | 13.0.0 | MIT | https://github.com/vscode-icons/vscode-icons |
+| Noto Emoji artwork | 2.048 | Apache-2.0 | https://github.com/googlefonts/noto-emoji |
+| Twemoji artwork | 16.0.1 | CC BY 4.0 | https://github.com/jdecked/twemoji |
+| emoji-datasource (sprite and sequence data) | 16.0.0 | MIT | https://github.com/iamcal/emoji-data |
 
 Exact transitive versions are recorded in `packages.lock.json`. Redistribution notices from the native PDFium package and license texts are included in the application's `licenses` directory when published using this repository's packaging script.
+
+Emoji artwork attribution and license texts are included in `Assets/Emoji` in the published application. The sprites are resized and combined from the Google- and Twitter-specific clean sheets.
 
 The two tutorial formula SVGs in `src/TeXeed.App/Assets/Tutorial` are generated LaTeX document output containing vector glyph paths. They contain no font files, scripts, or external resources. Regenerate them with `scripts/build-tutorial-math.py` using an external TeX installation and dvisvgm; those development tools are not bundled. Selected vscode-icons explorer SVGs are retained in `src/TeXeed.App/Assets/Explorer` and converted to native WPF drawings by `scripts/build-explorer-icons.py`; their MIT license is included in `licenses/vscode-icons-MIT.txt`.

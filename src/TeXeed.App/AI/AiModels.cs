@@ -114,6 +114,8 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged, IJso
     [JsonIgnore] public bool HasAttachments => Files.Count > 0 || HasAttachmentImages;
     [JsonIgnore] public bool HasReference => AnswerAnchor is not null || Sources.Count > 0 || PdfBlocks.Count > 0 ||
         EntryKind != "attachment" && (!HasAttachments || !string.IsNullOrWhiteSpace(Question));
+    [JsonIgnore] public bool CanRemoveReference => !AiSessionExcerptReferences.IsProtected(this);
+    [JsonIgnore] public string AttachmentFormOrigin => AiFormAttachmentOrigins.Display(this);
     [JsonIgnore] public IReadOnlyList<AiAttachmentItem> AttachmentItems
     {
         get
@@ -147,7 +149,7 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged, IJso
 }
 public sealed record AiTurn(string Question, string Answer)
 {
-    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; init; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? SentAt { get; init; }
@@ -264,9 +266,23 @@ public sealed class AiConversation
         // Compare the payload too so an edited/replaced draft remains untouched.
         foreach (var entry in Entries.ToArray())
         {
+            if (AiSessionExcerptReferences.IsBranchOrigin(this, entry)) continue;
             if (!sent.TryGetValue(entry.Id, out var snapshots)) continue;
             foreach (var snapshot in snapshots)
             {
+                if (AiFormAttachmentOrigins.TryGet(snapshot, out _))
+                {
+                    // A form attachment's submitted question is synthesized from its provenance.
+                    // Consume only a pure attachment whose original draft still matches exactly.
+                    if (snapshot.SentReferencePart != true && snapshot.SentAttachmentPart != false &&
+                        !entry.HasReference && entry.HasAttachments && entry.Title == snapshot.Title &&
+                        entry.PdfRevision == snapshot.PdfRevision && entry.IsPoint == snapshot.IsPoint &&
+                        entry.AnswerAnchor == snapshot.AnswerAnchor && entry.Sources.SequenceEqual(snapshot.Sources) &&
+                        entry.PdfBlocks.SequenceEqual(snapshot.PdfBlocks) && entry.Images.SequenceEqual(snapshot.Images) &&
+                        entry.Files.SequenceEqual(snapshot.Files) && AiFormAttachmentOrigins.MatchesPendingSnapshot(entry, snapshot))
+                    { Entries.Remove(entry); changed = true; break; }
+                    continue;
+                }
                 if (snapshot.SentReferencePart is null && snapshot.SentAttachmentPart is null)
                 {
                     if (entry.Title == snapshot.Title && entry.Question == snapshot.Question && entry.PdfRevision == snapshot.PdfRevision && entry.IsPoint == snapshot.IsPoint &&

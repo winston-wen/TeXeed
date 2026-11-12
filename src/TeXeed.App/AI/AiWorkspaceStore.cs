@@ -18,6 +18,17 @@ internal sealed class AiWorkspaceStore(string project, AiNotebook book)
         finally { _gate.Release(); }
         Changed?.Invoke();
     }
+    internal async Task SaveWithMutationAsync(Action mutate, Action rollback)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            try { mutate(); var snapshot = Book.Snapshot(); await Task.Run(() => AiStorage.Save(Project, snapshot)); }
+            catch { rollback(); throw; }
+        }
+        finally { _gate.Release(); }
+        Changed?.Invoke();
+    }
     internal AiNotebook View(string id) => new() { Conversations = Book.Conversations, ActiveConversationId = id };
     internal static async Task<AiWorkspaceStore> LoadAsync(string project, Func<bool>? otherInstanceRunning = null, Action<string, string>? copyBackup = null)
     {

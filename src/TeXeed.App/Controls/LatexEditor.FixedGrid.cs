@@ -184,6 +184,7 @@ public sealed partial class LatexEditor
     private sealed class FixedGridRun : TextEmbeddedObject
     {
         private readonly GridGlyph? _glyph;
+        private readonly ImageSource? _emoji;
         private readonly int _length;
         private readonly TextRunProperties _properties;
         private readonly double _width, _height, _baseline;
@@ -204,6 +205,9 @@ public sealed partial class LatexEditor
             _glyph = editor.GetGridGlyph(text, cells, cellWidth, properties, view);
             _height = _glyph.Height;
             _baseline = _glyph.Baseline;
+            foreach (var c in text)
+                if (char.IsSurrogate(c) || c == '\uFE0F' || c == '\u20E3' || c is >= '\u2000' and <= '\u32FF')
+                { _emoji = EmojiSprite.BitmapFor(text); break; }
         }
 
         public override LineBreakCondition BreakBefore => LineBreakCondition.BreakPossible;
@@ -219,7 +223,8 @@ public sealed partial class LatexEditor
         {
             if (_glyph is null) return;
             drawingContext.PushTransform(new TranslateTransform(origin.X, origin.Y - _baseline));
-            drawingContext.DrawDrawing(_glyph.Drawing);
+            if (_emoji is null) drawingContext.DrawDrawing(_glyph.Drawing);
+            else { var size = Math.Min(_width, _height); drawingContext.DrawImage(_emoji, new Rect((_width - size) / 2, (_height - size) / 2, size, size)); }
             drawingContext.Pop();
         }
     }

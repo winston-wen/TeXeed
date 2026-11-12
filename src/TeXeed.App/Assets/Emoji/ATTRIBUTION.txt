@@ -1,0 +1,6 @@
+Emoji artwork: Google Noto Emoji v2.048, Apache License 2.0; Twemoji v16.0.1, CC BY 4.0.
+Noto Emoji: Copyright Google LLC, https://github.com/googlefonts/noto-emoji
+Twemoji: Copyright Twitter, Inc. and other contributors, https://github.com/jdecked/twemoji
+Sprite sheets and sequence data derived from emoji-datasource v16.0.0 by Cal Henderson (MIT), https://github.com/iamcal/emoji-data.
+Sprite sheets are resized and combined; only the Google- and Twitter-specific clean sheets are included.
+Flag images may be subject to additional laws or restrictions; see Noto Emoji upstream documentation.

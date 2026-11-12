@@ -16,6 +16,7 @@ internal static partial class Program
         Run("grid navigation and deletion preserve Unicode graphemes and tab stops", FixedGridUnicodeAndNavigation);
         Run("wrapped text and selection geometry use the same grid", FixedGridWrappingAndSelection);
         Run("reused glyphs preserve live text colors and do not freeze caller brushes", FixedGridLiveColors);
+        Run("emoji images preserve source, copy, composition input, undo and highlighting", FixedGridEmojiInput);
     }
 
     private static void FixedGridLiveColors()

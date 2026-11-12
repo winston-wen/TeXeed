@@ -1,0 +1,28 @@
+diff --git a/artifacts/forms-perf-0414/after-source/src/TeXeed.App/Controls/EmojiSprite.cs b/artifacts/forms-perf-0414/cache-source/src/TeXeed.App/Controls/EmojiSprite.cs
+index b5436dc..1ca0e11 100644
+--- a/artifacts/forms-perf-0414/after-source/src/TeXeed.App/Controls/EmojiSprite.cs
++++ b/artifacts/forms-perf-0414/cache-source/src/TeXeed.App/Controls/EmojiSprite.cs
+@@ -15,6 +15,7 @@ internal static class EmojiSprite
+     private static readonly Lazy<Dictionary<string, int[]>> Index = new(LoadIndex);
+     private static readonly Lazy<BitmapSource> Noto = new(() => LoadSheet("noto.png"));
+     private static readonly Lazy<BitmapSource> Twemoji = new(() => LoadSheet("twemoji.png"));
++    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, BitmapSource> Cache = new();
+ 
+     internal static IEnumerable<(string Text, bool Emoji)> Split(string text)
+     {
+@@ -30,9 +31,12 @@ internal static class EmojiSprite
+     {
+         if (text.Contains('\uFE0E') || !Index.Value.TryGetValue(text, out var item)) return null;
+         // Every 32px image has a transparent 1px border in the upstream sheet.
+-        var bitmap = new CroppedBitmap(item[2] == 0 ? Noto.Value : Twemoji.Value,
+-            new Int32Rect(item[0] * 34 + 1, item[1] * 34 + 1, 32, 32));
+-        bitmap.Freeze();
++        var bitmap = Cache.GetOrAdd(text, _ => {
++            var crop = new CroppedBitmap(item[2] == 0 ? Noto.Value : Twemoji.Value,
++                new Int32Rect(item[0] * 34 + 1, item[1] * 34 + 1, 32, 32));
++            crop.Freeze();
++            return crop;
++        });
+         return new Image { Source = bitmap, Width = size, Height = size, Stretch = Stretch.Uniform, Tag = Marker,
+             SnapsToDevicePixels = false, Focusable = false, IsHitTestVisible = false };
+     }

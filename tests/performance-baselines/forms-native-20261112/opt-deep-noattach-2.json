@@ -1,0 +1,89 @@
+{
+  "fixture": "200 logical lines, 620x760, 120 turns; 2 warmups 7 samples; paired 800ms and save gate",
+  "samples": [
+    {
+      "op": "keystroke-200-lines",
+      "feedbackMs": 2.6082,
+      "rawMs": 807.5328,
+      "idleMs": 800.762,
+      "correctedMs": 6.770800000000008,
+      "rawBytes": 220768,
+      "idleBytes": 3072,
+      "correctedBytes": 217696,
+      "visibleControls": 29,
+      "boxHeight": 5002
+    },
+    {
+      "op": "keystroke-200-lines",
+      "feedbackMs": 2.3176,
+      "rawMs": 818.207,
+      "idleMs": 815.6511,
+      "correctedMs": 2.5558999999999514,
+      "rawBytes": 220856,
+      "idleBytes": 3072,
+      "correctedBytes": 217784,
+      "visibleControls": 29,
+      "boxHeight": 5002
+    },
+    {
+      "op": "keystroke-200-lines",
+      "feedbackMs": 2.277,
+      "rawMs": 804.4965,
+      "idleMs": 815.0973,
+      "correctedMs": -10.60080000000005,
+      "rawBytes": 220768,
+      "idleBytes": 3072,
+      "correctedBytes": 217696,
+      "visibleControls": 29,
+      "boxHeight": 5002
+    },
+    {
+      "op": "keystroke-200-lines",
+      "feedbackMs": 2.3594,
+      "rawMs": 803.5791,
+      "idleMs": 800.839,
+      "correctedMs": 2.740099999999984,
+      "rawBytes": 220448,
+      "idleBytes": 3072,
+      "correctedBytes": 217376,
+      "visibleControls": 29,
+      "boxHeight": 5002
+    },
+    {
+      "op": "keystroke-200-lines",
+      "feedbackMs": 2.3602,
+      "rawMs": 809.1642,
+      "idleMs": 807.731,
+      "correctedMs": 1.4332000000000562,
+      "rawBytes": 220384,
+      "idleBytes": 3072,
+      "correctedBytes": 217312,
+      "visibleControls": 29,
+      "boxHeight": 5002
+    },
+    {
+      "op": "keystroke-200-lines",
+      "feedbackMs": 2.6846,
+      "rawMs": 811.5044,
+      "idleMs": 804.3079,
+      "correctedMs": 7.1965000000000146,
+      "rawBytes": 220536,
+      "idleBytes": 3072,
+      "correctedBytes": 217464,
+      "visibleControls": 29,
+      "boxHeight": 5002
+    },
+    {
+      "op": "keystroke-200-lines",
+      "feedbackMs": 2.4278,
+      "rawMs": 805.9198,
+      "idleMs": 806.7934,
+      "correctedMs": -0.8736000000000104,
+      "rawBytes": 245576,
+      "idleBytes": 3072,
+      "correctedBytes": 242504,
+      "visibleControls": 29,
+      "boxHeight": 5002
+    }
+  ]
+}

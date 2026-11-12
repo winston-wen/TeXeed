@@ -42,7 +42,7 @@ internal static partial class Program
             Console.WriteLine("AI steering tests passed.");
             return 0;
         }
-        var result = 1;
+        var result = 1; var manualWindow = false;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
         var window = new MainWindow { Width = 1440, Height = 900, WindowStartupLocation = WindowStartupLocation.Manual, Left = 30, Top = 30 };
@@ -52,6 +52,36 @@ internal static partial class Program
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--ai-forms-manual"))
+                {
+                    await ShowAiFormsManualAsync(window, output);
+                    manualWindow = true;
+                    return;
+                }
+                if (args.Contains("--ai-form-read-race-only"))
+                {
+                    await CheckAiFormReadRaceAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI form attachment read race"); result = 0; return;
+                }
+                if (args.Contains("--ai-forms-only"))
+                {
+                    CheckAiFormGrading();
+                    await CheckAiFormsAsync(window, output);
+                    await CheckAiFormCollisionsAsync(window, output);
+                    await CheckAiFormGradingUiAsync(window, output);
+                    await CheckAiFormLineNumbersAsync(window, output);
+                    await CheckAiFormGradeRollbackAsync(window, output, false);
+                    await CheckAiFormGradeRollbackAsync(window, output, true);
+                    await CheckAiFormOwnLineAsync(window, output);
+                    await CheckAiFormAttachmentsAsync(window, output);
+                    await CheckAiFormContextAsync();
+                    await CloseAndObserveAsync(window, "AI forms"); result = 0; return;
+                }
+                if (args.Contains("--ai-formula-reference-only"))
+                {
+                    await CheckAiFormulaReferenceAsync(window, output);
+                    await CloseAndObserveAsync(window, "Formula references"); result = 0; return;
+                }
                 var mainMenu = (Menu)window.FindName("MainMenu");
                 if (mainMenu.Visibility != Visibility.Visible) throw new Exception("Wide title bar must show its menu");
                 var windowGrid = (Grid)window.Content;
@@ -682,13 +712,13 @@ internal static partial class Program
             {
                 // A failed assertion must not leave a dirty-window confirmation blocking the test process.
                 // Successful runs exercise the production Close/Closing/Closed path for every test window.
-                if (result != 0)
+                if (!manualWindow && result != 0)
                     foreach (var remaining in app.Windows.OfType<MainWindow>().ToArray())
                     {
                         remaining.GetType().GetField("_allowClose", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(remaining, true);
                         ((CompileService)Field(remaining, "_compiler")!).Cancel(); remaining.Close();
                     }
-                app.Shutdown(result);
+                if (!manualWindow) app.Shutdown(result);
             }
         };
         window.Show(); app.Run(); return result;

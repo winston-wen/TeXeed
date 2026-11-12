@@ -47,6 +47,8 @@ public partial class AiPanel
     internal async Task DeleteTurnAsync(string id)
     {
         if (_operation is not null) return;
+        if (_book.Turns.FirstOrDefault(t => t.Id == id) is { } removedTurn)
+            foreach (var submission in AiForms.AllFromTurn(removedTurn)) AiForms.Lock(_book.Active, submission);
         if (_book.Turns.RemoveAll(t => t.Id == id) > 0)
             _book.Active.Bookmarks.RemoveAll(b => b.Anchor?.TurnId == id);
         _book.Active.UpdatedAt = DateTimeOffset.UtcNow;
@@ -55,6 +57,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        if (AiSessionExcerptReferences.EnsureBranchOrigin(_book.Active)) Dirty();
         _followUpsClosing = false;
         CloseMentions();
         ClearBookmarkMarkers();

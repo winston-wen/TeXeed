@@ -63,7 +63,7 @@ internal static partial class Program
         using var stalled = new StalledAiHandler(); using var connection = new AiConnection(stalled); using var panel = new AiPanel(connection);
         var models = (ComboBox)panel.Settings.FindName("Models"); models.ItemsSource = new[] { new AiModel("fixture", "测试模型") }; models.SelectedIndex = 0;
         await panel.Settings.SaveSelectionAsync(CancellationToken.None);
-        var host = new Window { Owner = owner, Width = 820, Height = 900, Content = panel, Title = "AI 原型 v0.4.13 · 原生验证" };
+        var host = new Window { Owner = owner, Width = 820, Height = 900, Content = panel, Title = "AI 原型 v0.5.0 · 原生验证" };
         var theme = ThemeManager.Current.Id;
         try
         {
