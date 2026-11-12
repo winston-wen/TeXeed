@@ -32,9 +32,12 @@
   const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, bookmarks: [], sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
   const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; if (loaded.pending?.parentId && !loaded.pendingBySession[loaded.pending.parentId]) loaded.pendingBySession[loaded.pending.parentId] = loaded.pending; for (const s of loaded.sessions) { s.references ||= []; s.attachments ||= []; const references = JSON.parse(localStorage.getItem(referencesKey(s.id)) || 'null'); if (Array.isArray(references)) s.references = references; const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.attachments) s.attachments = draft.attachments; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } const old = loaded.pendingBySession[s.id]; if (old?.kind === 'quote') { if (!s.references.some(r => r.legacyPending)) s.references.push({ id: uid(), blockId: old.blockId, quote: old.quote, textOffset: old.sourceTextOffset, comment: '', selected: true, attachments: [], legacyPending: old }); delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
   let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, relationAnchor = null, pendingFileReads = 0;
+  state.pausedFollowups ||= {};
+  for (const [id, items] of Object.entries(state.followups || {})) if (items.length) state.pausedFollowups[id] = true;
+  const running = new Set();
   const session = id => state.sessions.find(s => s.id === id);
   const current = () => session(state.active) || state.sessions[0];
-  function isBlankSession(s) { return s.title === '新对话' && !s.parent && !s.source && !(s.turns || []).length && !s.draft && !(s.references || []).length && !(s.attachments || []).length && !state.pendingBySession?.[s.id] && !(state.bookmarks || []).some(b => b.sessionId === s.id) && !state.sessions.some(child => child.parent === s.id) && Object.keys(s).every(k => ['id','title','parent','source','draft','turns','references','attachments','viewport'].includes(k)); }
+  function isBlankSession(s) { return s.title === '新对话' && !s.parent && !s.source && !(s.turns || []).length && !s.draft && !(s.references || []).length && !(s.attachments || []).length && !state.pendingBySession?.[s.id] && !(state.followups?.[s.id] || []).length && !(state.bookmarks || []).some(b => b.sessionId === s.id) && !state.sessions.some(child => child.parent === s.id) && Object.keys(s).every(k => ['id','title','parent','source','draft','turns','references','attachments','viewport'].includes(k)); }
   function trimBlankSessions() {
     const blanks = state.sessions.filter(isBlankSession); if (blanks.length < 2) return;
     const keep = blanks.find(s => s.id === state.active) || blanks[0];
@@ -117,6 +120,13 @@
       const rule = document.createElement('hr'); rule.className = 'answer-rule'; wrap.appendChild(rule);
       if (turn.demo) appendText('div', 'example-label', '示例答复 · 未连接 AI', wrap);
       let heading = 0, folded = false; for (const item of turn.answer) { const before = wrap.children.length; if (item.kind === 'heading') { heading++; folded = Boolean(turn.collapsedSections?.[item.id]); } renderBlock(wrap, item, i + 1, heading); const added = Array.from(wrap.children).slice(before); if (item.kind === 'heading') added[0].setAttribute('aria-expanded', String(!folded)); else if (folded) added.forEach(el => { el.hidden = true; }); }
+      for (const steer of turn.steers || []) {
+        const activity = document.createElement('div'); activity.className = 'example-steer';
+        appendText('div', '', '引导：' + (steer.question || '引用与附件'), activity);
+        for (const ref of steer.references || []) { renderReferencePreview(activity, ref); if (ref.comment) appendText('div', '', ref.comment, activity); if (ref.attachments?.length) { const media = document.createElement('div'); media.className = 'attachment-list'; renderAttachments(media, ref.attachments); activity.appendChild(media); } }
+        if (steer.attachments?.length) { const files = document.createElement('div'); files.className = 'attachment-list'; renderAttachments(files, steer.attachments); activity.appendChild(files); }
+        wrap.appendChild(activity);
+      }
       const end = document.createElement('hr'); end.className = 'answer-rule'; wrap.appendChild(end);
       appendText('div', 'time', '示例时间　答复', wrap); return wrap;
   }
@@ -129,7 +139,7 @@
     $('child-sessions').disabled = !state.sessions.some(child => child.parent === s.id);
     $('child-menu').hidden = true;
     focusedBlock = null; $('bookmark-paragraph').disabled = true;
-    renderComposerContext(); renderReferencesButton(); renderMainAttachments();
+    renderComposerContext(); renderReferencesButton(); renderMainAttachments(); renderFollowups();
   }
   function renderComposerContext() {
     const box = $('composer-context'); box.replaceChildren();
@@ -142,8 +152,68 @@
     $('mention-menu').hidden = true;
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     composer.value = pending && pending.kind === 'branch' ? (pending.draft || '') : (current().draft || '');
-    renderComposerContext(); renderReferencesButton(); renderMainAttachments();
+    renderComposerContext(); renderReferencesButton(); renderMainAttachments(); renderFollowups();
   }
+  function renderFollowups() {
+    const active = running.has(current().id), blocked = state.pending?.kind === 'branch';
+    $('steer').disabled = $('enqueue').disabled = !active || blocked;
+    $('send').disabled = active || pendingFileReads > 0;
+    $('demo-running-status').hidden = !active;
+    $('demo-running').textContent = active ? '结束当前模拟轮' : '模拟运行';
+    $('demo-running').setAttribute('aria-pressed', String(active));
+    const box = $('followup-queue'), items = state.followups?.[current().id] || [];
+    box.replaceChildren(); box.hidden = !items.length;
+    if (items.length) {
+      const header = document.createElement('div'); header.className = 'followup-header';
+      appendText('span', '', state.pausedFollowups?.[current().id] ? '待处理消息 · 已暂停' : '待处理消息', header);
+      const pause = document.createElement('button'); pause.type = 'button'; pause.textContent = state.pausedFollowups?.[current().id] ? '继续' : '暂停';
+      pause.addEventListener('click', () => { state.pausedFollowups ||= {}; const id = current().id, old = !!state.pausedFollowups[id]; state.pausedFollowups[id] = !old; if (!save()) { state.pausedFollowups[id] = old; return; } if (old && !running.has(id)) { running.add(id); dispatchFollowup(); } renderFollowups(); });
+      header.appendChild(pause); box.appendChild(header);
+    }
+    for (const item of items) {
+      const row = document.createElement('div'); row.className = 'followup-row';
+      const text = document.createElement('input'); text.value = item.question; text.setAttribute('aria-label', '编辑排队消息');
+      text.addEventListener('change', () => { const before = item.question; item.question = text.value; if (!save()) { item.question = before; text.value = before; } });
+      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', '移除排队消息');
+      remove.addEventListener('click', () => { const index = items.indexOf(item); items.splice(index, 1); if (!save()) { items.splice(index, 0, item); return; } renderFollowups(); });
+      const move = (offset) => { const index = items.indexOf(item), next = index + offset; if (next < 0 || next >= items.length) return; [items[index], items[next]] = [items[next], items[index]]; if (!save()) { [items[index], items[next]] = [items[next], items[index]]; return; } renderFollowups(); };
+      const up = document.createElement('button'); up.type = 'button'; up.textContent = '↑'; up.setAttribute('aria-label', '上移排队消息'); up.disabled = items.indexOf(item) === 0; up.addEventListener('click', () => move(-1));
+      const down = document.createElement('button'); down.type = 'button'; down.textContent = '↓'; down.setAttribute('aria-label', '下移排队消息'); down.disabled = items.indexOf(item) === items.length - 1; down.addEventListener('click', () => move(1));
+      const convert = document.createElement('button'); convert.type = 'button'; convert.textContent = '转为引导'; convert.disabled = !active; convert.addEventListener('click', () => { const index = items.indexOf(item), turn = current().turns.at(-1); if (!turn) return; turn.steers ||= []; turn.steers.push(item); items.splice(index, 1); if (!save()) { items.splice(index, 0, item); turn.steers.pop(); return; } renderTranscript(); $('status').textContent = '示例消息已转为引导，未连接 AI。'; });
+      row.append(text, convert, up, down, remove); box.appendChild(row);
+    }
+  }
+  function submitFollowup(queued) {
+    if (!running.has(current().id) || state.pending?.kind === 'branch' || pendingFileReads) return;
+    const refs = ensureSession(current()).references, selected = refs.filter(ref => ref.selected !== false), files = mainAttachments();
+    const question = composer.value.trim(); if (!question && !selected.length && !files.length) { composer.focus(); return; }
+    if (!queued && !current().turns.length) { $('status').textContent = '没有可引导的模拟轮次。'; return; }
+    const before = JSON.stringify(state), item = { id: uid(), question, references: structuredClone(selected), attachments: structuredClone(files) };
+    current().references = refs.filter(ref => ref.selected === false); current().attachments = []; current().draft = '';
+    if (queued) { state.followups ||= {}; (state.followups[current().id] ||= []).push(item); }
+    else { const turn = current().turns.at(-1); if (!turn) { $('status').textContent = '没有可引导的模拟轮次。'; return; } (turn.steers ||= []).push(item); }
+    if (!save()) { state = JSON.parse(before); $('status').textContent = '无法保存，输入内容已保留。'; return; }
+    composer.value = ''; if (!queued) renderTranscript(); setComposer();
+    $('status').textContent = queued ? '已加入示例队列；可修改或移除。' : '已发送示例引导；未连接 AI。';
+  }
+  $('steer').addEventListener('click', () => submitFollowup(false));
+  $('enqueue').addEventListener('click', () => submitFollowup(true));
+  function dispatchFollowup() {
+    const id = current().id, items = state.followups?.[id] || [];
+    if (state.pausedFollowups?.[id] || !items.length) { running.delete(id); return false; }
+    const item = items.shift(); current().turns.push({ ...item, answer: demoAnswer(item.question, ''), demo: true });
+    if (!save()) { current().turns.pop(); items.unshift(item); running.delete(id); return false; }
+    running.add(id); renderTranscript(); $('status').textContent = '示例队列已发送一条；未连接 AI。'; return true;
+  }
+  $('demo-stop').addEventListener('click', () => { const id = current().id; running.delete(id); state.pausedFollowups ||= {}; state.pausedFollowups[id] = true; if (save()) { $('status').textContent = '模拟已中止；待处理消息已暂停。'; renderFollowups(); } });
+  $('demo-running').addEventListener('click', () => {
+    const id = current().id;
+    if (!running.has(id)) { running.add(id); $('status').textContent = ''; }
+    else {
+      if (!dispatchFollowup()) $('status').textContent = state.pausedFollowups?.[id] ? '模拟运行已结束；队列仍处于暂停状态。' : '模拟运行已结束。';
+    }
+    renderFollowups();
+  });
   function navigate(id, position) {
     if (!session(id)) return;
     if (id === state.active && !position) { closeMap(); return; }
@@ -256,7 +326,7 @@
     pendingFileReads++; $('send').disabled = true; $('status').textContent = '正在读取附件。';
     try { for (const entry of files) { const file = entry.file || entry; const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); }); const path = (entry.path || file.webkitRelativePath || file.name).replaceAll('\\', '/'); const directory = path.includes('/') ? path.split('/')[0] + '/' : ''; if (directory && !directoryGroups.has(directory)) directoryGroups.set(directory, uid()); staged.push({ id: uid(), name: file.name, path, ...(directory ? { directory, attachmentGroup: directoryGroups.get(directory) } : {}), type: file.type, size: file.size, data }); } if (ref && !session(originSession)?.references?.includes(ref)) throw new Error('reference removed'); target.push(...staged); const moved = state.active !== originSession; const ok = moved ? save() : ref ? saveReferences() : saveDraft(); if (!ok) throw new Error('storage'); if (moved) { localStorage.removeItem(referencesKey(originSession)); localStorage.removeItem(draftKey(originSession)); } else { if (ref) renderReferenceEditor(); else renderMainAttachments(); } $('status').textContent = '附件已保存在此浏览器的示例会话中。'; }
     catch { for (const file of staged) { const i = target.indexOf(file); if (i >= 0) target.splice(i, 1); } $('status').textContent = '无法保存附件；文件可能超过浏览器存储容量。'; }
-    finally { pendingFileReads--; $('send').disabled = pendingFileReads > 0; }
+    finally { pendingFileReads--; $('send').disabled = pendingFileReads > 0 || running.has(current().id); }
   }
   function demoAnswer(question, quote) {
     const subject = (question + ' ' + (quote || '')).toLowerCase();
@@ -265,6 +335,7 @@
     return [block('paragraph', '这是用于体验交互的预设示例答复，没有连接 AI，也不会对你的问题进行真实推理。'), block('paragraph', '你可以继续当前会话、选中此处创建更深一层的追问，或者返回上层继续阅读。')];
   }
   function send() {
+    if (running.has(current().id)) return;
     if (pendingFileReads) { $('status').textContent = '请等待附件读取完成。'; return; }
     const question = composer.value.trim(); const refs = ensureSession(current()).references; const selected = refs.filter(ref => ref.selected !== false); const files = mainAttachments();
     if (!question && !selected.length && !files.length) { composer.focus(); return; }

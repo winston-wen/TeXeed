@@ -13,7 +13,7 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
-    private static async Task CheckAiReliabilityAsync(MainWindow owner, string output)
+    private static async Task CheckAiReliabilityAsync(MainWindow owner, string output, bool skipNativePointerStress = false)
     {
         var checks = 0;
         void Check(bool ok, string message) { if (!ok) throw new Exception(message); checks++; }
@@ -68,19 +68,23 @@ internal static partial class Program
         thumb.RaiseEvent(new DragCompletedEventArgs(0, -80, false) { RoutedEvent = Thumb.DragCompletedEvent });
         host.UpdateLayout(); await Dispatcher.Yield(DispatcherPriority.Background);
         Check(Math.Abs(scroll.VerticalOffset - beforeDrag) > 1, "Scrollbar thumb did not scroll the conversation");
-        GetCursorPos(out var oldPointer);
-        try
+        if (!skipNativePointerStress)
         {
-            host.Activate();
-            for (var i = 0; i < 25; i++)
+            GetCursorPos(out var oldPointer);
+            try
             {
-                var point = panel.PointToScreen(new Point(180 + i * 3, 80 + i * 15));
-                var watch = Stopwatch.StartNew(); SetCursorPos((int)point.X, (int)point.Y);
-                await Task.Delay(16); await Dispatcher.Yield(DispatcherPriority.Background);
-                Check(watch.ElapsedMilliseconds < 500, "Native pointer movement stalled the dispatcher");
+                host.Activate();
+                for (var i = 0; i < 25; i++)
+                {
+                    var point = panel.PointToScreen(new Point(180 + i * 3, 80 + i * 15));
+                    var watch = Stopwatch.StartNew(); SetCursorPos((int)point.X, (int)point.Y);
+                    await Task.Delay(16); await Dispatcher.Yield(DispatcherPriority.Background);
+                    Check(watch.ElapsedMilliseconds < 500, "Native pointer movement stalled the dispatcher");
+                }
             }
+            finally { SetCursorPos(oldPointer.X, oldPointer.Y); }
         }
-        finally { SetCursorPos(oldPointer.X, oldPointer.Y); }
+        else Console.WriteLine("Native pointer stress skipped; run --ai-reliability-only separately for that check.");
         scroll.ScrollToVerticalOffset(100); host.UpdateLayout();
         for (var settle = 0; settle < 4; settle++) { await AwaitMathAsync(panel); await Task.Delay(100); host.UpdateLayout(); }
         var viewport = scroll.ViewportHeight; var offset = scroll.VerticalOffset;

@@ -46,7 +46,7 @@ public sealed record AppSettings
     public double AutoWidthMaximumCm { get; init; } = 30;
     public int DebounceMs { get; init; } = 1000;
     public double FontSize { get; init; } = 15;
-    public string EditorFontFamily { get; init; } = "Cascadia Code, Consolas";
+    public string EditorFontFamily { get; init; } = "Sarasa Mono SC, Cascadia Code, Consolas, Microsoft YaHei";
     public bool WordWrap { get; init; } = true;
     public string[] RecentProjects { get; init; } = [];
 }

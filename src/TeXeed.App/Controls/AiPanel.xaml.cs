@@ -38,6 +38,8 @@ public partial class AiPanel : UserControl, IDisposable
     private int _generation;
     private CancellationTokenSource? _operation;
     private TaskCompletionSource? _operationDone;
+    private AiSteeringController? _steering;
+    private AiStreamBuffer? _followUpBuffer;
     private AiTurn? _foldingLiveTurn;
     private readonly ChatOrdinalAlignment _liveOrdinalAlignment;
     public Func<IReadOnlyList<ProjectFile>>? ProjectFiles { get; set; }
@@ -106,6 +108,7 @@ public partial class AiPanel : UserControl, IDisposable
     }
     public async Task SetProjectAsync(string project)
     {
+        await StopFollowUpsAsync();
         _operation?.Cancel(); if (_operationDone is { } pending) await pending.Task;
         _generation++; _saveTimer.Stop(); await SaveAsync();
         _store = null;
@@ -167,12 +170,12 @@ public partial class AiPanel : UserControl, IDisposable
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
         if (_operation is not null) return;
-        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; if (_ownsSettings) Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false; Entries.IsEnabled = false; Attachments.IsEnabled = false;
+        var operation = new CancellationTokenSource(); var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); _operationDone = done; _operation = operation; SubmitButton.IsEnabled = false; StopButton.IsEnabled = true; QueueButton.IsEnabled = true; if (_ownsSettings) Settings.IsEnabled = false; ModelControls.IsEnabled = false; PermissionPicker.IsEnabled = false;
         UpdateRetryActions();
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；本轮已保留，可继续提问。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; Attachments.IsEnabled = true; UpdateRetryActions(); } _operationDone = null; done.TrySetResult(); }
+        finally { _steering?.Close(); _steering = null; _followUpBuffer = null; operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; SteerButton.IsEnabled = false; QueueButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; Attachments.IsEnabled = true; UpdateRetryActions(); RefreshFollowUps(); } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。问题已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
@@ -330,22 +333,24 @@ public partial class AiPanel : UserControl, IDisposable
         }
     }
     private async void Submit_Click(object sender, RoutedEventArgs e) => await SubmitAsync();
-    internal async Task SubmitAsync(AiTurn? retry = null)
+    internal async Task SubmitAsync(AiTurn? retry = null, AiFollowUpMessage? queued = null)
     {
-        if (_project is null || _operation is not null) return;
+        if (_project is null || _operation is not null || _queueDispatching && queued is null) return;
         if (retry is not null && (_book.Turns.LastOrDefault()?.Id != retry.Id || !retry.IsIncomplete)) return;
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
         var submittedDraft = Composer.Text;
-        var prompt = retry is null ? submittedDraft.Trim() : retry.Prompt ?? (retry.SentAnnotations.Count == 0 ? retry.DisplayQuestion : "");
-        var selectedParts = retry is null ? _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray() : [];
-        var selected = retry is null ? selectedParts.Select(x => x.Entry).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
-        var sentAnnotations = retry is null ? selectedParts.Select((item, i) => SnapshotSelectedParts(item.Entry, item.Reference, item.Attachment, i + 1)).ToList() : selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
+        var prompt = queued is not null ? queued.Prompt : retry is null ? submittedDraft.Trim() : retry.Prompt ?? (retry.SentAnnotations.Count == 0 ? retry.DisplayQuestion : "");
+        var selectedParts = retry is null && queued is null ? _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray() : [];
+        var selected = queued is not null ? queued.Entries.Select(e => e.Snapshot()).ToArray() : retry is null ? selectedParts.Select(x => x.Entry).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
+        var sentAnnotations = queued is not null ? selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList() : retry is null ? selectedParts.Select((item, i) => SnapshotSelectedParts(item.Entry, item.Reference, item.Attachment, i + 1)).ToList() : selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
         if (sentAnnotations.Any(entry => entry.HasUnresolvedAttachmentMetadata))
         { StatusText.Text = "附件经过旧版本处理后无法安全匹配，原数据已保留；请从备份恢复，或在新会话重新添加附件。"; return; }
         if (sentAnnotations.Count == 0 && prompt.Length == 0) { StatusText.Text = "请输入问题，或填写并勾选条目。"; return; }
         if (prompt.Length == 0 && sentAnnotations.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
         if (sentAnnotations.Count > 20 || sentAnnotations.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length > 80000 || sentAnnotations.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
+        var followUpTurnSucceeded = false;
+        var followUpBook = _book;
         await RunOperationAsync(async token =>
         {
             var batch = sentAnnotations.Select((x, i) => new AiEntry { Number = i + 1, AnswerAnchor = x.AnswerAnchor, Id = x.Id, Title = x.Title, Question = string.IsNullOrWhiteSpace(x.Question) ? "请结合统一问题分析此处。" : x.Question, Sources = [.. x.Sources], PdfBlocks = [.. x.PdfBlocks], Images = new(x.Images), Files = [.. x.Files], PdfRevision = x.PdfRevision, IsPoint = x.IsPoint }).ToList();
@@ -361,6 +366,8 @@ public partial class AiPanel : UserControl, IDisposable
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             var buffer = new AiStreamBuffer();
             var pendingTurn = new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations };
+            _followUpBuffer = buffer;
+            _steering = CreateSteeringController(book, pendingTurn.Id);
             _readingRestoreVersion++; _restoringReading = false;
             _liveSegments.Clear(); LiveQuestion.Markdown = question;
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
@@ -373,8 +380,10 @@ public partial class AiPanel : UserControl, IDisposable
             AiTurnCheckpoint checkpoint;
             try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
             catch { LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            SteerButton.IsEnabled = true;
+            RefreshFollowUps();
             book.Active.LastSentAt = sentAt;
-            if (retry is null && Composer.Text == submittedDraft)
+            if (retry is null && queued is null && Composer.Text == submittedDraft)
             {
                 DetachUnsentMentions(selectedParts.Where(item => item.Attachment).Select(item => item.Entry));
                 _editingMention = true;
@@ -382,10 +391,12 @@ public partial class AiPanel : UserControl, IDisposable
                 finally { _editingMention = false; }
             }
             StatusText.Text = "";
-            if (retry is null)
-                foreach (var item in selectedParts)
+            if (retry is null && queued is null)
+                for (var i = 0; i < selectedParts.Length; i++)
                 {
-                    ConsumeSelectedParts(book, item.Entry, item.Reference, item.Attachment);
+                    var item = selectedParts[i];
+                    if (book.Entries.Contains(item.Entry) && System.Text.Json.JsonSerializer.Serialize(SnapshotSelectedParts(item.Entry, item.Reference, item.Attachment, i + 1)) == System.Text.Json.JsonSerializer.Serialize(sentAnnotations[i]))
+                        ConsumeSelectedParts(book, item.Entry, item.Reference, item.Attachment);
                 }
             Rebind();
             var renderTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
@@ -426,7 +437,8 @@ public partial class AiPanel : UserControl, IDisposable
                 await Settings.SaveSelectionAsync(token);
                 var files = ProjectFiles?.Invoke().ToArray() ?? [];
                 var toolRunner = CreateToolRunner?.Invoke();
-                var history = book.Active.InheritedTurns.Concat(book.Turns).ToArray();
+                var acceptedSteers = AiFollowUpQueue.Load(book.Active).History;
+                var history = book.Active.InheritedTurns.Concat(book.Turns).Select(turn => WithSteeringContext(turn, acceptedSteers)).ToArray();
                 await Task.Run(() => new AiResponses(_connection).RunAsync(model.Id, batch, history, files,
                     _ => { }, _ => { }, token, effort, toolRunner, evt =>
                     {
@@ -434,7 +446,7 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null, steering: _steering), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected.Where(entry => !book.Entries.Contains(entry))) { entry.State = "已完成"; entry.Selected = false; }
@@ -456,14 +468,19 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    book.Turns.Add(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, EndReason = endReason, Model = modelId, ReasoningEffort = effort, Segments = segments });
+                    var completedTurn = pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, EndReason = endReason, Model = modelId, ReasoningEffort = effort, Segments = segments };
+                    book.Turns.Add(AttachSteeringHistory(completedTurn, AiFollowUpQueue.Load(book.Active).History));
                     book.Active.UpdatedAt = DateTimeOffset.UtcNow;
                     // Save the completed exchange before constructing its rich document.
                     await SaveAsync(); checkpoint.Commit(); Rebind(); RefreshTranscript();
+                    await FinishFollowUpTurnAsync(book, pendingTurn.Id, queued, answeredAt is not null);
+                    followUpTurnSucceeded = answeredAt is not null;
                 }
                 if (ReferenceEquals(_foldingLiveTurn, pendingTurn)) { _foldingLiveTurn = null; _liveBookmarkCheckpointReady = false; }
             }
         });
+        if (!followUpTurnSucceeded) await PauseFollowUpsAfterFailureAsync(followUpBook);
+        else if (!_disposed) _ = DispatchNextQueuedAsync();
     }
     private void ToggleLiveTurn()
     {
@@ -474,6 +491,6 @@ public partial class AiPanel : UserControl, IDisposable
         LiveReplyStatus.IsCollapsed = turn.Collapsed;
         ScheduleViewportCapture();
     }
-    public async Task StopAndSaveAsync() { _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
+    public async Task StopAndSaveAsync() { await StopFollowUpsAsync(); _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
     public void Dispose() { _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }

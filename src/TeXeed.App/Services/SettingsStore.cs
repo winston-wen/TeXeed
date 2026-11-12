@@ -20,10 +20,15 @@ internal static class SettingsStore
             // Normalize before deserializing so an invalid mode cannot discard unrelated settings.
             json[nameof(AppSettings.FollowMode)] = (int)ReadFollowMode(json);
             var settings = json.Deserialize<AppSettings>() ?? new();
+            var editorFont = settings.EditorFontFamily?.Trim();
+            if (string.IsNullOrWhiteSpace(editorFont) || editorFont == "Cascadia Code, Consolas" ||
+                editorFont.Equals("Sarasa Mono Slab SC", StringComparison.OrdinalIgnoreCase) ||
+                editorFont.StartsWith("Sarasa Mono Slab SC,", StringComparison.OrdinalIgnoreCase))
+                editorFont = new AppSettings().EditorFontFamily;
             return settings with
             {
                 DebounceMs = Math.Clamp(settings.DebounceMs, 400, 10000), FontSize = Math.Clamp(settings.FontSize, 10, 30),
-                EditorFontFamily = string.IsNullOrWhiteSpace(settings.EditorFontFamily) ? new AppSettings().EditorFontFamily : settings.EditorFontFamily.Trim(),
+                EditorFontFamily = editorFont,
                 AutoWidthMaximumCm = double.IsFinite(settings.AutoWidthMaximumCm) && settings.AutoWidthMaximumCm is >= 1 and <= 200 ? settings.AutoWidthMaximumCm : 30,
                 RecentProjects = settings.RecentProjects ?? []
             };

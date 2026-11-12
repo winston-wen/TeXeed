@@ -15,3 +15,27 @@
 .relation-map .tree-node{flex-direction:column;align-items:flex-start;gap:0}.relation-map .tree-children{flex-direction:column;align-items:flex-start;gap:12px;margin-left:22px;padding:12px 0 0 18px}.relation-map .tree-children:before{display:block;left:0;right:auto;top:0;bottom:24px;border-top:0;border-left:1px solid var(--guide)}.relation-map .tree-children:after,.relation-map .tree-child:after{display:none}.relation-map .tree-child:before{left:-18px;right:auto;top:24px;width:18px;height:0;border:0;border-top:1px solid var(--guide)}
 @media(max-width:650px){.topbar{padding:7px 12px}.demo-label{font-size:11px}.toolbar{padding:3px 12px;gap:2px}.toolbar button{padding:5px}.session-title{max-width:30vw}.transcript{padding:22px 25px 50px 39px}.composer-pane{padding:9px 15px}.shortcut{display:none}.map-scroller{padding:20px}.node-card{width:165px}.tree-node{gap:16px}.tree-children{padding-left:16px}.tree-child:before{width:16px}.selection-tools{max-width:calc(100vw - 12px)}}
 @media(max-width:500px){.topbar{gap:5px}.demo-label{display:none}}
+/* Running-task controls are aligned with the send button and kept out of the text area. */
+.followup-actions{position:absolute;right:clamp(20px,6vw,70px);bottom:50px;display:flex;flex-direction:column;gap:4px;z-index:2}
+.followup-actions button{width:28px;height:28px;display:grid;place-items:center;padding:4px;border:0;border-radius:5px;background:transparent;color:#d0bfc0;cursor:pointer}
+.followup-actions button:hover:not(:disabled),.followup-actions button:focus-visible{background:#47383a;color:#fff}
+.followup-actions button:disabled{opacity:.35;cursor:default}
+.followup-actions svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+@font-face{font-family:'TeXeed Sarasa Light';src:local('Sarasa Mono SC Light');font-weight:400}
+.composer-input textarea{padding-right:40px;font-family:'TeXeed Sarasa Light','Sarasa Mono SC',var(--mono);font-weight:400}
+.composer-input .line-numbers{font-family:'TeXeed Sarasa Light','Sarasa Mono SC',var(--mono);font-weight:400}
+.followup-queue{max-height:120px;overflow:auto;margin-bottom:5px}
+.followup-header{display:flex;align-items:center;gap:8px;color:#a79595;font-size:12px}
+.followup-header button,.demo-running-status button{font-size:12px;color:var(--accent)}
+.followup-row{display:flex;align-items:center;gap:5px;color:#d7c8c8}
+.followup-row:before{content:'排队';font-size:12px;color:#a79595;white-space:nowrap}
+.followup-row input{min-width:0;flex:1;background:transparent;border:0;border-bottom:1px solid #59494a;color:inherit;font:inherit;padding:4px}
+.followup-row button{background:none;border:0;color:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.followup-row button:disabled{opacity:.35;cursor:default}
+.example-steer{margin:12px 0;color:var(--muted);font:13px/1.5 var(--sans)}
+.demo-running-status{display:flex;align-items:center;gap:7px}
+.demo-running-status[hidden],.followup-queue[hidden]{display:none}
+.demo-running-dot{display:inline-block;width:13px;height:13px;border:1.5px solid #86c99e;border-radius:50%;background:#86c99e;animation:demo-pulse 1.6s ease-in-out infinite alternate}
+@keyframes demo-pulse{from{opacity:.35}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.demo-running-dot{animation:demo-blink 1s steps(1,end) infinite;opacity:1}@keyframes demo-blink{0%,100%{background:#86c99e}50%{background:transparent}}}
+@media(max-width:650px){.followup-actions{right:15px}}

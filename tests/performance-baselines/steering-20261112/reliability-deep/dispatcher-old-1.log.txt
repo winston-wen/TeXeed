@@ -1,0 +1,24 @@
+PASS: all preview follow modes round-trip, with legacy migration, key priority and invalid-value defaults
+Isolated test AI home: <isolated-fixture>\old-1\profile\ai
+Stress: constructing 8 turns / 480 sections and formulas
+Stress: realized turns=2/8, viewport=735.5, extent=44495.5
+Stress: scroll + pointer hit-test worst=19.9ms input-gap=185.1ms total=4114ms
+Pointer sample 0: set=0.259ms resumed=21.022ms total=27ms
+Pointer sample 1: set=0.031ms resumed=322.541ms total=336ms
+Pointer sample 2: set=0.024ms resumed=19.364ms total=25ms
+Pointer sample 3: set=0.024ms resumed=282.094ms total=312ms
+Pointer sample 4: set=0.026ms resumed=31.175ms total=43ms
+Pointer sample 5: set=0.021ms resumed=568.227ms total=568ms
+Dispatcher operation priority=Background duration=44.653ms type=System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[[System.Threading.Tasks.VoidTaskResult, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[TeXeed.App.Controls.MarkdownView+<RenderDeferredAsync>d__119, TeXeed, Version=0.4.11.0, Culture=neutral, PublicKeyToken=null]].MoveNext
+Dispatcher operation priority=Render duration=250.892ms type=System.Windows.Media.MediaContext.RenderMessageHandler
+Dispatcher operation priority=Background duration=30.490ms type=System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[[System.Threading.Tasks.VoidTaskResult, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[TeXeed.App.Controls.MarkdownView+<RenderDeferredAsync>d__119, TeXeed, Version=0.4.11.0, Culture=neutral, PublicKeyToken=null]].MoveNext
+Dispatcher operation priority=Render duration=225.809ms type=System.Windows.Media.MediaContext.RenderMessageHandler
+Dispatcher operation priority=Background duration=15.567ms type=System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[[System.Threading.Tasks.VoidTaskResult, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[TeXeed.App.Controls.MarkdownView+<RenderDeferredAsync>d__119, TeXeed, Version=0.4.11.0, Culture=neutral, PublicKeyToken=null]].MoveNext
+Dispatcher operation priority=Background duration=32.917ms type=System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[[System.Threading.Tasks.VoidTaskResult, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[TeXeed.App.Controls.MarkdownView+<RenderDeferredAsync>d__119, TeXeed, Version=0.4.11.0, Culture=neutral, PublicKeyToken=null]].MoveNext
+Dispatcher operation priority=Render duration=268.535ms type=System.Windows.Media.MediaContext.RenderMessageHandler
+Dispatcher operation priority=Background duration=20.173ms type=System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1+AsyncStateMachineBox`1[[System.Threading.Tasks.VoidTaskResult, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[TeXeed.App.Controls.MarkdownView+<RenderDeferredAsync>d__119, TeXeed, Version=0.4.11.0, Culture=neutral, PublicKeyToken=null]].MoveNext
+Dispatcher operation priority=Render duration=239.747ms type=System.Windows.Media.MediaContext.RenderMessageHandler
+System.Exception: Native pointer movement stalled the dispatcher
+   at Program.<>c__DisplayClass58_0.<CheckAiReliabilityAsync>g__Check|0(Boolean ok, String message) in /_1/tests/TeXeed.AppTests/AiReliabilityTests.cs:line 19
+   at Program.CheckAiReliabilityAsync(MainWindow owner, String output) in /_1/tests/TeXeed.AppTests/AiReliabilityTests.cs:line 102
+   at Program.<>c__DisplayClass128_0.<<Main>b__1>d.MoveNext() in /_1/tests/TeXeed.AppTests/Program.cs:line 208

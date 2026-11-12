@@ -12,6 +12,7 @@ public partial class AiPanel
 
     private async Task FinishConversationWorkAsync()
     {
+        await StopFollowUpsAsync();
         _operation?.Cancel();
         if (_operationDone is { } work) await work.Task;
         _saveTimer.Stop();
@@ -54,6 +55,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        _followUpsClosing = false;
         CloseMentions();
         ClearBookmarkMarkers();
         _autoScroll.Stop();
@@ -64,7 +66,7 @@ public partial class AiPanel
         _updating = false;
         SyncPermission(); UpdateContextUsage();
         MessageSearchBox.Clear();
-        Rebind(); RefreshTranscript(); RefreshBookmarkMarkers();
+        Rebind(); RefreshTranscript(); RefreshBookmarkMarkers(); RestoreFollowUps();
         StatusText.Text = "";
         RestoreReadingAnchor();
     }

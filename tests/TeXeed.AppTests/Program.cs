@@ -16,6 +16,12 @@ internal static partial class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Contains("--ai-follow-up-queue-only"))
+        {
+            CheckAiFollowUpQueue();
+            Console.WriteLine("AI follow-up queue data tests passed.");
+            return 0;
+        }
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
         var outputArgument = Array.IndexOf(args, "--output");
         var output = outputArgument >= 0 && outputArgument + 1 < args.Length
@@ -30,6 +36,12 @@ internal static partial class Program
             throw new InvalidOperationException("UI tests require an isolated AI credentials directory.");
         Console.WriteLine("Isolated test AI home: " + expectedAiHome);
         File.WriteAllText(Path.Combine(config, "settings.json"), JsonSerializer.Serialize(new AppSettings { LivePreview = false }));
+        if (args.Contains("--ai-steering-only"))
+        {
+            CheckAiSteeringAsync().GetAwaiter().GetResult();
+            Console.WriteLine("AI steering tests passed.");
+            return 0;
+        }
         var result = 1;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
@@ -48,6 +60,16 @@ internal static partial class Program
                 if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
                     throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
+                if (args.Contains("--ai-follow-up-panel-only"))
+                {
+                    await CheckFollowUpPanelAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI queued messages"); result = 0; return;
+                }
+                if (args.Contains("--editor-font-only"))
+                {
+                    CheckEditorTypography();
+                    await CloseAndObserveAsync(window, "Editor typography"); result = 0; return;
+                }
                 if (args.Contains("--multi-main-only"))
                 {
                     await CheckMultiMainAsync(window, root, output);
@@ -203,9 +225,9 @@ internal static partial class Program
                     await CheckAiHistoryAsync(window, output);
                     await CloseAndObserveAsync(window, "AI history management regression"); result = 0; return;
                 }
-                if (args.Contains("--ai-reliability-only"))
+                if (args.Contains("--ai-reliability-only") || args.Contains("--ai-reliability-data-only"))
                 {
-                    await CheckAiReliabilityAsync(window, output);
+                    await CheckAiReliabilityAsync(window, output, args.Contains("--ai-reliability-data-only"));
                     await CloseAndObserveAsync(window, "AI reliability regression"); result = 0; return;
                 }
                 if (args.Contains("--ai-prototype-only"))

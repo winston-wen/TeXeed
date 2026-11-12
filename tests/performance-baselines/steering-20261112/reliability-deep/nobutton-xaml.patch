@@ -1,0 +1,16 @@
+diff --git a/artifacts/perf-steering-font/deep/new/src/TeXeed.App/Controls/AiPanel.xaml b/artifacts/perf-steering-font/deep/nobutton/src/TeXeed.App/Controls/AiPanel.xaml
+index fca9422..7ed7cba 100644
+--- a/artifacts/perf-steering-font/deep/new/src/TeXeed.App/Controls/AiPanel.xaml
++++ b/artifacts/perf-steering-font/deep/nobutton/src/TeXeed.App/Controls/AiPanel.xaml
+@@ -55,10 +55,7 @@
+     <Grid x:Name="ComposerEditor" Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <local:TextBoxLineNumbers x:Name="ComposerLines" Width="33" Padding="0,0,6,0" MinimumLineCount="3" Foreground="{DynamicResource Muted}" Background="Transparent" BorderBrush="Transparent"/>
+      <TextBox Grid.Column="1" x:Name="Composer" AcceptsReturn="True" TextWrapping="Wrap" TextBlock.LineHeight="20" TextBlock.LineStackingStrategy="BlockLineHeight" Padding="0,12,12,9" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent" TextChanged="Composer_Changed" PreviewKeyDown="Composer_KeyDown" FontSize="15" AcceptsTab="True" ToolTip="Enter / Shift+Enter 换行；Ctrl+Enter 发送" AutomationProperties.Name="AI 对话编辑栏"/>
+-     <StackPanel Grid.Column="2" Margin="0,8,11,0" VerticalAlignment="Top">
+-      <Button x:Name="SteerButton" Style="{StaticResource ComposerIcon}" Click="Steer_Click" ToolTip="引导当前任务" AutomationProperties.Name="引导当前任务" IsEnabled="False"><Path Data="M 2,13 C 7,13 10,11 10,4 M 6,7 L 10,3 14,7" Width="16" Height="16" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Button>
+-      <Button x:Name="QueueButton" Style="{StaticResource ComposerIcon}" Click="Queue_Click" ToolTip="排队作为下一轮" AutomationProperties.Name="排队作为下一轮" Margin="0,7,0,0" IsEnabled="False"><Path Data="M 2,3 H 13 M 2,7 H 13 M 2,11 H 8 M 10,10 L 13,13 16,10" Width="16" Height="16" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Button>
+-     </StackPanel>
++     
+ 
+     </Grid>
+     <Thumb x:Name="ComposerResize" Grid.Row="1" VerticalAlignment="Top" Height="4" Cursor="SizeNS" DragDelta="ComposerResize_DragDelta" AutomationProperties.Name="调整编辑栏高度"><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template></Thumb>

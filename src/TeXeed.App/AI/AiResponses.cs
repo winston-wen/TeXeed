@@ -175,8 +175,10 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
         if (tailStart < text.Length && char.IsLowSurrogate(text[tailStart])) tailStart++;
         return text[..head] + marker + text[tailStart..];
     }
-    internal async Task RunAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history, IReadOnlyList<ProjectFile> files, Action<string> delta, Action<string> status, CancellationToken token, string reasoningEffort = "", AiToolRunner? toolRunner = null, Action<AiStreamEvent>? activity = null, string? instructionsOverride = null, AiPermission permission = AiPermission.FullAccess, Action<AiContextUsage>? usage = null, long? contextWindow = null, AiContextMemory? memory = null, Action<AiContextMemory>? compacted = null, int? compactThreshold = null, JsonArray? preparedInput = null, string? connectionIdentity = null, Func<string, CancellationToken, Task<AiMathCheck>>? proofread = null, bool resuming = false, bool isBranch = false)
+    internal async Task RunAsync(string model, IReadOnlyList<AiEntry> entries, IReadOnlyList<AiTurn> history, IReadOnlyList<ProjectFile> files, Action<string> delta, Action<string> status, CancellationToken token, string reasoningEffort = "", AiToolRunner? toolRunner = null, Action<AiStreamEvent>? activity = null, string? instructionsOverride = null, AiPermission permission = AiPermission.FullAccess, Action<AiContextUsage>? usage = null, long? contextWindow = null, AiContextMemory? memory = null, Action<AiContextMemory>? compacted = null, int? compactThreshold = null, JsonArray? preparedInput = null, string? connectionIdentity = null, Func<string, CancellationToken, Task<AiMathCheck>>? proofread = null, bool resuming = false, bool isBranch = false, AiSteeringController? steering = null)
     {
+        try
+        {
         var identity = connectionIdentity ?? connection.ConnectionIdentity;
         var budget = new AiContextBudget(contextWindow, compactThreshold);
         long measuredSize = 0; var measuredTextSize = 0;
@@ -203,9 +205,39 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
         var mathRepairs = 0;
         var minimumMath = 0;
         var maxRounds = attachments.Count > 0 ? 200 : 40;
+        var steeringEntries = new List<AiEntry>();
+        var dispatchedSteering = new List<string>();
         for (var round = 0; round < maxRounds; round++)
         {
             token.ThrowIfCancellationRequested();
+            var incoming = steering?.Drain() ?? [];
+            if (incoming.Count > 0)
+            {
+                foreach (var message in incoming)
+                {
+                    var parts = new List<AiEntry>();
+                    if (!string.IsNullOrWhiteSpace(message.Prompt)) parts.Add(new AiEntry { Title = "统一问题", Question = message.Prompt });
+                    parts.AddRange(message.Entries);
+                    steeringEntries.AddRange(message.Entries);
+                    var addition = MakeInput(parts, [], token).LastOrDefault();
+                    if (addition is null) throw new InvalidOperationException("引导内容为空。");
+                    input.Add(addition.DeepClone());
+                    currentMessage = input.Last();
+                }
+                attachments = await Task.Run(() => new AiAttachmentCatalog(history, entries.Concat(steeringEntries).ToArray(), token), token);
+                if (currentMessage?["content"] is JsonArray content)
+                {
+                    var manifest = attachments.Manifest;
+                    if (manifest.Length > 0) content.Add(new JsonObject { ["type"] = "input_text", ["text"] = manifest });
+                    var mentions = attachments.CurrentFileMentions(budget, token, budget.Size(ContextText(input)));
+                    if (mentions.Length > 0) content.Add(new JsonObject { ["type"] = "input_text", ["text"] = mentions });
+                }
+                if (attachments.Count > 0) maxRounds = 200;
+                var ids = incoming.Select(message => message.Id).ToArray();
+                await steering!.BeforeSendAsync(ids, token);
+                dispatchedSteering.AddRange(ids);
+                mathRepairs = 0;
+            }
             var contextSize = preparedInput is null && round > 0 ? budget.Size(ContextText(input)) : 0;
             var compactableSize = preparedInput is null && round > 0 ? budget.Size(ContextText(input, currentMessage)) : 0;
             if (preparedInput is null && round > 0 && HasSubstantialContext(input, currentMessage, budget) &&
@@ -232,18 +264,20 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
             {
                 token.ThrowIfCancellationRequested();
                 text?.Reset(); text = null; output = null; totalCharacters = acceptedCharacters;
+                var requestCancellation = steering?.BeginRequest(token);
+                var requestToken = requestCancellation?.Token ?? token;
                 try
                 {
                     activity?.Invoke(new(requestStateId, "status", attempt == 0 ? "等待 AI 响应" : $"正在重试 · 第 {attempt} 次"));
                     using var request = new HttpRequestMessage(HttpMethod.Post, ChatGptLogin.Resource + "/responses") { Content = new StringContent(requestBody, Encoding.UTF8, "application/json") };
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await connection.BearerAsync(token, identity));
-                    using var response = await connection.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await connection.BearerAsync(requestToken, identity));
+                    using var response = await connection.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, requestToken);
                     if ((int)response.StatusCode is 408 or 425 or 500 or 502 or 503 or 504)
                         throw new HttpRequestException($"服务器暂时无法响应 · HTTP {(int)response.StatusCode}", null, response.StatusCode);
-                    if (!response.IsSuccessStatusCode) throw await AiFailure.FromResponseAsync(response, token);
+                    if (!response.IsSuccessStatusCode) throw await AiFailure.FromResponseAsync(response, requestToken);
                     activity?.Invoke(new(requestStateId, "status", "等待 AI 响应"));
-                    using var reader = new System.IO.StreamReader(await response.Content.ReadAsStreamAsync(token));
-                    using var readDeadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    using var reader = new System.IO.StreamReader(await response.Content.ReadAsStreamAsync(requestToken));
+                    using var readDeadline = CancellationTokenSource.CreateLinkedTokenSource(requestToken);
                     var eventData = new StringBuilder();
                     var finishedItems = new SortedDictionary<int, JsonNode>();
                     var itemIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -289,10 +323,21 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                     for (var index = 0; index < output.Count; index++)
                         if (output[index] is { } item && item["type"]?.ToString() == "message")
                             text.Observe(item, ItemIdentity(item) is { } id && itemIndexes.TryGetValue(id, out var original) ? original : index, true);
+                    if (dispatchedSteering.Count > 0)
+                    {
+                        await steering!.AfterAcceptedAsync(dispatchedSteering.ToArray(), token);
+                        dispatchedSteering.Clear();
+                    }
+                    break;
+                }
+                catch (Exception ex) when (ex is OperationCanceledException or System.IO.IOException or HttpRequestException && !token.IsCancellationRequested && requestToken.IsCancellationRequested && steering?.HasPending == true)
+                {
+                    if (text?.HasText == true) input.Add(new JsonObject { ["role"] = "assistant", ["content"] = text.CombinedText });
                     break;
                 }
                 catch (Exception ex) when (IsNetworkFailure(ex, token))
                 {
+                    if (dispatchedSteering.Count > 0) throw new InvalidOperationException("引导请求的处理状态不明，请检查会话后再决定是否重试。", ex);
                     var wait = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(attempt, 5))));
                     var reason = ex is AiTransientFailureException or HttpRequestException { StatusCode: not null } ? "服务暂时不可用" : "网络连接中断";
                     var message = $"{reason}，{wait.TotalSeconds:0} 秒后重试 · 第 {attempt + 1} 次";
@@ -304,12 +349,30 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                         await Task.Delay(TimeSpan.FromSeconds(1), token);
                     }
                 }
+                finally { if (requestCancellation is not null) steering!.EndRequest(requestCancellation); }
             }
-            var calls = output!.Where(n => n?["type"]?.GetValue<string>() == "function_call").ToArray();
+            if (output is null)
+            {
+                if (steering?.HasPending == true) continue;
+                throw new System.IO.EndOfStreamException("连接中断，未收到完成确认。");
+            }
+            var calls = output.Where(n => n?["type"]?.GetValue<string>() == "function_call").ToArray();
             if (mathRepairs > 0 && calls.Length > 0) throw new InvalidOperationException("公式校对阶段不得调用项目工具，本轮未完成。");
             if (calls.Length == 0)
             {
+                if (!text!.HasText && steering?.HasPending == true)
+                {
+                    foreach (var item in output) input.Add(item?.DeepClone());
+                    continue;
+                }
                 if (!text!.HasText) throw new InvalidOperationException("服务器结束了请求，但未返回回答或可执行工具。本次问题仍保留，可重试；这不是登录失败。");
+                if (steering?.HasPending == true)
+                {
+                    if (editsAwaitingCompile) verificationReminderSent = false;
+                    foreach (var item in output) input.Add(item?.DeepClone());
+                    if (!output.Any(n => n?["type"]?.ToString() == "message")) input.Add(new JsonObject { ["role"] = "assistant", ["content"] = text.CombinedText });
+                    continue;
+                }
                 string? reminder = null;
                 if (text.OnlyCommentary)
                 {
@@ -339,11 +402,24 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                     else if (check.Count > 0 || mathRepairs > 0)
                         activity?.Invoke(new("math-proofread", "activity", $"公式排版检查通过 · {check.Count} 个不同公式"));
                 }
+                if (steering?.HasPending == true)
+                {
+                    if (editsAwaitingCompile) verificationReminderSent = false;
+                    foreach (var item in output) input.Add(item?.DeepClone());
+                    if (!output.Any(n => n?["type"]?.ToString() == "message")) input.Add(new JsonObject { ["role"] = "assistant", ["content"] = text.CombinedText });
+                    continue;
+                }
                 if (reminder is not null)
                 {
                     foreach (var item in output) input.Add(item?.DeepClone());
                     if (!output.Any(n => n?["type"]?.ToString() == "message")) input.Add(new JsonObject { ["role"] = "assistant", ["content"] = text.CombinedText });
                     input.Add(new JsonObject { ["role"] = "user", ["content"] = reminder });
+                    continue;
+                }
+                if (steering is not null && !steering.TryFinish())
+                {
+                    foreach (var item in output) input.Add(item?.DeepClone());
+                    if (!output.Any(n => n?["type"]?.ToString() == "message")) input.Add(new JsonObject { ["role"] = "assistant", ["content"] = text.CombinedText });
                     continue;
                 }
                 activity?.Invoke(new(text.FinalId, "final", ""));
@@ -360,12 +436,13 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
                 activity?.Invoke(new("pending", "status", "正在处理项目"));
                 activity?.Invoke(new(eventId, "activity", label, Details: ToolDetails(name, arguments, "等待执行结果…")));
                 var shortName = name.Split('.').Last();
-                if (shortName == "compile_project") editsAwaitingCompile = false;
+                var skippedForSteering = steering?.HasPending == true;
+                if (!skippedForSteering && shortName == "compile_project") editsAwaitingCompile = false;
                 string result;
                 try
                 {
                     if (toolRunner is not null && !AiPermissionChoice.Allows(permission, shortName)) throw new UnauthorizedAccessException("当前会话权限不允许此工具：" + shortName);
-                    result = AiAttachmentCatalog.IsTool(name) ? await Task.Run(() => attachments.Execute(name, arguments, token), token) : toolRunner is null ? ExecuteTool(name, arguments, files) : await toolRunner(name, arguments, token);
+                    result = skippedForSteering ? "用户已发送新引导，此工具尚未开始执行。" : AiAttachmentCatalog.IsTool(name) ? await Task.Run(() => attachments.Execute(name, arguments, token), token) : toolRunner is null ? ExecuteTool(name, arguments, files) : await toolRunner(name, arguments, token);
                 }
                 catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException or FormatException or OverflowException or System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException)
                 { result = "操作失败：" + ex.Message; }
@@ -393,6 +470,8 @@ internal sealed partial class AiResponses(AiConnection connection, Func<TimeSpan
             }
         }
         throw new InvalidOperationException($"已达到本轮 {maxRounds} 次工作循环上限，任务可能尚未完成；已保留当前修改与过程，可继续发送问题。");
+        }
+        finally { steering?.Close(); }
     }
     private static string? ItemIdentity(JsonNode item) => item["id"] is { } id ? "id:" + id : item["call_id"] is { } call ? "call:" + call : null;
     private static JsonArray MergeOutput(JsonArray? terminal, SortedDictionary<int, JsonNode> finished, Dictionary<string, int> indexes)

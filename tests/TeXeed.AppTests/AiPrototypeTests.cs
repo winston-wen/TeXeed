@@ -1,4 +1,5 @@
 using System.IO;
+using System.ComponentModel;
 using Path = System.IO.Path;
 using System.Windows;
 using System.Windows.Controls;
@@ -27,6 +28,36 @@ internal static partial class Program
         var legacyFailure = new AiTurn("旧中断", "已有部分正文") { Segments = [new() { Id = "failure", Kind = "activity", Text = "已停止。", CreatedAt = sent.AddSeconds(4) }] };
         Check(legacyFailure.AnswerTime == "2026-10-19 (+8) 10:00:04 用户中止", "Legacy user stop was missed");
         Check((legacyFailure with { EndReason = "program" }).AnswerTime.EndsWith("程序中止"), "Explicit end reason did not override legacy text");
+
+        var animationEnabled = true;
+        var pulsingStatus = new AiReplyStatus(() => animationEnabled) { IsThinking = true };
+        var blinkingStatus = new AiReplyStatus(() => false) { IsThinking = true };
+        var indicators = new StackPanel(); indicators.Children.Add(pulsingStatus); indicators.Children.Add(blinkingStatus);
+        var indicatorHost = new Window { Owner = owner, Width = 400, Height = 200, Content = indicators, ShowInTaskbar = false };
+        try
+        {
+            indicatorHost.Show(); await Task.Delay(100);
+            var pulse = Descendants<Ellipse>(pulsingStatus).Single(); var blink = Descendants<Ellipse>(blinkingStatus).Single();
+            var opacitySamples = new List<double>();
+            for (var i = 0; i < 6; i++) { await Task.Delay(160); opacitySamples.Add(pulse.Opacity); }
+            Check(opacitySamples.Max() - opacitySamples.Min() > .12, "Breathing indicator did not visibly change opacity");
+            var firstFill = blink.Fill; var switched = false;
+            for (var i = 0; i < 12 && !switched; i++) { await Task.Delay(100); switched = !ReferenceEquals(firstFill, blink.Fill); }
+            Check(switched, "Reduced-animation indicator did not switch between hollow and solid");
+            blinkingStatus.Visibility = Visibility.Collapsed; await Task.Delay(40);
+            Check(Field(blinkingStatus, "_blinkTimer") is null, "Hidden blinking indicator retained its timer");
+            blinkingStatus.Visibility = Visibility.Visible; await Task.Delay(40);
+            Check(Field(blinkingStatus, "_blinkTimer") is not null, "Blinking indicator did not resume");
+            blinkingStatus.IsThinking = false;
+            Check(Field(blinkingStatus, "_blinkTimer") is null && pulse.HasAnimatedProperties, "Stopping did not dispose of blinking timer");
+            blinkingStatus.IsThinking = true; indicators.Children.Remove(blinkingStatus); await Task.Delay(40);
+            Check(Field(blinkingStatus, "_blinkTimer") is null, "Unloaded blinking indicator retained its timer");
+            animationEnabled = false; Invoke(pulsingStatus, "OnSystemParameterChanged", indicatorHost, new PropertyChangedEventArgs(nameof(SystemParameters.ClientAreaAnimation)));
+            Check(!pulse.HasAnimatedProperties && Field(pulsingStatus, "_blinkTimer") is not null, "Changing the animation preference did not switch to blinking");
+            animationEnabled = true; Invoke(pulsingStatus, "OnSystemParameterChanged", indicatorHost, new PropertyChangedEventArgs(nameof(SystemParameters.ClientAreaAnimation)));
+            Check(pulse.HasAnimatedProperties && Field(pulsingStatus, "_blinkTimer") is null, "Changing the animation preference did not restore breathing");
+        }
+        finally { indicatorHost.Close(); }
 
         new AiCredentials { ApiKey = "fixture-never-send", UseApiKey = true }.Save();
         using var stalled = new StalledAiHandler(); using var connection = new AiConnection(stalled); using var panel = new AiPanel(connection);
@@ -118,15 +149,17 @@ internal static partial class Program
             liveStamp.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(liveStamp), Environment.TickCount, Key.Enter) { RoutedEvent = Keyboard.KeyDownEvent });
             Check(((ItemsControl)panel.FindName("LiveSegments")).Visibility == Visibility.Visible, "Live send time cannot restore the running turn");
             var indicator = Descendants<Ellipse>(live).Single();
-            Check(indicator.HasAnimatedProperties == SystemParameters.ClientAreaAnimation, "Thinking animation ignores the motion preference");
+            Check(indicator.HasAnimatedProperties == SystemParameters.ClientAreaAnimation, "Visible thinking indicator uses the wrong system animation mode");
             var extent = ((ScrollViewer)panel.FindName("MessagesScroll")).ExtentHeight;
-            await Task.Delay(150); host.UpdateLayout();
+            if (SystemParameters.ClientAreaAnimation) { var samples = new List<double>(); for (var i = 0; i < 6; i++) { await Task.Delay(160); samples.Add(indicator.Opacity); } Check(samples.Max() - samples.Min() > .12, "Thinking indicator opacity did not change"); }
+            else { var fill = indicator.Fill; var changed = false; for (var i = 0; i < 12 && !changed; i++) { await Task.Delay(100); changed = !ReferenceEquals(fill, indicator.Fill); } Check(changed, "Thinking indicator did not blink"); }
+            host.UpdateLayout();
             Check(Math.Abs(((ScrollViewer)panel.FindName("MessagesScroll")).ExtentHeight - extent) < .1, "Thinking animation changes transcript layout");
             Capture(host, Path.Combine(output, "ai-prototype-thinking.png"));
             panel.Visibility = Visibility.Collapsed; await Task.Delay(40);
             Check(!indicator.HasAnimatedProperties, "Hidden thinking indicator retained its animation clock");
             panel.Visibility = Visibility.Visible; await Task.Delay(40);
-            Check(indicator.HasAnimatedProperties == SystemParameters.ClientAreaAnimation, "Thinking animation did not resume");
+            Check(indicator.HasAnimatedProperties == SystemParameters.ClientAreaAnimation, "Thinking animation did not resume in the selected mode");
             ((Button)panel.FindName("StopButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await send.WaitAsync(TimeSpan.FromSeconds(10)); host.UpdateLayout();
             var stopped = book.Turns.Single();
             Check(stopped.IsIncomplete && stopped.Incomplete == true && stopped.AnsweredAt is null && stopped.EndedAt is not null, "Stopping did not store distinct incomplete/end state");

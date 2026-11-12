@@ -46,6 +46,9 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build
 | `--completion-only`、`--code-style-only` | 补全和 Markdown 代码样式 |
 | `--ai-only`、`--ai-permissions-only` | 模拟 AI 服务、工具和权限 |
 | `--ai-history-only`、`--ai-reliability-only` | 会话保存、恢复和长对话 |
+| `--ai-reliability-data-only` | 长对话和恢复检查，单独跳过真实系统指针压力项；不能替代完整可靠性测试 |
+| `--ai-follow-up-queue-only`、`--ai-follow-up-panel-only`、`--ai-steering-only` | 排队持久化、面板模拟及引导请求交接 |
+| `--editor-font-only` | 两套主题的编辑字体及回退 |
 | `--ai-pins-only`、`--ai-reading-only`、`--ai-annotations-only` | 批注编辑、确认和主编辑框发送 |
 | `--ai-prototype-only` | 原生 AI 界面与原型约定 |
 | `--ai-math-scroll-only`、`--ai-math-copy-only`、`--ai-math-proofread-only` | 公式渲染、复制和校对 |

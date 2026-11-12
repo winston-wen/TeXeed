@@ -60,7 +60,7 @@ public partial class MainWindow : Window
         Preview.InvertColors = _settings.InvertPdfColors;
         Preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
         Preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
-        foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); }
+        foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); sourceEditor.FontWeight = EditorTypography.WeightFor(_settings.EditorFontFamily); }
         ApplyWordWrap();
         _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
         _liveTimer.Tick += async (_, _) =>
@@ -792,7 +792,7 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() != true) return;
         if (_project is not null) { _project = _project with { ConfiguredName = dialog.ProjectName }; RefreshTabs(); }
         _settings = dialog.Settings; PersistSettings(); LiveMenuItem.IsChecked = _settings.LivePreview;
-        foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); }
+        foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); sourceEditor.FontWeight = EditorTypography.WeightFor(_settings.EditorFontFamily); }
         Preview.InvertColors = _settings.InvertPdfColors;
         Preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
         Preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;

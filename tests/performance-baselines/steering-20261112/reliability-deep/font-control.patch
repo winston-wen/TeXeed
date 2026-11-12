@@ -1,0 +1,16 @@
+diff --git a/artifacts/perf-steering-font/deep/new/src/TeXeed.App/Controls/EditorTypography.cs b/artifacts/perf-steering-font/deep/font/src/TeXeed.App/Controls/EditorTypography.cs
+index 1a54ce3..bea5db9 100644
+--- a/artifacts/perf-steering-font/deep/new/src/TeXeed.App/Controls/EditorTypography.cs
++++ b/artifacts/perf-steering-font/deep/font/src/TeXeed.App/Controls/EditorTypography.cs
+@@ -5,9 +5,9 @@ namespace TeXeed.App.Controls;
+ 
+ public static class EditorTypography
+ {
+-    public const string FamilyName = "Sarasa Mono SC, Cascadia Code, Consolas, Microsoft YaHei";
++    public const string FamilyName = "Cascadia Code, Consolas, Microsoft YaHei";
+     public static FontFamily DefaultFamily { get; } = new(FamilyName);
+-    public static FontWeight DefaultWeight { get; } = FindLightWeight(Fonts.SystemFontFamilies);
++    public static FontWeight DefaultWeight { get; } = FontWeights.Normal;
+ 
+     internal static FontWeight FindLightWeight(IEnumerable<FontFamily> families)
+     {

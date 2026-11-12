@@ -4,11 +4,13 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using System.Globalization;
+using System.ComponentModel;
 
 namespace TeXeed.App.Controls;
 
-/// <summary>One stable footer for live and persisted replies; only dot opacity animates.</summary>
+/// <summary>One stable footer for live and persisted replies.</summary>
 public sealed class AiReplyStatus : StackPanel
 {
     public static readonly DependencyProperty TextProperty = DependencyProperty.Register(nameof(Text), typeof(string), typeof(AiReplyStatus), new PropertyMetadata("", (d, _) => ((AiReplyStatus)d).Refresh()));
@@ -21,6 +23,8 @@ public sealed class AiReplyStatus : StackPanel
     private readonly Ellipse _indicator = new() { Width = AiChatTypography.MetadataFontSize, Height = AiChatTypography.MetadataFontSize, Margin = new Thickness(7, 0, 0, 0), IsHitTestVisible = false };
     private readonly InlineUIContainer _indicatorInline;
     private bool _pulsing;
+    private readonly Func<bool> _animationsEnabled;
+    private DispatcherTimer? _blinkTimer;
     private Button? _retry;
     private readonly WrapPanel _row = new();
     internal Action? RetryRequested;
@@ -44,8 +48,10 @@ public sealed class AiReplyStatus : StackPanel
     {
         set { _stamp.LineHeight = value ? double.NaN : AiChatTypography.ExpandedLineHeight; _stamp.LineStackingStrategy = value ? LineStackingStrategy.MaxHeight : LineStackingStrategy.BlockLineHeight; }
     }
-    public AiReplyStatus()
+    public AiReplyStatus() : this(() => SystemParameters.ClientAreaAnimation) { }
+    internal AiReplyStatus(Func<bool> animationsEnabled)
     {
+        _animationsEnabled = animationsEnabled;
         Background = Brushes.Transparent;
         IsCollapsed = false;
         _indicatorInline = new InlineUIContainer(_indicator) { BaselineAlignment = BaselineAlignment.Baseline };
@@ -55,9 +61,13 @@ public sealed class AiReplyStatus : StackPanel
         line.SetResourceReference(Border.BackgroundProperty, "ChatDivider");
         _row.Children.Add(_stamp);
         Children.Add(_row); Children.Add(line);
-        Loaded += (_, _) => { AlignIndicator(); UpdatePulse(); };
-        Unloaded += (_, _) => StopPulse();
+        Loaded += (_, _) => { SystemParameters.StaticPropertyChanged += OnSystemParameterChanged; AlignIndicator(); UpdatePulse(); };
+        Unloaded += (_, _) => { SystemParameters.StaticPropertyChanged -= OnSystemParameterChanged; StopPulse(); };
         IsVisibleChanged += (_, _) => UpdatePulse();
+    }
+    private void OnSystemParameterChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(SystemParameters.ClientAreaAnimation)) { StopPulse(); UpdatePulse(); }
     }
     private void Refresh()
     {
@@ -82,13 +92,29 @@ public sealed class AiReplyStatus : StackPanel
     }
     private void UpdatePulse()
     {
-        if (!IsThinking || !IsLoaded || !IsVisible || !SystemParameters.ClientAreaAnimation) { StopPulse(); return; }
+        if (!IsThinking || !IsLoaded || !IsVisible) { StopPulse(); return; }
         if (_pulsing) return;
         _pulsing = true;
-        _indicator.BeginAnimation(OpacityProperty, new DoubleAnimation(.35, 1, TimeSpan.FromSeconds(.8)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+        if (_animationsEnabled())
+            _indicator.BeginAnimation(OpacityProperty, new DoubleAnimation(.35, 1, TimeSpan.FromSeconds(.8)) { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+        else
+        {
+            _indicator.SetResourceReference(Shape.StrokeProperty, "ChatThinking");
+            _indicator.StrokeThickness = 1.5;
+            _blinkTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(500) };
+            _blinkTimer.Tick += Blink;
+            _blinkTimer.Start();
+        }
+    }
+    private void Blink(object? sender, EventArgs e)
+    {
+        if (_indicator.Fill == Brushes.Transparent) _indicator.SetResourceReference(Shape.FillProperty, "ChatThinking");
+        else _indicator.Fill = Brushes.Transparent;
     }
     private void StopPulse()
     {
-        _indicator.BeginAnimation(OpacityProperty, null); _indicator.Opacity = 1; _pulsing = false;
+        if (_blinkTimer is not null) { _blinkTimer.Stop(); _blinkTimer.Tick -= Blink; _blinkTimer = null; }
+        _indicator.BeginAnimation(OpacityProperty, null); _indicator.Opacity = 1;
+        _indicator.SetResourceReference(Shape.FillProperty, "ChatThinking"); _indicator.StrokeThickness = 0; _pulsing = false;
     }
 }

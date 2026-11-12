@@ -60,10 +60,16 @@ internal static class SettingsMigrationTests
             save.Invoke(null, [new AppSettings { EditorFontFamily = "Times New Roman" }]);
             if (((AppSettings)load.Invoke(null, null)!).EditorFontFamily != "Times New Roman")
                 throw new InvalidOperationException("A proportional editor font did not round-trip.");
+            File.WriteAllText(path, "{\"EditorFontFamily\":\"Cascadia Code, Consolas\"}");
+            if (((AppSettings)load.Invoke(null, null)!).EditorFontFamily != new AppSettings().EditorFontFamily)
+                throw new InvalidOperationException("The old editor default was not migrated to Sarasa.");
             File.WriteAllText(path, "{\"EditorFontFamily\":\"Sarasa Mono Slab SC\"}");
             var legacy = (AppSettings)load.Invoke(null, null)!;
-            if (!legacy.InvertPdfColors || !legacy.AutoCropPdf || legacy.EditorFontFamily != "Sarasa Mono Slab SC")
-                throw new InvalidOperationException("PDF inversion default discarded the existing font");
+            if (!legacy.InvertPdfColors || !legacy.AutoCropPdf || legacy.EditorFontFamily != new AppSettings().EditorFontFamily)
+                throw new InvalidOperationException("PDF inversion defaults or Slab font migration failed");
+            File.WriteAllText(path, "{\"EditorFontFamily\":\"Sarasa Mono Slab SC, Consolas\"}");
+            if (((AppSettings)load.Invoke(null, null)!).EditorFontFamily != new AppSettings().EditorFontFamily)
+                throw new InvalidOperationException("Slab editor font with fallbacks was not migrated");
             save.Invoke(null, [legacy with { InvertPdfColors = false, AutoCropPdf = false }]);
             var restoredColors = (AppSettings)load.Invoke(null, null)!;
             if (restoredColors.InvertPdfColors || restoredColors.AutoCropPdf)

@@ -1,0 +1,12 @@
+diff --git a/artifacts/perf-steering-font/deep/new/src/TeXeed.App/Controls/AiPanel.FollowUps.cs b/artifacts/perf-steering-font/deep/nobutton/src/TeXeed.App/Controls/AiPanel.FollowUps.cs
+index 9fe9b1e..a46408b 100644
+--- a/artifacts/perf-steering-font/deep/new/src/TeXeed.App/Controls/AiPanel.FollowUps.cs
++++ b/artifacts/perf-steering-font/deep/nobutton/src/TeXeed.App/Controls/AiPanel.FollowUps.cs
+@@ -8,6 +8,7 @@ namespace TeXeed.App.Controls;
+ 
+ public partial class AiPanel
+ {
++    private readonly Button SteerButton = new(), QueueButton = new();
+     private bool _followUpSaving, _queueDispatching;
+     private readonly SemaphoreSlim _followUpGate = new(1, 1);
+     private TaskCompletionSource? _followUpIdle;

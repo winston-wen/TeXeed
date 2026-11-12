@@ -42,7 +42,8 @@ public sealed partial class LatexEditor : TextEditor
     public LatexEditor()
     {
         ShowLineNumbers = true;
-        FontFamily = new FontFamily("Cascadia Code, Consolas");
+        FontFamily = EditorTypography.DefaultFamily;
+        FontWeight = EditorTypography.DefaultWeight;
         FontSize = 15;
         Background = Brush("EditorBackground");
         Foreground = Brush("EditorForeground");
@@ -69,9 +70,9 @@ public sealed partial class LatexEditor : TextEditor
         _search = SearchPanel.Install(this);
         // The compact AvalonEdit search template must not inherit the application's
         // padded form controls or the document's adjustable editor typography.
-        _search.FontFamily = new FontFamily("Segoe UI, Microsoft YaHei UI");
+        _search.FontFamily = EditorTypography.DefaultFamily;
         _search.FontSize = 13;
-        _search.FontWeight = FontWeights.Normal;
+        _search.FontWeight = EditorTypography.DefaultWeight;
         _search.FontStyle = FontStyles.Normal;
         _search.Resources[typeof(Button)] = new Style(typeof(Button));
         _search.Resources[typeof(TextBox)] = new Style(typeof(TextBox))

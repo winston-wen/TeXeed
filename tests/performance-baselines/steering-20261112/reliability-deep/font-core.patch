@@ -1,0 +1,13 @@
+diff --git a/artifacts/perf-steering-font/deep/new/src/TeXeed.Core/Models.cs b/artifacts/perf-steering-font/deep/font/src/TeXeed.Core/Models.cs
+index 7429705..3225398 100644
+--- a/artifacts/perf-steering-font/deep/new/src/TeXeed.Core/Models.cs
++++ b/artifacts/perf-steering-font/deep/font/src/TeXeed.Core/Models.cs
+@@ -46,7 +46,7 @@ public sealed record AppSettings
+     public double AutoWidthMaximumCm { get; init; } = 30;
+     public int DebounceMs { get; init; } = 1000;
+     public double FontSize { get; init; } = 15;
+-    public string EditorFontFamily { get; init; } = "Sarasa Mono SC, Cascadia Code, Consolas, Microsoft YaHei";
++    public string EditorFontFamily { get; init; } = "Cascadia Code, Consolas, Microsoft YaHei";
+     public bool WordWrap { get; init; } = true;
+     public string[] RecentProjects { get; init; } = [];
+ }

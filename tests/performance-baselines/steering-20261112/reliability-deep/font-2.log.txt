@@ -1,0 +1,13 @@
+PASS: all preview follow modes round-trip, with legacy migration, key priority and invalid-value defaults
+Isolated test AI home: <isolated-fixture>\font-2\profile\ai
+Stress: constructing 8 turns / 480 sections and formulas
+Stress: realized turns=2/8, viewport=735.5, extent=44495.5
+Stress: scroll + pointer hit-test worst=22.7ms input-gap=211.8ms total=4066ms
+Pointer sample 0: set=0.206ms resumed=25.363ms total=331ms
+Pointer sample 1: set=0.030ms resumed=25.054ms total=274ms
+Pointer sample 2: set=0.027ms resumed=48.959ms total=61ms
+Pointer sample 3: set=0.035ms resumed=509.199ms total=509ms
+System.Exception: Native pointer movement stalled the dispatcher
+   at Program.<>c__DisplayClass62_0.<CheckAiReliabilityAsync>g__Check|0(Boolean ok, String message) in /_1/tests/TeXeed.AppTests/AiReliabilityTests.cs:line 19
+   at Program.CheckAiReliabilityAsync(MainWindow owner, String output, Boolean skipNativePointerStress) in /_1/tests/TeXeed.AppTests/AiReliabilityTests.cs:line 86
+   at Program.<>c__DisplayClass139_0.<<Main>b__1>d.MoveNext() in /_1/tests/TeXeed.AppTests/Program.cs:line 230

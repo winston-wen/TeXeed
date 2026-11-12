@@ -1,0 +1,32 @@
+PASS: all preview follow modes round-trip, with legacy migration, key priority and invalid-value defaults
+Isolated test AI home: <isolated-fixture>\old-2\profile\ai
+Stress: constructing 8 turns / 480 sections and formulas
+Stress: realized turns=2/8, viewport=735.5, extent=44495.5
+Scroll sample 15: layout=9.6ms hit=0.3ms queued=38.9ms
+Stress: scroll + pointer hit-test worst=48.9ms input-gap=187.5ms total=4122ms
+Pointer sample 0: set=0.233ms resumed=288.559ms total=300ms
+Pointer sample 1: set=0.033ms resumed=288.158ms total=321ms
+Pointer sample 2: set=0.033ms resumed=31.122ms total=277ms
+Pointer sample 3: set=0.030ms resumed=250.214ms total=250ms
+Pointer sample 4: set=0.033ms resumed=76.738ms total=78ms
+Pointer sample 5: set=0.034ms resumed=42.696ms total=42ms
+Pointer sample 6: set=0.032ms resumed=30.896ms total=31ms
+Pointer sample 7: set=0.031ms resumed=30.769ms total=30ms
+Pointer sample 8: set=0.027ms resumed=31.691ms total=31ms
+Pointer sample 9: set=0.025ms resumed=30.217ms total=30ms
+Pointer sample 10: set=0.022ms resumed=30.310ms total=30ms
+Pointer sample 11: set=0.022ms resumed=31.406ms total=31ms
+Pointer sample 12: set=0.024ms resumed=30.780ms total=31ms
+Pointer sample 13: set=0.024ms resumed=30.624ms total=30ms
+Pointer sample 14: set=0.023ms resumed=31.439ms total=31ms
+Pointer sample 15: set=0.032ms resumed=30.812ms total=30ms
+Pointer sample 16: set=0.022ms resumed=31.408ms total=31ms
+Pointer sample 17: set=0.040ms resumed=30.801ms total=30ms
+Pointer sample 18: set=0.028ms resumed=31.505ms total=31ms
+Pointer sample 19: set=0.023ms resumed=15.607ms total=15ms
+Pointer sample 20: set=0.021ms resumed=30.167ms total=30ms
+Pointer sample 21: set=0.022ms resumed=30.718ms total=30ms
+Pointer sample 22: set=0.025ms resumed=30.694ms total=30ms
+Pointer sample 23: set=0.021ms resumed=16.143ms total=16ms
+Pointer sample 24: set=0.019ms resumed=30.350ms total=30ms
+AI reliability: 55 checks passed.
