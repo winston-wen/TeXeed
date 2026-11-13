@@ -192,19 +192,27 @@ internal static partial class Program
         ((RadioButton)dialog.FindName("AutoWidthBox")).IsChecked = true;
         if (!preview.IsAutoWidth) throw new Exception("Preview settings failed to enable auto width");
         Capture(dialog, Path.Combine(output, "preview-zoom-settings.png")); dialog.Close();
-        var before = preview.Zoom; var beforePane = preview.ActualWidth; var beforeWindow = window.ActualWidth;
+        var originalActualWidth = window.ActualWidth;
         var originalWidth = window.Width;
         try
         {
-            window.Width = originalWidth + 120; window.UpdateLayout();
+            // Stay within the available desktop on CI while still exercising a real resize.
+            var widerWidth = Math.Min(1024, Math.Min(window.ActualWidth, SystemParameters.WorkArea.Width) - 16);
+            var narrowerWidth = widerWidth - 120;
+            if (narrowerWidth < 780) throw new Exception($"Desktop too narrow for the zoom resize fixture: {SystemParameters.WorkArea.Width:F0} DIP");
+            window.Width = narrowerWidth; window.UpdateLayout();
+            await WaitUntilAsync(() => Math.Abs(window.ActualWidth - narrowerWidth) < 1,
+                $"Zoom fixture did not reach its initial width {narrowerWidth:F0} DIP");
+            var before = preview.Zoom; var beforePane = preview.ActualWidth; var beforeWindow = window.ActualWidth;
+            window.Width = widerWidth; window.UpdateLayout();
             // Measure the response after native window resizing reaches the preview pane.
-            await WaitUntilAsync(() => Math.Abs(window.ActualWidth - window.Width) < 1 && preview.ActualWidth > beforePane + 1,
-                "Zoom fixture did not receive the requested native window and preview-pane resize");
+            await WaitUntilAsync(() => Math.Abs(window.ActualWidth - widerWidth) < 1 && preview.ActualWidth > beforePane + 1,
+                $"Zoom fixture did not receive the requested native window and preview-pane resize (requested {widerWidth:F0}, initially {beforeWindow:F0}, pane {beforePane:F0})");
             if (!preview.IsAutoWidth || preview.PageCount > 0 && Math.Abs(before - preview.Zoom) < .001)
                 throw new Exception($"Auto width did not respond to pane resize (auto {preview.IsAutoWidth}, zoom {before} -> {preview.Zoom}, pane {beforePane} -> {preview.ActualWidth}, window {beforeWindow} -> {window.ActualWidth}, cap {preview.AutoWidthMaximumCm} cm)");
         }
         finally { window.Width = originalWidth; }
-        await WaitUntilAsync(() => Math.Abs(window.ActualWidth - originalWidth) < 1, "Zoom fixture did not restore the native window width");
+        await WaitUntilAsync(() => Math.Abs(window.ActualWidth - originalActualWidth) < 1, "Zoom fixture did not restore the native window width");
         Console.WriteLine("PASS: gear-dialog precise zoom/validation and automatic width on resize");
     }
 }
