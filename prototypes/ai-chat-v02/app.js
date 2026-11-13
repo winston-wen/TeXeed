@@ -317,7 +317,17 @@ $('permission').onchange=()=>{current().permission=$('permission').value;record(
 $('effort').onchange=()=>record('effort',{value:$('effort').value});
 $('settings-effort').onchange=()=>{$('effort').value=$('settings-effort').value;};
 
-document.querySelectorAll('[data-setting]').forEach(b=>b.onclick=()=>{$('settings').querySelector('.note').textContent='此 HTML 原型未接入账号、网络或正式应用设置。';});
+let settingsOperation=0,settingsTimer=null;
+function cancelSettingsOperation(message){settingsOperation++;clearTimeout(settingsTimer);settingsTimer=null;$('settings-cancel').disabled=true;$('settings-status').textContent=message;}
+function beginSettingsOperation(kind){
+ const operation=++settingsOperation;clearTimeout(settingsTimer);$('settings-cancel').disabled=false;
+ $('settings-status').textContent=kind==='login'||kind==='add'?'正在模拟浏览器授权；其他设置仍可使用。':'正在模拟连接操作；其他设置仍可使用。';
+ settingsTimer=setTimeout(()=>{if(operation!==settingsOperation)return;settingsTimer=null;$('settings-cancel').disabled=true;$('settings-status').textContent=kind==='login'||kind==='add'?'模拟登录失败，可直接重试或修改设置。':'模拟操作已完成；未连接账号或网络。';},1600);
+}
+document.querySelectorAll('[data-setting]').forEach(button=>button.onclick=()=>{const kind=button.dataset.setting;if(kind==='clear-key'){$('settings-key').value='';cancelSettingsOperation('已清除示例输入；原型不保存密钥。');return;}beginSettingsOperation(kind);});
+$('settings-cancel').onclick=()=>cancelSettingsOperation('已取消模拟连接，可直接重试。');
+$('settings-account').onchange=()=>beginSettingsOperation('switch');
+$('settings-use-key').onchange=()=>cancelSettingsOperation('已切换示例连接方式；原型不连接账号或网络。');
 $('search-input').oninput=search;$('search-prev').onclick=()=>{matchIndex--;showMatch();};$('search-next').onclick=()=>{matchIndex++;showMatch();};
 const historyDialog=createHistoryManager({getConversations:()=>state.conversations,getActive:()=>state.active,isOpen:id=>openTabs.includes(id),
  rename:(id,title)=>{const c=state.conversations.find(c=>c.id===id);if(c)c.title=title;renderTabs();record('rename-conversation',{id,title});},

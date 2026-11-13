@@ -164,7 +164,7 @@ public partial class MainWindow : Window
             ResetDirectoryCatalog();
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
-            Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;
+            CloseWelcomeSettings(); Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;
             Title = project.Name + " — TeXeed";
             LogText.Text = ""; DiagnosticsList.ItemsSource = null; LogExpander.IsExpanded = false;
             PdfStatus.Text = "等待首次编译";

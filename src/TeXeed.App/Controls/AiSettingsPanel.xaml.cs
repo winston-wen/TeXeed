@@ -12,8 +12,10 @@ public partial class AiSettingsPanel : UserControl, IDisposable
     private bool _updating, _disposed, _loaded;
     private CancellationTokenSource? _operation;
     private TaskCompletionSource? _operationDone;
+    private long _operationRequest;
     private Task? _modelLoad;
     private CancellationTokenSource? _catalogCancellation;
+    private string? _catalogIdentity;
     public event EventHandler? ConnectionChanged;
     internal bool IsBusy => _operation is not null;
     internal AiModel? SelectedModel => Models.SelectedItem as AiModel;
@@ -51,9 +53,9 @@ public partial class AiSettingsPanel : UserControl, IDisposable
         }
         finally { _updating = false; }
     }
-    private async Task MutateCredentialsAsync(Action<AiCredentials> action)
+    private async Task MutateCredentialsAsync(Action<AiCredentials> action, CancellationToken token = default)
     {
-        using (await AiCredentials.LockAsync(CancellationToken.None))
+        using (await AiCredentials.LockAsync(token))
         {
             var credentials = AiCredentials.Load();
             action(credentials);
@@ -69,13 +71,21 @@ public partial class AiSettingsPanel : UserControl, IDisposable
     }
     private async Task RunOperationAsync(Func<CancellationToken, Task> work)
     {
-        if (_operation is not null) return;
+        var request = ++_operationRequest;
+        while (_operation is { } previous)
+        {
+            previous.Cancel();
+            var pending = _operationDone;
+            if (pending is null) return;
+            await pending.Task;
+            if (_disposed || request != _operationRequest) return;
+        }
+        if (_disposed || request != _operationRequest) return;
         var cancellation = new CancellationTokenSource();
         var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _operationDone = done;
         _operation = cancellation;
         CancelButton.IsEnabled = true;
-        ConnectionOptions.IsEnabled = false;
         try { await work(cancellation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已取消连接操作。"; }
         catch (Exception ex) { ShowError(ex); }
@@ -83,7 +93,7 @@ public partial class AiSettingsPanel : UserControl, IDisposable
         {
             cancellation.Dispose();
             _operation = null;
-            if (!_disposed) { CancelButton.IsEnabled = false; ConnectionOptions.IsEnabled = true; }
+            if (!_disposed) CancelButton.IsEnabled = false;
             _operationDone = null;
             done.TrySetResult();
         }
@@ -93,16 +103,19 @@ public partial class AiSettingsPanel : UserControl, IDisposable
 
     internal Task LoadModelsAsync(CancellationToken token)
     {
-        if (_modelLoad is { IsCompleted: false }) return _modelLoad;
+        var identity = _connection.ConnectionIdentity;
+        if (_modelLoad is { IsCompleted: false } && _catalogIdentity == identity && _catalogCancellation?.IsCancellationRequested == false) return _modelLoad;
+        _catalogCancellation?.Cancel();
         _catalogCancellation?.Dispose();
         _catalogCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
-        return _modelLoad = LoadModelCatalogAsync(_catalogCancellation.Token);
+        _catalogIdentity = identity;
+        return _modelLoad = LoadModelCatalogAsync(identity, _catalogCancellation.Token);
     }
-    private async Task LoadModelCatalogAsync(CancellationToken token)
+    private async Task LoadModelCatalogAsync(string identity, CancellationToken token)
     {
         var models = await _connection.ModelsAsync(token);
         token.ThrowIfCancellationRequested();
-        if (_disposed) return;
+        if (_disposed || _connection.ConnectionIdentity != identity) return;
         var saved = AiCredentials.Load();
         _updating = true;
         try
@@ -139,9 +152,11 @@ public partial class AiSettingsPanel : UserControl, IDisposable
     {
         if (SelectedModel is not { } model) { ConnectionChanged?.Invoke(this, EventArgs.Empty); return; }
         var effort = SelectedEffort;
+        var identity = _connection.ConnectionIdentity;
         using (await AiCredentials.LockAsync(token))
         {
             var saved = AiCredentials.Load();
+            if (saved.ConnectionIdentity != identity) return;
             saved.Model = model.Id;
             saved.ReasoningEffort = effort;
             saved.Save();
@@ -192,39 +207,44 @@ public partial class AiSettingsPanel : UserControl, IDisposable
         if (_updating || Accounts.SelectedItem is not AiAccount account) return;
         await RunOperationAsync(async token =>
         {
-            await MutateCredentialsAsync(c => { c.ActiveClient = account.ClientId; c.UseApiKey = false; c.Model = ""; });
+            await MutateCredentialsAsync(c => { c.ActiveClient = account.ClientId; c.UseApiKey = false; c.Model = ""; }, token);
             if (account.AccessToken.Length > 0) await LoadModelsAsync(token);
         });
     }
     private async void UseKey_Click(object sender, RoutedEventArgs e)
     {
-        try { var value = UseKey.IsChecked == true; await MutateCredentialsAsync(c => { c.UseApiKey = value; c.Model = ""; }); }
-        catch (Exception ex) { ShowError(ex); }
+        var value = UseKey.IsChecked == true;
+        await RunOperationAsync(token => MutateCredentialsAsync(c => { c.UseApiKey = value; c.Model = ""; }, token));
     }
     private async void SaveKey_Click(object sender, RoutedEventArgs e)
     {
-        try
+        var typed = ApiKeyBox.Password;
+        var key = typed.Trim();
+        if (key.Length == 0) { StatusText.Text = "请先输入 API Key。"; return; }
+        await RunOperationAsync(async token =>
         {
-            var key = ApiKeyBox.Password.Trim();
-            if (key.Length == 0) { StatusText.Text = "请先输入 API Key。"; return; }
-            await MutateCredentialsAsync(c => { c.ApiKey = key; c.UseApiKey = true; c.Model = ""; });
-            ApiKeyBox.Clear();
-            await RunOperationAsync(LoadModelsAsync);
-        }
-        catch (Exception ex) { ShowError(ex); }
+            await MutateCredentialsAsync(c => { c.ApiKey = key; c.UseApiKey = true; c.Model = ""; }, token);
+            if (ApiKeyBox.Password == typed) ApiKeyBox.Clear();
+            await LoadModelsAsync(token);
+        });
     }
     private async void ClearKey_Click(object sender, RoutedEventArgs e)
     {
-        try { await MutateCredentialsAsync(c => { c.ApiKey = ""; c.UseApiKey = false; c.Model = ""; }); ApiKeyBox.Clear(); }
-        catch (Exception ex) { ShowError(ex); }
+        var typed = ApiKeyBox.Password;
+        await RunOperationAsync(async token =>
+        {
+            await MutateCredentialsAsync(c => { c.ApiKey = ""; c.UseApiKey = false; c.Model = ""; }, token);
+            if (ApiKeyBox.Password == typed) ApiKeyBox.Clear();
+        });
     }
-    private void Stop_Click(object sender, RoutedEventArgs e) => _operation?.Cancel();
+    private void Stop_Click(object sender, RoutedEventArgs e) { _operationRequest++; _operation?.Cancel(); }
     internal async Task StopAsync()
     {
+        _operationRequest++;
         _operation?.Cancel();
         _catalogCancellation?.Cancel();
         if (_operationDone is { } pending) await pending.Task;
         if (_modelLoad is { } modelWork) { try { await modelWork; } catch (Exception) { } }
     }
-    public void Dispose() { _disposed = true; _operation?.Cancel(); _catalogCancellation?.Cancel(); _catalogCancellation?.Dispose(); }
+    public void Dispose() { _disposed = true; _operationRequest++; _operation?.Cancel(); _catalogCancellation?.Cancel(); _catalogCancellation?.Dispose(); }
 }

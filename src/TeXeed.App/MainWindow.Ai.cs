@@ -65,7 +65,7 @@ public partial class MainWindow
     }
     private void OpenAiSettings()
     {
-        if (_project is null) { Status("请先打开项目，再使用 AI。"); return; }
+        if (_project is null) { ShowWelcomeSettings(); return; }
         _workspaceTabs.Open(TabWorkspace.AiSettingsKey);
         RefreshWorkspaceViews();
     }

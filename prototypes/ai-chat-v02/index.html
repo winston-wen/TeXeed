@@ -339,6 +339,8 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .settings .row { flex-wrap:wrap; margin:10px 0 }
 .settings button { background:var(--panel); border:1px solid var(--guide) }
 .settings select { flex:1; max-width:none }
+.settings > select { width:100%; box-sizing:border-box }
+.settings .row > input[type=password] { flex:1; min-width:0 }
 .settings .note { font-size:12px; color:var(--muted); margin-top:18px }
 .closed { padding:24px; color:var(--muted) }
 dialog { background:var(--bg); color:var(--ink); border:1px solid var(--guide); max-width:calc(100vw - 32px); width:720px; max-height:85vh; padding:20px; border-radius:8px }
@@ -411,7 +413,7 @@ dialog textarea { width:100%; height:220px }
   <button id="bookmark-ball" class="bookmark-ball" type="button" title="书签 · Ctrl+G；按住左键移动" aria-label="书签" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h10v15l-5-3-5 3z"/></svg></button>
   <section id="bookmark-panel" class="bookmark-panel" aria-label="书签" hidden><input id="bookmark-search" autocomplete="off" placeholder="跳转到书签 · Ctrl+G" aria-label="搜索书签"><div class="bookmark-panel-list" id="bookmark-list"></div></section>
  </section>
- <section class="settings" id="settings" hidden><h2>AI 设置</h2><strong>账号与模型</strong><div class="row"><button data-setting="login">Continue with ChatGPT</button><button data-setting="add">添加账号</button><button data-setting="logout">退出</button></div><select aria-label="账号" disabled><option>ChatGPT（原型未连接账号）</option></select><div class="row"><label><input type="checkbox" disabled>使用 API Key（备用，单独计费）</label></div><div class="row"><input type="password" aria-label="API Key" disabled><button disabled>保存 Key</button><button disabled>清除</button></div><div class="row"><select aria-label="设置中的模型"><option>GPT-6.1-Sol</option></select><button data-setting="refresh">刷新模型</button></div><div class="row"><label>推理强度</label><select id="settings-effort"><option>服务端默认</option><option>低</option><option>中</option><option selected>高</option><option>很高</option><option>最高</option></select></div><p class="note">原型只复现设置面板布局，登录、账号和密钥操作未接入。</p><button disabled>取消登录 / 请求</button><p class="note">ChatGPT 使用所选账号授权的额度。API Key 为独立计费的备用方式，不会自动切换。凭据使用 Windows 当前用户加密存储。</p></section>
+ <section class="settings" id="settings" hidden><h2>AI 设置</h2><strong>账号与模型</strong><div class="row"><button data-setting="login">Continue with ChatGPT</button><button data-setting="add">添加账号</button><button data-setting="logout">退出</button></div><select id="settings-account" aria-label="账号"><option>示例账号 A</option><option>示例账号 B</option></select><div class="row"><label><input id="settings-use-key" type="checkbox">使用 API Key（备用，单独计费）</label></div><div class="row"><input id="settings-key" type="password" aria-label="API Key" autocomplete="off" placeholder="原型不保存密钥"><button data-setting="save-key">保存 Key</button><button data-setting="clear-key">清除</button></div><div class="row"><select aria-label="设置中的模型"><option>GPT-6.1-Sol</option></select><button data-setting="refresh">刷新模型</button></div><div class="row"><label>推理强度</label><select id="settings-effort"><option>服务端默认</option><option>低</option><option>中</option><option selected>高</option><option>很高</option><option>最高</option></select></div><p id="settings-status" class="note" role="status" aria-live="polite">原型模拟登录与设置，不连接账号、不保存密钥。</p><button id="settings-cancel" disabled>取消登录 / 请求</button><p class="note">ChatGPT 使用所选账号授权的额度。API Key 为独立计费的备用方式，不会自动切换。凭据使用 Windows 当前用户加密存储。</p></section>
  <div class="closed" id="closed" hidden>AI 对话标签已关闭。<button id="reopen">重新打开</button></div>
 <section hidden class="history" id="history" aria-label="AI 会话历史管理">
  <div class="history-search-row"><input id="history-search" placeholder="搜索标题、问题或回答" aria-label="搜索 AI 历史对话"><button id="history-search-button" aria-label="搜索历史对话">⌕</button></div>
@@ -828,7 +830,17 @@ $('permission').onchange=()=>{current().permission=$('permission').value;record(
 $('effort').onchange=()=>record('effort',{value:$('effort').value});
 $('settings-effort').onchange=()=>{$('effort').value=$('settings-effort').value;};
 
-document.querySelectorAll('[data-setting]').forEach(b=>b.onclick=()=>{$('settings').querySelector('.note').textContent='此 HTML 原型未接入账号、网络或正式应用设置。';});
+let settingsOperation=0,settingsTimer=null;
+function cancelSettingsOperation(message){settingsOperation++;clearTimeout(settingsTimer);settingsTimer=null;$('settings-cancel').disabled=true;$('settings-status').textContent=message;}
+function beginSettingsOperation(kind){
+ const operation=++settingsOperation;clearTimeout(settingsTimer);$('settings-cancel').disabled=false;
+ $('settings-status').textContent=kind==='login'||kind==='add'?'正在模拟浏览器授权；其他设置仍可使用。':'正在模拟连接操作；其他设置仍可使用。';
+ settingsTimer=setTimeout(()=>{if(operation!==settingsOperation)return;settingsTimer=null;$('settings-cancel').disabled=true;$('settings-status').textContent=kind==='login'||kind==='add'?'模拟登录失败，可直接重试或修改设置。':'模拟操作已完成；未连接账号或网络。';},1600);
+}
+document.querySelectorAll('[data-setting]').forEach(button=>button.onclick=()=>{const kind=button.dataset.setting;if(kind==='clear-key'){$('settings-key').value='';cancelSettingsOperation('已清除示例输入；原型不保存密钥。');return;}beginSettingsOperation(kind);});
+$('settings-cancel').onclick=()=>cancelSettingsOperation('已取消模拟连接，可直接重试。');
+$('settings-account').onchange=()=>beginSettingsOperation('switch');
+$('settings-use-key').onchange=()=>cancelSettingsOperation('已切换示例连接方式；原型不连接账号或网络。');
 $('search-input').oninput=search;$('search-prev').onclick=()=>{matchIndex--;showMatch();};$('search-next').onclick=()=>{matchIndex++;showMatch();};
 const historyDialog=createHistoryManager({getConversations:()=>state.conversations,getActive:()=>state.active,isOpen:id=>openTabs.includes(id),
  rename:(id,title)=>{const c=state.conversations.find(c=>c.id===id);if(c)c.title=title;renderTabs();record('rename-conversation',{id,title});},

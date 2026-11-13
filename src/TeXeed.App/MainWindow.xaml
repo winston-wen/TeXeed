@@ -131,7 +131,7 @@
     <Grid x:Name="WelcomeProjects">
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
      <StackPanel>
-      <WrapPanel><Button x:Name="WelcomeOpenButton" Content="打开 LaTeX 项目" Style="{StaticResource PrimaryButton}" Padding="18,11" Margin="0,0,12,10" Click="Open_Click"/><Button x:Name="WelcomeNewButton" Content="新建文档" Padding="18,11" Margin="0,0,0,10" Click="New_Click"/></WrapPanel>
+      <WrapPanel><Button x:Name="WelcomeOpenButton" Content="打开 LaTeX 项目" Style="{StaticResource PrimaryButton}" Padding="18,11" Margin="0,0,12,10" Click="Open_Click"/><Button x:Name="WelcomeNewButton" Content="新建文档" Padding="18,11" Margin="0,0,12,10" Click="New_Click"/><Button x:Name="WelcomeAiSettingsButton" Content="AI 设置" Padding="18,11" Margin="0,0,0,10" Click="AiSettings_Click"/></WrapPanel>
       <TextBlock x:Name="WelcomeDropHint" Text="也可以将 .tex 文件拖入窗口" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,2,0,24"/>
      </StackPanel>
      <Grid x:Name="RecentHeading" Grid.Row="1" Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="最近打开" FontSize="18" FontWeight="SemiBold"/><TextBlock x:Name="RecentSelectionSummary" Grid.Column="1" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="12"/></Grid>
@@ -157,6 +157,11 @@
      <Button x:Name="WelcomeNextButton" Grid.Column="2" Content="LaTeX 教程 →" HorizontalAlignment="Right" Margin="0" Padding="10,8" Click="WelcomeNext_Click"/>
     </Grid>
    </Border>
+   <Grid x:Name="WelcomeSettingsView" Grid.RowSpan="2" Visibility="Collapsed" Background="{DynamicResource EditorBackground}">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Button x:Name="WelcomeSettingsBackButton" Content="← 返回欢迎页" HorizontalAlignment="Left" Margin="16,12,16,4" Click="WelcomeSettingsBack_Click"/>
+    <Grid x:Name="WelcomeSettingsHost" Grid.Row="1"/>
+   </Grid>
   </Grid>
   <Border x:Name="FullscreenToast" Grid.RowSpan="2" Panel.ZIndex="100" Visibility="Collapsed" Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,54,0,0" Padding="20,10" CornerRadius="6" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1"><TextBlock x:Name="FullscreenToastText" Foreground="{DynamicResource Ink}"/></Border>
  </Grid>

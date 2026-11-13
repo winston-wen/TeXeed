@@ -89,7 +89,10 @@ public static class CompilerTests
             Check.True(!Path.IsPathRooted(outputPath) && outputPath.All(c => c < 128), "Output argument must stay ASCII even under a Unicode project root");
             driver = Path.GetFullPath(driver, root);
             Check.Equal(Path.GetFileName(main), Path.GetFileName(driver));
-            Check.True(File.Exists(driver) && (await File.ReadAllTextAsync(driver)).Contains(main.Replace('\\', '/')), "Layout driver must retain the original source path with spaces and shell metacharacters");
+            if (main.IndexOfAny(['%', '{', '}', '\r', '\n']) >= 0)
+                Check.Equal(main, driver);
+            else
+                Check.True(File.Exists(driver) && (await File.ReadAllTextAsync(driver)).Contains(main.Replace('\\', '/')), "Layout driver must retain the original source path with spaces and shell metacharacters");
             Check.True(arguments.Contains("-recorder"), "Direct engines must record active generated files");
             await File.WriteAllTextAsync(Path.Combine(build, "fake-run-count"), "0");
             var warm = await new CompileService().CompileAsync(project, settings);

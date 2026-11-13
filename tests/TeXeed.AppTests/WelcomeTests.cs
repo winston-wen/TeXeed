@@ -36,6 +36,15 @@ internal static partial class Program
         Invoke(window, "UpdateRecent"); await Settle();
         var tutorial = Named<MarkdownView>("TutorialView");
         await tutorial.RenderTask;
+        Click("WelcomeAiSettingsButton"); await Settle();
+        Check(Named<Grid>("WelcomeSettingsView").IsVisible && !Named<Grid>("WelcomePages").IsVisible && ((AiSettingsPanel)Field(window, "_aiSettings")!).IsVisible, "Welcome AI settings did not open without a project");
+        Check(Field(window, "_project") is null, "Opening AI settings unexpectedly opened a project");
+        Capture(window, Path.Combine(output, "welcome-ai-settings.png"));
+        Click("WelcomeSettingsBackButton"); await Settle();
+        Check(!Named<Grid>("WelcomeSettingsView").IsVisible && Named<Grid>("WelcomePages").IsVisible, "Returning from AI settings did not restore welcome");
+        Invoke(window, "OpenAiSettings"); await Settle();
+        Check(Named<Grid>("WelcomeSettingsView").IsVisible, "AI menu did not open settings on welcome");
+        Click("WelcomeSettingsBackButton"); await Settle();
         var formulas = Descendants<ChatFormula>(tutorial).ToArray();
         Check(tutorial.UseSystemFont && tutorial.FontFamily == SystemFonts.MessageFontFamily && tutorial.Document.FontFamily == SystemFonts.MessageFontFamily, "Tutorial does not use the system font");
         Check(formulas.Length == 2 && formulas.All(formula => formula.Error is null && formula.SvgPath?.StartsWith("embedded:tutorial-") == true), "Tutorial formulas are not bundled SVG vectors");
@@ -81,7 +90,7 @@ internal static partial class Program
             Capture(window, Path.Combine(output, $"welcome-minimum-tutorial-{theme}.png"));
             Click("WelcomePreviousButton"); await Settle();
             var pager = Named<Border>("WelcomePager");
-            foreach (var name in new[] { "WelcomePreviousButton", "WelcomeNextButton", "RecentDeleteButton", "WelcomeOpenButton", "WelcomeNewButton" })
+            foreach (var name in new[] { "WelcomePreviousButton", "WelcomeNextButton", "RecentDeleteButton", "WelcomeOpenButton", "WelcomeNewButton", "WelcomeAiSettingsButton" })
             {
                 var button = Named<Button>(name);
                 var rect = new Rect(button.TranslatePoint(new Point(), Named<Grid>("Welcome")), button.RenderSize);
@@ -115,6 +124,14 @@ internal static partial class Program
         Descendants<Button>(rows).Single().RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         for (var i = 0; i < 200 && Named<Grid>("Welcome").IsVisible; i++) await Task.Delay(20);
         Check(!Named<Grid>("Welcome").IsVisible && ((TexProject?)Field(window, "_project"))?.MainPath == paths[0], "Recent path click did not open the project");
+        var settingsWindow = new MainWindow { Width = 1000, Height = 700 }; settingsWindow.Show();
+        Invoke(settingsWindow, "OpenAiSettings"); await Settle();
+        var sharedSettings = Field(settingsWindow, "_aiSettings");
+        await (Task)Invoke(settingsWindow, "OpenAsync", paths[0])!; await Settle();
+        Check(!((Grid)settingsWindow.FindName("WelcomeSettingsView")).IsVisible && ((Grid)settingsWindow.FindName("WelcomeSettingsHost")).Children.Count == 0, "Opening a project left settings attached to welcome");
+        Invoke(settingsWindow, "OpenAiSettings"); await Settle();
+        Check(ReferenceEquals(sharedSettings, Field(settingsWindow, "_aiSettings")) && ((AiSettingsPanel)sharedSettings!).IsVisible, "Project did not reuse welcome settings");
+        await CloseAndObserveAsync(settingsWindow, "Welcome settings project transition");
         Console.WriteLine($"PASS: welcome page ({checks} checks): both themes, responsive columns/pager, selection, scroll retention, persisted removal, unchanged files, empty state and project opening.");
     }
 }

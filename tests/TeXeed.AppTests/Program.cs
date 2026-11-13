@@ -52,6 +52,11 @@ internal static partial class Program
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--ai-settings-login-only"))
+                {
+                    await CheckAiSettingsLoginAsync(window);
+                    await CloseAndObserveAsync(window, "AI settings login"); result = 0; return;
+                }
                 if (args.Contains("--ai-forms-manual"))
                 {
                     await ShowAiFormsManualAsync(window, output);
@@ -993,8 +998,8 @@ internal static partial class Program
         var search = (TextBox)window.FindName("SearchBox");
         var buttons = Descendants<Button>(rail).ToArray();
         window.UpdateLayout();
-        if (buttons.Length != 7 || window.FindName("CollapseWorkspaceButton") is not null)
-            throw new Exception("Permanent rail must contain six panel functions plus AI marking and no collapse button");
+        if (buttons.Length != 6 || window.FindName("CollapseWorkspaceButton") is not null)
+            throw new Exception("Permanent rail must contain six panel functions, with AI marking reserved for PDF preview");
         var positions = buttons.ToDictionary(b => b, b => b.TranslatePoint(new Point(), window));
         var path = editor.CurrentFilePath; var text = editor.Text;
         column.Width = new GridLength(315); window.UpdateLayout();

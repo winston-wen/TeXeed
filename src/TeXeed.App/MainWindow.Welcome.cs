@@ -29,7 +29,9 @@ public partial class MainWindow
         var shortWindow = Welcome.ActualHeight < 420;
         WelcomePages.Margin = shortWindow ? new Thickness(12, 10, 12, 8)
             : compact ? new Thickness(18, 18, 18, 16) : new Thickness(48, 42, 48, 32);
-        WelcomeOpenButton.Padding = WelcomeNewButton.Padding = shortWindow ? new Thickness(12, 7, 12, 7) : new Thickness(18, 11, 18, 11);
+        WelcomeOpenButton.Padding = WelcomeNewButton.Padding = WelcomeAiSettingsButton.Padding = shortWindow ? new Thickness(4, 7, 4, 7) : new Thickness(18, 11, 18, 11);
+        WelcomeOpenButton.Margin = WelcomeNewButton.Margin = shortWindow ? new Thickness(0, 0, 4, 5) : new Thickness(0, 0, 12, 10);
+        WelcomeAiSettingsButton.Margin = shortWindow ? new Thickness(0, 0, 0, 5) : new Thickness(0, 0, 0, 10);
         WelcomeDropHint.Margin = new Thickness(0, 2, 0, shortWindow ? 10 : 24);
         RecentHeading.Margin = new Thickness(0, 0, 0, shortWindow ? 6 : 12);
         RecentActions.Margin = new Thickness(0, shortWindow ? 8 : 16, 0, 0);
@@ -40,13 +42,35 @@ public partial class MainWindow
         WelcomeTutorial.Padding = new Thickness(compact ? 18 : 28);
         WelcomeProjects.Visibility = !compact || !_welcomeTutorialSelected ? Visibility.Visible : Visibility.Collapsed;
         WelcomeTutorial.Visibility = !compact || _welcomeTutorialSelected ? Visibility.Visible : Visibility.Collapsed;
-        WelcomePager.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+        WelcomePager.Visibility = compact && WelcomeSettingsView.Visibility != Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
         WelcomePreviousButton.IsEnabled = _welcomeTutorialSelected;
         WelcomeNextButton.IsEnabled = !_welcomeTutorialSelected;
         WelcomePageNumber.Text = _welcomeTutorialSelected ? "2 / 2" : "1 / 2";
         // At the minimum window width the page names already identify the two pages.
         WelcomePageNumber.Visibility = Welcome.ActualWidth < 360 ? Visibility.Collapsed : Visibility.Visible;
     }
+
+    private void ShowWelcomeSettings()
+    {
+        if (_aiSettings.Parent is Panel oldParent && oldParent != WelcomeSettingsHost) oldParent.Children.Remove(_aiSettings);
+        if (_aiSettings.Parent is null) WelcomeSettingsHost.Children.Add(_aiSettings);
+        _aiSettings.Visibility = Visibility.Visible;
+        WelcomePages.Visibility = Visibility.Collapsed;
+        WelcomePager.Visibility = Visibility.Collapsed;
+        WelcomeSettingsView.Visibility = Visibility.Visible;
+    }
+
+    private void CloseWelcomeSettings()
+    {
+        if (WelcomeSettingsView.Visibility != Visibility.Visible) return;
+        WelcomeSettingsHost.Children.Remove(_aiSettings);
+        _aiSettings.Visibility = Visibility.Collapsed;
+        WelcomeSettingsView.Visibility = Visibility.Collapsed;
+        WelcomePages.Visibility = Visibility.Visible;
+        UpdateWelcomeLayout();
+    }
+
+    private void WelcomeSettingsBack_Click(object sender, RoutedEventArgs e) => CloseWelcomeSettings();
 
     private void WelcomePrevious_Click(object sender, RoutedEventArgs e)
     {

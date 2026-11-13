@@ -1,21 +1,62 @@
 name: Windows build
 on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.package.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet restore TeXeed.slnx -r win-x64 --locked-mode
-      - run: dotnet build TeXeed.slnx -c Release --no-restore
+      - name: Install Tectonic for WPF integration tests
+        run: |
+          $url = 'https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-x86_64-pc-windows-msvc.zip'
+          Invoke-WebRequest -Uri $url -OutFile tectonic.zip
+          if ((Get-FileHash tectonic.zip -Algorithm SHA256).Hash -ne 'f61ce51f0b0ade1015b7de7ef368541c5424e9756ecbd0d7af97d6d48030845f') { throw 'Tectonic archive checksum mismatch.' }
+          Expand-Archive tectonic.zip -DestinationPath .tools/tectonic
+          & ./.tools/tectonic/tectonic.exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'Tectonic failed to start.' }
+      - run: dotnet restore TeXeed.slnx -r win-x64 --locked-mode -m:1
+      - run: dotnet build TeXeed.slnx -c Release --no-restore -m:1
       - run: dotnet run --project tests/TeXeed.Tests -c Release --no-build
       - run: dotnet run --project tests/TeXeed.EditorTests -c Release --no-build
       - run: dotnet run --project tests/TeXeed.PdfTests -c Release --no-build
-      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build
-      - run: ./scripts/publish.ps1 -SkipShortcuts
-      - uses: actions/upload-artifact@v4
+      - run: ./tests/release-automation.ps1
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --output artifacts/ci-ui-check
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-settings-login-only --output artifacts/ci-ai-settings-check
+      - run: ./scripts/publish.ps1 -SkipShortcuts -NoRestore
+      - name: Package release
+        id: package
+        run: ./scripts/package-release.ps1 -ExpectedCommit $env:GITHUB_SHA
+      - uses: actions/upload-artifact@v6
         with:
-          name: TeXeed-win-x64
-          path: artifacts/TeXeed
+          name: TeXeed-release-${{ github.sha }}
+          path: artifacts/release/*
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: windows-latest
+    concurrency:
+      group: release-${{ needs.build.outputs.version }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: TeXeed-release-${{ github.sha }}
+          path: artifacts/release
+      - name: Publish new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: ./scripts/release-github.ps1 -Version $env:RELEASE_VERSION -Commit $env:GITHUB_SHA -Repository $env:GITHUB_REPOSITORY

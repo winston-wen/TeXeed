@@ -173,7 +173,9 @@ internal static partial class Program
             Console.WriteLine("PASS: unchanged failed revisions remain explicitly retryable and successful repair publishes the latest PDF");
 
             first = await StartHeld();
-            var other = Path.Combine(directory, "other.tex"); File.WriteAllText(other, content);
+            var otherDirectory = Path.Combine(output, "build-scheduling-other");
+            Directory.CreateDirectory(otherDirectory);
+            var other = Path.Combine(otherDirectory, "other.tex"); File.WriteAllText(other, content);
             try
             {
                 editor.Document.Insert(editor.Document.TextLength, "% discarded queued revision\n");
