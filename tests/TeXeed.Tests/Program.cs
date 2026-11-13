@@ -1,7 +1,11 @@
 using TeXeed.Tests;
 
 if (Environment.GetEnvironmentVariable("TEXEED_TEST_FAKE_ENGINE") is { Length: > 0 } mode)
+{
+    if (mode == "synctex" && Environment.GetEnvironmentVariable("TEXEED_TEST_ASCII_CONSOLE") == "1")
+        Console.OutputEncoding = System.Text.Encoding.ASCII;
     return await CompilerTests.RunFakeEngineAsync(args, mode);
+}
 if (args.Length == 3 && args[0] == "--real-tex")
     return await CompilerTests.RunRealEngineAsync(args[1], args[2]);
 if (args.Length == 4 && args[0] == "--real-nested")

@@ -30,6 +30,7 @@ jobs:
       - run: ./tests/release-automation.ps1
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --output artifacts/ci-ui-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-settings-login-only --output artifacts/ci-ai-settings-check
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --welcome-only --output artifacts/ci-welcome-check
       - run: ./scripts/publish.ps1 -SkipShortcuts -NoRestore
       - name: Package release
         id: package

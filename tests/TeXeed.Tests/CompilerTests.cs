@@ -131,10 +131,12 @@ public static class CompilerTests
             Environment.SetEnvironmentVariable("TEXEED_TEST_FAKE_ENGINE", "synctex");
             var priorViewer = Environment.GetEnvironmentVariable("SYNCTEX_VIEWER");
             var priorEditor = Environment.GetEnvironmentVariable("SYNCTEX_EDITOR");
+            var priorConsole = Environment.GetEnvironmentVariable("TEXEED_TEST_ASCII_CONSOLE");
             try
             {
                 Environment.SetEnvironmentVariable("SYNCTEX_VIEWER", "must not be inherited");
                 Environment.SetEnvironmentVariable("SYNCTEX_EDITOR", "must not be inherited");
+                Environment.SetEnvironmentVariable("TEXEED_TEST_ASCII_CONSOLE", "1");
                 var sync = new SyncTexService();
                 var point = await sync.ForwardAsync(project, success.PdfPath!, new(main, 12), settings with { SynctexPath = executable });
                 Check.True(point is { Page: 1, X: 20, Y: 30, Width: 40, Height: 10 }, "CLI boxes must use their top edge and ignore viewer commands");
@@ -145,6 +147,7 @@ public static class CompilerTests
             {
                 Environment.SetEnvironmentVariable("SYNCTEX_VIEWER", priorViewer);
                 Environment.SetEnvironmentVariable("SYNCTEX_EDITOR", priorEditor);
+                Environment.SetEnvironmentVariable("TEXEED_TEST_ASCII_CONSOLE", priorConsole);
             }
         }
         finally
@@ -469,6 +472,7 @@ public static class CompilerTests
         }
         if (mode == "synctex")
         {
+            Console.OutputEncoding = Encoding.UTF8;
             if (Environment.GetEnvironmentVariable("SYNCTEX_VIEWER") is not null || Environment.GetEnvironmentVariable("SYNCTEX_EDITOR") is not null) return 9;
             if (args.Contains("view"))
                 Console.WriteLine("SyncTeX result begin\nOutput:main.pdf\nPage:1\nx:20\ny:40\nh:20\nv:40\nW:40\nH:10\nSyncTeX result end");
