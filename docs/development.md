@@ -71,7 +71,7 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build
 
 发布前核对版本号、构建、测试和产物，提交源码快照。源码包含主题、锁文件和许可证；发布二进制、个人配置与测试输出放在忽略目录中。组件许可证见 [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md)。
 
-推送到 `main` 后，GitHub Actions 在 Windows 上还原锁文件、构建、运行测试并生成共享运行时 ZIP 和 SHA-256 文件。测试通过且版本尚无 GitHub Release 时，自动以 `v<版本>` 创建 Release；已有版本不会被覆盖。更改版本号后正常提交并推送即可，预发布版本会标记为 prerelease。若同名标签已存在但指向其他提交，流程会失败以便人工检查。PR 和手动运行只构建并上传 Actions 制品，不创建 Release。历史 Release 保持不变。
+推送到 `main` 后，GitHub Actions 在 Windows 上还原锁文件、构建，并以核心、编辑器、PDF、发布脚本、AI 登录及欢迎页专项测试作为发布门禁；门禁通过后生成共享运行时 ZIP 和 SHA-256 文件，版本尚无 GitHub Release 时自动以 `v<版本>` 创建 Release。完整 WPF 回归单独运行，包含真实鼠标、窗口布局与 PDF 交互；其失败会在 Actions 中显示并使整个工作流显示失败，但不阻止通过发布门禁的版本发布。云端桌面能力和既有不稳定项仍需结合失败日志判断；完整回归失败不代表其覆盖已经通过。更改版本号后正常提交并推送即可，预发布版本会标记为 prerelease。已有版本不会被覆盖；若同名标签已存在但指向其他提交，流程会失败以便人工检查。PR 和手动运行只构建并上传 Actions 制品，不创建 Release。历史 Release 保持不变。
 
 ## 代码与数据
 

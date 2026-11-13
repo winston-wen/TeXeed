@@ -28,7 +28,6 @@ jobs:
       - run: dotnet run --project tests/TeXeed.EditorTests -c Release --no-build
       - run: dotnet run --project tests/TeXeed.PdfTests -c Release --no-build
       - run: ./tests/release-automation.ps1
-      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --output artifacts/ci-ui-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-settings-login-only --output artifacts/ci-ai-settings-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --welcome-only --output artifacts/ci-welcome-check
       - run: ./scripts/publish.ps1 -SkipShortcuts -NoRestore
@@ -40,6 +39,25 @@ jobs:
           name: TeXeed-release-${{ github.sha }}
           path: artifacts/release/*
           if-no-files-found: error
+
+  full-ui-regression:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Tectonic for WPF integration tests
+        run: |
+          $url = 'https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-x86_64-pc-windows-msvc.zip'
+          Invoke-WebRequest -Uri $url -OutFile tectonic.zip
+          if ((Get-FileHash tectonic.zip -Algorithm SHA256).Hash -ne 'f61ce51f0b0ade1015b7de7ef368541c5424e9756ecbd0d7af97d6d48030845f') { throw 'Tectonic archive checksum mismatch.' }
+          Expand-Archive tectonic.zip -DestinationPath .tools/tectonic
+          & ./.tools/tectonic/tectonic.exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'Tectonic failed to start.' }
+      - run: dotnet restore TeXeed.slnx -r win-x64 --locked-mode -m:1
+      - run: dotnet build tests/TeXeed.AppTests/TeXeed.AppTests.csproj -c Release --no-restore -m:1
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --output artifacts/ci-ui-check
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
