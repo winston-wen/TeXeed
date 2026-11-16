@@ -13,6 +13,26 @@ internal static partial class Program
 {
     private static async Task CheckAiBranchesAsync(MainWindow owner, string output)
     {
+        var mathHome = Path.Combine(AiStorage.Home, "math-svg");
+        if (Environment.GetEnvironmentVariable("TEXEED_BRANCH_REAL_TEX") == "1")
+        {
+            if (Directory.Exists(mathHome) && Directory.EnumerateFiles(mathHome, "*.svg").Any())
+                throw new Exception("Real formula regression requires a fresh isolated cache");
+            Console.WriteLine("Branch formulas: using a fresh cache and the real TeX engine.");
+        }
+        else
+        {
+            var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"));
+            var fixtureHome = Path.Combine(root, "tests", "TeXeed.AppTests", "Fixtures", "branch-formulas");
+            Directory.CreateDirectory(mathHome);
+            foreach (var (file, source, display) in new[] { ("inline-a-plus-b.svg", "a+b", false), ("display-a-plus-b.svg", "a+b", true), ("inline-absolute-x.svg", "|x|", false) })
+            {
+                var fixture = Path.Combine(fixtureHome, file);
+                if (ChatSvg.Read(fixture).Geometry.IsEmpty()) throw new Exception("Branch formula SVG fixture is empty: " + file);
+                File.Copy(fixture, Path.Combine(mathHome, ChatTexRenderer.CacheFileName(source, display)), overwrite: true);
+            }
+            Console.WriteLine("Branch formulas: using TeX-generated SVG fixtures in the isolated cache.");
+        }
         static IEnumerable<Paragraph> Paragraphs(BlockCollection blocks) => blocks.SelectMany(block => block switch { Paragraph p => [p], Section s => Paragraphs(s.Blocks), _ => [] });
         var graphVertices = new[] { new AiRelationVertex("a", "A"), new AiRelationVertex("b", "B"), new AiRelationVertex("c", "C"), new AiRelationVertex("d", "D"), new AiRelationVertex("unrelated", "Unrelated") };
         var graphEdges = new[] { new AiRelationEdge("a", "b"), new AiRelationEdge("b", "c"), new AiRelationEdge("c", "a"), new AiRelationEdge("a", "d"), new AiRelationEdge("b", "d"), new AiRelationEdge("a", "a"), new AiRelationEdge("a", "d"), new AiRelationEdge("d", "a") };
@@ -107,7 +127,8 @@ internal static partial class Program
                 Descendants<MarkdownPicture>(literalPreview).Any() || Paragraphs(literalPreview.Document.Blocks).Any(p => p.Inlines.OfType<Hyperlink>().Any()))
                 throw new Exception("A literal selection was parsed as Markdown or lost a line break");
             var literalFormula = Descendants<ChatFormula>(literalPreview).Single(); await literalFormula.RenderTask;
-            if (literalFormula.Error is not null) throw new Exception("The selected inline formula did not render");
+            if (literalFormula.Error is not null || literalFormula.SvgPath is not { } literalSvg || !File.Exists(literalSvg) || ChatSvg.Read(literalSvg).Geometry.IsEmpty())
+                throw new Exception("The selected inline formula did not render: " + literalFormula.Error);
             literalBranch.BranchAnchor = literalAnchor with { PreviewParts = null, Quote = "![示例](https://example.org/pic.png)\n# 旧文字" };
             Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
             var oldLiteral = Descendants<MarkdownView>(originSurface).Single();
@@ -166,8 +187,9 @@ internal static partial class Program
             if (renderedTable is null)
                 throw new Exception("An unsent table branch did not render a table");
             var inlineFormula = Descendants<ChatFormula>(renderedTable).Single(); await inlineFormula.RenderTask;
-            if (inlineFormula.Error is not null || !((System.Collections.ICollection)Field(renderedTable, "_inlineCodeSurfaces")!).Count.Equals(1))
-                throw new Exception("An unsent table branch lost its inline formula or code formatting");
+            if (inlineFormula.Error is not null || inlineFormula.SvgPath is not { } tableSvg || !File.Exists(tableSvg) ||
+                ChatSvg.Read(tableSvg).Geometry.IsEmpty() || !((System.Collections.ICollection)Field(renderedTable, "_inlineCodeSurfaces")!).Count.Equals(1))
+                throw new Exception("An unsent table branch lost its inline formula or code formatting: " + inlineFormula.Error);
             await panel.SelectConversationAsync(child.Id);
             book.Conversations.Remove(formulaBranch); book.Conversations.Remove(imageBranch); book.Conversations.Remove(literalBranch);
             Invoke(panel, "RemoveReference", branchOrigin);

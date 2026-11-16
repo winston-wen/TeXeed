@@ -36,11 +36,12 @@ internal static class ChatTexRenderer
     // AMS blackboard fonts contain capitals but omit most lowercase letters and digits.
     private static bool NeedsUnicodeMath(string source) => Regex.IsMatch(source,
         @"\\mathbb\s*(?:\{[^{}]*[a-z0-9][^{}]*\}|[a-z0-9])", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+    internal static string CacheFileName(string source, bool display) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Revision + (NeedsCjk(source) ? "-cjk-v1" : "") + (NeedsUnicodeMath(source) ? "-unicode-v1" : "") + "\n" + display + "\n" + source))) + ".svg";
     internal static Task<ChatSvg> RenderAsync(string source, bool display)
     {
         var home = Path.Combine(AiStorage.Home, "math-svg");
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Revision + (NeedsCjk(source) ? "-cjk-v1" : "") + (NeedsUnicodeMath(source) ? "-unicode-v1" : "") + "\n" + display + "\n" + source)));
-        var path = Path.Combine(home, hash + ".svg");
+        var path = Path.Combine(home, CacheFileName(source, display));
         lock (CacheLock)
         {
             if (Cache.TryGetValue(path, out var existing) &&
