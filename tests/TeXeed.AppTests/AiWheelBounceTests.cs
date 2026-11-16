@@ -116,6 +116,7 @@ internal static partial class Program
     }
     private static async Task CheckLongTurnWheelAsync(MainWindow window, string fixture)
     {
+        if (Environment.GetEnvironmentVariable("TEXEED_NARROW_WHEEL") == "1") { window.Width = 900; window.Height = 700; }
         var panel = (AiPanel)Field(window, "_aiPanel")!;
         var book = (AiNotebook)Field(panel, "_book")!;
         var source = System.Text.Json.JsonSerializer.Deserialize<AiNotebook>(System.IO.File.ReadAllText(fixture))!;
@@ -130,6 +131,24 @@ internal static partial class Program
         Invoke(window, "OpenAiTab"); Invoke(panel, "RefreshTranscript"); window.UpdateLayout(); await Task.Delay(2500); window.UpdateLayout();
         var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
         scroll.ScrollToEnd(); window.UpdateLayout(); await Task.Delay(1000); window.UpdateLayout();
+        var realizedTurns = (Dictionary<string, AiTurnView>)Field(panel, "_turnViews")!;
+        double LastTurnTop() => realizedTurns.TryGetValue(book.Turns.Last().Id, out var last) && last.IsLoaded
+            ? last.TranslatePoint(new Point(), scroll).Y : double.NaN;
+        var wheelLines = SystemParameters.WheelScrollLines;
+        if (wheelLines == 0) throw new Exception("The cross-turn fixture requires an enabled mouse wheel");
+        var wheelStep = wheelLines < 0 ? scroll.ViewportHeight : wheelLines * 16d;
+        var desiredTop = -Math.Min(wheelStep * 8, scroll.ViewportHeight * .7);
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            var top = LastTurnTop();
+            if (!double.IsFinite(top)) throw new Exception("Cross-turn fixture did not realize the final turn");
+            if (Math.Abs(top - desiredTop) < 2) break;
+            scroll.ScrollToVerticalOffset(Math.Clamp(scroll.VerticalOffset + top - desiredTop, 0, scroll.ScrollableHeight));
+            window.UpdateLayout(); await Task.Delay(150); window.UpdateLayout();
+        }
+        var startingTop = LastTurnTop();
+        if (!double.IsFinite(startingTop) || Math.Abs(startingTop - desiredTop) > 3)
+            throw new Exception($"Cross-turn fixture did not reach its measured starting position: expected {desiredTop:F1}, actual {startingTop:F1}");
         window.Activate(); await Task.Delay(200);
         var changes = new List<string>();
         ScrollChangedEventHandler changed = (_, e) => { if (ReferenceEquals(e.OriginalSource, scroll)) changes.Add($"{scroll.VerticalOffset:F2}(vertical {e.VerticalChange:F2},extent {e.ExtentHeightChange:F2},pending {Field(panel, "_layoutAnchorPending")},version {Field(panel, "_layoutAnchorVersion")})"); };
@@ -144,9 +163,8 @@ internal static partial class Program
                 for (var i = 0; i < count; i++)
                 {
                     var before = scroll.VerticalOffset; changes.Clear();
-                    var realized = (Dictionary<string, AiTurnView>)Field(panel, "_turnViews")!;
-                    double Top() => realized.TryGetValue(book.Turns.Last().Id, out var last) && last.IsLoaded
-                        ? last.TranslatePoint(new Point(), scroll).Y : double.NaN;
+                    var realized = realizedTurns;
+                    double Top() => LastTurnTop();
                     var beforeTop = Top();
                     string Views() => string.Join("; ", realized.Values.Where(v => v.IsLoaded).Select(v => $"turn={book.Turns.IndexOf(v.Turn)},top={v.TranslatePoint(new Point(), scroll).Y:F1},height={v.ActualHeight:F1},answers={string.Join('/', v.Answers.Select(a => a.RenderTask.IsCompleted ? 'Y' : 'N'))},formulas={AnnotationVisuals<ChatFormula>(v).Count(f => !f.RenderTask.IsCompleted)}/{AnnotationVisuals<ChatFormula>(v).Count()}"));
                     string Anchor()
