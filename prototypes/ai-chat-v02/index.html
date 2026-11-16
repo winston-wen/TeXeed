@@ -43,8 +43,8 @@ summary:before { content:'›'; display:inline-block; width:14px; margin-right:5
 details[open]>summary:before { transform:rotate(90deg) }
 ::-webkit-scrollbar { width:10px; height:8px }
 ::-webkit-scrollbar-track { background:transparent }
-::-webkit-scrollbar-thumb { background:#aa928642; border:2px solid var(--bg); border-radius:8px }
-::-webkit-scrollbar-thumb:hover { background:#aa92867a }
+::-webkit-scrollbar-thumb { background:#aa928655; border:2px solid var(--bg); border-radius:8px }
+.scroll-active::-webkit-scrollbar-thumb { background:#d4b6a5c9 }
 ::selection { background:#cf8fa04d; color:var(--ink) }
 
 /* Workspace and shared reading origin. */
@@ -186,6 +186,9 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .sent-summaries li:last-child { margin-bottom:0 }
 .sent-summary { display:block; width:fit-content; max-width:100%; padding-left:1.5em; text-indent:-1.5em; background:none; border-radius:0; font:var(--reading-font)/var(--reading-line) var(--serif); color:var(--accent); text-decoration:underline; text-decoration-color:#d8b87666; text-decoration-thickness:1px; text-underline-offset:4px }
 .sent-summary:hover,.sent-summary[aria-expanded=true] { color:var(--ink) }
+.quote-math-window { display:inline-block; max-width:min(13em,45vw); overflow:hidden; white-space:nowrap; text-indent:0; vertical-align:-.22em }
+.quote-math-more { display:inline; white-space:nowrap }
+.quote-math-more[hidden] { display:none }
 .margin-notes { position:absolute; right:-36px; top:0; display:flex; gap:2px }
 .bubble { padding:0; min-width:25px; height:24px; background:var(--focus-soft); color:var(--focus); border:1px solid #cf8fa04a; border-radius:6px; font:12px var(--sans) }
 .bubble:hover { background:#cf8fa035 }
@@ -439,6 +442,8 @@ dialog textarea { width:100%; height:220px }
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
 <script src="vendor/katex/katex.min.js"></script>
 <script src="rich-text.js"></script>
+<script src="quote-summary.js"></script>
+<script src="scrollbar-activity.js"></script>
 <script src="history.js"></script>
 <script>'use strict';
 
@@ -565,7 +570,7 @@ function cancelReadingRestore(){readingRestoreVersion++;restoring=false;}
 function turnAnnotations(t){return (t.annotations||[]).map((e,i)=>({...e,number:i+1}));}
 function questionHtml(t){
  const annotations=turnAnnotations(t),prompt=annotations.length?t.prompt||'':t.question;
- return '<div class="question-text rich-text">'+renderRichText(prompt)+'</div>'+(annotations.length?'<ol class="sent-summaries">'+annotations.map(e=>'<li><a class="sent-summary" href="#'+t.id+'-preview" data-snapshot-turn="'+t.id+'" data-snapshot-number="'+e.number+'" aria-controls="'+t.id+'-preview" aria-expanded="false">'+e.number+'. '+renderRichText(e.summary||e.question,true,true)+'</a></li>').join('')+'</ol><section class="snapshot-preview" id="'+t.id+'-preview" hidden aria-label="原文预览"><div class="preview-heading"><span class="preview-label"></span><button data-close-preview="'+t.id+'" aria-label="关闭原文预览">'+ICON_CLOSE+'</button></div><div class="snapshot-scroll rich-text" tabindex="0"></div></section>':'');
+ return '<div class="question-text rich-text">'+renderRichText(prompt)+'</div>'+(annotations.length?'<ol class="sent-summaries">'+annotations.map(e=>'<li><a class="sent-summary" href="#'+t.id+'-preview" data-snapshot-turn="'+t.id+'" data-snapshot-number="'+e.number+'" aria-controls="'+t.id+'-preview" aria-expanded="false">'+e.number+'. '+renderReferenceSummary(contextText(e)||e.summary||e.question)+'</a></li>').join('')+'</ol><section class="snapshot-preview" id="'+t.id+'-preview" hidden aria-label="原文预览"><div class="preview-heading"><span class="preview-label"></span><button data-close-preview="'+t.id+'" aria-label="关闭原文预览">'+ICON_CLOSE+'</button></div><div class="snapshot-scroll rich-text" tabindex="0"></div></section>':'');
 }
 function snapshotHtml(e){
  return (e.quote?renderRichText(e.quote):'')+(e.sources||[]).map(source=>'<div class="preview-source">'+esc(source.file)+'</div>'+(/\.(?:md|tex)$/i.test(source.file)?renderRichText(source.text):'<pre><code>'+esc(source.text)+'</code></pre>')).join('')+(e.pdf||[]).map(p=>'<figure class="pdf-snapshot"><figcaption>PDF 第 '+esc(p.page)+' 页 · 圈选区域快照</figcaption><img class="zoomable-image" tabindex="0" role="button" aria-haspopup="dialog" alt="PDF 第 '+esc(p.page)+' 页圈选区域" src="data:image/png;base64,'+p.image+'"></figure>').join('');
@@ -632,7 +637,7 @@ function turnHtml(t,index=0,turns=[t]){
 function renderTurns(){
  const pos=$('reader').scrollTop;
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
- enhanceAnswers();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();
+ enhanceAnswers();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
 }
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));

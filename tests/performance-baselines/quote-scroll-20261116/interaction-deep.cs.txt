@@ -1,0 +1,61 @@
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class InteractionPerf
+{
+    static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(() => {}, DispatcherPriority.ApplicationIdle); w.UpdateLayout(); }
+    static async Task Wait(Window w) { await Task.Delay(1600); await Idle(w); }
+    static IEnumerable<T> Children<T>(DependencyObject root) where T : DependencyObject
+    { for (var i=0;i<VisualTreeHelper.GetChildrenCount(root);i++) { var c=VisualTreeHelper.GetChild(root,i); if(c is T t)yield return t; foreach(var d in Children<T>(c))yield return d; } }
+    static int Visible(Window w) => Children<Control>(w).Count(c=>c.IsVisible && c.ActualHeight>0 && c.ActualWidth>0);
+    [STAThread] static int Main(string[] args)
+    {
+        var output=Path.GetFullPath(args[0]);var seeds=Path.GetFullPath(args[1]);Directory.CreateDirectory(output);
+        var home=Path.Combine(output,"profile");var math=Path.Combine(home,"ai","math-svg");Directory.CreateDirectory(math);
+        foreach(var file in Directory.EnumerateFiles(seeds,"*.svg"))File.Copy(file,Path.Combine(math,Path.GetFileName(file)),true);
+        Environment.SetEnvironmentVariable("TEXEED_HOME",home);
+        var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("/TeXeed;component/Theme.xaml",UriKind.Relative)});
+        var host=new Window{Width=900,Height=760,Left=20,Top=20,WindowStartupLocation=WindowStartupLocation.Manual};var exit=1;
+        app.DispatcherUnhandledException+=(_,e)=>{Console.Error.WriteLine(e.Exception);e.Handled=true;app.Shutdown(1);};
+        host.Loaded+=async(_,_)=>{try {
+            var samples=new List<object>();
+            async Task Measure(string operation,Action<int> action, Func<int>? count=null) { for(var i=0;i<9;i++) {
+                var b0=GC.GetAllocatedBytesForCurrentThread();var t0=Stopwatch.StartNew();await Wait(host);t0.Stop();var idleBytes=GC.GetAllocatedBytesForCurrentThread()-b0;
+                var bytes=GC.GetAllocatedBytesForCurrentThread();var time=Stopwatch.StartNew();action(i);await Idle(host);
+                var feedback=time.Elapsed.TotalMilliseconds;var feedbackBytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                await Wait(host);time.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                var controls=Visible(host);
+                if (!host.IsVisible || host.WindowState == WindowState.Minimized || controls == 0) throw new Exception("Fixture window was not visibly rendered during " + operation);
+                if(i>=2)samples.Add(new { op=operation,feedbackMs=feedback,feedbackBytes,rawMs=time.Elapsed.TotalMilliseconds,idleMs=t0.Elapsed.TotalMilliseconds,correctedMs=time.Elapsed.TotalMilliseconds-t0.Elapsed.TotalMilliseconds,rawBytes=bytes,idleBytes,correctedBytes=bytes-idleBytes,visibleControls=controls,formulaVisuals=count?.Invoke() });
+            }}
+            const string formula=@"\operatorname{Adv}^{\mathrm{dMLWR}}_{D} = \left|\Pr[D(A,s)=1]-\Pr[D(A,u)=1]\right|+\Pr[D(A,t)=0]";
+            var quote=@"形式化地，对于一个输出 $0$ 或 $1$ 的区分算法 $D$，定义其优势 $$"+formula+"$$";
+            var parts=new List<AiSelectionPart>{new("text","形式化地，对于一个输出 "),new("formula","0"),new("text"," 或 "),new("formula","1"),new("text"," 的区分算法 "),new("formula","D"),new("text","，定义其优势 "),new("formula",formula)};
+            var entry=new AiEntry{AnswerAnchor=new AiAnswerAnchor("turn","segment",0,quote.Length,quote,"revision"){PreviewParts=parts}};
+            await Measure("mixed-citation",i=>host.Content=new AiTurnView{TurnNumber=1,Turn=new AiTurn("解释","答复"){Prompt="请解释",SentAnnotations=[entry]}},()=>Children<FrameworkElement>(host).Count(e=>e.GetType().Name=="ChatFormula"));
+            if(args.Length<3 || args[2]!="mixed-only") {
+            var plain="形式化地，对于一个输出 0 或 1 的区分算法 D，定义其优势 Adv dMLWR D = |Pr[D(A,s)=1] − Pr[D(A,u)=1]| + Pr[D(A,t)=0]";
+            var plainEntry=new AiEntry{AnswerAnchor=new AiAnswerAnchor("turn","segment",0,plain.Length,plain,"revision")};
+            await Measure("plain-citation",i=>host.Content=new AiTurnView{TurnNumber=1,Turn=new AiTurn("解释","答复"){Prompt="请解释",SentAnnotations=[plainEntry]}},()=>Children<FrameworkElement>(host).Count(e=>e.GetType().Name=="ChatFormula"));
+            var body=new StackPanel();for(var i=0;i<140;i++)body.Children.Add(new TextBlock{Text="滚动性能样本 "+i,Height=25});
+            var scroll=new ScrollViewer{Content=body,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};host.Content=scroll;await Idle(host);await Wait(host);
+            var bar=Children<ScrollBar>(scroll).First(b=>b.Orientation==Orientation.Vertical);
+            if(bar.IsMouseOver)throw new Exception("Pointer over scrollbar invalidates idle-state measurement");
+            await Measure("scroll-activity",i=>scroll.ScrollToVerticalOffset(i%2==0?0:Math.Min(900,scroll.ScrollableHeight)));
+            }
+            File.WriteAllText(Path.Combine(output,"results.json"),JsonSerializer.Serialize(new{fixture="mixed citation and vertical scrollbar, 900x760 WPF; two warmups and seven samples; 1.6 s paired idle includes 0.5 s timer and 0.8 s old fade",samples},new JsonSerializerOptions{WriteIndented=true}));
+            exit=0;
+        }catch(Exception e){Console.Error.WriteLine(e);}finally{host.Close();app.Shutdown(exit);}};
+        host.Show();app.Run();return exit;
+    }
+}

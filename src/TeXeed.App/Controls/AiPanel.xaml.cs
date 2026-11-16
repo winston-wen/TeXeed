@@ -149,7 +149,7 @@ public partial class AiPanel : UserControl, IDisposable
         AnnotationsChanged?.Invoke(this, EventArgs.Empty);
         foreach (var layer in _answerLayers.Values) layer.Refresh();
         Entries.ItemsSource = null;
-        var references = _book.Entries.Where(entry => entry.HasReference).ToArray();
+        var references = _book.Entries.Where(entry => entry.HasReference && AiSessionExcerptReferences.IsPendingReference(_book.Active, entry)).ToArray();
         var attachments = _book.Entries.Where(entry => entry.HasAttachments).ToArray();
         Entries.ItemsSource = references;
         Attachments.ItemsSource = null;
@@ -354,7 +354,7 @@ public partial class AiPanel : UserControl, IDisposable
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
         var submittedDraft = Composer.Text;
         var prompt = queued is not null ? queued.Prompt : retry is null ? submittedDraft.Trim() : retry.Prompt ?? (retry.SentAnnotations.Count == 0 ? retry.DisplayQuestion : "");
-        var selectedParts = retry is null && queued is null ? _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray() : [];
+        var selectedParts = retry is null && queued is null ? _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected && AiSessionExcerptReferences.IsPendingReference(_book.Active, e), Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray() : [];
         var selected = queued is not null ? queued.Entries.Select(e => e.Snapshot()).ToArray() : retry is null ? selectedParts.Select(x => x.Entry).ToArray() : retry.SentAnnotations.Select(e => e.Snapshot()).ToArray();
         var sentAnnotations = queued is not null ? selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList() : retry is null ? selectedParts.Select((item, i) => SnapshotSelectedParts(item.Entry, item.Reference, item.Attachment, i + 1)).ToList() : selected.Select((entry, i) => entry.Snapshot(i + 1)).ToList();
         var submittedForms = retry is not null ? AiForms.AllFromTurn(retry).ToArray() : _book.Turns

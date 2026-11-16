@@ -90,16 +90,20 @@ public partial class AiPanel
         var anchor = new LayoutAnchor(owner, pointer, originalY, originalOffset);
         _layoutAnchor = anchor;
         _layoutAnchorPending = true;
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
             if (version != _layoutAnchorVersion) return;
+            MessagesScroll.UpdateLayout();
             _layoutAnchorPending = false;
             _layoutAnchor = null;
             if (_disposed || _restoringReading || _book.Active != conversation || !owner.IsLoaded || !owner.IsVisible ||
                 Math.Abs(MessagesScroll.VerticalOffset - anchor.Offset) > .5 || !TryLayoutAnchorY(anchor.Owner, anchor.Pointer, out var newY)) return;
             var difference = newY - anchor.Y;
             if (Math.Abs(difference) > .5)
+            {
                 MessagesScroll.ScrollToVerticalOffset(Math.Clamp(anchor.Offset + difference, 0, MessagesScroll.ScrollableHeight));
+                MessagesScroll.UpdateLayout();
+            }
         }));
     }
 

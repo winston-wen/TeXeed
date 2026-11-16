@@ -1,0 +1,96 @@
+{
+  "fixture": "mixed citation and vertical scrollbar, 900x760 WPF; two warmups and seven samples; 1.6 s paired idle includes 0.5 s timer and 0.8 s old fade",
+  "samples": [
+    {
+      "op": "mixed-citation",
+      "feedbackMs": 22.944,
+      "feedbackBytes": 1877216,
+      "rawMs": 1630.5287,
+      "idleMs": 1607.7089,
+      "correctedMs": 22.819799999999987,
+      "rawBytes": 1880920,
+      "idleBytes": 3744,
+      "correctedBytes": 1877176,
+      "visibleControls": 6,
+      "formulaVisuals": 4
+    },
+    {
+      "op": "mixed-citation",
+      "feedbackMs": 16.236,
+      "feedbackBytes": 1869312,
+      "rawMs": 1617.2769,
+      "idleMs": 1614.837,
+      "correctedMs": 2.4399000000000797,
+      "rawBytes": 1873016,
+      "idleBytes": 3744,
+      "correctedBytes": 1869272,
+      "visibleControls": 6,
+      "formulaVisuals": 4
+    },
+    {
+      "op": "mixed-citation",
+      "feedbackMs": 16.732,
+      "feedbackBytes": 1870056,
+      "rawMs": 1617.1971,
+      "idleMs": 1613.8549,
+      "correctedMs": 3.342200000000048,
+      "rawBytes": 1876776,
+      "idleBytes": 3744,
+      "correctedBytes": 1873032,
+      "visibleControls": 6,
+      "formulaVisuals": 4
+    },
+    {
+      "op": "mixed-citation",
+      "feedbackMs": 16.3299,
+      "feedbackBytes": 1869712,
+      "rawMs": 1628.4111,
+      "idleMs": 1608.3859,
+      "correctedMs": 20.02520000000004,
+      "rawBytes": 1873416,
+      "idleBytes": 3744,
+      "correctedBytes": 1869672,
+      "visibleControls": 6,
+      "formulaVisuals": 4
+    },
+    {
+      "op": "mixed-citation",
+      "feedbackMs": 24.2836,
+      "feedbackBytes": 1888048,
+      "rawMs": 1628.937,
+      "idleMs": 1600.305,
+      "correctedMs": 28.631999999999834,
+      "rawBytes": 1891752,
+      "idleBytes": 3744,
+      "correctedBytes": 1888008,
+      "visibleControls": 6,
+      "formulaVisuals": 4
+    },
+    {
+      "op": "mixed-citation",
+      "feedbackMs": 11.3419,
+      "feedbackBytes": 1749368,
+      "rawMs": 1624.1479,
+      "idleMs": 1611.4306,
+      "correctedMs": 12.717300000000023,
+      "rawBytes": 1753072,
+      "idleBytes": 3744,
+      "correctedBytes": 1749328,
+      "visibleControls": 6,
+      "formulaVisuals": 4
+    },
+    {
+      "op": "mixed-citation",
+      "feedbackMs": 14.2084,
+      "feedbackBytes": 1845224,
+      "rawMs": 1629.4517,
+      "idleMs": 1615.2979,
+      "correctedMs": 14.153800000000047,
+      "rawBytes": 1848928,
+      "idleBytes": 3744,
+      "correctedBytes": 1845184,
+      "visibleControls": 6,
+      "formulaVisuals": 4
+    }
+  ]
+}

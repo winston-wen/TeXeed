@@ -66,7 +66,7 @@ internal static partial class Program
             var before = scroll.VerticalOffset;
             tableView.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, 120) { RoutedEvent = Mouse.PreviewMouseWheelEvent });
             window.UpdateLayout(); await Task.Delay(200); window.UpdateLayout();
-            Console.WriteLine($"Table wheel {i}: outer {before:F2} -> {scroll.VerticalOffset:F2}, inner {tableHost.VerticalOffset:F2}/{tableHost.ScrollableHeight:F2}, table {table.VerticalOffset:F2}/{table.ScrollableHeight:F2}");
+            Console.WriteLine($"Table wheel {i}: outer {before:F2} -> {scroll.VerticalOffset:F2}, inner {tableHost.VerticalOffset:F2}/{tableHost.ScrollableHeight:F2}, table {table.VerticalOffset:F2}/{table.ScrollableHeight:F2}, loaded={tableView.IsLoaded}, visible={tableView.IsVisible}, source={PresentationSource.FromVisual(tableView) is not null}");
             if (before > 1 && scroll.VerticalOffset >= before - 1) throw new Exception("Wheel over table did not move upward");
         }
         // Return to the original conversation fixture for the deferred restore check.

@@ -29,10 +29,6 @@ public sealed class CompactMenuPanel : Border
         SetResourceReference(BorderBrushProperty, "Line");
         BorderThickness = new Thickness(1);
         Padding = new Thickness(3);
-        ScrollActivity.SetIsScope(this, true);
-        // A constrained menu must visibly advertise its overflow.
-        _scroll.Resources[typeof(ScrollBar)] = new Style(typeof(ScrollBar), (Style)Application.Current.FindResource(typeof(ScrollBar)))
-        { Setters = { new Setter(ScrollActivity.AutoHideProperty, false) } };
         _scroll.Content = _rows;
         _scroll.PreviewMouseWheel += (_, e) => { _scroll.ScrollToVerticalOffset(_scroll.VerticalOffset - e.Delta / 120d * 102); e.Handled = true; };
         _back = new Button { Style = rowStyle, Visibility = Visibility.Collapsed };

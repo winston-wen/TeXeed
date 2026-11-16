@@ -87,8 +87,15 @@ internal static partial class Program
             await panel.SelectConversationAsync(child.Id);
             var branchOrigin = child.Entries.Single();
             if (branchOrigin.AnswerAnchor != child.BranchAnchor || !branchOrigin.ReferenceSelected || branchOrigin.CanRemoveReference ||
+                !AiSessionExcerptReferences.IsPendingReference(child, branchOrigin) ||
                 !AiSessionExcerptReferences.TryRead(branchOrigin, out var originInfo) || originInfo?.SourceConversationId != root.Id)
                 throw new Exception("New branch did not expose a protected, selected source reference");
+            child.LastSentAt = DateTimeOffset.Now;
+            if (AiSessionExcerptReferences.IsPendingReference(child, branchOrigin))
+                throw new Exception("A checkpointed first message still exposes the origin as pending");
+            child.LastSentAt = null;
+            if (!AiSessionExcerptReferences.IsPendingReference(child, branchOrigin))
+                throw new Exception("An uncommitted first message lost its pending source");
             host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             var originSurface = (ContentControl)panel.FindName("BranchOriginPreview");
             var originText = Descendants<MarkdownView>(originSurface).Single();
@@ -206,11 +213,30 @@ internal static partial class Program
             book.Conversations.Remove(other);
             var restoredOld = new AiConversation { ParentConversationId = root.Id, BranchAnchor = child.BranchAnchor, BranchContextBefore = child.BranchContextBefore, BranchContextAfter = child.BranchContextAfter, Draft = "旧草稿" };
             restoredOld.Turns.Add(new AiTurn("旧问题", "旧回答"));
-            if (!AiSessionExcerptReferences.EnsureBranchOrigin(restoredOld) || restoredOld.Entries.Single().ReferenceSelected || restoredOld.Draft != "旧草稿" || AiSessionExcerptReferences.EnsureBranchOrigin(restoredOld))
-                throw new Exception("Old branch source restoration changed the draft, selection or duplicated the source");
+            if (AiSessionExcerptReferences.EnsureBranchOrigin(restoredOld) || restoredOld.Entries.Count != 0 || restoredOld.Draft != "旧草稿")
+                throw new Exception("An already sent old branch acquired a pending source or lost its draft");
+            var staleOrigin = AiSessionExcerptReferences.Create(root.Id, child.BranchAnchor!, null, null, protectOrigin: true);
+            var normalReference = AiSessionExcerptReferences.Create(root.Id, child.BranchAnchor!, null, null);
+            normalReference.Title = "追问出处";
+            staleOrigin.Question = "保留用户批注";
+            staleOrigin.Images.Add(new AiPastedImage("aW1hZ2U="));
+            staleOrigin.Files.Add(new AiAttachedFile("note.txt", "text/plain", "bm90ZQ=="));
+            staleOrigin.AdditionalData!["future-field"] = System.Text.Json.JsonSerializer.SerializeToElement("保留扩展数据");
+            restoredOld.Entries.AddRange([staleOrigin, normalReference]);
+            if (AiSessionExcerptReferences.IsPendingReference(restoredOld, staleOrigin) || !AiSessionExcerptReferences.IsPendingReference(restoredOld, normalReference))
+                throw new Exception("An old branch origin remained pending or a normal reference was hidden");
+            var loadedOld = System.Text.Json.JsonSerializer.Deserialize<AiConversation>(System.Text.Json.JsonSerializer.Serialize(restoredOld))!;
+            var loadedOrigin = loadedOld.Entries.Single(entry => entry.Id == staleOrigin.Id);
+            if (AiSessionExcerptReferences.EnsureBranchOrigin(loadedOld) || AiSessionExcerptReferences.IsPendingReference(loadedOld, loadedOrigin) ||
+                loadedOrigin.Question != staleOrigin.Question || loadedOrigin.Images.Count != 1 || loadedOrigin.Files.Count != 1 ||
+                loadedOrigin.AdditionalData?["future-field"].GetString() != "保留扩展数据" || loadedOld.Draft != "旧草稿")
+                throw new Exception("Opening an old branch changed a source annotation, attachment, extension or draft");
             ((TextBox)panel.FindName("Composer")).Text = "保留追问草稿";
             child.Turns.Add(new AiTurn("继续问", "# 回答\n\n子会话中的追问内容。"));
-            Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            Invoke(panel, "Rebind"); Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            if (((ItemsControl)panel.FindName("Entries")).Items.Cast<object>().Contains(branchOrigin) ||
+                !Equals(((Button)panel.FindName("EntriesButton")).Content, "引用 · 0"))
+                throw new Exception("A sent branch origin remained in the reference menu or count");
             if (originSurface.IsVisible) throw new Exception("Source preview remained after the first message was sent");
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             views = (Dictionary<string, AiTurnView>)Field(panel, "_turnViews")!;

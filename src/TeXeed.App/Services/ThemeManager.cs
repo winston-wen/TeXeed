@@ -72,6 +72,9 @@ public static class ThemeManager
         Current = theme;
         var resources = Application.Current.Resources;
         foreach (var key in theme.Colors.Keys) resources[key] = Brush(key);
+        resources["ScrollThumbIdleOpacity"] = theme.IsDark ? .35 : .82;
+        resources["ScrollThumbHoverOpacity"] = theme.IsDark ? .55 : .70;
+        resources["ScrollThumbActiveOpacity"] = theme.IsDark ? .75 : .58;
         foreach (var (key, token) in new (ResourceKey, string)[]
         {
             (SystemColors.WindowBrushKey, "EditorBackground"), (SystemColors.WindowTextBrushKey, "Ink"),

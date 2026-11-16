@@ -52,6 +52,11 @@ internal static partial class Program
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--scroll-activity-only"))
+                {
+                    await CheckScrollActivityAsync(window, output);
+                    await CloseAndObserveAsync(window, "scrollbar activity"); result = 0; return;
+                }
                 if (args.Contains("--ai-settings-login-only"))
                 {
                     await CheckAiSettingsLoginAsync(window);

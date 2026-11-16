@@ -40,7 +40,7 @@
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceLabelsIcon}" Tag="labels" ToolTip="标签" AutomationProperties.Name="标签" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceTodosIcon}" Tag="todos" ToolTip="待办" AutomationProperties.Name="待办" Click="SidebarMode_Click"/>
      </UniformGrid></Border>
-   <Border Grid.Column="1" x:Name="SidebarPanel" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}">
+   <Border Grid.Column="1" x:Name="SidebarPanel" Background="{DynamicResource SidebarBackground}">
     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
 
      <StackPanel Margin="14,10,14,8">
@@ -70,7 +70,7 @@
    </Border>
    </Grid>
    <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Style="{StaticResource PaneSplitter}"/>
-   <Grid x:Name="EditorPane" controls:ScrollActivity.IsScope="True" Grid.Column="2" Background="{DynamicResource EditorBackground}">
+   <Grid x:Name="EditorPane" Grid.Column="2" Background="{DynamicResource EditorBackground}">
     <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Background="{DynamicResource SidebarBackground}"><controls:EditorTabStrip x:Name="FileTabs"/></Border>
     <Grid x:Name="LeftGroupBody" Grid.Row="1">
@@ -79,7 +79,7 @@
     <TextBlock x:Name="NoOpenFile" Grid.Row="0" Visibility="Collapsed" Text="从左侧选择文件继续编辑" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
     <Expander x:Name="LogExpander" Grid.Row="1" Header="编译输出" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" MaxHeight="260">
      <Expander.Template><ControlTemplate TargetType="Expander"><Border x:Name="LogBody" Visibility="Collapsed" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="LogBody" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Expander.Template>
-     <TabControl x:Name="LogTabs" controls:ScrollActivity.IsScope="True" Background="{DynamicResource SidebarBackground}" BorderThickness="0" Padding="0" Height="205">
+     <TabControl x:Name="LogTabs" Background="{DynamicResource SidebarBackground}" BorderThickness="0" Padding="0" Height="205">
       <TabControl.Template><ControlTemplate TargetType="TabControl"><Grid ClipToBounds="True"><Grid.RowDefinitions><RowDefinition Height="32"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Background="{DynamicResource PanelBackground}"><TabPanel IsItemsHost="True"/></Border><ContentPresenter Grid.Row="1" x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"/></Grid></ControlTemplate></TabControl.Template>
       <TabControl.Resources><Style TargetType="TabItem"><Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="Padding" Value="12,5"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border x:Name="TabChrome" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter ContentSource="Header" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="TabChrome" Property="Background" Value="{DynamicResource SidebarBackground}"/><Setter TargetName="TabChrome" Property="BorderBrush" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Ink}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></TabControl.Resources><TabItem Header="问题"><ListBox x:Name="DiagnosticsList" Padding="0" Margin="0" BorderThickness="0" SelectionChanged="Diagnostic_Selected"><ListBox.Template><ControlTemplate TargetType="ListBox"><ScrollViewer Padding="0" CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ItemsPresenter/></ScrollViewer></ControlTemplate></ListBox.Template><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Message}" TextWrapping="Wrap"/><TextBlock Text="{Binding Line, StringFormat=行 {0}}" Foreground="{DynamicResource Muted}" FontSize="11"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox></TabItem><TabItem Header="完整日志"><TextBox x:Name="LogText" Padding="10,8,0,8" Margin="0" IsReadOnly="True" FontFamily="Consolas" FontSize="11" BorderThickness="0" Background="Transparent" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"><TextBox.Template><ControlTemplate TargetType="TextBox"><ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}"/></ControlTemplate></TextBox.Template></TextBox></TabItem></TabControl>
     </Expander>
@@ -97,7 +97,7 @@
     </Grid>
    </Grid>
    <GridSplitter x:Name="PreviewSplitter" Grid.Column="3" Style="{StaticResource PaneSplitter}"/>
-   <Grid x:Name="PreviewPane" controls:ScrollActivity.IsScope="True" Grid.Column="4" Background="{DynamicResource EditorBackground}">
+   <Grid x:Name="PreviewPane" Grid.Column="4" Background="{DynamicResource EditorBackground}">
     <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Background="{DynamicResource SidebarBackground}"><controls:EditorTabStrip x:Name="RightFileTabs"/></Border>
     <Grid x:Name="RightGroupBody" Grid.Row="1">
@@ -116,7 +116,7 @@
    </Grid>
    <Canvas x:Name="DockDropOverlay" Grid.Column="2" Grid.ColumnSpan="3" Panel.ZIndex="100" IsHitTestVisible="False"><Border x:Name="DockDropCue" Visibility="Collapsed" Background="{DynamicResource Accent}" Opacity="0.18" BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="4"/></Canvas>
   </Grid>
-  <Grid Grid.Row="1" x:Name="Welcome" SizeChanged="Welcome_SizeChanged" controls:ScrollActivity.IsScope="True">
+  <Grid Grid.Row="1" x:Name="Welcome" SizeChanged="Welcome_SizeChanged">
    <Grid.Resources>
     <Style x:Key="WelcomePathButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">

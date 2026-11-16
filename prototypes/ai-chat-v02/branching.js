@@ -48,6 +48,7 @@
   }
   trimBlankSessions();
   function ensureSession(s) { s.references ||= []; s.attachments ||= []; return s; }
+  function pendingReferences(s) { return ensureSession(s).references.filter(ref => !(ref.sourceLocked && s.parent && s.source && s.turns?.length)); }
   function save() { try { state.pendingBySession ||= {}; if (state.pending?.parentId === state.active) state.pendingBySession[state.active] = state.pending; else delete state.pendingBySession[state.active]; localStorage.setItem(KEY, JSON.stringify(state)); localStorage.removeItem(draftKey(state.active)); localStorage.removeItem(referencesKey(state.active)); return true; } catch { $('status').textContent = '当前浏览器无法保存示例会话。'; return false; } }
   function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, attachments: ensureSession(current()).attachments, pending: state.pending?.parentId === state.active ? state.pending : null })); return true; } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; return false; } }
   function saveReferences() { try { localStorage.setItem(referencesKey(state.active), JSON.stringify(ensureSession(current()).references)); return true; } catch { $('status').textContent = '当前浏览器无法保存引用。'; return false; } }
@@ -115,8 +116,22 @@
   }
   function appendText(tag, cls, text, parent) { const el = document.createElement(tag); if (cls) el.className = cls; el.textContent = text; parent.appendChild(el); return el; }
   function quoteElement(parent, label, text) { const quote = document.createElement('div'); quote.className = 'quoted'; const prefix = document.createElement('span'); prefix.textContent = label + '：'; quote.append(prefix, document.createTextNode(text)); parent.appendChild(quote); }
-  function renderReferencePreview(parent, ref) {
+  function renderReferencePreview(parent, ref, compact = false) {
     const box = document.createElement('div'); box.className = 'reference-preview';
+    if (compact && (!ref.kind || ref.kind === 'text')) {
+      box.innerHTML = renderReferenceSummary(ref.quote || '所选内容'); parent.appendChild(box); return box;
+    }
+    if (compact && ref.kind === 'math' && ref.large && ref.math) {
+      box.innerHTML = renderReferenceSummary('\\(' + ref.math + '\\)'); parent.appendChild(box); return box;
+    }
+    if (compact && ref.kind === 'math' && ref.large && ref.svg) {
+      const clip = document.createElement('span'); clip.className = 'quote-math-window';
+      const img = document.createElement('img'); img.src = ref.svg; img.className = 'formula-svg'; img.alt = ref.quote || '公式';
+      img.addEventListener('load', refreshReferenceClips);
+      img.addEventListener('error', () => { clip.textContent = ref.quote || '公式'; refreshReferenceClips(); });
+      const more = document.createElement('span'); more.className = 'quote-math-more'; more.textContent = '…'; more.hidden = true; more.setAttribute('aria-hidden', 'true');
+      clip.appendChild(img); box.append(clip, more); parent.appendChild(box); return box;
+    }
     if (ref.kind === 'math' && ref.svg && !ref.large) {
       const img = document.createElement('img'); img.src = ref.svg; img.className = 'formula-svg'; img.alt = ref.quote || '公式';
       const fallback = document.createElement('div'); fallback.className = 'reference-caption'; fallback.textContent = ref.quote || '公式'; fallback.hidden = true;
@@ -276,11 +291,11 @@
       if (i === 0 && current().parent && current().source?.blockId && session(current().parent) && !(turn.references || []).some(ref => ref.sourceLocked)) {
         const origin = document.createElement('button'); origin.type = 'button'; origin.className = 'sent-origin'; origin.dataset.sourceSession = current().id;
         const sourceText = (current().source.quote || '提问出处').replace(/\s+/g, ' ').trim();
-        origin.textContent = '引用：' + Array.from(sourceText).slice(0, 80).join(''); origin.title = sourceText; wrap.appendChild(origin);
+        origin.innerHTML = '引用：' + renderReferenceSummary(current().source.kind === 'math' && current().source.math ? '\\(' + current().source.math + '\\)' : sourceText); origin.title = sourceText; wrap.appendChild(origin);
       }
       appendText('div', 'time', '示例时间　发送', wrap);
       if (turn.quote && !(i === 0 && current().parent && turn.quote === current().source?.quote)) quoteElement(wrap, '引用', turn.quote);
-      for (const ref of turn.references || []) { const matches = state.sessions.filter(s => s.turns.some(t => t.answer.some(b => b.id === ref.blockId))); const origin = ref.sessionId ? session(ref.sessionId) : matches.length === 1 ? matches[0] : null; const target = origin && matches.some(s => s.id === origin.id) ? document.createElement('button') : document.createElement('div'); if (origin && target.tagName === 'BUTTON') { target.type = 'button'; target.className = 'sent-reference'; target.dataset.referenceSession = origin.id; target.dataset.referenceBlock = ref.blockId; if (Number.isInteger(ref.textOffset)) target.dataset.referenceOffset = ref.textOffset; } renderReferencePreview(target, ref); wrap.appendChild(target); if (ref.comment) appendText('p', 'passage', ref.comment, wrap); if (ref.attachments?.length) { const media = document.createElement('div'); media.className = 'attachment-list'; renderAttachments(media, ref.attachments); wrap.appendChild(media); } }
+      for (const ref of turn.references || []) { const matches = state.sessions.filter(s => s.turns.some(t => t.answer.some(b => b.id === ref.blockId))); const origin = ref.sessionId ? session(ref.sessionId) : matches.length === 1 ? matches[0] : null; const target = origin && matches.some(s => s.id === origin.id) ? document.createElement('button') : document.createElement('div'); if (origin && target.tagName === 'BUTTON') { target.type = 'button'; target.className = 'sent-reference'; target.dataset.referenceSession = origin.id; target.dataset.referenceBlock = ref.blockId; if (Number.isInteger(ref.textOffset)) target.dataset.referenceOffset = ref.textOffset; } renderReferencePreview(target, ref, true); wrap.appendChild(target); if (ref.comment) appendText('p', 'passage', ref.comment, wrap); if (ref.attachments?.length) { const media = document.createElement('div'); media.className = 'attachment-list'; renderAttachments(media, ref.attachments); wrap.appendChild(media); } }
       if (turn.attachments?.length) { const media = document.createElement('div'); media.className = 'attachment-list'; renderAttachments(media, turn.attachments); wrap.appendChild(media); }
       const rule = document.createElement('hr'); rule.className = 'answer-rule'; wrap.appendChild(rule);
       if (turn.demo) appendText('div', 'example-label', '示例答复 · 未连接 AI', wrap);
@@ -314,7 +329,7 @@
     $('child-sessions').disabled = !state.sessions.some(child => child.parent === s.id);
     $('child-menu').hidden = true;
     focusedBlock = null; $('bookmark-paragraph').disabled = true;
-    renderComposerContext(); renderReferencesButton(); renderMainAttachments(); renderFollowups();
+    renderComposerContext(); renderReferencesButton(); renderMainAttachments(); renderFollowups(); refreshReferenceClips();
   }
   function renderInitialSource(s) {
     const source = s.source, box = document.createElement('section'); box.className = 'initial-source';
@@ -386,7 +401,7 @@
   }
   function submitFollowup(queued) {
     if (!running.has(current().id) || state.pending?.kind === 'branch' || pendingFileReads) return;
-    const refs = ensureSession(current()).references, selected = refs.filter(ref => ref.selected !== false), files = mainAttachments();
+    const refs = ensureSession(current()).references, selected = pendingReferences(current()).filter(ref => ref.selected !== false), files = mainAttachments();
     const question = composer.value.trim(); if (!question && !selected.length && !files.length) { composer.focus(); return; }
     if (!queued && !current().turns.length) { $('status').textContent = '没有可引导的模拟轮次。'; return; }
     const before = JSON.stringify(state), item = { id: uid(), question, references: structuredClone(selected), attachments: structuredClone(files) };
@@ -486,15 +501,15 @@
     $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges();
     navigate(child.id); composer.focus(); $('status').textContent = '追问来源已加入引用，可继续填写问题。';
   }
-  function renderReferencesButton() { $('references-toggle').textContent = '引用 · ' + ensureSession(current()).references.length; }
+  function renderReferencesButton() { $('references-toggle').textContent = '引用 · ' + pendingReferences(current()).length; }
   function renderReferenceEditor() { const ref = ensureSession(current()).references.find(r => r.id === editingReference); if (!ref) return; const preview = $('reference-preview'); preview.replaceChildren(); renderReferencePreview(preview, ref); $('reference-comment').value = ref.comment || ''; const media = $('reference-attachments'); media.replaceChildren(); renderAttachments(media, ref.attachments, 'reference', ref.id); }
   function openReference(id) { editingReference = id; if ($('references-panel').open) $('references-panel').close(); renderReferenceEditor(); $('reference-editor').showModal(); $('reference-comment').focus(); }
   function addReference(context) {
-    const refs = ensureSession(current()).references; const ref = { id: uid(), sessionId: state.active, blockId: context.blockId, textOffset: context.textOffset, quote: context.quote, kind: context.kind || 'text', svg: context.svg, src: context.src, number: context.number, large: context.large, comment: '', selected: true, attachments: [] };
+    const refs = ensureSession(current()).references; const ref = { id: uid(), sessionId: state.active, blockId: context.blockId, textOffset: context.textOffset, quote: context.quote, kind: context.kind || 'text', svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large, comment: '', selected: true, attachments: [] };
     refs.push(ref); if (!saveReferences()) { refs.pop(); return; } $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges(); renderReferencesButton(); openReference(ref.id);
   }
   function renderReferenceList() {
-    const list = $('references-list'); list.replaceChildren(); const refs = ensureSession(current()).references;
+    const list = $('references-list'); list.replaceChildren(); const refs = pendingReferences(current());
     if (!refs.length) { appendText('p', 'bookmarks-empty', '还没有引用。选择内容后可添加。', list); return; }
     refs.forEach((ref, i) => { const row = document.createElement('section'); row.className = 'reference-row'; const head = document.createElement('div'); head.className = 'reference-head'; const check = document.createElement('input'); check.type = 'checkbox'; check.checked = ref.selected !== false; check.dataset.referenceSelected = ref.id; check.setAttribute('aria-label', '携带引用 ' + (i + 1)); head.appendChild(check); appendText('span', '', ref.sourceLocked ? '追问来源' : '引用 ' + (i + 1), head); const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.referenceEdit = ref.id; edit.textContent = '编辑'; head.appendChild(edit); const remove = document.createElement('button'); remove.type = 'button'; remove.dataset.referenceRemove = ref.id; remove.textContent = '删除'; if (ref.sourceLocked) { remove.disabled = true; remove.title = '追问来源暂不可删除'; } head.appendChild(remove); row.appendChild(head); renderReferencePreview(row, ref); if (ref.comment) appendText('div', '', ref.comment, row); renderAttachments(row, ref.attachments); list.appendChild(row); });
   }
@@ -560,7 +575,7 @@
   function send() {
     if (running.has(current().id)) return;
     if (pendingFileReads) { $('status').textContent = '请等待附件读取完成。'; return; }
-    const question = composer.value.trim(); const refs = ensureSession(current()).references; const selected = refs.filter(ref => ref.selected !== false); const files = mainAttachments();
+    const question = composer.value.trim(); const refs = ensureSession(current()).references; const selected = pendingReferences(current()).filter(ref => ref.selected !== false); const files = mainAttachments();
     const openForms = current().turns.filter(turn => turn.formValues && !formState(turn).locked), hasFormValues = openForms.some(turn => Object.values(turn.formValues).some(value => Array.isArray(value) ? value.length : value !== '' && value != null));
     if (!question && !selected.length && !files.length && !hasFormValues) { composer.focus(); return; }
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
@@ -585,7 +600,7 @@
     if (!save()) { state = JSON.parse(previousState); $('status').textContent = '无法保存本次问题，输入内容已保留。'; composer.focus(); return; }
     mentionUndo.delete(previousSessionId); mentionUndo.delete(previousSessionId + ':branch'); mentionHistoryInput = false;
     if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); localStorage.removeItem(referencesKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
-    composer.value = ''; if (branching || hadInitialSource || formResponses.length || formAssessment) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
+    composer.value = ''; if (branching || hadInitialSource || formResponses.length || formAssessment) renderTranscript(); else { transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); refreshReferenceClips(); } setComposer();
     requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
     $('status').textContent = '已保存示例问题和附件；下方是预设答复，未连接 AI。';
   }

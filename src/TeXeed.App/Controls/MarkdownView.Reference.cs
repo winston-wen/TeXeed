@@ -24,7 +24,8 @@ public sealed partial class MarkdownView
                 if (p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } inline)
                 {
                     if (view._clipboardMath.TryGetValue(inline, out var formula) && formula.Reference is null)
-                    { Flush(); parts.Add(new AiSelectionPart("formula", formula.Source)); }
+                    { Flush(); parts.Add(new AiSelectionPart("formula", formula.Source) { Display = formula.Display,
+                        CopyTex = formula.CopyTex == formula.Source ? null : formula.CopyTex }); }
                     else Text(source);
                     p = inline.ElementEnd; continue;
                 }

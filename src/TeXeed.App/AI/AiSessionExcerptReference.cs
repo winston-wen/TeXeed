@@ -39,6 +39,16 @@ internal static class AiSessionExcerptReferences
         IsProtected(entry) || conversation.ParentConversationId is not null && conversation.BranchAnchor is { } anchor &&
         entry.Title == "追问出处" && entry.AnswerAnchor is { } actual && SameAnchor(actual, anchor);
 
+    internal static bool IsPendingReference(AiConversation conversation, AiEntry entry)
+    {
+        if (conversation.Turns.Count == 0 && conversation.LastSentAt is null) return true;
+        if (conversation.ParentConversationId is not { Length: > 0 } parent || conversation.BranchAnchor is not { } anchor ||
+            entry.AnswerAnchor is not { } actual || !SameAnchor(actual, anchor)) return true;
+        if (entry.AdditionalData?.ContainsKey(MetadataKey) == true)
+            return !IsProtected(entry) || !TryRead(entry, out var reference) || reference!.SourceConversationId != parent;
+        return !IsProtected(entry) && entry.Title != "追问出处";
+    }
+
     internal static bool TryRead(AiEntry entry, out AiSessionExcerptReference? reference)
     {
         reference = null;
@@ -76,16 +86,15 @@ internal static class AiSessionExcerptReferences
         return true;
     }
 
-    // Older branches did not retain their source in the pending list after the first send.
     internal static bool EnsureBranchOrigin(AiConversation conversation)
     {
         if (conversation.ParentConversationId is not { Length: > 0 } parent || conversation.BranchAnchor is not { } anchor) return false;
+        if (conversation.Turns.Count > 0 || conversation.LastSentAt is not null) return false;
         var origin = conversation.Entries.FirstOrDefault(entry => entry.AnswerAnchor is { } actual &&
             SameAnchor(actual, anchor) && IsBranchOrigin(conversation, entry));
         if (origin is null)
         {
             origin = Create(parent, TeXeed.App.Controls.AiReferencePresentation.NormalizePreview(anchor), conversation.BranchContextBefore, conversation.BranchContextAfter, protectOrigin: true);
-            if (conversation.Turns.Count > 0 || conversation.LastSentAt is not null) origin.ReferenceSelected = false;
             conversation.Entries.Insert(0, origin);
             return true;
         }

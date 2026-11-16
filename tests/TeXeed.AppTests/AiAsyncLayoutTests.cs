@@ -220,11 +220,15 @@ internal static partial class Program
         var before = Top();
         var beforeHeight = firstView.ActualHeight;
         var notified = false;
-        RoutedEventHandler changed = (_, _) => notified = true;
+        RoutedEventHandler changed = (_, _) => notified = fallback.Parent == link;
         question.AddHandler(MarkdownView.AsyncLayoutChangingEvent, changed);
         var formula = new ChatFormula("x", true, asset: new ChatSvg(new RectangleGeometry(new Rect(0, 0, 20, 28)), new Rect(0, 0, 20, 28), 20, "fixture"));
         formula.SetValue(System.Windows.Documents.TextElement.FontSizeProperty, 16d);
-        try { await (Task)Invoke(question, "CompleteSnapshotFormulaAsync", link, fallback, formula, "$x$", (int)Field(question, "_renderVersion")!)!; }
+        try
+        {
+            await (Task)Invoke(question, "CompleteSnapshotFormulaAsync", link, fallback, formula, "$x$", (int)Field(question, "_renderVersion")!)!;
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        }
         finally { question.RemoveHandler(MarkdownView.AsyncLayoutChangingEvent, changed); }
         await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout(); await Task.Delay(100); window.UpdateLayout();
         Console.WriteLine($"Snapshot reference formula fixture: first turn height {beforeHeight:F1} -> {firstView.ActualHeight:F1}, second top {before:F1} -> {Top():F1}, formula size {formula.DesiredSize.Width:F1}x{formula.DesiredSize.Height:F1}");

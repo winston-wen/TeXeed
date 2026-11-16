@@ -1,0 +1,15 @@
+'use strict';
+const assert = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm');
+const context = vm.createContext({ katex: require('./vendor/katex/katex.min.js'), addEventListener() {}, document: {} });
+vm.runInContext(fs.readFileSync(__dirname + '/quote-summary.js', 'utf8'), context);
+const full = String.raw`形式化地，对于一个输出 $0$ 或 $1$ 的区分算法 $D$，定义其优势 $$\operatorname{Adv}^{\mathrm{dMLWR}}_D=\left|\Pr[D(\mathsf{real})=1]-\Pr[D(\mathsf{rand})=1]\right|$$`;
+const result = context.renderReferenceSummary(full);
+assert.equal((result.match(/class="quote-math-window"/g) || []).length, 4);
+assert.match(result, /operatorname\{Adv\}/);
+assert.doesNotMatch(result, /render-fallback|\$\$\\operatorname/);
+assert.match(context.renderReferenceSummary('代码 `$x$` 与 $y$'), /<code>\$x\$<\/code>[\s\S]*quote-math-window/);
+assert.doesNotMatch(context.renderReferenceSummary('普通 \\$5 及 `![img](https://example.org/pic.png)`'), /<img|quote-math-window/);
+assert.match(context.renderReferenceSummary('很长'.repeat(300)), /quote-text-more/);
+assert.doesNotMatch(context.renderReferenceSummary('字'.repeat(120) + '😀更多'), /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+assert.match(context.renderReferenceSummary(String.raw`错误 $$\frac{1}`), /\$\$/);
+console.log('PASS quote summaries: complete formulas, math-safe truncation, code and literal text.');

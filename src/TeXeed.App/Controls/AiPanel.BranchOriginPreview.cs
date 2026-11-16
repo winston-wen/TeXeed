@@ -65,13 +65,15 @@ public partial class AiPanel
             FontFamily = view.FontFamily, FontSize = view.FontSize, LineHeight = Math.Max(25, view.FontSize * 25 / 16) };
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
         var paragraph = new Paragraph { Margin = new Thickness(0) };
-        IReadOnlyList<AiSelectionPart> parts = anchor.PreviewParts is { Count: > 0 } ? anchor.PreviewParts : [new AiSelectionPart("text", anchor.Quote)];
+        IReadOnlyList<AiReferencePresentation.ExcerptPart> parts = anchor.PreviewParts is { Count: > 0 }
+            ? AiReferencePresentation.Excerpt(anchor) : [new AiReferencePresentation.ExcerptPart(anchor.Quote)];
         foreach (var part in parts)
         {
-            if (part.Kind == "formula" && !string.IsNullOrWhiteSpace(part.Text))
+            if (part.Formula && !string.IsNullOrWhiteSpace(part.Text))
             {
-                var formula = new ChatFormula(part.Text, false);
-                paragraph.Inlines.Add(new InlineUIContainer(formula) { Tag = "$" + part.Text + "$", BaselineAlignment = BaselineAlignment.Baseline });
+                var formula = new ChatFormula(part.Text, part.Display);
+                var tex = part.CopyTex ?? part.Text;
+                paragraph.Inlines.Add(new InlineUIContainer(formula) { Tag = part.Display ? "$$" + tex + "$$" : "$" + tex + "$", BaselineAlignment = BaselineAlignment.Baseline });
                 continue;
             }
             var lines = part.Text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');

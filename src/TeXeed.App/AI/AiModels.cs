@@ -51,7 +51,11 @@ public sealed record AiAttachmentItem(string DisplayPath, bool IsFolder, IReadOn
     [JsonIgnore] public string DisplayTail => IsFolder || LastSeparator >= 0 ? DisplayPath[(DisplayPrefix.Length + DisplayMiddleSeparator.Length)..] : "";
     [JsonIgnore] public string DisplayLeaf => IsFolder ? DisplayTail[..^1] : DisplayTail;
 }
-public sealed record AiSelectionPart(string Kind, string Text);
+public sealed record AiSelectionPart(string Kind, string Text)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public bool? Display { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? CopyTex { get; init; }
+}
 public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
 {
     // Semantic text offset survives responsive columns changing the FlowDocument structure.

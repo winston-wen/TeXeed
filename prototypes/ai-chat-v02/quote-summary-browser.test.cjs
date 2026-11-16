@@ -1,0 +1,62 @@
+'use strict';
+const assert = require('node:assert/strict'), path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright');
+const quote = String.raw`形式化地，对于一个输出 $0$ 或 $1$ 的区分算法 $D$，定义其优势 $$\operatorname{Adv}^{\mathrm{dMLWR}}_D=\left|\Pr[D(\mathsf{real})=1]-\Pr[D(\mathsf{rand})=1]\right|$$`;
+const base = pathToFileURL(path.join(__dirname, 'index.html')).href + '?test=1';
+const branch = pathToFileURL(path.join(__dirname, 'branching.html')).href;
+(async () => {
+  const browser = await chromium.launch({ headless: true, ...(process.env.TEXEED_BROWSER_PATH ? { executablePath: process.env.TEXEED_BROWSER_PATH } : {}) });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.goto(base);
+    await page.evaluate(quote => {
+      const session = current();
+      session.turns.unshift({ id: 'quote-visual-test', question: '这是什么意思？', prompt: '这是什么意思？', answer: '', annotations: [{ id: 'quote-test', title: '来源', question: '', quote, summary: quote.slice(0, 48), sources: [], pdf: [] }] });
+      session.draft = '保留未发送草稿'; renderConversation(); persist();
+    }, quote);
+    await page.reload();
+    const summary = page.locator('#quote-visual-test .sent-summary');
+    await summary.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => document.querySelector('#quote-visual-test .quote-math-more:not([hidden])'));
+    assert.equal(await summary.locator('.quote-math-window').count(), 4, '完整公式先正确解析');
+    assert.equal(await summary.locator('.quote-math-window').last().getAttribute('aria-label'), String.raw`\operatorname{Adv}^{\mathrm{dMLWR}}_D=\left|\Pr[D(\mathsf{real})=1]-\Pr[D(\mathsf{rand})=1]\right|`);
+    assert.equal(await summary.locator('.quote-math-more').last().isVisible(), true, '超宽末尾公式显示省略号');
+    assert.equal(await summary.locator('.quote-math-more').first().isVisible(), false, '短公式不显示省略号');
+    assert.equal(await page.locator('#composer').inputValue(), '保留未发送草稿');
+    await page.screenshot({ path: path.join(__dirname, '../../artifacts/quote-summary-main-116.png') });
+    await summary.click();
+    assert.equal(await page.locator('#quote-visual-test-preview .snapshot-scroll .katex').count(), 4, '点击仍显示完整原文');
+    await page.setViewportSize({ width: 390, height: 800 });
+    await summary.scrollIntoViewIfNeeded(); await page.screenshot({ path: path.join(__dirname, '../../artifacts/quote-summary-main-narrow-116.png') });
+    await page.goto(branch); await page.waitForFunction(() => !!window.branchDemo);
+    await page.evaluate(quote => {
+      branchDemo.reset(); const value = branchDemo.getState(), parent = value.sessions[0];
+      parent.turns[0].answer.push({ id: 'quoted-block', kind: 'paragraph', text: '这是引用出处。' });
+      value.sessions.push({ id: 'child', title: '追问', parent: parent.id, source: { blockId: 'quoted-block', quote: '这是引用出处。' }, draft: '保留分支草稿', references: [], attachments: [], turns: [{ id: 'child-turn', question: '请解释', references: [{ id:'sent', sessionId:parent.id, blockId:'quoted-block', kind:'text', quote }], answer: [] }] });
+      value.active = value.selected = 'child'; branchDemo.setState(value);
+    }, quote);
+    const sent = page.locator('#transcript .sent-reference');
+    await page.waitForFunction(() => document.querySelector('#transcript .sent-reference .quote-math-more:not([hidden])'));
+    assert.equal(await sent.locator('.quote-math-window').count(), 4);
+    assert.equal(await page.locator('#composer').inputValue(), '保留分支草稿');
+    await page.screenshot({ path: path.join(__dirname, '../../artifacts/quote-summary-branch-116.png') });
+    await sent.click();
+    assert.equal((await page.evaluate(() => branchDemo.getState())).active, 'root', '引用仍可返回来源');
+    const reader = page.locator('#reader');
+    await page.evaluate(() => { const r = document.querySelector('#reader'); r.scrollTop = 0; });
+    await page.waitForTimeout(650);
+    const idle = await reader.evaluate(e => getComputedStyle(e, '::-webkit-scrollbar-thumb').backgroundColor);
+    assert.notEqual(idle, 'rgba(0, 0, 0, 0)', '静止时滚动块可见');
+    await reader.hover(); await page.mouse.wheel(0, 300);
+    await page.waitForFunction(() => document.querySelector('#reader').classList.contains('scroll-active'));
+    const active = await reader.evaluate(e => getComputedStyle(e, '::-webkit-scrollbar-thumb').backgroundColor);
+    assert.notEqual(active, idle, '实际滚轮滚动时滚动块变亮');
+    await page.waitForTimeout(700);
+    assert.equal(await reader.evaluate(e => e.classList.contains('scroll-active')), false, '静止后恢复暗色');
+    assert.equal(await reader.evaluate(e => getComputedStyle(e, '::-webkit-scrollbar-thumb').backgroundColor), idle);
+    assert.deepEqual(errors, []);
+    console.log('PASS quote summaries: old complete source, formulas and ellipsis, source navigation, draft, active and idle scrollbar.');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

@@ -83,7 +83,7 @@ public partial class AiPanel
         if (BlockPendingFormAttachmentRead(_book.Active)) return;
         var draft = Composer.Text;
         var prompt = draft.Trim();
-        var parts = _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected, Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray();
+        var parts = _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected && AiSessionExcerptReferences.IsPendingReference(_book.Active, e), Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray();
         var entries = parts.Select((x, i) => SnapshotSelectedParts(x.Entry, x.Reference, x.Attachment, i + 1)).ToList();
         if (prompt.Length == 0 && entries.Count == 0) { StatusText.Text = "请输入消息，或选择引用及附件。"; return; }
         if (prompt.Length == 0 && entries.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; return; }
