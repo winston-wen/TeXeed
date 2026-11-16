@@ -45,6 +45,7 @@ public partial class MarkdownView
         if (version != _renderVersion || link.Parent is null || fallback.Parent != link || formula.Error is not null) return;
         formula.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         if (formula.DesiredSize.Width > 360 || formula.DesiredSize.Height > 64) return;
+        NotifyAsyncLayoutChanging();
         var inline = new InlineUIContainer(formula) { Tag = original, BaselineAlignment = BaselineAlignment.Baseline };
         link.Inlines.InsertBefore(fallback, inline);
         link.Inlines.Remove(fallback);

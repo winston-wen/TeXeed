@@ -18,6 +18,9 @@ namespace TeXeed.App.Controls;
 /// <summary>Selectable native Markdown with folding and image previews.</summary>
 public sealed partial class MarkdownView : RichTextBox
 {
+    internal static readonly RoutedEvent AsyncLayoutChangingEvent = EventManager.RegisterRoutedEvent(
+        "AsyncLayoutChanging", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(MarkdownView));
+    private void NotifyAsyncLayoutChanging() => (_tableOwner ?? this).RaiseEvent(new RoutedEventArgs(AsyncLayoutChangingEvent));
     private const double ChatParagraphSpacing = 10;
     private double ChatLineHeight => Math.Max(25, FontSize * 25 / 16);
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
@@ -144,6 +147,7 @@ public sealed partial class MarkdownView : RichTextBox
             var document = NewDocument(); ClearRichState(); _math = new ChatMath();
             try { AddBlocks(document.Blocks, Markdig.Markdown.Parse(_math.Prepare(source, Pipeline), Pipeline), 0); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { CodeFallback(document, source); }
+            if (_tableViews.Count == 0) _math.ReleaseOriginalSource();
             TrimAnswerEnd(document); ApplyFolding(document); Document = document; QueueWaveLayout(); RenderTask = Task.CompletedTask;
         }
     }
@@ -192,6 +196,8 @@ public sealed partial class MarkdownView : RichTextBox
         catch (Exception ex) when (ex is not OutOfMemoryException)
         { if (version != _renderVersion) return; CodeFallback(document, source); }
         if (version != _renderVersion) return;
+        if (_tableViews.Count == 0) _math.ReleaseOriginalSource();
+        NotifyAsyncLayoutChanging();
         _renderPending = false; _annotationPointers.Clear(); LayoutVersion++;
         Document = document; InvalidateMeasure(); QueueWaveLayout();
     }

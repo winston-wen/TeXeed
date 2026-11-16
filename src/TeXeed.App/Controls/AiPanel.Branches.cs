@@ -118,8 +118,10 @@ public partial class AiPanel
         var turnIndex = parent.Turns.IndexOf(turn); if (turnIndex < 0) return;
         var preview = view.SelectedReferenceObject();
         var context = view.BookmarkSelectionContext();
+        var table = view.SelectedReferenceTableMarkdown();
         var anchor = new AiAnswerAnchor(turn.Id, segment.Id, selection.Offset, selection.Length, quote, view.Revision)
-        { TextOffset = selection.TextOffset, PreviewKind = preview.Kind, PreviewSource = preview.Source,
+        { TextOffset = selection.TextOffset, PreviewKind = preview.Kind, PreviewSource = preview.Source, PreviewImageUri = preview.Kind == "image" ? view.SelectedReferenceImageUri() : null, PreviewTableMarkdown = table,
+          PreviewParts = preview.Kind is null && table is null ? view.SelectedReferenceParts() : null,
           PreviewNumber = preview.Number, PreviewBefore = context.Before, PreviewAfter = context.After };
         await SaveAsync();
         var snapshot = parent.Snapshot();
@@ -157,6 +159,7 @@ public partial class AiPanel
 
     internal async Task<bool> NavigateBranchSourceAsync(AiAnswerAnchor anchor, string? before = null, string? after = null)
     {
+        CancelLayoutAnchor();
         var conversation = _book.Active;
         var turn = conversation.Turns.FirstOrDefault(t => t.Id == anchor.TurnId);
         var index = turn is null ? -1 : _transcriptItems.IndexOf(turn);

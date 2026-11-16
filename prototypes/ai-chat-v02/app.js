@@ -44,10 +44,11 @@ function mountActivityCode(details){
 }
 const ICON_CLOSE='<svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg>';
 const ICON_SEND='<svg class="icon" viewBox="0 0 20 20"><path d="M10 17V3M4 9L10 3L16 9"/></svg>';
-let restoring=false,scrollTimer;
+let restoring=false,scrollTimer,readingRestoreVersion=0;
 function readingPosition(){const area=$('reader'),top=area.getBoundingClientRect().top;const nodes=[...area.querySelectorAll('.passage,.question')].filter(n=>n.getClientRects().length);const anchor=nodes.find(n=>n.getBoundingClientRect().bottom>top+2);return {top:area.scrollTop,anchor:anchor?.id||anchor?.closest('.turn')?.id,offset:anchor?anchor.getBoundingClientRect().top-top:0};}
 function saveReading(){if(!restoring&&!$('chat').hidden){current().reading=readingPosition();persist();}}
-function restoreReading(pos){const area=$('reader');restoring=true;area.scrollTop=pos?.top??area.scrollHeight;if(pos?.anchor){const anchor=readingAnchor(pos.anchor);if(anchor?.getClientRects().length)area.scrollTop+=anchor.getBoundingClientRect().top-area.getBoundingClientRect().top-pos.offset;}requestAnimationFrame(()=>{restoring=false;positionEditor();});}
+function restoreReading(pos,version){if(version!==readingRestoreVersion)return;const area=$('reader');restoring=true;area.scrollTop=pos?.top??area.scrollHeight;if(pos?.anchor){const anchor=readingAnchor(pos.anchor);if(anchor?.getClientRects().length)area.scrollTop+=anchor.getBoundingClientRect().top-area.getBoundingClientRect().top-pos.offset;}requestAnimationFrame(()=>{if(version!==readingRestoreVersion)return;restoring=false;positionEditor();});}
+function cancelReadingRestore(){readingRestoreVersion++;restoring=false;}
 function turnAnnotations(t){return (t.annotations||[]).map((e,i)=>({...e,number:i+1}));}
 function questionHtml(t){
  const annotations=turnAnnotations(t),prompt=annotations.length?t.prompt||'':t.question;
@@ -209,7 +210,7 @@ function renderEntries(){
 }
 
 function renderBubbles(){document.querySelectorAll('.margin-notes').forEach(e=>e.replaceChildren());for(const e of current().entries){if(!e.block||['已完成','提交中'].includes(e.state))continue;let p=$(e.block);if(p?.dataset.joinedInto)p=$(p.dataset.joinedInto);if(!p)continue;const b=document.createElement('button');b.className='bubble';b.textContent=e.number;b.dataset.bubble=e.id;b.setAttribute('aria-label','编辑批注 '+e.number);p.querySelector('.margin-notes').append(b);}}
-function renderConversation(){running=requests.get(state.active)||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';restoring=true;renderTurns();setBusy(!!running);restoreComposerHeight();refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading));}
+function renderConversation(){running=requests.get(state.active)||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';const version=++readingRestoreVersion;restoring=true;renderTurns();setBusy(!!running);restoreComposerHeight();refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading,version));}
 
 function removeEntry(id){const e=current().entries.find(e=>e.id===id);if(!e||e.state==='提交中')return;current().entries=current().entries.filter(e=>e.id!==id);if(editing===id){editing=null;$('annotation-editor').hidden=true;}renderEntries();record('remove-entry',{number:e.number});}
 function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number,.heading-marker'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h1,h2,h3,h4,h5,h6,blockquote,.equation,.passage'))text+='\n';return text;}
@@ -307,6 +308,9 @@ $('thread').addEventListener('contextmenu',e=>{const ctx=targetContext(e.target)
 $('thread').addEventListener('click',e=>{const b=e.target.closest('[data-bubble]');if(b)openEditor(b.dataset.bubble);});
 $('annotate').onclick=()=>{const ctx=context;closePopups();addAnnotation(ctx);};$('copy-selection').onclick=()=>context&&copy(context.quote);$('copy-answer').onclick=()=>{const t=current().turns.find(t=>t.id===context?.turn);if(t)copy(mdMath(t.answer));};
 const stopReaderAutoScroll=installReaderAutoScroll($('reader'));
+$('reader').addEventListener('wheel',cancelReadingRestore,{passive:true});
+$('reader').addEventListener('pointerdown',e=>{if(e.pointerType==='touch'||e.target===$('reader'))cancelReadingRestore();},{passive:true});
+$('reader').addEventListener('keydown',e=>{if(!e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.target.closest('input,textarea,select,[contenteditable="true"]')&&['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(e.key))cancelReadingRestore();});
 $('reader').onscroll=()=>{commitAnnotation();$('answer-menu').hidden=true;if(!restoring){current().reading=readingPosition();clearTimeout(scrollTimer);scrollTimer=setTimeout(persist,160);}};
 window.addEventListener('pagehide',saveReading);
 $('composer').oninput=()=>{current().draft=$('composer').value;persist();};$('composer').onkeydown=e=>{if(e.key==='Enter'&&e.ctrlKey&&!e.shiftKey&&!e.altKey){e.preventDefault();e.stopPropagation();if(!e.repeat&&!e.isComposing)send();}};
@@ -425,5 +429,5 @@ window.addEventListener('resize',commitAnnotation);
 new ResizeObserver(commitAnnotation).observe($('reader'));
 for(const c of state.conversations)for(const e of c.entries)if(e.state==='提交中')e.state='上次提交未完成，可重试';
 
-mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();document.fonts.ready.then(()=>{refreshEditors();alignReadingInk.metrics?.clear();alignReadingInk.inkCache?.clear();alignReadingInk.axisCache?.clear();alignReadingInk();alignPendingIndicator();restoreReading(current().reading);});
+mountEditors(document);installComposerResize();installImageViewer();migrateSnapshots();reconcileSentEntries();migrateReadingDesign();renderConversation();showView(state.active);persist();const fontsRestoreVersion=readingRestoreVersion;document.fonts.ready.then(()=>{refreshEditors();alignReadingInk.metrics?.clear();alignReadingInk.inkCache?.clear();alignReadingInk.axisCache?.clear();alignReadingInk();alignPendingIndicator();restoreReading(current().reading,fontsRestoreVersion);});
 if(location.search.includes('tools=1'))openLab();

@@ -25,7 +25,7 @@ public partial class AiPanel
             _book.Active.ReadingTurnOffset = Math.Max(0, -active.TranslatePoint(new Point(), MessagesScroll).Y);
         }
     }
-    private void RestoreReadingAnchor() => _ = RestoreReadingAnchorAsync(_book.Active, ++_readingRestoreVersion);
+    private void RestoreReadingAnchor() { CancelLayoutAnchor(); _ = RestoreReadingAnchorAsync(_book.Active, ++_readingRestoreVersion); }
     private async Task RestoreReadingAnchorAsync(AiConversation conversation, int version)
     {
         try
@@ -125,6 +125,7 @@ public partial class AiPanel
     }
     private void RevealLiveTurn()
     {
+        CancelLayoutAnchor();
         VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(_transcriptItems.Count - 1);
         MessagesScroll.ScrollToEnd();
     }

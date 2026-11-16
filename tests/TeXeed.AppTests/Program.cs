@@ -343,6 +343,16 @@ internal static partial class Program
                     await CheckAiMathScrollAsync(window, output);
                     await CloseAndObserveAsync(window, "AI math and mouse wheel regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-wheel-bounce-only"))
+                {
+                    await CheckAiWheelBounceAsync(window);
+                    await CloseAndObserveAsync(window, "AI wheel bounce regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-async-layout-only"))
+                {
+                    await CheckAsyncLayoutAnchorAsync(window);
+                    await CloseAndObserveAsync(window, "AI async layout anchor regression"); result = 0; return;
+                }
                 if (args.Contains("--ai-math-perf-only"))
                 {
                     await CheckAiMathPerformanceAsync(output);

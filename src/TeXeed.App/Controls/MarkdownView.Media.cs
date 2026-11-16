@@ -15,7 +15,7 @@ namespace TeXeed.App.Controls;
 
 public sealed partial class MarkdownView
 {
-    private sealed record TableViewport(BlockUIContainer Block, MarkdownView View, ScrollViewer Scroll, Table Table, double[] Columns, double MinimumWidth, string Text);
+    private sealed record TableViewport(BlockUIContainer Block, MarkdownView View, ScrollViewer Scroll, Table Table, double[] Columns, double MinimumWidth, string Text, int SourceStart, int SourceEnd);
     private readonly List<TableViewport> _tableViews = [];
     private readonly List<MarkdownPicture> _pictures = [];
     private MarkdownView? _tableOwner;
@@ -78,7 +78,7 @@ public sealed partial class MarkdownView
         var scroll = new ScrollViewer { Content = view, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, CanContentScroll = false, Width = MediaWidth };
         var block = new BlockUIContainer(scroll) { Margin = new Thickness(0, 6, 0, 16) };
-        var viewport = new TableViewport(block, view, scroll, table, widths, widths.Sum(), view.CopySource(document.ContentStart, document.ContentEnd));
+        var viewport = new TableViewport(block, view, scroll, table, widths, widths.Sum(), view.CopySource(document.ContentStart, document.ContentEnd), source.Span.Start, source.Span.End);
         _tableViews.Add(viewport); SizeTable(viewport);
         scroll.PreviewMouseRightButtonDown += (_, _) =>
         {
@@ -135,7 +135,7 @@ public sealed partial class MarkdownView
     }
     private System.Windows.Documents.Inline ImageInline(Uri uri, string alt)
     {
-        var picture = new MarkdownPicture(uri, alt, () => { LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); }) { Width = MediaWidth };
+        var picture = new MarkdownPicture(uri, alt, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); }) { Width = MediaWidth };
         _pictures.Add(picture);
         var inline = new InlineUIContainer(picture) { Tag = "[图片] " + alt };
         picture.PreviewMouseRightButtonDown += (_, _) => SelectBookmarkObject(inline);
@@ -169,6 +169,7 @@ public sealed partial class MarkdownView
 
 internal sealed class MarkdownPicture : Border
 {
+    internal Uri SourceUri => _uri;
     private static readonly HttpClient Client = new();
     private readonly Uri _uri;
     private readonly string _alt;

@@ -69,6 +69,107 @@ internal static partial class Program
             if (branchOrigin.AnswerAnchor != child.BranchAnchor || !branchOrigin.ReferenceSelected || branchOrigin.CanRemoveReference ||
                 !AiSessionExcerptReferences.TryRead(branchOrigin, out var originInfo) || originInfo?.SourceConversationId != root.Id)
                 throw new Exception("New branch did not expose a protected, selected source reference");
+            host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var originSurface = (ContentControl)panel.FindName("BranchOriginPreview");
+            var originText = Descendants<MarkdownView>(originSurface).Single();
+            await originText.RenderTask;
+            var displayed = new TextRange(originText.Document.ContentStart, originText.Document.ContentEnd).Text;
+            if (!originSurface.IsVisible || !displayed.Contains("这里是需要追问的内容。") || displayed.Contains("甲重复乙"))
+                throw new Exception("An unsent branch must display only its selected source excerpt");
+            Capture(host, Path.Combine(output, "branch-origin-preview.png"));
+            AiConversation? previewNavigation = null;
+            panel.BranchSourceRequested += (_, conversation) => previewNavigation = conversation;
+            Descendants<Button>(originSurface).Single(button => Equals(button.Content, "返回原文"))
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (previewNavigation != child) throw new Exception("The source preview did not navigate back to its origin");
+            var literalView = new MarkdownView { ChatMode = true,
+                Markdown = "\\# 标记 1. 条目 \\`字面\\` `![示例](https://example.org/pic.png)`  \n换行与 $a+b$ 之后" };
+            var literalWindow = new Window { Owner = host, Content = literalView, Width = 600, Height = 350 };
+            literalWindow.Show(); literalWindow.UpdateLayout(); await literalView.RenderTask;
+            literalView.Selection.Select(literalView.Document.ContentStart, literalView.Document.ContentEnd);
+            var selectedParts = literalView.SelectedReferenceParts();
+            if (!selectedParts.Any(part => part.Kind == "text" && part.Text.Contains("![示例](https://example.org/pic.png)")) ||
+                !selectedParts.Any(part => part.Kind == "formula" && part.Text == "a+b") ||
+                !selectedParts.Any(part => part.Kind == "text" && part.Text.Contains('\n')))
+                throw new Exception("The selection did not retain literal text, line breaks and the inline formula separately");
+            literalWindow.Close();
+            var literalAnchor = child.BranchAnchor with { Quote = "选中文本", PreviewKind = null, PreviewSource = null, PreviewParts = selectedParts };
+            var persistedAnchor = System.Text.Json.JsonSerializer.Deserialize<AiAnswerAnchor>(System.Text.Json.JsonSerializer.Serialize(literalAnchor));
+            if (persistedAnchor?.PreviewParts is null || !persistedAnchor.PreviewParts.SequenceEqual(selectedParts))
+                throw new Exception("A saved selection lost literal text or formula metadata");
+            var literalBranch = new AiConversation { ParentConversationId = root.Id, BranchAnchor = persistedAnchor };
+            book.Conversations.Add(literalBranch);
+            await panel.SelectConversationAsync(literalBranch.Id); host.UpdateLayout();
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var literalPreview = Descendants<MarkdownView>(originSurface).Single();
+            var literalDisplayed = literalPreview.CopySource(literalPreview.Document.ContentStart, literalPreview.Document.ContentEnd).Replace("\r\n", "\n");
+            if (!literalDisplayed.Contains("# 标记 1. 条目 `字面` ![示例](https://example.org/pic.png)\n换行与 $a+b$ 之后") ||
+                Descendants<MarkdownPicture>(literalPreview).Any() || Paragraphs(literalPreview.Document.Blocks).Any(p => p.Inlines.OfType<Hyperlink>().Any()))
+                throw new Exception("A literal selection was parsed as Markdown or lost a line break");
+            var literalFormula = Descendants<ChatFormula>(literalPreview).Single(); await literalFormula.RenderTask;
+            if (literalFormula.Error is not null) throw new Exception("The selected inline formula did not render");
+            literalBranch.BranchAnchor = literalAnchor with { PreviewParts = null, Quote = "![示例](https://example.org/pic.png)\n# 旧文字" };
+            Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            var oldLiteral = Descendants<MarkdownView>(originSurface).Single();
+            if (Descendants<MarkdownPicture>(oldLiteral).Any() || !oldLiteral.CopySource(oldLiteral.Document.ContentStart, oldLiteral.Document.ContentEnd).Contains("![示例](https://example.org/pic.png)"))
+                throw new Exception("A legacy text selection was interpreted as an external image");
+            var formulaAnchor = child.BranchAnchor with { Quote = "$$a+b$$", PreviewKind = "formula", PreviewSource = "a+b" };
+            var formulaBranch = new AiConversation { ParentConversationId = root.Id, BranchAnchor = formulaAnchor, Draft = "公式草稿" };
+            book.Conversations.Add(formulaBranch);
+            await panel.SelectConversationAsync(formulaBranch.Id); host.UpdateLayout();
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var formulaView = Descendants<MarkdownView>(originSurface).Single(); await formulaView.RenderTask;
+            if (!Descendants<ChatFormula>(formulaView).Any() || ((TextBox)panel.FindName("Composer")).Text != "公式草稿")
+                throw new Exception("An unsent formula branch lost its rendered source or draft");
+            var imagePath = Path.Combine(output, "branch-preview.png");
+            using (var stream = File.Create(imagePath))
+            {
+                var bitmap = System.Windows.Media.Imaging.BitmapSource.Create(1, 1, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null, new byte[] { 0, 0, 0, 255 }, 4);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap)); encoder.Save(stream);
+            }
+            var mediaView = new MarkdownView { ChatMode = true, ImageBaseDirectory = output,
+                Markdown = "![测试图](branch-preview.png)\n\n| 题号 | 数值 |\n| --- | --- |\n| `x_y` | $|x|$ |" };
+            var mediaWindow = new Window { Owner = host, Content = mediaView, Width = 600, Height = 400 };
+            mediaWindow.Show(); mediaWindow.UpdateLayout(); await mediaView.RenderTask;
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var selectedPicture = Descendants<MarkdownPicture>(mediaView).Single();
+            selectedPicture.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Right)
+                { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
+            if (mediaView.SelectedReferenceImageUri() != new Uri(imagePath).AbsoluteUri)
+                throw new Exception("Right-clicking an image did not capture its source URI");
+            var tableScroll = Descendants<ScrollViewer>(mediaView).Single(scroll => scroll.Content is MarkdownView tableView && tableView.Document.Blocks.FirstBlock is Table);
+            tableScroll.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Right)
+                { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
+            var selectedTable = mediaView.SelectedReferenceTableMarkdown();
+            if (selectedTable is null || !selectedTable.Contains("| 题号 | 数值 |") || !selectedTable.Contains("| `x_y` | $|x|$ |"))
+                throw new Exception("Right-clicking a table did not capture its row and column structure");
+            mediaWindow.Close();
+            var imageAnchor = child.BranchAnchor with { Quote = "[图片] 测试图", PreviewKind = "image", PreviewSource = "测试图", PreviewImageUri = new Uri(imagePath).AbsoluteUri, PreviewParts = null };
+            var imageBranch = new AiConversation { ParentConversationId = root.Id, BranchAnchor = imageAnchor };
+            book.Conversations.Add(imageBranch);
+            await panel.SelectConversationAsync(imageBranch.Id); host.UpdateLayout();
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            var displayedPicture = Descendants<MarkdownPicture>(originSurface).Single();
+            await displayedPicture.LoadTask;
+            if (displayedPicture.SourceUri != new Uri(imagePath) || displayedPicture.Child is not Image)
+                throw new Exception("An unsent image branch did not display its source image");
+            imageBranch.BranchAnchor = imageAnchor with { PreviewImageUri = null };
+            Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            var legacyImage = Descendants<MarkdownView>(originSurface).Single(); await legacyImage.RenderTask;
+            if (!new TextRange(legacyImage.Document.ContentStart, legacyImage.Document.ContentEnd).Text.Contains("测试图"))
+                throw new Exception("A legacy image branch without an image URI lost its source description");
+            imageBranch.BranchAnchor = imageAnchor with { PreviewImageUri = null, PreviewKind = null, PreviewTableMarkdown = selectedTable };
+            Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            var tablePreview = Descendants<MarkdownView>(originSurface).First(); await tablePreview.RenderTask;
+            var renderedTable = Descendants<MarkdownView>(tablePreview).SingleOrDefault(view => view.Document.Blocks.FirstBlock is Table);
+            if (renderedTable is null)
+                throw new Exception("An unsent table branch did not render a table");
+            var inlineFormula = Descendants<ChatFormula>(renderedTable).Single(); await inlineFormula.RenderTask;
+            if (inlineFormula.Error is not null || !((System.Collections.ICollection)Field(renderedTable, "_inlineCodeSurfaces")!).Count.Equals(1))
+                throw new Exception("An unsent table branch lost its inline formula or code formatting");
+            await panel.SelectConversationAsync(child.Id);
+            book.Conversations.Remove(formulaBranch); book.Conversations.Remove(imageBranch); book.Conversations.Remove(literalBranch);
             Invoke(panel, "RemoveReference", branchOrigin);
             if (!child.Entries.Contains(branchOrigin)) throw new Exception("Protected branch source was removed");
             var sentOrigin = AiPanel.SnapshotSelectedParts(branchOrigin, true, false, 1);
@@ -88,6 +189,7 @@ internal static partial class Program
             ((TextBox)panel.FindName("Composer")).Text = "保留追问草稿";
             child.Turns.Add(new AiTurn("继续问", "# 回答\n\n子会话中的追问内容。"));
             Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            if (originSurface.IsVisible) throw new Exception("Source preview remained after the first message was sent");
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             views = (Dictionary<string, AiTurnView>)Field(panel, "_turnViews")!;
             var childView = views[child.Turns[0].Id].Answers.Single(); await childView.RenderTask;

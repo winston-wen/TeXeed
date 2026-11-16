@@ -58,6 +58,10 @@ public partial class AiPanel : UserControl, IDisposable
         LiveSentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) ToggleLiveTurn(); e.Handled = true; } };
         History.ApplyTemplate();
         MessagesScroll = (ScrollViewer)History.Template.FindName("MessagesScroll", History);
+        MessagesScroll.AddHandler(MarkdownView.AsyncLayoutChangingEvent, new RoutedEventHandler(AsyncLayoutChanging));
+        AddHandler(PreviewMouseDownEvent, new MouseButtonEventHandler(NavigationMouseDown), true);
+        AddHandler(PreviewKeyDownEvent, new KeyEventHandler(NavigationKeyDown), true);
+        AddHandler(PreviewTouchMoveEvent, new EventHandler<TouchEventArgs>(NavigationTouchMove), true);
         _autoScroll = new AutoScrollController(MessagesScroll);
         RegisterName(nameof(MessagesScroll), MessagesScroll);
         // The ItemsPresenter must be the direct ScrollViewer content so WPF can
@@ -280,6 +284,7 @@ public partial class AiPanel : UserControl, IDisposable
             _visibleTurns.Clear();
         foreach (var turn in _book.Turns.Skip(_visibleTurns.Count)) _visibleTurns.Add(turn);
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        RefreshBranchOriginPreview();
         LiveContainer.Visibility = Visibility.Collapsed;
         _liveSegments.Clear();
         MessageSearch_Changed(MessageSearchBox, null!);
@@ -533,5 +538,5 @@ public partial class AiPanel : UserControl, IDisposable
         ScheduleViewportCapture();
     }
     public async Task StopAndSaveAsync() { await StopFollowUpsAsync(); _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+    public void Dispose() { CancelLayoutAnchor(); _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }

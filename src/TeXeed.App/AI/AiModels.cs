@@ -51,12 +51,16 @@ public sealed record AiAttachmentItem(string DisplayPath, bool IsFolder, IReadOn
     [JsonIgnore] public string DisplayTail => IsFolder || LastSeparator >= 0 ? DisplayPath[(DisplayPrefix.Length + DisplayMiddleSeparator.Length)..] : "";
     [JsonIgnore] public string DisplayLeaf => IsFolder ? DisplayTail[..^1] : DisplayTail;
 }
+public sealed record AiSelectionPart(string Kind, string Text);
 public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset, int Length, string Quote, string Revision)
 {
     // Semantic text offset survives responsive columns changing the FlowDocument structure.
     public int TextOffset { get; init; } = -1;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewKind { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewSource { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewImageUri { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewTableMarkdown { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public List<AiSelectionPart>? PreviewParts { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewNumber { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewBefore { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewAfter { get; init; }

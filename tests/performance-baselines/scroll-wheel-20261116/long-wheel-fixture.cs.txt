@@ -1,0 +1,62 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class LongWheelPerf
+{
+    const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    static object Field(object x,string name)=>x.GetType().GetField(name,Private)!.GetValue(x)!;
+    static void Call(object x,string name,params object?[] args)=>x.GetType().GetMethod(name,Private)!.Invoke(x,args);
+    static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);w.UpdateLayout(); }
+    static int Visible(DependencyObject root, Window host) { int count=0; for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is Control c && c.IsVisible && c.ActualWidth>0 && c.ActualHeight>0){try{var r=c.TransformToAncestor(host).TransformBounds(new Rect(0,0,c.ActualWidth,c.ActualHeight));if(r.IntersectsWith(new Rect(0,0,host.ActualWidth,host.ActualHeight)))count++;}catch(InvalidOperationException){}}count+=Visible(child,host);}return count;}
+    static IEnumerable<T> Descendants<T>(DependencyObject root) where T:DependencyObject { for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++){var child=VisualTreeHelper.GetChild(root,i);if(child is T result)yield return result;foreach(var item in Descendants<T>(child))yield return item;} }
+    static async Task Wait(Window w){await Task.Delay(220);await Idle(w);}
+    [STAThread] static int Main(string[] args)
+    {
+        var output=Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        var fixture=Path.GetFullPath(args[1]); Environment.SetEnvironmentVariable("TEXEED_HOME",Path.Combine(output,"profile"));
+        var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("/TeXeed;component/Theme.xaml",UriKind.Relative)});
+        var panel=new AiPanel(); typeof(AiPanel).GetMethod("InitializeBranchUi",Private)?.Invoke(panel,null);
+        var w=new Window{Width=900,Height=760,Left=20,Top=20,WindowStartupLocation=WindowStartupLocation.Manual,Content=panel};int exit=1;
+        app.DispatcherUnhandledException+=(_,e)=>{Console.Error.WriteLine(e.Exception);e.Handled=true;app.Shutdown(1);};
+        w.Loaded+=async(_,_)=>{try{
+            await panel.SetProjectAsync(Path.Combine(output,"fixture.tex")); var book=(AiNotebook)Field(panel,"_book");
+            var source=JsonSerializer.Deserialize<AiNotebook>(File.ReadAllText(fixture))!; book.Turns.Clear();book.Turns.AddRange(source.Conversations.Single().Turns);
+            Call(panel,"RefreshTranscript");w.UpdateLayout();await Task.Delay(2500);await Idle(w);
+            var scroll=(ScrollViewer)panel.FindName("MessagesScroll");scroll.ScrollToEnd();await Task.Delay(1000);await Idle(w);
+            var samples=new List<object>();
+            foreach(var (delta,count) in new[]{(120,25),(-120,25),(120,25),(-120,25)}) for(int i=0;i<count;i++) {
+                var qbytes=GC.GetAllocatedBytesForCurrentThread();var qtime=Stopwatch.StartNew();await Wait(w);qtime.Stop();qbytes=GC.GetAllocatedBytesForCurrentThread()-qbytes;
+                var before=scroll.VerticalOffset;var bytes=GC.GetAllocatedBytesForCurrentThread();var time=Stopwatch.StartNew();
+                var hit=scroll.InputHitTest(new Point(scroll.ActualWidth*.88,scroll.ActualHeight*.57));
+                var ev=new MouseWheelEventArgs(Mouse.PrimaryDevice,Environment.TickCount,delta){RoutedEvent=Mouse.PreviewMouseWheelEvent};
+                if(hit is UIElement element)element.RaiseEvent(ev); else if(hit is ContentElement content)content.RaiseEvent(ev); else throw new Exception("Cannot hit test conversation");
+                await Idle(w);var feedback=time.Elapsed.TotalMilliseconds;var feedbackBytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                await Wait(w);time.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                if(i>=2)samples.Add(new{op=delta>0?"wheel-up":"wheel-down",before,after=scroll.VerticalOffset,feedbackMs=feedback,feedbackBytes,correctedMs=time.Elapsed.TotalMilliseconds-qtime.Elapsed.TotalMilliseconds,correctedBytes=bytes-qbytes,visibleControls=Visible(w,w)});
+            }
+            var root=new AiConversation();var anchor=new AiAnswerAnchor("turn","answer",0,15,"这里是选中的来源，用来解释下一步。","revision");
+            var branch=new AiConversation{ParentConversationId=root.Id,BranchAnchor=anchor};book.Conversations.Add(root);book.Conversations.Add(branch);
+            for(int i=0;i<9;i++){
+                book.ActiveConversationId=root.Id;Call(panel,"ShowCurrentConversation");await Wait(w);
+                var qbytes=GC.GetAllocatedBytesForCurrentThread();var qtime=Stopwatch.StartNew();await Wait(w);qtime.Stop();qbytes=GC.GetAllocatedBytesForCurrentThread()-qbytes;
+                var bytes=GC.GetAllocatedBytesForCurrentThread();var time=Stopwatch.StartNew();book.ActiveConversationId=branch.Id;Call(panel,"ShowCurrentConversation");await Idle(w);
+                var feedback=time.Elapsed.TotalMilliseconds;var feedbackBytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                if(panel.FindName("BranchOriginPreview") is DependencyObject origin){foreach(var view in Descendants<MarkdownView>(origin)){var prop=typeof(MarkdownView).GetProperty("RenderTask",Private);if(prop?.GetValue(view) is Task render)await render;}}
+                await Wait(w);time.Stop();bytes=GC.GetAllocatedBytesForCurrentThread()-bytes;
+                if(i>=2)samples.Add(new{op="source-preview",feedbackMs=feedback,feedbackBytes,correctedMs=time.Elapsed.TotalMilliseconds-qtime.Elapsed.TotalMilliseconds,correctedBytes=bytes-qbytes,visibleControls=Visible(w,w)});
+            }
+            File.WriteAllText(Path.Combine(output,"results.json"),JsonSerializer.Serialize(new{fixture="anonymous long conversation, 900x760 WPF, real routed wheel events and source display; first 2 warmups per block, paired ApplicationIdle and 220ms queue wait",samples},new JsonSerializerOptions{WriteIndented=true}));exit=0;
+        }catch(Exception e){Console.Error.WriteLine(e);}finally{panel.Dispose();w.Close();app.Shutdown(exit);}};
+        w.Show();app.Run();return exit;
+    }
+}

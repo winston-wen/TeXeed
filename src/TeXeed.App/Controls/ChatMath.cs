@@ -13,8 +13,12 @@ internal sealed class ChatMath
     {
         internal string CopyTex { get; init; } = Source;
         internal int PreparedOffset { get; init; } = -1;
+        internal int OriginalOffset { get; init; } = -1;
+        internal int OriginalLength { get; init; }
     }
     internal Dictionary<string, Token> Tokens { get; } = [];
+    private string _preparedText = "";
+    private string _originalText = "";
     internal Dictionary<string, string> Labels { get; } = [];
     internal string Prefix { get; } = "TEXEED" + Guid.NewGuid().ToString("N") + "M";
     internal bool HasUnclosedMath { get; private set; }
@@ -22,6 +26,7 @@ internal sealed class ChatMath
     private static readonly Regex Metadata = new(@"\\(?<kind>label|tag\*?)\{(?<value>[^{}]+)\}", RegexOptions.Compiled);
     internal string Prepare(string markdown, MarkdownPipeline pipeline)
     {
+        _originalText = markdown;
         var parsed = Markdig.Markdown.Parse(markdown, pipeline);
         var protectedSpans = parsed.Descendants().Where(b => b is CodeBlock).Select(b => b.Span)
             .Concat(parsed.Descendants<LeafBlock>().Where(b => b.Inline is not null).SelectMany(b => b.Inline!.Descendants<CodeInline>()).Select(i => i.Span)).OrderBy(s => s.Start).ToArray();
@@ -58,7 +63,7 @@ internal sealed class ChatMath
                 var key = Prefix + Tokens.Count + "END";
                 output.Append(markdown, copied, match.Index - copied);
                 if (token.Display) output.Append("\n\n");
-                token = token with { PreparedOffset = output.Length };
+                token = token with { PreparedOffset = output.Length, OriginalOffset = match.Index, OriginalLength = match.Length };
                 Tokens.Add(key, token);
                 output.Append(key);
                 if (token.Display) output.Append("\n\n");
@@ -67,6 +72,31 @@ internal sealed class ChatMath
         }
         catch (RegexMatchTimeoutException) { /* Preserve the remainder as selectable source. */ }
         HasUnclosedMath = Regex.IsMatch(new string(unresolved), @"(?<!\\)(?:\\[\[(]|\$\$|\$(?=\S)(?!\d)|\\begin\{(?:equation|align))", RegexOptions.None, TimeSpan.FromMilliseconds(500));
-        return output.Append(markdown, copied, markdown.Length - copied).ToString();
+        return _preparedText = output.Append(markdown, copied, markdown.Length - copied).ToString();
     }
+
+    internal string? OriginalSlice(int start, int end)
+    {
+        if (start < 0 || end < start || end >= _preparedText.Length) return null;
+        var slice = _preparedText.Substring(start, end - start + 1);
+        var first = slice.IndexOf(Prefix, StringComparison.Ordinal);
+        if (first < 0) return slice;
+        var restored = new StringBuilder(slice.Length);
+        var copied = 0; var index = first;
+        while (index >= 0)
+        {
+            var endToken = slice.IndexOf("END", index + Prefix.Length, StringComparison.Ordinal);
+            if (endToken < 0) break;
+            var key = slice[index..(endToken + 3)];
+            if (Tokens.TryGetValue(key, out var token) && token.OriginalOffset >= 0)
+            {
+                restored.Append(slice, copied, index - copied).Append(_originalText, token.OriginalOffset, token.OriginalLength);
+                copied = endToken + 3;
+            }
+            index = slice.IndexOf(Prefix, endToken + 3, StringComparison.Ordinal);
+        }
+        return restored.Append(slice, copied, slice.Length - copied).ToString();
+    }
+
+    internal void ReleaseOriginalSource() { _preparedText = ""; _originalText = ""; }
 }

@@ -109,6 +109,7 @@ public partial class AiPanel
 
     internal async Task<bool> NavigateBookmarkAsync(AiBookmarkTarget bookmark)
     {
+        CancelLayoutAnchor();
         var conversation = _book.Active;
         var turn = conversation.Turns.FirstOrDefault(t => t.Id == bookmark.TurnId);
         if (turn is null)

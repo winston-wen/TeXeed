@@ -307,6 +307,7 @@
   function renderTranscript() {
     transcript.replaceChildren();
     const s = current();
+    if (!s.turns.length && s.source) renderInitialSource(s);
     s.turns.forEach((turn, i) => transcript.appendChild(renderTurn(turn, i)));
     $('session-title').textContent = s.title;
     $('back-source').disabled = !s.parent;
@@ -314,6 +315,32 @@
     $('child-menu').hidden = true;
     focusedBlock = null; $('bookmark-paragraph').disabled = true;
     renderComposerContext(); renderReferencesButton(); renderMainAttachments(); renderFollowups();
+  }
+  function renderInitialSource(s) {
+    const source = s.source, box = document.createElement('section'); box.className = 'initial-source';
+    const header = document.createElement('div'); header.className = 'initial-source-heading';
+    const origin = session(s.parent);
+    if (origin) { const link = document.createElement('button'); link.type = 'button'; link.dataset.sourceSession = s.id; link.textContent = '提问出处 · ' + origin.title; header.appendChild(link); }
+    else header.textContent = '提问出处';
+    box.appendChild(header);
+    if (source.kind === 'math' && source.math) {
+      const formula = document.createElement('div'); formula.className = 'formula initial-source-formula';
+      try { katex.render(source.math, formula, { displayMode: true, throwOnError: false, output: 'html' }); } catch { formula.textContent = source.math; }
+      if (source.number) appendText('span', 'formula-number', source.number, formula);
+      box.appendChild(formula);
+    } else if (source.kind === 'math' && source.svg) {
+      const formula = document.createElement('div'); formula.className = 'formula initial-source-formula';
+      const img = document.createElement('img'); img.src = source.svg; img.alt = source.quote || '公式'; img.className = 'initial-source-math';
+      img.addEventListener('error', () => { formula.textContent = source.quote || '公式'; }); formula.appendChild(img); box.appendChild(formula);
+    } else if (source.kind === 'image' && source.src) {
+      const img = document.createElement('img'); img.className = 'sample-image'; img.src = source.src; img.alt = source.quote || '图片';
+      img.addEventListener('error', () => { img.replaceWith(document.createTextNode(source.quote || '图片')); }); box.appendChild(img);
+    } else if (source.kind === 'table' && Array.isArray(source.table) && source.table.length) {
+      const container = document.createElement('div'); container.className = 'initial-source-table'; const table = document.createElement('table');
+      source.table.forEach((cells, rowIndex) => { const row = table.insertRow(); for (const cell of cells) appendText(rowIndex ? 'td' : 'th', '', cell, row); });
+      container.appendChild(table); box.appendChild(container);
+    } else appendText('div', 'initial-source-text', source.quote || '所选内容', box);
+    transcript.appendChild(box);
   }
   function renderComposerContext() {
     const box = $('composer-context'); box.replaceChildren();
@@ -423,6 +450,7 @@
     if (!item) return null;
     if (item.kind === 'math') return { blockId: id, kind: 'math', quote: item.number ? '公式 ' + item.number : '公式附近：' + [before.slice(-70), after.slice(0, 70)].filter(Boolean).join(' … '), svg: item.svg || formulaAssets[item.text], math: item.text, number: item.number, large: item.large };
     if (item.kind === 'image') return { blockId: id, kind: 'image', quote: item.alt || [before.slice(-80), after.slice(0, 80)].filter(Boolean).join(' … ') || '图片', src: item.src };
+    if (item.kind === 'exercise') { const table = el.querySelector('table'); return { blockId: id, kind: 'table', quote: '表格', table: table ? Array.from(table.rows, row => Array.from(row.cells, cell => cell.querySelector('input,textarea,select')?.value ?? cell.textContent.trim())) : [] }; }
     return { blockId: id, kind: 'text', quote: item.text };
   }
   function selectionInfo() {
@@ -438,7 +466,7 @@
     const endBlock = endElement?.closest('[data-block-id]');
     let endTextOffset;
     if (endBlock && !endBlock.classList.contains('formula') && endBlock.contains(range.endContainer)) { const prefix = document.createRange(); prefix.selectNodeContents(endBlock); prefix.setEnd(range.endContainer, range.endOffset); endTextOffset = textWithoutLinks(prefix.cloneContents()).length; }
-    return { ...context, quote: quote.slice(0, 2000), textOffset, endBlockId: endBlock?.dataset.blockId, endTextOffset, rect: range.getBoundingClientRect() };
+    return { ...context, ...(context.kind === 'table' ? { kind: 'text', table: undefined } : {}), quote, textOffset, endBlockId: endBlock?.dataset.blockId, endTextOffset, rect: range.getBoundingClientRect() };
   }
   function showSelection() {
     const info = selectionInfo(); if (!info) { $('selection-tools').hidden = true; return; }
@@ -450,7 +478,7 @@
     if (kind === 'quote') { addReference(currentSelection); return; }
     persistCurrent();
     const previous = JSON.stringify(state), parent = current(), context = currentSelection;
-    const source = { blockId: context.blockId, endBlockId: context.endBlockId, endTextOffset: context.endTextOffset, textOffset: context.textOffset, quote: context.quote, kind: context.kind, svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large };
+    const source = { blockId: context.blockId, endBlockId: context.endBlockId, endTextOffset: context.endTextOffset, textOffset: context.textOffset, quote: context.quote, kind: context.kind, svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large, table: context.table };
     const origin = { id: uid(), sessionId: parent.id, ...source, sourceLocked: true, comment: '', selected: true, attachments: [] };
     const child = { id: uid(), title: Array.from(context.quote || '追问').slice(0, 16).join(''), parent: parent.id, source, draft: '', references: [origin], attachments: [], turns: [] };
     state.sessions.push(child);
@@ -536,6 +564,7 @@
     const openForms = current().turns.filter(turn => turn.formValues && !formState(turn).locked), hasFormValues = openForms.some(turn => Object.values(turn.formValues).some(value => Array.isArray(value) ? value.length : value !== '' && value != null));
     if (!question && !selected.length && !files.length && !hasFormValues) { composer.focus(); return; }
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
+    const hadInitialSource = !current().turns.length && Boolean(current().source);
     const previousState = JSON.stringify(state);
     const previousSessionId = state.active;
     const sentReferences = JSON.parse(JSON.stringify(selected)), sentAttachments = JSON.parse(JSON.stringify(files));
@@ -556,7 +585,7 @@
     if (!save()) { state = JSON.parse(previousState); $('status').textContent = '无法保存本次问题，输入内容已保留。'; composer.focus(); return; }
     mentionUndo.delete(previousSessionId); mentionUndo.delete(previousSessionId + ':branch'); mentionHistoryInput = false;
     if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); localStorage.removeItem(referencesKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
-    composer.value = ''; if (branching || formResponses.length || formAssessment) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
+    composer.value = ''; if (branching || hadInitialSource || formResponses.length || formAssessment) renderTranscript(); else transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); setComposer();
     requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
     $('status').textContent = '已保存示例问题和附件；下方是预设答复，未连接 AI。';
   }

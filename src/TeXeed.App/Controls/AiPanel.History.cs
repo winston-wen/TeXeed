@@ -87,6 +87,7 @@ public partial class AiPanel
     private void NextMatch_Click(object sender, RoutedEventArgs e) { _messageMatchIndex++; ShowMessageMatch(); }
     private void ShowMessageMatch()
     {
+        CancelLayoutAnchor();
         MessageMatchStatus.Text = _messageMatches.Count == 0 ? "0" : $"{(_messageMatchIndex = (_messageMatchIndex % _messageMatches.Count + _messageMatches.Count) % _messageMatches.Count) + 1}/{_messageMatches.Count}";
         if (_messageMatches.Count == 0) return;
         var target = _messageMatches[_messageMatchIndex];
