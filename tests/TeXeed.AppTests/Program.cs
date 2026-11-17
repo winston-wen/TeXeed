@@ -87,6 +87,16 @@ internal static partial class Program
                     await CheckAiFormContextAsync();
                     await CloseAndObserveAsync(window, "AI forms"); result = 0; return;
                 }
+                if (args.Contains("--ai-form-viewport-only"))
+                {
+                    await CheckAiFormViewportAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI form viewport"); result = 0; return;
+                }
+                if (args.Contains("--ai-long-form-viewport-only"))
+                {
+                    await CheckLongFormViewportAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI long form viewport"); result = 0; return;
+                }
                 if (args.Contains("--ai-formula-reference-only"))
                 {
                     await CheckAiFormulaReferenceAsync(window, output);

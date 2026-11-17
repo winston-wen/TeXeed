@@ -99,6 +99,7 @@ public sealed partial class MarkdownView
                         surface = border;
                     }
                     var host = new FormFeedbackHost(surface, control, true, type, id, () => forms.Feedback?.Invoke(type, id)) { Width = MediaWidth };
+                    control.PreviewKeyDown += FormFieldPreviewKeyDown;
                     _formFeedbackHosts.Add(host); _formBlockWidths.Add(host);
                     _formControls.Add(control);
                     target.Add(new InlineUIContainer(host) { BaselineAlignment = BaselineAlignment.Center, Tag = match.Value });
@@ -129,6 +130,7 @@ public sealed partial class MarkdownView
                 forms.Observe?.Invoke("checkbox", id, check, null);
                 control = check;
             }
+            control.PreviewKeyDown += FormFieldPreviewKeyDown;
             _formControls.Add(control);
             var inlineHost = new FormFeedbackHost(control, control, false, type, id, () => forms.Feedback?.Invoke(type, id));
             _formFeedbackHosts.Add(inlineHost);

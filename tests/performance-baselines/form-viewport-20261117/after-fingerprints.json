@@ -1,0 +1,32 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6342D267F74567F63C3B9A43F87DAC25B4E5D0903A8527263D8556514B614B69",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\urgent-perf-054-final\\app\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "83C76C9DABCF007A0694C59D3201009D9F79229779BC0710F9584AADF68E2E84",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\urgent-perf-054-final\\app\\Perf.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "13D77EED214543A7CE94800C1BAF9B0205D5418AC2362976D20EB786439376F8",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\urgent-perf-054-final\\app\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "74B8CFB77C6FFB31CE160476291472CCCB3AC2A575F1D1426534CE3CC5C92909",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\urgent-perf-054-final\\app\\Harness.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6E58B97F7D2E2DF4746EB7EC2F835DB609786689287A840C34D56E9EFB73B212",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\urgent-form-input-fixture.cs"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "8F49BB5C917034EDE44AAD3A8C181751541FE82EE67401B10B6F5E5D42AAA273",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\resize-fixture.cs.txt"
+  }
+]

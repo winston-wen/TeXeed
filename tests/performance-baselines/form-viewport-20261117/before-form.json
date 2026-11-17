@@ -1,0 +1,89 @@
+{
+  "fixture": "120 turns, 3 activities, 200 detail lines; 900/620 x760 WPF; two warmups and seven samples; paired 800ms queue and save gate",
+  "samples": [
+    {
+      "op": "form-input",
+      "feedbackMs": 1.7646,
+      "feedbackBytes": 20408,
+      "rawMs": 811.1313,
+      "idleMs": 812.1177,
+      "correctedMs": -0.9864000000000033,
+      "rawBytes": 183640,
+      "idleBytes": 3768,
+      "correctedBytes": 179872,
+      "visibleControls": 71
+    },
+    {
+      "op": "form-input",
+      "feedbackMs": 1.8044,
+      "feedbackBytes": 20408,
+      "rawMs": 808.1116,
+      "idleMs": 806.5688,
+      "correctedMs": 1.5427999999999429,
+      "rawBytes": 183640,
+      "idleBytes": 3768,
+      "correctedBytes": 179872,
+      "visibleControls": 71
+    },
+    {
+      "op": "form-input",
+      "feedbackMs": 2.0252,
+      "feedbackBytes": 20496,
+      "rawMs": 809.523,
+      "idleMs": 808.493,
+      "correctedMs": 1.0299999999999727,
+      "rawBytes": 183728,
+      "idleBytes": 3768,
+      "correctedBytes": 179960,
+      "visibleControls": 71
+    },
+    {
+      "op": "form-input",
+      "feedbackMs": 1.7587,
+      "feedbackBytes": 20280,
+      "rawMs": 808.9486,
+      "idleMs": 805.1701,
+      "correctedMs": 3.778500000000008,
+      "rawBytes": 183192,
+      "idleBytes": 3768,
+      "correctedBytes": 179424,
+      "visibleControls": 71
+    },
+    {
+      "op": "form-input",
+      "feedbackMs": 1.5024,
+      "feedbackBytes": 20280,
+      "rawMs": 813.2596,
+      "idleMs": 810.1003,
+      "correctedMs": 3.15930000000003,
+      "rawBytes": 183192,
+      "idleBytes": 3768,
+      "correctedBytes": 179424,
+      "visibleControls": 71
+    },
+    {
+      "op": "form-input",
+      "feedbackMs": 1.7154,
+      "feedbackBytes": 20280,
+      "rawMs": 809.8604,
+      "idleMs": 809.6181,
+      "correctedMs": 0.24230000000000018,
+      "rawBytes": 183192,
+      "idleBytes": 3768,
+      "correctedBytes": 179424,
+      "visibleControls": 71
+    },
+    {
+      "op": "form-input",
+      "feedbackMs": 1.8089,
+      "feedbackBytes": 20432,
+      "rawMs": 811.6854,
+      "idleMs": 811.5562,
+      "correctedMs": 0.1291999999999689,
+      "rawBytes": 183344,
+      "idleBytes": 3768,
+      "correctedBytes": 179576,
+      "visibleControls": 71
+    }
+  ]
+}

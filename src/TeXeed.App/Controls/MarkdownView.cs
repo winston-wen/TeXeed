@@ -61,6 +61,7 @@ public sealed partial class MarkdownView : RichTextBox
     internal Func<string, bool, ChatSvg?>? FormulaAsset { get; set; }
     public MarkdownView()
     {
+        AddHandler(RequestBringIntoViewEvent, new RequestBringIntoViewEventHandler(FormRequestBringIntoView));
         IsReadOnly = true; IsReadOnlyCaretVisible = false; IsDocumentEnabled = true; IsUndoEnabled = false;
         BorderThickness = new Thickness(0); Background = Brushes.Transparent; Padding = new Thickness(0, 0, 34, 0);
         VerticalScrollBarVisibility = ScrollBarVisibility.Disabled; HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
