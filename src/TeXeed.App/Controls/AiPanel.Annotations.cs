@@ -57,18 +57,19 @@ public partial class AiPanel
         AddBranchLinks(view);
         RefreshBookmarkMarker(view, false);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
+        view.PreviewMouseRightButtonDown += Answer_RightMouseDown;
         view.IsVisibleChanged += Answer_VisibilityChanged;
         var menu = new ContextMenu();
-        var annotate = new MenuItem { Header = "批注所选内容" };
+        var annotate = new MenuItem { Header = "批注到当前会话" };
         annotate.Click += (_, _) => AnnotateAnswer(view);
         menu.Opened += (_, _) => annotate.IsEnabled = AnswerTurn(view) is not null;
         menu.Items.Add(annotate);
-        AddBranchMenu(view, menu);
         var quote = new MenuItem { Header = "引用到当前会话" };
         quote.Click += (_, _) => AnnotateAnswer(view, edit: false);
         menu.Opened += (_, _) => quote.IsEnabled = AnswerTurn(view) is not null && view.HasBookmarkSelection;
         menu.Items.Add(quote);
-        var bookmark = new MenuItem { Header = "为所选内容添加标签" };
+        AddBranchMenu(view, menu);
+        var bookmark = new MenuItem { Header = "添加标签" };
         ToolTipService.SetShowOnDisabled(bookmark, true);
         menu.Opened += (_, _) =>
         {
@@ -78,21 +79,24 @@ public partial class AiPanel
         };
         bookmark.Click += (_, _) => { if (CaptureBookmarkSelection(view) is { } selection) RequestBookmarkLabel(selection); };
         menu.Items.Add(bookmark);
-        menu.Items.Add(new MenuItem { Header = "复制", Command = ApplicationCommands.Copy, CommandTarget = view });
-        var copyAnswer = new MenuItem { Header = "复制这段回答" };
-        copyAnswer.Click += (_, _) =>
+        menu.Items.Add(new MenuItem { Header = "复制所选", Command = ApplicationCommands.Copy, CommandTarget = view });
+        var copyParagraph = new MenuItem { Header = "复制所在段落" };
+        menu.Opened += (_, _) => copyParagraph.IsEnabled = view.HasContextParagraph;
+        copyParagraph.Click += (_, _) =>
         {
-            try { view.CopyToClipboard(view.Document.ContentStart, view.Document.ContentEnd); }
+            try { view.CopyContextParagraph(); }
             catch (System.Runtime.InteropServices.ExternalException ex) { ShowError(ex); }
         };
-        menu.Items.Add(copyAnswer);
+        menu.Items.Add(copyParagraph);
         view.ContextMenu = menu;
     }
     private void Answer_Unloaded(object sender, RoutedEventArgs e)
     {
         // Layers follow Loaded/Unloaded themselves; keep only currently attached answers in the panel.
-        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; view.IsVisibleChanged -= Answer_VisibilityChanged; }
+        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; view.PreviewMouseRightButtonDown -= Answer_RightMouseDown; view.IsVisibleChanged -= Answer_VisibilityChanged; }
     }
+    private static void Answer_RightMouseDown(object sender, MouseButtonEventArgs e)
+    { if (sender is MarkdownView view) view.CaptureContextParagraph(e.GetPosition(view)); }
     private void Answer_VisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
     { if (sender is MarkdownView { IsVisible: true } view) AddBranchLinks(view); }
     private void Answer_MouseUp(object sender, MouseButtonEventArgs e)

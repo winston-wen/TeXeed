@@ -1,0 +1,50 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
+(async()=>{const browser=await chromium.launch({headless:true,...(process.env.TEXEED_BROWSER_PATH?{executablePath:process.env.TEXEED_BROWSER_PATH}:{})});try{
+ const page=await browser.newPage({viewport:{width:700,height:720}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
+ await page.evaluate(()=>{
+  const c=current(),columns=Array.from({length:14},(_,i)=>'列'+i),cells=columns.map((_,i)=>i===0?'secondcell':('宽列内容'+i+'abcdefghijkl'));
+  const table1='| A | B |\n|---|---|\n| firstcell | 另一单元格 |';
+  const table2='| '+columns.join(' | ')+' |\n| '+columns.map(()=>':---').join(' | ')+' |\n| '+cells.join(' | ')+' |';
+  const middle=Array.from({length:24},(_,i)=>'两张表之间的正文第 '+(i+1)+' 段，用于实际滚轮跨越。').join('\n\n');
+  const tail=Array.from({length:12},(_,i)=>'第二张表之后的正文第 '+(i+1)+' 段。').join('\n\n');
+  c.turns=[{id:'two-table-turn',question:'对照两张表',answer:'第一表前的标记\n\n'+table1+'\n\n'+middle+'\n\n'+table2+'\n\n'+tail,segments:[]}];
+  c.draft='保留的未发送草稿';c.entries=[];c.bookmarks=[{id:'saved-bookmark',kind:'user',name:'保留书签',turn:'two-table-turn',block:'two-table-turn-p0',scope:'block',quote:'第一表前的标记',offset:0,offsetVersion:3}];
+  state.reviewPinnedTurns=[];state.reviewTemporaryTurns=[];state.reviewAutoSeen={};renderConversation();
+ });
+ await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(300);
+ const reader=page.locator('#reader'),tables=page.locator('#two-table-turn .answer .table-wrap');assert.equal(await tables.count(),2);
+ const measure=async cell=>cell.evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);const q=r.getBoundingClientRect(),reader=document.getElementById('reader');return {top:q.top,bottom:q.bottom,left:q.left,right:q.right,scrollTop:reader.scrollTop,view:reader.getBoundingClientRect().toJSON(),horizontal:el.closest('.table-wrap').scrollLeft};});
+ const wheelTo=async(cell)=>{await page.mouse.move(350,400);for(let n=0;n<80;n++){const q=await measure(cell);if(q.top>=q.view.top+25&&q.bottom<=q.view.bottom-25)return;if(q.top<q.view.top+25)await page.mouse.wheel(0,-350);else await page.mouse.wheel(0,350);await page.waitForTimeout(30);}throw Error('实际滚轮没有将目标表格带入视口');};
+ const stable=async(before,cell,label)=>{await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await page.waitForTimeout(80);const q=await measure(cell);assert.ok(Math.abs(q.top-before.top)<1.5&&Math.abs(q.bottom-before.bottom)<1.5&&Math.abs(q.scrollTop-before.scrollTop)<1.5,`${label} 导致正文跳动 ${JSON.stringify({before,after:q})}`);return q;};
+ const clickSelectCopy=async(cell,expected)=>{
+  await wheelTo(cell);const before=await measure(cell),rect=await cell.evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);return r.getBoundingClientRect().toJSON()});
+  await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);await stable(before,cell,'单击普通单元格');
+  await page.mouse.move(rect.x+0.5,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.right+1,rect.y+rect.height/2,{steps:8});await page.mouse.up();await stable(before,cell,'拖选普通文字');
+  assert.equal(await page.evaluate(()=>getSelection().toString()),expected);
+  await page.evaluate(()=>{window.__copyResult=null;document.addEventListener('copy',function once(event){window.__copyResult=event.clipboardData?.getData('text/plain')},{once:true})});
+  await page.keyboard.press('Control+c');await page.waitForFunction(()=>window.__copyResult!==null);assert.equal((await page.evaluate(()=>window.__copyResult)).trim(),expected);
+  await stable(before,cell,'复制');
+ };
+ const first=tables.nth(0).locator('tbody td').first(),second=tables.nth(1).locator('tbody td').first();
+ await clickSelectCopy(first,'firstcell');await clickSelectCopy(second,'secondcell');
+ const secondBefore=await measure(second);await page.mouse.move(350,400);await page.mouse.wheel(0,240);await page.waitForTimeout(150);let afterWheel=await measure(second);
+ assert.ok(afterWheel.scrollTop>secondBefore.scrollTop,'向下滚轮应推进阅读视口');assert.ok(Math.abs((secondBefore.top-afterWheel.top)-(afterWheel.scrollTop-secondBefore.scrollTop))<2,'实际正文应随滚轮位移');
+ const lower=afterWheel;await page.mouse.wheel(0,-240);await page.waitForTimeout(250);afterWheel=await measure(second);assert.ok(afterWheel.scrollTop<lower.scrollTop,'向上滚轮应反向移动阅读视口');assert.ok(Math.abs((afterWheel.top-lower.top)-(lower.scrollTop-afterWheel.scrollTop))<2,'反向滚轮期间正文应与视口同步');
+ const wrap=tables.nth(1),box=await wrap.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);const beforeHorizontal=await measure(second);await page.mouse.wheel(500,0);await page.waitForTimeout(120);const afterHorizontal=await measure(second);
+ assert.ok(afterHorizontal.horizontal>beforeHorizontal.horizontal,'宽表应能水平滚动');assert.ok(Math.abs(afterHorizontal.top-beforeHorizontal.top)<1.5&&Math.abs(afterHorizontal.scrollTop-beforeHorizontal.scrollTop)<1.5,'水平滚动不应跳转上下文');
+ await page.mouse.wheel(-500,0);await page.waitForTimeout(120);await wheelTo(second);
+ const beforePending=await measure(second);
+ await page.evaluate(()=>{const version=++readingRestoreVersion;restoring=true;setTimeout(()=>restoreReading({top:0},version),150);});
+ const rect=await second.evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);return r.getBoundingClientRect().toJSON()});await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);await page.waitForTimeout(250);
+ await stable(beforePending,second,'等待中的视口恢复遇到真实鼠标点击');
+ await page.evaluate(()=>{const cell=[...document.querySelectorAll('#two-table-turn .table-wrap')].at(-1).querySelector('td');for(const [tag,id] of [['input','restore-input'],['button','restore-button'],['a','restore-link']]){const el=document.createElement(tag);el.id=id;el.textContent=id;if(tag==='a'){el.href='#test';el.addEventListener('click',e=>e.preventDefault());}cell.appendChild(el);}});
+ for(const id of ['restore-input','restore-button','restore-link']){await page.evaluate(()=>{const version=++readingRestoreVersion;restoring=true;setTimeout(()=>restoreReading({top:0},version),150)});await page.locator('#'+id).click();await page.waitForTimeout(200);assert.ok((await reader.evaluate(el=>el.scrollTop))>0,id+' 应取消旧恢复');}
+ const version=await page.evaluate(()=>{const before=readingRestoreVersion;document.querySelector('#restore-button').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));return [before,readingRestoreVersion]});assert.equal(version[0],version[1],'程序合成事件不应取消恢复');
+ await page.evaluate(()=>{current().reading={top:700};const id=current().id,other={id:'temporary-other',title:'临时会话',turns:[],entries:[],next:1,draft:'',permission:'完全访问'};state.conversations.push(other);openConversation(other.id);current().reading={top:0};state.conversations.find(c=>c.id===id).reading={top:700};openConversation(id)});await page.waitForTimeout(350);assert.ok(Math.abs(await reader.evaluate(el=>el.scrollTop)-700)<2,'重新打开会话应正常恢复视口');
+ assert.equal(await page.locator('#composer').inputValue(),'保留的未发送草稿');assert.equal(await page.evaluate(()=>current().bookmarks.some(item=>item.id==='saved-bookmark')),true);assert.deepEqual(errors,[]);
+ if(process.env.TEXEED_TWO_TABLES_SCREENSHOT)await page.screenshot({path:process.env.TEXEED_TWO_TABLES_SCREENSHOT});
+ console.log('PASS two tables: real click, drag selection, clipboard, vertical/horizontal wheel, pending restore, bookmarks and draft.');
+}finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

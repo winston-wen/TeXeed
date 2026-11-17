@@ -1,0 +1,917 @@
+{
+  "schema": "answer-interactions-20261117-v1",
+  "fixtureHash": "129d8648f12bbdee939a40932e27d30646fa7c94a352535bb4ac57505741da75",
+  "revisions": {
+    "historic": "7af94c2",
+    "before": "44204da"
+  },
+  "resources": {
+    "historic": {
+      "index.html": "b769c17a10100b3fb5129c75e903a873d029397ee8d10ee987755dd149e8d77a",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "d46cbd759b4309fe50cabfcd68e406fec4859b0dd29f5242be8ac0f5c751727d",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "c700c3d7a5f62b877b7a7795f21d849d82a4d70e5cd76fe8897542d3a69c0fc5"
+    },
+    "before": {
+      "index.html": "35e84fcb232dafd717c539a70376938cc376ca6f5bebce9d0bd1ae10be93a5fe",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "70ad9fdcbe639b04f65bb859647a5a0aa512df70123d5275780f7a839a1ad384",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "3e682b95268c7920e49db550e5583841505ef1707739bc67a1645cc0e0d4a746",
+      "quote-summary.js": "e73528d515360ec0d44167baaefd09fed12976a16d0129ae17521546e09524d2",
+      "scrollbar-activity.js": "39dbce582f944e80321fbaacc36ea25740f3b5b0084a094d43149780771f8f98",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "965e012c99853e8fb425a0acd204061381336bc5bae82e5480e5280a7e034ad1",
+      "review.js": "4c72762e278fa161e3a7e9b80eb30e785a81bd1295a57ecfd335d360ca17fae2",
+      "review-search.js": "103bc5edf76d5d9d058b836393de9ed4c1ae2dc1c4faeaa12d534d8aa715445b",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    },
+    "after": {
+      "index.html": "1d7a2d9d0e721927bf86009068967f7ffffdb1e7ee3e3d9689a5a165c34467c5",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "2780ff5bbfa7fc9e8873de97004dee1659e2665805a0f9b52405b29224774e93",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "3e682b95268c7920e49db550e5583841505ef1707739bc67a1645cc0e0d4a746",
+      "quote-summary.js": "e73528d515360ec0d44167baaefd09fed12976a16d0129ae17521546e09524d2",
+      "scrollbar-activity.js": "39dbce582f944e80321fbaacc36ea25740f3b5b0084a094d43149780771f8f98",
+      "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+      "bookmarks.js": "c580148df827ccaaeb5956306a0f2cfe8eee3a2d39bc571be87490114b12523a",
+      "review.js": "4c72762e278fa161e3a7e9b80eb30e785a81bd1295a57ecfd335d360ca17fae2",
+      "review-search.js": "15106c15e3bacc288fcb113633ca2cfb2712cd1356cf357d51544440ab3a5385",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    }
+  },
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.8103.79",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "rounds": 1,
+    "turns": 120,
+    "warmups": 2,
+    "samples": 7,
+    "frames": 2,
+    "delayedWaitMs": 700,
+    "heapSamplingInterval": 1024,
+    "note": "Same 120-turn data and coordinates for all three versions. Popup and menu operations are synthetic; table click uses a trusted Playwright mouse click. Paired empty operation uses identical two-frame and delayed wait. Sampled allocation is an estimate."
+  },
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "historic",
+      "operation": "menu",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 721.2999999988824
+          },
+          "work": {
+            "sync": 1.200000001117587,
+            "elapsed": 732.2000000011176
+          },
+          "correctedElapsed": 10.900000002235174
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 717.6999999992549
+          },
+          "work": {
+            "sync": 1.1000000014901161,
+            "elapsed": 732.3000000007451
+          },
+          "correctedElapsed": 14.600000001490116
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 721.7000000011176
+          },
+          "work": {
+            "sync": 1.5,
+            "elapsed": 731.6999999992549
+          },
+          "correctedElapsed": 9.999999998137355
+        },
+        {
+          "empty": {
+            "sync": 0.3999999985098839,
+            "elapsed": 718.2999999988824
+          },
+          "work": {
+            "sync": 1.199999999254942,
+            "elapsed": 730.1999999992549
+          },
+          "correctedElapsed": 11.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0.6000000014901161,
+            "elapsed": 713.5
+          },
+          "work": {
+            "sync": 1.400000000372529,
+            "elapsed": 725.3000000007451
+          },
+          "correctedElapsed": 11.800000000745058
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 717
+          },
+          "work": {
+            "sync": 1.199999999254942,
+            "elapsed": 742.6999999992549
+          },
+          "correctedElapsed": 25.699999999254942
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 730.4000000003725
+          },
+          "work": {
+            "sync": 1.199999999254942,
+            "elapsed": 731
+          },
+          "correctedElapsed": 0.599999999627471
+        }
+      ],
+      "medianSync": 1.199999999254942,
+      "medianCorrected": 11.800000000745058,
+      "idleBytes": 43016,
+      "workBytes": 67412,
+      "allocatedBytes": 3485.1428571428573,
+      "counts": {
+        "nodes": 2309,
+        "visibleControls": 16
+      }
+    },
+    {
+      "round": 0,
+      "mode": "historic",
+      "operation": "popup",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 721.5
+          },
+          "work": {
+            "sync": 3.099999999627471,
+            "elapsed": 731.4000000003725
+          },
+          "correctedElapsed": 9.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 719.9000000003725
+          },
+          "work": {
+            "sync": 2.900000000372529,
+            "elapsed": 733.6000000014901
+          },
+          "correctedElapsed": 13.700000001117587
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 717.8000000007451
+          },
+          "work": {
+            "sync": 2.599999999627471,
+            "elapsed": 735.7999999988824
+          },
+          "correctedElapsed": 17.999999998137355
+        },
+        {
+          "empty": {
+            "sync": 0.6000000014901161,
+            "elapsed": 719.2000000011176
+          },
+          "work": {
+            "sync": 3.199999999254942,
+            "elapsed": 737.0999999996275
+          },
+          "correctedElapsed": 17.899999998509884
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 720.5999999996275
+          },
+          "work": {
+            "sync": 3.299999998882413,
+            "elapsed": 722.9000000003725
+          },
+          "correctedElapsed": 2.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 715.7999999988824
+          },
+          "work": {
+            "sync": 3,
+            "elapsed": 730.2000000011176
+          },
+          "correctedElapsed": 14.400000002235174
+        },
+        {
+          "empty": {
+            "sync": 0.7999999988824129,
+            "elapsed": 726.0999999996275
+          },
+          "work": {
+            "sync": 2.800000000745058,
+            "elapsed": 725.1999999992549
+          },
+          "correctedElapsed": -0.900000000372529
+        }
+      ],
+      "medianSync": 3,
+      "medianCorrected": 13.700000001117587,
+      "idleBytes": 41724,
+      "workBytes": 1041028,
+      "allocatedBytes": 142757.7142857143,
+      "counts": {
+        "nodes": 2311,
+        "visibleControls": 16
+      }
+    },
+    {
+      "round": 0,
+      "mode": "historic",
+      "operation": "table",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.8000000007450581,
+            "elapsed": 714.4000000003725
+          },
+          "work": {
+            "sync": 24.59999999962747,
+            "elapsed": 765.4000000003725
+          },
+          "correctedElapsed": 51
+        },
+        {
+          "empty": {
+            "sync": 0.7000000011175871,
+            "elapsed": 703.5999999996275
+          },
+          "work": {
+            "sync": 20,
+            "elapsed": 764
+          },
+          "correctedElapsed": 60.40000000037253
+        },
+        {
+          "empty": {
+            "sync": 0.7000000011175871,
+            "elapsed": 718.5
+          },
+          "work": {
+            "sync": 17.799999998882413,
+            "elapsed": 753.0999999996275
+          },
+          "correctedElapsed": 34.59999999962747
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 719.5
+          },
+          "work": {
+            "sync": 9.800000000745058,
+            "elapsed": 748.5
+          },
+          "correctedElapsed": 29
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 710.0999999996275
+          },
+          "work": {
+            "sync": 15.200000001117587,
+            "elapsed": 756.8000000007451
+          },
+          "correctedElapsed": 46.70000000111759
+        },
+        {
+          "empty": {
+            "sync": 0.6999999992549419,
+            "elapsed": 707.1999999992549
+          },
+          "work": {
+            "sync": 15.600000001490116,
+            "elapsed": 751.4000000003725
+          },
+          "correctedElapsed": 44.20000000111759
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 709.6999999992549
+          },
+          "work": {
+            "sync": 19.299999998882413,
+            "elapsed": 751.5
+          },
+          "correctedElapsed": 41.80000000074506
+        }
+      ],
+      "medianSync": 17.799999998882413,
+      "medianCorrected": 44.20000000111759,
+      "idleBytes": 60000,
+      "workBytes": 663324,
+      "allocatedBytes": 86189.14285714286,
+      "counts": {
+        "nodes": 2311,
+        "visibleControls": 12
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "operation": "menu",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.6999999992549419,
+            "elapsed": 713.1999999992549
+          },
+          "work": {
+            "sync": 1.700000001117587,
+            "elapsed": 732.9000000003725
+          },
+          "correctedElapsed": 19.700000001117587
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 728.1999999992549
+          },
+          "work": {
+            "sync": 1.800000000745058,
+            "elapsed": 736.5
+          },
+          "correctedElapsed": 8.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 713
+          },
+          "work": {
+            "sync": 1.400000000372529,
+            "elapsed": 743.5999999996275
+          },
+          "correctedElapsed": 30.59999999962747
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 705.4000000003725
+          },
+          "work": {
+            "sync": 1.599999999627471,
+            "elapsed": 734.0999999996275
+          },
+          "correctedElapsed": 28.699999999254942
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 721.0999999996275
+          },
+          "work": {
+            "sync": 1.5,
+            "elapsed": 735
+          },
+          "correctedElapsed": 13.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0.6000000014901161,
+            "elapsed": 718.3000000007451
+          },
+          "work": {
+            "sync": 1.800000000745058,
+            "elapsed": 749.0999999996275
+          },
+          "correctedElapsed": 30.799999998882413
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 721.7000000011176
+          },
+          "work": {
+            "sync": 1.5,
+            "elapsed": 741.1999999992549
+          },
+          "correctedElapsed": 19.499999998137355
+        }
+      ],
+      "medianSync": 1.599999999627471,
+      "medianCorrected": 19.700000001117587,
+      "idleBytes": 52716,
+      "workBytes": 54288,
+      "allocatedBytes": 224.57142857142858,
+      "counts": {
+        "nodes": 2353,
+        "visibleControls": 22
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "operation": "popup",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 716.5
+          },
+          "work": {
+            "sync": 3.299999998882413,
+            "elapsed": 736
+          },
+          "correctedElapsed": 19.5
+        },
+        {
+          "empty": {
+            "sync": 0.40000000037252903,
+            "elapsed": 705.9000000003725
+          },
+          "work": {
+            "sync": 5.099999999627471,
+            "elapsed": 733.5999999996275
+          },
+          "correctedElapsed": 27.699999999254942
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 717.8000000007451
+          },
+          "work": {
+            "sync": 3.599999999627471,
+            "elapsed": 733.0999999996275
+          },
+          "correctedElapsed": 15.299999998882413
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 720.8000000007451
+          },
+          "work": {
+            "sync": 3.199999999254942,
+            "elapsed": 733.5999999996275
+          },
+          "correctedElapsed": 12.799999998882413
+        },
+        {
+          "empty": {
+            "sync": 1.5,
+            "elapsed": 718.2999999988824
+          },
+          "work": {
+            "sync": 3.5,
+            "elapsed": 738.9000000003725
+          },
+          "correctedElapsed": 20.600000001490116
+        },
+        {
+          "empty": {
+            "sync": 0.6999999992549419,
+            "elapsed": 718
+          },
+          "work": {
+            "sync": 4,
+            "elapsed": 733.3000000007451
+          },
+          "correctedElapsed": 15.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 717.3000000007451
+          },
+          "work": {
+            "sync": 3.099999999627471,
+            "elapsed": 736
+          },
+          "correctedElapsed": 18.699999999254942
+        }
+      ],
+      "medianSync": 3.5,
+      "medianCorrected": 18.699999999254942,
+      "idleBytes": 49164,
+      "workBytes": 1064416,
+      "allocatedBytes": 145036,
+      "counts": {
+        "nodes": 2355,
+        "visibleControls": 22
+      }
+    },
+    {
+      "round": 0,
+      "mode": "before",
+      "operation": "table",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.40000000037252903,
+            "elapsed": 719
+          },
+          "work": {
+            "sync": 11.799999998882413,
+            "elapsed": 745.0999999996275
+          },
+          "correctedElapsed": 26.09999999962747
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 711.1999999992549
+          },
+          "work": {
+            "sync": 19.59999999962747,
+            "elapsed": 760.9000000003725
+          },
+          "correctedElapsed": 49.70000000111759
+        },
+        {
+          "empty": {
+            "sync": 0.6999999992549419,
+            "elapsed": 703.8000000007451
+          },
+          "work": {
+            "sync": 19.90000000037253,
+            "elapsed": 753.5999999996275
+          },
+          "correctedElapsed": 49.79999999888241
+        },
+        {
+          "empty": {
+            "sync": 0.8000000007450581,
+            "elapsed": 720.3000000007451
+          },
+          "work": {
+            "sync": 9.5,
+            "elapsed": 753.4000000003725
+          },
+          "correctedElapsed": 33.09999999962747
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 719.3000000007451
+          },
+          "work": {
+            "sync": 18.5,
+            "elapsed": 750.0999999996275
+          },
+          "correctedElapsed": 30.799999998882413
+        },
+        {
+          "empty": {
+            "sync": 0.7000000011175871,
+            "elapsed": 719.8000000007451
+          },
+          "work": {
+            "sync": 12.599999999627471,
+            "elapsed": 755.5999999996275
+          },
+          "correctedElapsed": 35.79999999888241
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 732.9000000003725
+          },
+          "work": {
+            "sync": 22.90000000037253,
+            "elapsed": 766.9000000003725
+          },
+          "correctedElapsed": 34
+        }
+      ],
+      "medianSync": 18.5,
+      "medianCorrected": 34,
+      "idleBytes": 38724,
+      "workBytes": 744196,
+      "allocatedBytes": 100781.71428571429,
+      "counts": {
+        "nodes": 2355,
+        "visibleControls": 19
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "operation": "menu",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 717.8000000007451
+          },
+          "work": {
+            "sync": 1.300000000745058,
+            "elapsed": 726.9000000003725
+          },
+          "correctedElapsed": 9.099999999627471
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 709.3000000007451
+          },
+          "work": {
+            "sync": 1.700000001117587,
+            "elapsed": 739.5
+          },
+          "correctedElapsed": 30.199999999254942
+        },
+        {
+          "empty": {
+            "sync": 0.6999999992549419,
+            "elapsed": 716.8999999985099
+          },
+          "work": {
+            "sync": 1.199999999254942,
+            "elapsed": 721.5
+          },
+          "correctedElapsed": 4.600000001490116
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 717.5
+          },
+          "work": {
+            "sync": 1.700000001117587,
+            "elapsed": 735.6000000014901
+          },
+          "correctedElapsed": 18.100000001490116
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 719.1999999992549
+          },
+          "work": {
+            "sync": 1.3999999985098839,
+            "elapsed": 736.8999999985099
+          },
+          "correctedElapsed": 17.699999999254942
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 723.8999999985099
+          },
+          "work": {
+            "sync": 1.199999999254942,
+            "elapsed": 734.1999999992549
+          },
+          "correctedElapsed": 10.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 717.5
+          },
+          "work": {
+            "sync": 1.599999999627471,
+            "elapsed": 734.7000000011176
+          },
+          "correctedElapsed": 17.200000001117587
+        }
+      ],
+      "medianSync": 1.3999999985098839,
+      "medianCorrected": 17.200000001117587,
+      "idleBytes": 46448,
+      "workBytes": 77164,
+      "allocatedBytes": 4388,
+      "counts": {
+        "nodes": 2356,
+        "visibleControls": 25
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "operation": "popup",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 721.0999999996275
+          },
+          "work": {
+            "sync": 3.599999999627471,
+            "elapsed": 732.4000000003725
+          },
+          "correctedElapsed": 11.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 0.6000000014901161,
+            "elapsed": 704.6000000014901
+          },
+          "work": {
+            "sync": 3,
+            "elapsed": 733.6999999992549
+          },
+          "correctedElapsed": 29.099999997764826
+        },
+        {
+          "empty": {
+            "sync": 0.6000000014901161,
+            "elapsed": 721.5
+          },
+          "work": {
+            "sync": 3.200000001117587,
+            "elapsed": 733.4000000003725
+          },
+          "correctedElapsed": 11.900000000372529
+        },
+        {
+          "empty": {
+            "sync": 0.599999999627471,
+            "elapsed": 718.8999999985099
+          },
+          "work": {
+            "sync": 3.200000001117587,
+            "elapsed": 736.4000000003725
+          },
+          "correctedElapsed": 17.500000001862645
+        },
+        {
+          "empty": {
+            "sync": 1.400000000372529,
+            "elapsed": 724
+          },
+          "work": {
+            "sync": 3.300000000745058,
+            "elapsed": 734.5
+          },
+          "correctedElapsed": 10.5
+        },
+        {
+          "empty": {
+            "sync": 0.40000000037252903,
+            "elapsed": 708.7000000011176
+          },
+          "work": {
+            "sync": 3.600000001490116,
+            "elapsed": 735.4000000003725
+          },
+          "correctedElapsed": 26.699999999254942
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 710.3999999985099
+          },
+          "work": {
+            "sync": 3.300000000745058,
+            "elapsed": 736.7000000011176
+          },
+          "correctedElapsed": 26.300000002607703
+        }
+      ],
+      "medianSync": 3.300000000745058,
+      "medianCorrected": 17.500000001862645,
+      "idleBytes": 48016,
+      "workBytes": 1045504,
+      "allocatedBytes": 142498.2857142857,
+      "counts": {
+        "nodes": 2358,
+        "visibleControls": 25
+      }
+    },
+    {
+      "round": 0,
+      "mode": "after",
+      "operation": "table",
+      "pairs": [
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 702.5
+          },
+          "work": {
+            "sync": 20.09999999962747,
+            "elapsed": 762.4000000003725
+          },
+          "correctedElapsed": 59.90000000037253
+        },
+        {
+          "empty": {
+            "sync": 0.5,
+            "elapsed": 719.5
+          },
+          "work": {
+            "sync": 18.200000001117587,
+            "elapsed": 748.9000000003725
+          },
+          "correctedElapsed": 29.40000000037253
+        },
+        {
+          "empty": {
+            "sync": 0.7000000011175871,
+            "elapsed": 720.5
+          },
+          "work": {
+            "sync": 13.400000000372529,
+            "elapsed": 751.8000000007451
+          },
+          "correctedElapsed": 31.300000000745058
+        },
+        {
+          "empty": {
+            "sync": 1.199999999254942,
+            "elapsed": 721
+          },
+          "work": {
+            "sync": 22.59999999962747,
+            "elapsed": 766.5
+          },
+          "correctedElapsed": 45.5
+        },
+        {
+          "empty": {
+            "sync": 0.8999999985098839,
+            "elapsed": 719.6999999992549
+          },
+          "work": {
+            "sync": 17.09999999962747,
+            "elapsed": 751.5999999996275
+          },
+          "correctedElapsed": 31.90000000037253
+        },
+        {
+          "empty": {
+            "sync": 0.7000000011175871,
+            "elapsed": 715
+          },
+          "work": {
+            "sync": 13.900000000372529,
+            "elapsed": 750.9000000003725
+          },
+          "correctedElapsed": 35.90000000037253
+        },
+        {
+          "empty": {
+            "sync": 0.6999999992549419,
+            "elapsed": 721.1999999992549
+          },
+          "work": {
+            "sync": 23.09999999962747,
+            "elapsed": 763.7999999988824
+          },
+          "correctedElapsed": 42.59999999962747
+        }
+      ],
+      "medianSync": 18.200000001117587,
+      "medianCorrected": 35.90000000037253,
+      "idleBytes": 55720,
+      "workBytes": 708152,
+      "allocatedBytes": 93204.57142857143,
+      "counts": {
+        "nodes": 2358,
+        "visibleControls": 19
+      }
+    }
+  ]
+}

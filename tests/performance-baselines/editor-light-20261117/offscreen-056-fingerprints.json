@@ -1,0 +1,27 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "05732037CA13B710009FAEB49E6FEDE7D53B801C8EDDD96E5F5B128E02F40A09",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\offscreen-perf-056-056\\app\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "1A7A362A76330B102461944662D0553EDEC33061E871BA75F434947EAE890D16",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\offscreen-perf-056-056\\app\\Perf.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "DF6995546BCB32C9D76FFC66EA6E21F444A59E25626BBB69C20EDD798C64A7D2",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\offscreen-perf-056-056\\app\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7A403BF069303F2438467F12AE2323E85FF18F5664B6B1B7A9546DD7CD68AF9E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\table-cell-viewport-20261117\\panel-offscreen.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "FA2E8D2F6D1297659F2629285193876025ED60858A03CE99FEDA67E0376DD6A8",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\editor-light-20261117\\offscreen-fixture.cs.txt"
+  }
+]

@@ -11,6 +11,8 @@ public sealed partial class LatexEditor
 
     private void ApplyTheme()
     {
+        FontWeight = EditorTypography.WeightFor(FontFamily.Source);
+        _search.FontWeight = EditorTypography.DefaultWeight;
         Background = Brush("EditorBackground"); Foreground = Brush("EditorForeground");
         LineNumbersForeground = Brush("Subtle");
         TextArea.SelectionBrush = Brush("Selection"); TextArea.SelectionForeground = Brush("EditorForeground");

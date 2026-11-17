@@ -114,7 +114,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.equal(await page.locator('#composer').inputValue(), '主会话草稿', '返回上游恢复主草稿');
 
     await select(page.locator('.passage').filter({ hasText: '先看一个较简单的模型' }));
-    await page.locator('#selection-quote').click();
+    await page.locator('#selection-annotate').click();
     await page.locator('#reference-comment').fill('引用说明');
     await page.locator('#reference-confirm').click();
     await page.locator('#composer').fill('当前会话引用后继续');
@@ -269,7 +269,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     await page.mouse.up();
     assert.ok(await page.evaluate(() => getSelection().toString().trim().length > 0), '实际鼠标拖选文字');
     assert.equal(await page.locator('#selection-tools').isVisible(), true, '鼠标拖选后出现提问选项');
-    await page.locator('#selection-quote').click();
+    await page.locator('#selection-annotate').click();
     assert.equal(await page.locator('#reference-editor').isVisible(), true);
     await page.locator('#reference-confirm').click();
     assert.ok((await page.locator('#references-toggle').innerText()).includes('1'));

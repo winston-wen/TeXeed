@@ -51,6 +51,8 @@ Ctrl+滚轮以鼠标位置缩放，适合宽度和窗口调整保留阅读中心
 
 “视图 → 主题”提供 Ristretto 和 GitHub Light Default。自定义主题及颜色字段见 [主题说明](../src/TeXeed.App/Themes/README.md)。界面显示文件名、路径和标题的原文。代码使用等宽字体，其余阅读文字遵循 [排版约定](ui-layout-and-performance.md)。
 
+默认编辑字体为等距更纱黑体 SC：深色主题优先使用 Light，亮色主题使用 Regular；未安装 Light 时回退 Regular。自选编辑字体仍按原设置使用。
+
 ## 快捷键
 
 | 操作 | 快捷键 |

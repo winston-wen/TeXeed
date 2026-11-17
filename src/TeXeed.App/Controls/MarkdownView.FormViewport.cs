@@ -36,9 +36,15 @@ public sealed partial class MarkdownView
 
     private void FormRequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
     {
-        if (_tableOwner is not null || _forms is null || Keyboard.FocusedElement is not Control field || !OwnsFormField(field) ||
-            e.OriginalSource is not ScrollViewer source || !ReferenceEquals(e.TargetObject, source) ||
+        if (_tableOwner is not null || e.OriginalSource is not ScrollViewer source || !ReferenceEquals(e.TargetObject, source) ||
             !ReferenceEquals(source, Template?.FindName("PART_ContentHost", this))) return;
+
+        if (_forms is null || Keyboard.FocusedElement is not Control field || !OwnsFormField(field))
+        {
+            var focusedTable = _tableViews.FirstOrDefault(item => item.View.IsKeyboardFocusWithin);
+            if (focusedTable is not null) TableRequestBringIntoView(e, focusedTable);
+            return;
+        }
 
         e.Handled = true;
         ScrollViewer? conversation = null;
@@ -99,6 +105,46 @@ public sealed partial class MarkdownView
                             conversation.ScrollToVerticalOffset(Math.Clamp(conversation.VerticalOffset + correction, 0, conversation.ScrollableHeight));
                     }
                 }
+            }
+            catch (InvalidOperationException) { }
+        }));
+    }
+
+    private void TableRequestBringIntoView(RequestBringIntoViewEventArgs e, TableViewport table)
+    {
+        e.Handled = true;
+        ScrollViewer? conversation = null;
+        for (DependencyObject? current = VisualTreeHelper.GetParent(this); current is not null; current = VisualTreeHelper.GetParent(current))
+            if (current is ScrollViewer candidate && candidate.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled && candidate.ScrollableHeight > 0)
+            { conversation = candidate; break; }
+        if (conversation is null) return;
+        var version = ++_formBringVersion;
+        var offset = conversation.VerticalOffset;
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (version != _formBringVersion || !table.View.IsKeyboardFocusWithin || !table.View.IsLoaded || !conversation.IsLoaded ||
+                Math.Abs(conversation.VerticalOffset - offset) > .5) return;
+            try
+            {
+                bool GetCaret(out double top, out double bottom)
+                {
+                    var pointer = table.View.CaretPosition;
+                    var rect = pointer.GetCharacterRect(System.Windows.Documents.LogicalDirection.Forward);
+                    if (rect.IsEmpty) rect = pointer.GetCharacterRect(System.Windows.Documents.LogicalDirection.Backward);
+                    top = bottom = 0;
+                    if (rect.IsEmpty) return false;
+                    top = table.View.TranslatePoint(rect.TopLeft, conversation).Y; bottom = top + rect.Height;
+                    return true;
+                }
+                if (!GetCaret(out var top, out var bottom)) return;
+                var change = top < 0 ? top : bottom > conversation.ViewportHeight ? bottom - conversation.ViewportHeight : 0;
+                if (Math.Abs(change) <= .5) return;
+                conversation.ScrollToVerticalOffset(Math.Clamp(offset + change, 0, conversation.ScrollableHeight));
+                conversation.UpdateLayout();
+                if (!table.View.IsKeyboardFocusWithin || !table.View.IsLoaded || !conversation.IsLoaded || !GetCaret(out top, out bottom)) return;
+                var correction = top < 0 ? top : bottom > conversation.ViewportHeight ? bottom - conversation.ViewportHeight : 0;
+                if (Math.Abs(correction) > .5)
+                    conversation.ScrollToVerticalOffset(Math.Clamp(conversation.VerticalOffset + correction, 0, conversation.ScrollableHeight));
             }
             catch (InvalidOperationException) { }
         }));

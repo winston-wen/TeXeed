@@ -32,7 +32,7 @@
   ];
   const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, bookmarks: [], sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
   const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; if (loaded.pending?.parentId && !loaded.pendingBySession[loaded.pending.parentId]) loaded.pendingBySession[loaded.pending.parentId] = loaded.pending; for (const s of loaded.sessions) { s.references ||= []; s.attachments ||= []; for (const turn of s.turns || []) { if (!turn.answer?.some(item => item.kind === 'exercise')) continue; try { const values = JSON.parse(localStorage.getItem(formKey(s.id, turn.id)) || 'null'); if (values && typeof values === 'object' && !Array.isArray(values)) { if (values.values && typeof values.values === 'object') { turn.formValues = values.values; turn.formInvalidations = values.invalidations || {}; } else turn.formValues = values; } } catch { /* Preserve the rest of the session if a form draft is unreadable. */ } } const references = JSON.parse(localStorage.getItem(referencesKey(s.id)) || 'null'); if (Array.isArray(references)) s.references = references; const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.attachments) s.attachments = draft.attachments; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } const old = loaded.pendingBySession[s.id]; if (old?.kind === 'quote') { if (!s.references.some(r => r.legacyPending)) s.references.push({ id: uid(), blockId: old.blockId, quote: old.quote, textOffset: old.sourceTextOffset, comment: '', selected: true, attachments: [], legacyPending: old }); delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
-  let state = readState(), currentSelection = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, relationAnchor = null, pendingFileReads = 0;
+  let state = readState(), currentSelection = null, currentParagraph = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, relationAnchor = null, pendingFileReads = 0;
   let formAttachmentOrigin = null;
   state.pausedFollowups ||= {};
   for (const [id, items] of Object.entries(state.followups || {})) if (items.length) state.pausedFollowups[id] = true;
@@ -534,12 +534,12 @@
   }
   function showSelection() {
     const info = selectionInfo(); if (!info) { $('selection-tools').hidden = true; return; }
-    currentSelection = info; const tools = $('selection-tools'); tools.hidden = false;
+    currentSelection = {...info,selected:true};currentParagraph=blockContext(transcript.querySelector('[data-block-id="'+CSS.escape(info.endBlockId||info.blockId)+'"]'));const end=getSelection()?.getRangeAt(0).endContainer,cell=(end?.nodeType===Node.ELEMENT_NODE?end:end?.parentElement)?.closest('td,th');if(cell&&currentParagraph)currentParagraph.paragraph=cell.querySelector('input,textarea,select')?.value??textWithoutLinks(cell).trim(); const tools = $('selection-tools'); tools.hidden = false;
     requestAnimationFrame(() => { const width = tools.offsetWidth, height = tools.offsetHeight; tools.style.left = Math.max(6, Math.min(innerWidth - width - 6, info.rect.left)) + 'px'; tools.style.top = Math.max(55, Math.min(innerHeight - height - 6, info.rect.top - height - 6)) + 'px'; });
   }
   function setPending(kind) {
     if (!currentSelection) return;
-    if (kind === 'quote') { addReference(currentSelection); return; }
+    if (kind === 'quote' || kind === 'annotate') { addReference(currentSelection, kind === 'annotate'); return; }
     persistCurrent();
     const previous = JSON.stringify(state), parent = current(), context = currentSelection;
     const source = { blockId: context.blockId, endBlockId: context.endBlockId, endTextOffset: context.endTextOffset, textOffset: context.textOffset, quote: context.quote, kind: context.kind, svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large, table: context.table };
@@ -553,9 +553,24 @@
   function renderReferencesButton() { $('references-toggle').textContent = '引用 · ' + pendingReferences(current()).length; }
   function renderReferenceEditor() { const ref = ensureSession(current()).references.find(r => r.id === editingReference); if (!ref) return; const preview = $('reference-preview'); preview.replaceChildren(); renderReferencePreview(preview, ref); $('reference-comment').value = ref.comment || ''; const media = $('reference-attachments'); media.replaceChildren(); renderAttachments(media, ref.attachments, 'reference', ref.id); }
   function openReference(id) { editingReference = id; if ($('references-panel').open) $('references-panel').close(); renderReferenceEditor(); $('reference-editor').showModal(); $('reference-comment').focus(); }
-  function addReference(context) {
+  function addReference(context, edit = true) {
     const refs = ensureSession(current()).references; const ref = { id: uid(), sessionId: state.active, blockId: context.blockId, textOffset: context.textOffset, endBlockId: context.endBlockId, endTextOffset: context.endTextOffset, quote: context.quote, kind: context.kind || 'text', svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large, comment: '', selected: true, attachments: [] };
-    refs.push(ref); if (!saveReferences()) { refs.pop(); return; } $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges(); renderReferencesButton(); openReference(ref.id);
+    refs.push(ref); if (!saveReferences()) { refs.pop(); return; } $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges(); renderReferencesButton(); if(edit)openReference(ref.id);
+  }
+  function contextParagraphText(context) {
+    if(!context)return '';
+    if(context.paragraph!==undefined)return context.paragraph;
+    const item=current().turns.flatMap(turn=>turn.answer||[]).find(block=>block.id===context.blockId);if(!item)return '';
+    if(item.kind==='math')return '$$\n'+item.text+'\n$$';
+    if(item.kind==='image')return item.alt||context.quote||'图片';
+    if(item.kind==='exercise')return (context.table||[]).map(row=>row.join('\t')).join('\n');
+    return item.text||'';
+  }
+  async function copyContextText(text){
+    if(!text)return;
+    try{await navigator.clipboard.writeText(text);$('status').textContent='已复制。';}
+    catch{const box=document.createElement('textarea');box.value=text;box.style.cssText='position:fixed;left:-9999px;top:0';document.body.appendChild(box);box.select();let copied=false;try{copied=document.execCommand('copy');}finally{box.remove();}$('status').textContent=copied?'已复制。':'无法访问剪贴板，请使用键盘复制。';}
+    $('context-menu').hidden=true;$('selection-tools').hidden=true;
   }
   function renderReferenceList() {
     const list = $('references-list'); list.replaceChildren(); const refs = pendingReferences(current());
@@ -704,9 +719,10 @@
   $('new-conversation').addEventListener('click', () => { persistCurrent(); trimBlankSessions(); let blank = state.sessions.find(isBlankSession); if (!blank) { blank = { id: uid(), title: '新对话', parent: null, source: null, draft: '', turns: [], references: [], attachments: [] }; state.sessions.push(blank); } navigate(blank.id); save(); });
   $('back-source').addEventListener('click', () => parentSource(current()));
   $('child-sessions').addEventListener('click', () => { const children = state.sessions.filter(s => s.parent === current().id); if (children.length === 1) { navigate(children[0].id); return; } const menu = $('child-menu'); menu.replaceChildren(); for (const child of children) { const button = document.createElement('button'); button.type = 'button'; button.textContent = child.title; button.addEventListener('click', () => { menu.hidden = true; navigate(child.id); }); menu.appendChild(button); } menu.hidden = !menu.hidden; });
-  $('selection-tools').addEventListener('pointerdown', e => e.preventDefault()); $('selection-branch').addEventListener('click', () => setPending('branch')); $('selection-quote').addEventListener('click', () => setPending('quote')); $('selection-bookmark').addEventListener('click', () => openBookmark(currentSelection));
-  $('context-menu').addEventListener('pointerdown', e => e.preventDefault()); $('context-branch').addEventListener('click', () => { $('context-menu').hidden = true; setPending('branch'); }); $('context-quote').addEventListener('click', () => setPending('quote')); $('context-bookmark').addEventListener('click', () => { $('context-menu').hidden = true; openBookmark(currentSelection); });
-  reader.addEventListener('contextmenu', e => { const el = e.target.closest('[data-block-id]'); if (!el) return; const selection = selectionInfo(); currentSelection = selection?.blockId === el.dataset.blockId ? selection : blockContext(el); if (!currentSelection) return; e.preventDefault(); $('selection-tools').hidden = true; const menu = $('context-menu'); menu.hidden = false; requestAnimationFrame(() => { menu.style.left = Math.max(6, Math.min(innerWidth - menu.offsetWidth - 6, e.clientX)) + 'px'; menu.style.top = Math.max(55, Math.min(innerHeight - menu.offsetHeight - 6, e.clientY)) + 'px'; }); });
+  const selectedCopy=()=>currentSelection?.kind==='math'&&currentSelection.math?'$$\n'+currentSelection.math+'\n$$':currentSelection?.quote||'';
+  $('selection-tools').addEventListener('pointerdown', e => e.preventDefault()); $('selection-annotate').addEventListener('click',()=>setPending('annotate'));$('selection-branch').addEventListener('click', () => setPending('branch')); $('selection-quote').addEventListener('click', () => setPending('quote')); $('selection-bookmark').addEventListener('click', () => openBookmark(currentSelection));$('selection-copy').addEventListener('click',()=>copyContextText(selectedCopy()));$('selection-copy-paragraph').addEventListener('click',()=>copyContextText(contextParagraphText(currentParagraph)));
+  $('context-menu').addEventListener('pointerdown', e => e.preventDefault()); $('context-annotate').addEventListener('click',()=>setPending('annotate'));$('context-branch').addEventListener('click', () => { $('context-menu').hidden = true; setPending('branch'); }); $('context-quote').addEventListener('click', () => setPending('quote')); $('context-bookmark').addEventListener('click', () => { $('context-menu').hidden = true; openBookmark(currentSelection); });$('context-copy').addEventListener('click',()=>copyContextText(selectedCopy()));$('context-copy-paragraph').addEventListener('click',()=>copyContextText(contextParagraphText(currentParagraph)));
+  reader.addEventListener('contextmenu', e => { const el = e.target.closest('[data-block-id]'); if (!el) return; const selection = selectionInfo(); currentParagraph=blockContext(el);const cell=e.target.closest('td,th');if(cell&&currentParagraph)currentParagraph.paragraph=cell.querySelector('input,textarea,select')?.value??textWithoutLinks(cell).trim();const selected=!!selection&&(selection.blockId===el.dataset.blockId||selection.endBlockId===el.dataset.blockId);currentSelection=selected?{...selection,selected:true}:currentParagraph&&{...currentParagraph,selected:currentParagraph.kind!=='text'}; if (!currentSelection) return; e.preventDefault(); $('selection-tools').hidden = true; const menu = $('context-menu');$('context-copy').disabled=!currentSelection.selected;menu.hidden = false; requestAnimationFrame(() => { menu.style.left = Math.max(6, Math.min(innerWidth - menu.offsetWidth - 6, e.clientX)) + 'px'; menu.style.top = Math.max(55, Math.min(innerHeight - menu.offsetHeight - 6, e.clientY)) + 'px'; }); });
   $('bookmark-paragraph').addEventListener('click', () => openBookmark(focusedBlock));
   $('bookmarks-toggle').addEventListener('click', () => { if (mapOpen) closeMap(); setBookmarksOpen($('bookmarks-panel').hidden); }); $('bookmarks-close').addEventListener('click', () => setBookmarksOpen(false));
   $('bookmark-cancel').addEventListener('click', () => $('bookmark-dialog').close());

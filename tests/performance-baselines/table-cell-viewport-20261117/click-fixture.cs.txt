@@ -1,0 +1,114 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class TableCellViewportPerf
+{
+    const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    [StructLayout(LayoutKind.Sequential)] struct NativePoint { public int X, Y; }
+    [DllImport("user32.dll")] static extern bool GetCursorPos(out NativePoint point);
+    [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+    static object Field(object value, string name) => value.GetType().GetField(name, Private)!.GetValue(value)!;
+    static void Call(object value, string name, params object?[] args) => value.GetType().GetMethod(name, Private)!.Invoke(value, args);
+    static async Task Idle(Window window) { await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout(); }
+    static async Task Drain(AiPanel panel, Window window)
+    {
+        await Task.Delay(800);
+        var timer = (DispatcherTimer)Field(panel, "_saveTimer");
+        for (var i = 0; timer.IsEnabled && i < 250; i++) await Task.Delay(20);
+        if (timer.IsEnabled) throw new TimeoutException("Draft save timer did not drain");
+        var gate = (SemaphoreSlim)Field(panel, "_saveGate"); await gate.WaitAsync(); gate.Release(); await Idle(window);
+    }
+    static IEnumerable<T> Children<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in Children<T>(child)) yield return nested;
+        }
+    }
+    static int Visible(Window window) => Children<Control>(window).Count(control =>
+    {
+        if (!control.IsVisible || control.ActualWidth <= 0 || control.ActualHeight <= 0) return false;
+        try { return control.TransformToAncestor(window).TransformBounds(new Rect(0, 0, control.ActualWidth, control.ActualHeight)).IntersectsWith(new Rect(0, 0, window.ActualWidth, window.ActualHeight)); }
+        catch (InvalidOperationException) { return false; }
+    });
+
+    [STAThread] static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        var expectStable = args.Length > 1 && args[1] == "expect-stable";
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        var panel = new AiPanel(); typeof(AiPanel).GetMethod("InitializeBranchUi", Private)?.Invoke(panel, null);
+        var host = new Window { Width = 900, Height = 760, Left = 20, Top = 20, WindowStartupLocation = WindowStartupLocation.Manual, Content = panel }; var exit = 1;
+        GetCursorPos(out var originalPointer);
+        app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await panel.SetProjectAsync(Path.Combine(output, "fixture.tex"));
+                var book = (AiNotebook)Field(panel, "_book");
+                var before = string.Join("\n\n", Enumerable.Range(0, 80).Select(i => $"前文第 {i} 段：用于验证表格点击后的实际阅读位置。"));
+                var between = string.Join("\n\n", Enumerable.Range(0, 80).Select(i => $"表间第 {i} 段：用于让第二张表处在较远的阅读位置。"));
+                const string first = "| 项目 | 说明 |\n|---|---|\n| 第一表 | 第一位置 |";
+                const string second = "| 项目 | 说明 |\n|---|---|\n| 第二表 | 第二位置 |";
+                var body = before + "\n\n" + first + "\n\n" + between + "\n\n" + second + "\n\n表格之后的内容。";
+                var source = new AiTurn("表格阅读", body); book.Turns.Add(source);
+                Call(panel, "RefreshTranscript"); await Drain(panel, host);
+                var views = (Dictionary<string, AiTurnView>)Field(panel, "_turnViews");
+                var sourceView = views[source.Id];
+                var answer = ((IEnumerable<MarkdownView>)sourceView.GetType().GetProperty("Answers", Private)!.GetValue(sourceView)!).Single();
+                await (Task)answer.GetType().GetProperty("RenderTask", Private)!.GetValue(answer)!; await Drain(panel, host);
+                var tables = Children<MarkdownView>(answer).Where(view => view.Document.Blocks.FirstBlock is Table).ToArray();
+                if (tables.Length != 2) throw new Exception($"Expected two rendered tables, found {tables.Length}");
+                var table = tables[1]; var block = (Table)table.Document.Blocks.FirstBlock!;
+                var cell = block.RowGroups.First().Rows.Skip(1).First().Cells.Skip(1).First();
+                var pointer = cell.ContentStart.GetNextInsertionPosition(LogicalDirection.Forward) ?? throw new Exception("Cell has no insertion position");
+                var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
+                host.Activate(); await Idle(host);
+                if (!host.IsActive) throw new Exception("Fixture window did not acquire foreground focus");
+                var samples = new List<object>();
+                for (var i = 0; i < 9; i++)
+                {
+                    if (!host.IsActive || !host.IsVisible || host.WindowState == WindowState.Minimized) throw new Exception("Fixture window lost foreground visibility");
+                    host.UpdateLayout(); var rect = pointer.GetCharacterRect(LogicalDirection.Forward);
+                    if (rect.IsEmpty) throw new Exception("Second table cell has no layout rectangle");
+                    var y = table.TranslatePoint(rect.TopLeft, scroll).Y;
+                    scroll.ScrollToVerticalOffset(Math.Clamp(scroll.VerticalOffset + y - scroll.ViewportHeight / 2, 0, scroll.ScrollableHeight)); await Drain(panel, host);
+                    rect = pointer.GetCharacterRect(LogicalDirection.Forward); y = table.TranslatePoint(rect.TopLeft, scroll).Y;
+                    if (rect.IsEmpty || y < 0 || y + rect.Height > scroll.ViewportHeight) throw new Exception($"Second table target is not in view: {y}");
+                    var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Drain(panel, host); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                    var oldOffset = scroll.VerticalOffset; var oldScreen = table.PointToScreen(rect.TopLeft);
+                    var click = table.PointToScreen(new Point(rect.Left + Math.Max(1, rect.Width / 2), rect.Top + Math.Max(1, rect.Height / 2)));
+                    var bytes = GC.GetAllocatedBytesForCurrentThread(); var watch = Stopwatch.StartNew();
+                    if (!SetCursorPos((int)click.X, (int)click.Y)) throw new Exception("Could not position physical pointer");
+                    mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+                    await Idle(host); var feedback = watch.Elapsed.TotalMilliseconds; await Drain(panel, host); watch.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                    var currentRect = pointer.GetCharacterRect(LogicalDirection.Forward); var currentScreen = table.PointToScreen(currentRect.TopLeft);
+                    var delta = currentScreen.Y - oldScreen.Y;
+                    var inView = table.TranslatePoint(currentRect.TopLeft, scroll).Y is var currentY && currentY >= 0 && currentY < scroll.ViewportHeight;
+                    if (expectStable && (!inView || Math.Abs(delta) > 4)) throw new Exception($"Physical table click displaced target by {delta:F1} screen pixels");
+                    if (i >= 2) samples.Add(new { op = "physical-click-second-table-cell", feedbackMs = feedback, rawMs = watch.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = watch.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = Visible(host), beforeOffset = oldOffset, afterOffset = scroll.VerticalOffset, screenDeltaY = delta, inView });
+                }
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "long answer, two tables, second table physical click; 900x760; two warmups + seven paired 800ms samples", samples }, new JsonSerializerOptions { WriteIndented = true })); exit = 0;
+            }
+            catch (Exception error) { Console.Error.WriteLine(error); }
+            finally { panel.Dispose(); SetCursorPos(originalPointer.X, originalPointer.Y); host.Content = null; host.Close(); app.Shutdown(exit); }
+        };
+        host.Show(); app.Run(); return exit;
+    }
+}

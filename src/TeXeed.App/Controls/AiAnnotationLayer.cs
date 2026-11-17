@@ -12,7 +12,7 @@ using TeXeed.App.AI;
 namespace TeXeed.App.Controls;
 
 /// <summary>One shared draft in the composer and at its original document position.</summary>
-internal sealed class AiAnnotationLayer : Adorner, IDisposable
+internal sealed partial class AiAnnotationLayer : Adorner, IDisposable
 {
     [DllImport("user32.dll")]
     private static extern uint GetDoubleClickTime();
@@ -31,6 +31,7 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
     private List<(AiEntry Entry, Rect Bounds)> _positions = [];
     private AiEntry? _editing;
     private AiEntry? _pendingEdit;
+    internal Func<FrameworkElement, Point>? AnswerPopupPointerPosition { get; set; }
     private bool _refreshQueued, _disposed;
     private Rect _lastClip = Rect.Empty;
     private Size _lastSize;
@@ -92,10 +93,17 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
     private void ContextScrolled(object sender, ScrollChangedEventArgs e)
     {
         if (e.OriginalSource is not Visual scroll || !(_host.IsAncestorOf(scroll) || scroll.IsAncestorOf(_host))) return;
+        if (IsAnswerPopup && (e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0)) { QueueAnswerPopupFit(); return; }
         if (e.VerticalChange != 0 || e.HorizontalChange != 0 || e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0) CloseEditor();
     }
-    private void ContextChanged(object? sender, EventArgs e) => CloseEditor();
-    private void ContextSizeChanged(object sender, SizeChangedEventArgs e) => CloseEditor();
+    private void ContextChanged(object? sender, EventArgs e)
+    {
+        if (IsAnswerPopup) RefreshAnswerPopupPlacement(); else CloseEditor();
+    }
+    private void ContextSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (IsAnswerPopup) QueueAnswerPopupFit(); else CloseEditor();
+    }
     private void ContextZoomChanged(object? sender, EventArgs e)
     {
         if (_host is PdfPreview preview && preview.Zoom != _editingZoom) CloseEditor();
@@ -148,7 +156,11 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         if (!force && _host is MarkdownView && documentVersion == _lastDocumentVersion && visible == _lastClip && _host.RenderSize == _lastSize && _pendingEdit is null && !_popup.IsOpen) return;
         _lastDocumentVersion = documentVersion;
         _lastClip = visible; _lastSize = _host.RenderSize;
-        if (visible.IsEmpty) { ClearPositions(); return; }
+        if (visible.IsEmpty)
+        {
+            if (IsAnswerPopup && _popup.IsOpen) { if (_positions.Count > 0) { _positions.Clear(); InvalidateVisual(); } return; }
+            ClearPositions(); return;
+        }
         var positions = new List<(AiEntry, Rect)>();
         foreach (var entry in _entries().Where(e => e.State != "已完成" && e.State != "提交中"))
         {
@@ -173,8 +185,9 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         if (_popup.IsOpen && _editing is { } editing)
         {
             var position = _positions.FirstOrDefault(x => x.Entry == editing);
-            if (position.Entry is null || position.Bounds != _editingAnchor || visible != _editingClip
-                || HostBounds() != _editingHostBounds || documentVersion != _editingDocumentVersion) CloseEditor();
+            if (IsAnswerPopup ? documentVersion != _editingDocumentVersion
+                : position.Entry is null || position.Bounds != _editingAnchor || visible != _editingClip
+                    || HostBounds() != _editingHostBounds || documentVersion != _editingDocumentVersion) CloseEditor();
         }
     }
     protected override void OnRender(DrawingContext drawing)
@@ -212,6 +225,7 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         _popup.IsOpen = false; _editing = entry;
         var stack = new StackPanel();
         var header = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        if (IsAnswerPopup) EnableAnswerPopupDrag(header);
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -254,26 +268,66 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
             var path = new System.Windows.Shapes.Path { Data = Geometry.Parse(geometry), Width = 16, Height = 16, Stretch = Stretch.Uniform, StrokeThickness = 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round };
             path.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "Ink");
             var button = new Button { Name = name, Content = path, ToolTip = tooltip, Width = 28, Height = 28, Padding = new Thickness(5), Margin = new Thickness(2, 0, 0, 0), BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Top };
+            if (IsAnswerPopup) button.Cursor = Cursors.Arrow;
             System.Windows.Automation.AutomationProperties.SetName(button, tooltip);
             Grid.SetColumn(button, column); header.Children.Add(button); return button;
         }
         var remove = Icon("AnnotationDelete", "双击删除此条批注", "M3,5 H17 M7,5 V2 H13 V5 M5,5 L6,18 H14 L15,5 M8,8 V15 M12,8 V15", 1);
-        System.Windows.Automation.AutomationProperties.SetName(remove, "删除此条批注，双击或连续按两次回车或空格");
-        long? previousKeyActivation = null;
         void DeleteAnnotation() { _remove(entry); CloseEditor(); }
-        remove.PreviewMouseLeftButtonDown += (_, _) => previousKeyActivation = null;
-        remove.PreviewMouseDoubleClick += (_, e) => { if (e.ChangedButton != MouseButton.Left) return; e.Handled = true; DeleteAnnotation(); };
-        remove.PreviewKeyDown += (_, e) =>
+        var pendingDelete = false;
+        ToolTip? deleteHint = null;
+        void CancelDelete()
         {
-            if (e.Key is not (Key.Enter or Key.Space)) return;
-            e.Handled = true;
-            if (e.IsRepeat) return;
-            var now = Environment.TickCount64;
-            if (previousKeyActivation is { } previous && now - previous <= GetDoubleClickTime())
-            { previousKeyActivation = null; DeleteAnnotation(); }
-            else previousKeyActivation = now;
-        };
-        remove.LostKeyboardFocus += (_, _) => previousKeyActivation = null;
+            pendingDelete = false;
+            if (deleteHint is not null) deleteHint.IsOpen = false;
+            System.Windows.Automation.AutomationProperties.SetHelpText(remove, "");
+        }
+        if (IsAnswerPopup)
+        {
+            remove.ToolTip = entry.CanRemoveReference ? "点击两次删除此条批注" : "追问出处暂不可删除";
+            remove.IsEnabled = entry.CanRemoveReference;
+            ToolTipService.SetShowOnDisabled(remove, true);
+            System.Windows.Automation.AutomationProperties.SetName(remove, "删除此条批注，点击或按两次回车或空格");
+            void RequestDelete()
+            {
+                if (!entry.CanRemoveReference) return;
+                if (pendingDelete) { CancelDelete(); DeleteAnnotation(); return; }
+                pendingDelete = true;
+                deleteHint ??= new ToolTip { Content = "再点一下删除", PlacementTarget = remove, Placement = PlacementMode.Top, StaysOpen = true };
+                remove.Tag = deleteHint;
+                System.Windows.Automation.AutomationProperties.SetHelpText(remove, "再点一下删除");
+                deleteHint.IsOpen = true;
+            }
+            remove.Click += (_, _) => RequestDelete();
+            remove.PreviewKeyDown += (_, e) =>
+            {
+                if (e.Key is not (Key.Enter or Key.Space)) return;
+                e.Handled = true;
+                if (!e.IsRepeat) RequestDelete();
+            };
+            input.TextChanged += (_, _) => CancelDelete();
+            System.Collections.Specialized.NotifyCollectionChangedEventHandler imagesChanged = (_, _) => CancelDelete();
+            entry.Images.CollectionChanged += imagesChanged;
+            remove.Unloaded += (_, _) => { entry.Images.CollectionChanged -= imagesChanged; CancelDelete(); };
+        }
+        else
+        {
+            System.Windows.Automation.AutomationProperties.SetName(remove, "删除此条批注，双击或连续按两次回车或空格");
+            long? previousKeyActivation = null;
+            remove.PreviewMouseLeftButtonDown += (_, _) => previousKeyActivation = null;
+            remove.PreviewMouseDoubleClick += (_, e) => { if (e.ChangedButton != MouseButton.Left) return; e.Handled = true; DeleteAnnotation(); };
+            remove.PreviewKeyDown += (_, e) =>
+            {
+                if (e.Key is not (Key.Enter or Key.Space)) return;
+                e.Handled = true;
+                if (e.IsRepeat) return;
+                var now = Environment.TickCount64;
+                if (previousKeyActivation is { } previous && now - previous <= GetDoubleClickTime())
+                { previousKeyActivation = null; DeleteAnnotation(); }
+                else previousKeyActivation = now;
+            };
+            remove.LostKeyboardFocus += (_, _) => previousKeyActivation = null;
+        }
         var confirm = Icon("AnnotationConfirm", "保存并关闭浮窗\nCtrl+Enter", "M2,8 L6,12 L14,3", 2);
         var confirmIcon = (System.Windows.Shapes.Path)confirm.Content;
         confirm.Content = null;
@@ -284,11 +338,28 @@ internal sealed class AiAnnotationLayer : Adorner, IDisposable
         confirm.Content = confirmContent; confirm.Width = double.NaN; confirm.Padding = new Thickness(5, 0, 5, 0);
         confirm.Click += (_, _) => ConfirmEditor();
         var surface = new Border { Child = stack, Width = Math.Clamp(_host.ActualWidth - 24, 220, 340), Padding = new Thickness(12), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1) };
+        if (IsAnswerPopup)
+        {
+            bool PointerInside()
+            {
+                if (!surface.IsLoaded) return false;
+                var point = AnswerPopupPointerPosition?.Invoke(surface) ?? Mouse.GetPosition(surface);
+                return point.X >= 0 && point.Y >= 0 && point.X < surface.ActualWidth && point.Y < surface.ActualHeight;
+            }
+            surface.MouseLeave += (_, _) => { if (!PointerInside()) CancelDelete(); };
+            surface.IsKeyboardFocusWithinChanged += (_, _) =>
+            {
+                if (surface.IsKeyboardFocusWithin) return;
+                surface.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
+                { if (!surface.IsKeyboardFocusWithin && !PointerInside()) CancelDelete(); }));
+            };
+            surface.Unloaded += (_, _) => CancelDelete();
+        }
         surface.SetResourceReference(Border.BackgroundProperty, "PanelBackground"); surface.SetResourceReference(Border.BorderBrushProperty, "Accent"); surface.SetResourceReference(TextElement.ForegroundProperty, "Ink");
         // The editor stays open through focus changes, mouse release and Escape.
         // Confirmation/view changes keep the shared editable annotation; only the
         // conversation composer's send action freezes a snapshot and requests AI.
-        _popup.Child = surface; _popup.HorizontalOffset = position.Bounds.X; _popup.VerticalOffset = position.Bounds.Bottom + 4;
+        ConfigureAnswerPopup(surface, stack, position.Bounds);
         _editingHostBounds = HostBounds(); _editingClip = _lastClip; _editingAnchor = position.Bounds;
         _editingDocumentVersion = _lastDocumentVersion; _editingZoom = (_host as PdfPreview)?.Zoom ?? 0;
         _popup.IsOpen = true;

@@ -19,6 +19,4 @@
  toggle.addEventListener('click',()=>{enhanced=!enhanced;toggle.setAttribute('aria-pressed',String(enhanced));toggle.textContent='增强搜索：'+(enhanced?'开':'关');refresh();input.focus();});
  results.addEventListener('click',event=>{const button=event.target.closest('[data-search-hit]');if(button&&hits[Number(button.dataset.searchHit)])jump(hits[Number(button.dataset.searchHit)]);});panel.querySelector('.review-search-close').onclick=close;
  window.addEventListener('keydown',event=>{if(event.ctrlKey&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='g'&&!$('chat').hidden){event.preventDefault();event.stopImmediatePropagation();open();}else if(event.key==='Escape'&&!panel.hidden){event.preventDefault();event.stopImmediatePropagation();close();}},true);
- // Invisible legacy labels must not remain reachable with Enter from the old floating list.
- $('bookmark-search').addEventListener('keydown',event=>{if(event.key==='Enter'&&$('bookmark-list').querySelector('[data-bookmark][aria-selected=true]')?.closest('.bookmark-row')?.querySelector('.bookmark-remove')){event.preventDefault();event.stopImmediatePropagation();}},true);
 })();

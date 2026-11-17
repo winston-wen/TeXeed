@@ -59,7 +59,7 @@ public partial class AiPanel
 
     private void AddBranchMenu(MarkdownView view, ContextMenu menu)
     {
-        var branch = new MenuItem { Header = "从所选内容追问" };
+        var branch = new MenuItem { Header = "开辟新会话" };
         menu.Opened += (_, _) => branch.IsEnabled = _operation is null && AnswerTurn(view) is not null && view.HasBookmarkSelection;
         branch.Click += async (_, _) =>
         {

@@ -92,6 +92,21 @@ internal static partial class Program
                     await CheckAiFormViewportAsync(window, output);
                     await CloseAndObserveAsync(window, "AI form viewport"); result = 0; return;
                 }
+                if (args.Contains("--ai-annotation-drag-only"))
+                {
+                    await CheckAiAnnotationDragAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI annotation drag"); result = 0; return;
+                }
+                if (args.Contains("--ai-annotation-delete-only"))
+                {
+                    await CheckAiAnnotationDeleteAsync(window);
+                    await CloseAndObserveAsync(window, "AI annotation delete"); result = 0; return;
+                }
+                if (args.Contains("--ai-table-viewport-only"))
+                {
+                    await CheckAiTableViewportAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI table viewport"); result = 0; return;
+                }
                 if (args.Contains("--ai-long-form-viewport-only"))
                 {
                     await CheckLongFormViewportAsync(window, output);

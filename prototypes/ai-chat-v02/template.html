@@ -138,6 +138,9 @@ h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .answer strong,.question strong,.sent-summary strong,.snapshot-scroll strong { font-weight:inherit; color:var(--answer-emphasis) }
 .same-turn-link { display:inline; margin:0 .2em; padding:0; border:0; border-radius:0; background:none; color:var(--accent); font:inherit; user-select:none }
 .same-turn-link:hover { background:none; text-decoration:underline }
+.branch-origin-view { margin:0; font:var(--reading-font)/var(--reading-line) var(--serif); color:var(--ink) }
+.branch-origin-view button { display:block; margin:0 0 12px; padding:0; color:var(--accent); font:inherit }
+.branch-origin-view button:hover { background:none; text-decoration:underline }
 .passage blockquote,.rich-text blockquote { border-left:2px solid var(--accent); padding:2px 0 2px 14px; margin:12px 0 16px; color:#d7cabe }
 .passage hr { height:0; border:0; border-top:1px solid var(--line); margin:18px 0 }
 .rich-text { line-height:var(--reading-line) }
@@ -261,7 +264,9 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .popup-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
 .popup-footer button { background:var(--panel); border:1px solid var(--line); font-size:13px }
 .anchor-state { font-size:11px; color:var(--muted); font-weight:normal }
-.annotation-header { display:flex; gap:4px; align-items:flex-start; margin-bottom:10px }
+.annotation-header { position:relative; display:flex; gap:4px; align-items:flex-start; margin-bottom:10px }
+.annotation-header[data-draggable=true] { cursor:move; touch-action:none; user-select:none }
+.annotation-delete-hint { position:absolute; z-index:2; top:100%; right:0; padding:4px 7px; border:1px solid var(--guide); background:var(--panel); color:var(--ink); font:12px/1.4 var(--sans); white-space:nowrap; pointer-events:none }
 .annotation-header .popup-title { flex:1; min-width:0; margin:0; align-self:center }
 .annotation-header .icon-button { width:28px; height:28px; flex:none; padding:5px }
 .annotation-header #send-annotation { width:auto; padding:5px 7px; display:inline-flex; gap:4px; white-space:nowrap }
@@ -425,9 +430,9 @@ dialog textarea { width:100%; height:220px }
 </main>
 <div class="menu" id="ai-menu" role="menu" hidden><button id="ai-new" role="menuitem">AI 对话</button><button id="ai-settings" role="menuitem">AI 设置</button><button id="ai-recent" role="menuitem" aria-haspopup="menu" aria-expanded="false">AI 历史 ›</button></div><div class="menu" id="ai-history-menu" role="menu" hidden></div>
 <div class="menu" id="options" hidden><button data-option="add">添加圈点说明</button><button data-option="all">全选圈点</button><button data-option="clear">清理已完成圈点</button><hr><button data-option="refresh">刷新模型</button><button data-option="settings">AI 设置</button></div>
-<div class="menu" id="answer-menu" hidden><button id="annotate">批注所选内容</button><button id="bookmark-selection">为所选内容添加标签</button><span id="bookmark-unavailable" class="menu-note" hidden></span><button id="copy-selection">复制</button><button id="copy-answer">复制这段回答</button></div>
+<div class="menu" id="answer-menu" hidden><button id="annotate">批注到当前会话</button><button id="quote-current">引用到当前会话</button><button id="branch-conversation">开辟新会话</button><button id="bookmark-selection">添加标签</button><span id="bookmark-unavailable" class="menu-note" hidden></span><button id="copy-selection">复制所选</button><button id="copy-answer">复制所在段落</button></div>
 <dialog id="bookmark-dialog" aria-label="添加标签"><form id="bookmark-form"><label for="bookmark-name">标签名称</label><input id="bookmark-name" maxlength="120" autocomplete="off"><div class="row"><button type="button" id="bookmark-cancel">取消</button><button type="submit" id="bookmark-save">添加</button></div></form></dialog>
-<section class="popup" id="annotation-editor" role="dialog" aria-label="原位批注" hidden><div class="annotation-header"><div class="popup-title" id="annotation-title"></div><button id="delete-annotation" class="icon-button" aria-label="双击删除此条批注" title="双击删除此条批注"><svg class="icon" viewBox="0 0 20 20"><path d="M3 5H17M7 5V2H13V5M5 5L6 18H14L15 5M8 8V15M12 8V15"/></svg></button><button id="send-annotation" class="icon-button" aria-label="保存并关闭浮窗" title="保存并关闭浮窗&#10;Ctrl+Enter"><svg class="icon" aria-hidden="true" viewBox="0 0 20 20"><path d="M3 10L8 15L17 5"/></svg><span>完成</span></button></div><textarea id="annotation-input" aria-label="原位批注内容"></textarea></section>
+<section class="popup" id="annotation-editor" role="dialog" aria-label="原位批注" hidden><div class="annotation-header"><div class="popup-title" id="annotation-title"></div><button id="delete-annotation" class="icon-button" aria-label="双击删除此条批注" title="双击删除此条批注"><svg class="icon" viewBox="0 0 20 20"><path d="M3 5H17M7 5V2H13V5M5 5L6 18H14L15 5M8 8V15M12 8V15"/></svg></button><span id="annotation-delete-hint" class="annotation-delete-hint" role="status" hidden>再点一下删除</span><button id="send-annotation" class="icon-button" aria-label="保存并关闭浮窗" title="保存并关闭浮窗&#10;Ctrl+Enter"><svg class="icon" aria-hidden="true" viewBox="0 0 20 20"><path d="M3 10L8 15L17 5"/></svg><span>完成</span></button></div><textarea id="annotation-input" aria-label="原位批注内容"></textarea></section>
 
 <dialog id="entries-dialog" aria-label="本次圈点编辑"><div class="row"><h2>本次圈点</h2><span class="spacer"></span><button id="close-entries">完成</button></div><p class="muted">发送快照保存后即移出编辑区；停止或失败也可从历史查看原文。</p><div class="entries-scroll" id="entries"></div></dialog>
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>

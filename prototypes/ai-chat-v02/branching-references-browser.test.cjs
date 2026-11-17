@@ -19,15 +19,29 @@ const artifact = name => path.join(__dirname, '../../artifacts', name);
     const select = async locator => {
       await locator.scrollIntoViewIfNeeded();
       await locator.evaluate(e => { let n = e.firstChild; const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, Math.min(n.length, 10)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); e.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); });
-      await page.locator('#selection-quote').click();
+      await page.locator('#selection-annotate').click();
     };
-    const rightQuote = async locator => { await locator.scrollIntoViewIfNeeded(); await locator.click({ button: 'right' }); await page.locator('#context-quote').click(); };
+    const rightQuote = async locator => { await locator.scrollIntoViewIfNeeded(); await locator.click({ button: 'right' }); await page.locator('#context-annotate').click(); };
     const closeRef = async comment => { if (comment) await page.locator('#reference-comment').fill(comment); await page.locator('#reference-confirm').click(); };
     const pasteFile = async (selector, name, type, data) => page.locator(selector).evaluate((element, args) => {
       const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array(args.data)], args.name, { type: args.type }));
       element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
     }, { name, type, data });
     const png = [...Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLrgwAAAABJRU5ErkJggg==', 'base64')];
+
+    const expectedMenu=['批注到当前会话','引用到当前会话','开辟新会话','添加标签','复制所选','复制所在段落'];
+    assert.deepEqual(await page.locator('#selection-tools button').allTextContents(),expectedMenu);
+    assert.deepEqual(await page.locator('#context-menu button').allTextContents(),expectedMenu);
+    await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>window.copied=value}}));
+    const first=page.locator('.passage').filter({hasText:'先看一个较简单的模型'}),second=page.locator('.passage').filter({hasText:'接下来可以考虑系数'});
+    await second.scrollIntoViewIfNeeded();
+    await page.evaluate(()=>{const nodes=[...document.querySelectorAll('.passage')],a=nodes.find(e=>e.textContent.includes('先看一个较简单的模型')),b=nodes.find(e=>e.textContent.includes('接下来可以考虑系数'));const walker=document.createTreeWalker(a,NodeFilter.SHOW_TEXT);const x=walker.nextNode();const walker2=document.createTreeWalker(b,NodeFilter.SHOW_TEXT);const y=walker2.nextNode();const range=document.createRange();range.setStart(x,0);range.setEnd(y,Math.min(3,y.length));getSelection().removeAllRanges();getSelection().addRange(range);b.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:300,clientY:250}));});
+    assert.equal(await page.locator('#context-menu button:visible').count(),6,'右键菜单六项可见');
+    if(process.env.TEXEED_BRANCH_MENU_SCREENSHOT)await page.screenshot({path:process.env.TEXEED_BRANCH_MENU_SCREENSHOT});
+    await page.locator('#context-copy-paragraph').click();assert.ok((await page.evaluate(()=>window.copied)).includes('接下来可以考虑系数'));assert.ok(!(await page.evaluate(()=>window.copied)).includes('先看一个较简单的模型'));
+    await first.scrollIntoViewIfNeeded();await first.click({button:'right'});await page.locator('#context-quote').click();assert.equal(await page.locator('#reference-editor').isVisible(),false);assert.equal((await session()).references.length,1);
+    await first.evaluate(e=>{const n=e.firstChild,r=document.createRange();r.setStart(n,0);r.setEnd(n,Math.min(n.length,10));getSelection().removeAllRanges();getSelection().addRange(r);e.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));});assert.equal(await page.locator('#selection-tools button:visible').count(),6,'选区菜单六项可见');
+    await page.evaluate(()=>branchDemo.reset());await wait(100);
 
     await page.locator('#composer').fill('主草稿完整保留');
     await select(page.locator('.passage').filter({ hasText: '先看一个较简单的模型' }));
@@ -71,6 +85,9 @@ const artifact = name => path.join(__dirname, '../../artifacts', name);
     await compat.close();
     console.log('PASS legacy pending quote migration');
 
+    await page.evaluate(() => branchDemo.reset()); await wait(100);
+    for(const [selector,label] of [['.formula','公式标签'],['.sample-image','图片标签']]){const target=page.locator(selector).first();await target.scrollIntoViewIfNeeded();await target.click({button:'right'});await page.locator('#context-bookmark').click();await page.locator('#bookmark-name').fill(label);await page.locator('#bookmark-save').click();assert.ok((await state()).bookmarks.some(item=>item.label===label));}
+    await page.reload();await wait(100);assert.ok((await state()).bookmarks.some(item=>item.label==='公式标签'));assert.ok((await state()).bookmarks.some(item=>item.label==='图片标签'));
     await page.evaluate(() => branchDemo.reset()); await wait(100);
     await page.locator('#composer').fill('保存失败时主草稿');
     await select(page.locator('.passage').filter({ hasText: '先看一个较简单的模型' }));

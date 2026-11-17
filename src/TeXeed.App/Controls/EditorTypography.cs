@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using TeXeed.App.Services;
 
 namespace TeXeed.App.Controls;
 
@@ -7,7 +8,8 @@ public static class EditorTypography
 {
     public const string FamilyName = "Sarasa Mono SC, Cascadia Code, Consolas, Microsoft YaHei";
     public static FontFamily DefaultFamily { get; } = new(FamilyName);
-    public static FontWeight DefaultWeight { get; } = FindLightWeight(Fonts.SystemFontFamilies);
+    private static readonly FontWeight DarkWeight = FindLightWeight(Fonts.SystemFontFamilies);
+    public static FontWeight DefaultWeight => ThemeManager.Current.IsDark ? DarkWeight : FontWeights.Normal;
 
     internal static FontWeight FindLightWeight(IEnumerable<FontFamily> families)
     {

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.IO;
 using TeXeed.App.Controls;
 using TeXeed.App.Services;
 using TeXeed.Core;
@@ -15,6 +16,8 @@ internal static partial class Program
         foreach (var theme in new[] { "ristretto", "github-light-default" })
         {
             ThemeManager.Apply(theme);
+            if (theme == "github-light-default" && EditorTypography.DefaultWeight != FontWeights.Normal)
+                throw new Exception("Light theme editor typography must use Regular");
             var textBox = new TextBox(); var richText = new RichTextBox(); var password = new PasswordBox(); var readOnly = new TextBox { IsReadOnly = true };
             var content = new StackPanel(); content.Children.Add(textBox); content.Children.Add(richText); content.Children.Add(password); content.Children.Add(readOnly);
             var testWindow = new Window { Content = content, Width = 200, Height = 150, ShowInTaskbar = false };
@@ -29,6 +32,21 @@ internal static partial class Program
             if (editor.FontFamily.Source != EditorTypography.FamilyName || editor.FontWeight != EditorTypography.DefaultWeight)
                 throw new Exception($"{theme} source editor does not use preferred editor typography");
         }
+        ThemeManager.Apply("ristretto");
+        var liveText = new TextBox { Text = "原有草稿 · 中文与 code 0123" };
+        var liveEditor = new LatexEditor { Text = "\\section{字体排版}\n中文与 code 0123" };
+        var customEditor = new LatexEditor { FontFamily = new FontFamily("Consolas") };
+        var livePanel = new StackPanel(); livePanel.Children.Add(liveText); livePanel.Children.Add(liveEditor); livePanel.Children.Add(customEditor);
+        var liveWindow = new Window { Content = livePanel, Width = 400, Height = 300, ShowInTaskbar = false };
+        liveWindow.Show(); liveWindow.UpdateLayout();
+        ThemeManager.Apply("github-light-default"); liveWindow.UpdateLayout();
+        if (liveText.FontWeight != FontWeights.Normal || liveEditor.FontWeight != FontWeights.Normal || customEditor.FontWeight != FontWeights.Normal || liveText.Text != "原有草稿 · 中文与 code 0123")
+            throw new Exception("Live theme change did not update input/editor weights or preserve the draft");
+        Directory.CreateDirectory("artifacts"); Capture(liveWindow, Path.Combine("artifacts", "light-editor-regular.png"));
+        ThemeManager.Apply("ristretto"); liveWindow.UpdateLayout();
+        if (liveText.FontWeight != EditorTypography.DefaultWeight || liveEditor.FontWeight != EditorTypography.DefaultWeight || customEditor.FontWeight != FontWeights.Normal)
+            throw new Exception("Dark theme or custom editor typography changed incorrectly");
+        liveWindow.Close();
         ThemeManager.UseDefault();
     }
 }

@@ -6,6 +6,30 @@ namespace TeXeed.App.Controls;
 
 public sealed partial class MarkdownView
 {
+    private (MarkdownView View, Paragraph Paragraph)? _contextParagraph;
+
+    internal void CaptureContextParagraph(Point point)
+    {
+        var target = this;
+        foreach (var table in _tableViews)
+        {
+            var origin = table.Scroll.TranslatePoint(new Point(), this);
+            if (new Rect(origin, table.Scroll.RenderSize).Contains(point)) { target = table.View; break; }
+        }
+        var local = ReferenceEquals(target, this) ? point : TranslatePoint(point, target);
+        var paragraph = target.GetPositionFromPoint(local, true)?.Paragraph;
+        _contextParagraph = paragraph is null ? null : (target, paragraph);
+    }
+
+    internal bool HasContextParagraph => _contextParagraph is { } context &&
+        context.Paragraph.ContentStart.IsInSameDocument(context.View.Document.ContentStart);
+
+    internal void CopyContextParagraph()
+    {
+        if (HasContextParagraph && _contextParagraph is { } context)
+            context.View.CopyToClipboard(context.Paragraph.ContentStart, context.Paragraph.ContentEnd);
+    }
+
     internal DataObject ClipboardData(TextPointer start, TextPointer end) =>
         new(DataFormats.UnicodeText, CopyForClipboard(start, end));
 

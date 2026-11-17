@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Media;
+using TeXeed.App.Controls;
 
 namespace TeXeed.App.Services;
 
@@ -73,6 +74,7 @@ public static class ThemeManager
     {
         Current = theme;
         var resources = Application.Current.Resources;
+        resources["EditorInputFontWeight"] = EditorTypography.DefaultWeight;
         foreach (var key in theme.Colors.Keys) resources[key] = Brush(key);
         resources["ScrollThumbIdleOpacity"] = theme.IsDark ? .35 : .82;
         resources["ScrollThumbHoverOpacity"] = theme.IsDark ? .55 : .70;
