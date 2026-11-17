@@ -1,0 +1,286 @@
+{
+  "hasMulti": true,
+  "fixture": "120 paragraphs, 1200x800 WPF, two warmups, seven samples, paired empty ApplicationIdle; preview excludes asynchronous raster completion",
+  "samples": [
+    {
+      "label": "source-switch",
+      "rawMs": 58.08,
+      "idleMs": 0.0445,
+      "correctedMs": 58.0355,
+      "rawBytes": 4172544,
+      "idleBytes": 2232,
+      "correctedBytes": 4170312,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 53.5399,
+      "idleMs": 0.0756,
+      "correctedMs": 53.4643,
+      "rawBytes": 4780280,
+      "idleBytes": 2232,
+      "correctedBytes": 4778048,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 33.2338,
+      "idleMs": 0.0417,
+      "correctedMs": 33.1921,
+      "rawBytes": 4178688,
+      "idleBytes": 2232,
+      "correctedBytes": 4176456,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 52.5161,
+      "idleMs": 0.0425,
+      "correctedMs": 52.473600000000005,
+      "rawBytes": 4763304,
+      "idleBytes": 2232,
+      "correctedBytes": 4761072,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 33.179,
+      "idleMs": 0.0743,
+      "correctedMs": 33.1047,
+      "rawBytes": 4154640,
+      "idleBytes": 2232,
+      "correctedBytes": 4152408,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 29.8453,
+      "idleMs": 0.0355,
+      "correctedMs": 29.809800000000003,
+      "rawBytes": 4761848,
+      "idleBytes": 2232,
+      "correctedBytes": 4759616,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 25.4944,
+      "idleMs": 0.04,
+      "correctedMs": 25.4544,
+      "rawBytes": 4172264,
+      "idleBytes": 2232,
+      "correctedBytes": 4170032,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 3.3271,
+      "idleMs": 0.0396,
+      "correctedMs": 3.2875,
+      "rawBytes": 101512,
+      "idleBytes": 2232,
+      "correctedBytes": 99280,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 3.2364,
+      "idleMs": 0.046,
+      "correctedMs": 3.1904000000000003,
+      "rawBytes": 102408,
+      "idleBytes": 2232,
+      "correctedBytes": 100176,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 6.7297,
+      "idleMs": 0.046,
+      "correctedMs": 6.6837,
+      "rawBytes": 101512,
+      "idleBytes": 2232,
+      "correctedBytes": 99280,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 3.6365,
+      "idleMs": 0.0323,
+      "correctedMs": 3.6041999999999996,
+      "rawBytes": 102240,
+      "idleBytes": 2232,
+      "correctedBytes": 100008,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 3.3812,
+      "idleMs": 0.0314,
+      "correctedMs": 3.3498,
+      "rawBytes": 101512,
+      "idleBytes": 2232,
+      "correctedBytes": 99280,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 4.1585,
+      "idleMs": 0.0366,
+      "correctedMs": 4.1219,
+      "rawBytes": 92992,
+      "idleBytes": 2232,
+      "correctedBytes": 90760,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 3.1837,
+      "idleMs": 0.0655,
+      "correctedMs": 3.1182,
+      "rawBytes": 92200,
+      "idleBytes": 2232,
+      "correctedBytes": 89968,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-split",
+      "rawMs": 71.165,
+      "idleMs": 0.0841,
+      "correctedMs": 71.0809,
+      "rawBytes": 4723320,
+      "idleBytes": 2496,
+      "correctedBytes": 4720824,
+      "visibleControls": 62
+    },
+    {
+      "label": "preview-merge",
+      "rawMs": 60.0168,
+      "idleMs": 0.0536,
+      "correctedMs": 59.9632,
+      "rawBytes": 7288072,
+      "idleBytes": 2496,
+      "correctedBytes": 7285576,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-split",
+      "rawMs": 72.8129,
+      "idleMs": 0.0616,
+      "correctedMs": 72.7513,
+      "rawBytes": 4728408,
+      "idleBytes": 2496,
+      "correctedBytes": 4725912,
+      "visibleControls": 62
+    },
+    {
+      "label": "preview-merge",
+      "rawMs": 77.3524,
+      "idleMs": 0.0535,
+      "correctedMs": 77.2989,
+      "rawBytes": 7287632,
+      "idleBytes": 2496,
+      "correctedBytes": 7285136,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-split",
+      "rawMs": 61.8779,
+      "idleMs": 0.0548,
+      "correctedMs": 61.8231,
+      "rawBytes": 4722672,
+      "idleBytes": 2496,
+      "correctedBytes": 4720176,
+      "visibleControls": 62
+    },
+    {
+      "label": "preview-merge",
+      "rawMs": 64.5808,
+      "idleMs": 0.087,
+      "correctedMs": 64.4938,
+      "rawBytes": 7262352,
+      "idleBytes": 2496,
+      "correctedBytes": 7259856,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-split",
+      "rawMs": 50.4088,
+      "idleMs": 0.0464,
+      "correctedMs": 50.3624,
+      "rawBytes": 4738104,
+      "idleBytes": 2496,
+      "correctedBytes": 4735608,
+      "visibleControls": 62
+    },
+    {
+      "label": "preview-merge",
+      "rawMs": 64.2733,
+      "idleMs": 0.0457,
+      "correctedMs": 64.22760000000001,
+      "rawBytes": 7262232,
+      "idleBytes": 2496,
+      "correctedBytes": 7259736,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-split",
+      "rawMs": 48.2125,
+      "idleMs": 0.0432,
+      "correctedMs": 48.1693,
+      "rawBytes": 4718512,
+      "idleBytes": 2496,
+      "correctedBytes": 4716016,
+      "visibleControls": 62
+    },
+    {
+      "label": "preview-merge",
+      "rawMs": 76.2203,
+      "idleMs": 0.0452,
+      "correctedMs": 76.1751,
+      "rawBytes": 7279016,
+      "idleBytes": 2496,
+      "correctedBytes": 7276520,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-split",
+      "rawMs": 59.8538,
+      "idleMs": 0.0966,
+      "correctedMs": 59.7572,
+      "rawBytes": 4721520,
+      "idleBytes": 2496,
+      "correctedBytes": 4719024,
+      "visibleControls": 62
+    },
+    {
+      "label": "preview-merge",
+      "rawMs": 84.0213,
+      "idleMs": 0.0532,
+      "correctedMs": 83.96809999999999,
+      "rawBytes": 7261472,
+      "idleBytes": 2496,
+      "correctedBytes": 7258976,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-split",
+      "rawMs": 61.8659,
+      "idleMs": 1.5107,
+      "correctedMs": 60.3552,
+      "rawBytes": 4739176,
+      "idleBytes": 2496,
+      "correctedBytes": 4736680,
+      "visibleControls": 62
+    },
+    {
+      "label": "preview-merge",
+      "rawMs": 63.6624,
+      "idleMs": 0.0826,
+      "correctedMs": 63.5798,
+      "rawBytes": 7261368,
+      "idleBytes": 2496,
+      "correctedBytes": 7258872,
+      "visibleControls": 50
+    }
+  ]
+}

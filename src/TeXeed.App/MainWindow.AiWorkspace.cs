@@ -15,7 +15,7 @@ public partial class MainWindow
     private readonly HashSet<string> _closingAi = [];
     private readonly HashSet<Task> _aiCloseTasks = [];
     private readonly HashSet<string> _deletingAi = [];
-    private AiAnnotationLayer? _pdfAnnotations;
+    private AiAnnotationLayer? _pdfAnnotations => _pdfAnnotationLayers.GetValueOrDefault(Preview);
     private AiPanel CreateAiPanel()
     {
         var panel = new AiPanel(_aiConnection, _aiSettings);
@@ -55,7 +55,7 @@ public partial class MainWindow
     }
     private void RefreshAiAnnotations()
     {
-        _pdfAnnotations?.Refresh();
+        foreach (var layer in _pdfAnnotationLayers.Values) layer.Refresh();
         foreach (var layer in _sourceAnnotations.Values) layer.Refresh();
     }
     private AiPanel EnsureAiPanel(string id)
@@ -235,7 +235,7 @@ public partial class MainWindow
     private AiConversation? AiConversationForKey(string key) => _aiStore?.Book.Conversations.FirstOrDefault(c=>TabWorkspace.AiConversationKey(c.Id)==key);
     private void AiStoreChanged()
     {
-        foreach(var side in new[]{TabSide.Left,TabSide.Right}) UpdateTabStrip(side);
+        foreach(var side in new[]{TabSide.Left,TabSide.Right}.Concat(_workspaceTabs.ExtraGroups)) UpdateTabStrip(side);
         if (_aiHistory?.IsVisible==true) _aiHistory.RefreshExternal();
     }
     private void UpdateTabStrip(TabSide side) => GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(key=>new EditorTab(key,

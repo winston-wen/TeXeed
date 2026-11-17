@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException)
         { ThemeManager.UseDefault(); _settings = _settings with { ThemeId = ThemeManager.DefaultId }; }
         InitializeComponent();
+        RegisterName("Preview", InitialPreview);
         InitializeWelcome();
         InitializeTitleBar();
         InitializeFullscreen();
@@ -57,9 +58,12 @@ public partial class MainWindow : Window
         UpdateWorkspaceIcons();
         WindowTheme.Attach(this);
         LiveMenuItem.IsChecked = _settings.LivePreview;
-        Preview.InvertColors = _settings.InvertPdfColors;
-        Preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
-        Preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
+        foreach (var preview in ExistingPreviews)
+        {
+            preview.InvertColors = _settings.InvertPdfColors;
+            preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
+            preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
+        }
         foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); sourceEditor.FontWeight = EditorTypography.WeightFor(_settings.EditorFontFamily); }
         ApplyWordWrap();
         _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
@@ -91,21 +95,7 @@ public partial class MainWindow : Window
         };
         owner.VisibleRangeChanged += (_, _) => { if (!_updatingWorkspace && ReferenceEquals(owner, Editor)) { OutlineTree.HighlightViewport(Editor.VisibleSourceRange); BookmarkTree.HighlightViewport(Editor.VisibleSourceRange); } };
         }
-        Preview.ViewInteracted += (_, _) =>
-        {
-            _pendingPreviewPosition = null;
-            LeftEditor.SuppressPendingViewportFollow(); RightEditor.SuppressPendingViewportFollow();
-            CancelPendingNavigation();
-        };
-        Preview.UserScrollRequested += (_, _) => _previewScrollSequence = ++_userNavigationSequence;
-        Preview.UserScrolled += (_, _) =>
-        {
-            if (_previewScrollSequence != _userNavigationSequence) return;
-            _previewUserOwnsView = true; CancelPendingNavigation();
-        };
-        Preview.IsVisibleChanged += (_, _) => { if (Preview.IsVisible) QueueRestorePendingPreviewPosition(); };
-        Preview.InverseRequested += async (_, location) => await InverseAsync(location);
-        Preview.StatusChanged += (_, status) => PdfStatus.Text = status;
+        ConfigurePreview(InitialPreview, null, InitialPdfStatus);
         UpdateRecent();
         Loaded += async (_, _) =>
         {
@@ -160,6 +150,7 @@ public partial class MainWindow : Window
             _externalChangePending = false; _assetChangePending = false;
             await InitializeAiProjectAsync(project.MainPath);
             SetAiMarking(false);
+            DisposeAdditionalPreviews();
             _previewWarning = false; _project = project; _entryPreviews.Clear(); _restoredPreviewEntry = null; _activePreviewEntry = project.MainPath; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
             ResetDirectoryCatalog();
             _sidebarIndex = preparedIndex; _outlineIndex = null;
@@ -169,7 +160,7 @@ public partial class MainWindow : Window
             LogText.Text = ""; DiagnosticsList.ItemsSource = null; LogExpander.IsExpanded = false;
             PdfStatus.Text = "等待首次编译";
             var main = project.Files.First(f => string.Equals(f.Path, project.MainPath, StringComparison.OrdinalIgnoreCase));
-            _workspaceTabs.Reset(main.Path); _activeEditor = LeftEditor;
+            ResetPreviewDocks(); _workspaceTabs.Reset(main.Path); _activeEditor = LeftEditor;
             _pendingPreviewPosition = null;
             if (!await RestoreReadingHistoryAsync(ProjectReadingStore.Load(project.MainPath)))
             { ActivateFile(main.Path); RefreshIndex(); }
@@ -189,7 +180,7 @@ public partial class MainWindow : Window
                     var cacheCurrent = cached.IsCurrent && await initialInputs.IsCurrentAsync(_projects);
                     var dependencyVersion = initialInputs.ChangeVersion;
                     if (cacheCurrent) PrepareSync(cached.PdfPath);
-                    await Preview.LoadAsync(cached.PdfPath);
+                    await LoadActivePreviewAsync(cached.PdfPath);
                     RestorePendingPreviewPosition();
                     _pdfPath = cached.PdfPath;
                     _previewProject = previewProject;
@@ -391,7 +382,7 @@ public partial class MainWindow : Window
                 if (cached is { IsCurrent: true } && await inputs.IsCurrentAsync(_projects, cancellationToken))
                 {
                     var dependencyVersion = inputs.ChangeVersion;
-                    if (_pdfPath != cached.PdfPath) { _pdfGeneration++; await Preview.LoadAsync(cached.PdfPath); RestorePendingPreviewPosition(); }
+                    if (_pdfPath != cached.PdfPath) { _pdfGeneration++; await LoadActivePreviewAsync(cached.PdfPath); RestorePendingPreviewPosition(); }
                     if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
                     var cacheCurrent = dependencyVersion == inputs.ChangeVersion && revision == _revision && _changes.Count == 0;
                     _pdfPath = cached.PdfPath; _pdfRevision = cacheCurrent ? revision : -1; _previewProject = project; _previewInputs = inputs;
@@ -418,7 +409,7 @@ public partial class MainWindow : Window
                 var dependencyVersion = inputs.ChangeVersion;
                 _pdfGeneration++; _pdfRevision = -1;
                 PrepareSync(result.PdfPath);
-                await Preview.LoadAsync(result.PdfPath);
+                await LoadActivePreviewAsync(result.PdfPath);
                 RestorePendingPreviewPosition();
                 if (session != _session || epoch != _buildEpoch || _transitioning || _closing) return;
                 _lastCompileDependenciesCurrent &= dependencyVersion == inputs.ChangeVersion;
@@ -444,6 +435,7 @@ public partial class MainWindow : Window
             var explicitAgain = _buildAgainExplicit;
             _buildAgain = false; _buildAgainExplicit = false; _activeBuildRevision = -1; _activeBuildSettings = null;
             _compileTask = null; _activeCompileInputs = null; _building = false; CancelBuildMenuItem.IsEnabled = false;
+            await CompleteQueuedBuildPreviewAsync();
             if (again && !_closing && !_transitioning && (explicitAgain || _settings.LivePreview))
                 ScheduleBuildAt(explicitAgain ? Environment.TickCount64 : _liveBuildDueAt, explicitAgain);
             QueueExternalRefresh();
@@ -793,9 +785,12 @@ public partial class MainWindow : Window
         if (_project is not null) { _project = _project with { ConfiguredName = dialog.ProjectName }; RefreshTabs(); }
         _settings = dialog.Settings; PersistSettings(); LiveMenuItem.IsChecked = _settings.LivePreview;
         foreach (var sourceEditor in Editors) { sourceEditor.FontSize = _settings.FontSize; sourceEditor.FontFamily = new FontFamily(_settings.EditorFontFamily); sourceEditor.FontWeight = EditorTypography.WeightFor(_settings.EditorFontFamily); }
-        Preview.InvertColors = _settings.InvertPdfColors;
-        Preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
-        Preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
+        foreach (var preview in ExistingPreviews)
+        {
+            preview.InvertColors = _settings.InvertPdfColors;
+            preview.SetCropOptions(_settings.AutoCropPdf, _settings.CompressPdfWhitespace);
+            preview.AutoWidthMaximumCm = _settings.AutoWidthMaximumCm;
+        }
         CancelPendingNavigation();
         QueueFollowSync();
         _liveTimer.Stop(); _liveTimer.Interval = TimeSpan.FromMilliseconds(_settings.DebounceMs);
@@ -863,7 +858,7 @@ public partial class MainWindow : Window
             await StopAiWorkspaceAsync(); await _aiSettings.StopAsync(); _aiSettings.Dispose(); _aiConnection.Dispose();
             _allowClose = true; _session++; _compiler.Cancel(); _watcher?.Dispose();
             ResetDirectoryCatalog();
-            _liveTimer.Stop(); _indexTimer.Stop(); _syncTimer.Stop(); _watchTimer.Stop(); Preview.Dispose(); Close();
+            _liveTimer.Stop(); _indexTimer.Stop(); _syncTimer.Stop(); _watchTimer.Stop(); DisposeAdditionalPreviews(); InitialPreview.Dispose(); Close();
         }
         catch (Exception ex) { Error(ex); }
         finally

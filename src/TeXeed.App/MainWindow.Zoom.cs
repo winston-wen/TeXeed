@@ -19,8 +19,11 @@ public partial class MainWindow
         if (_settings.FollowMode != options.Follow) { _previewUserOwnsView = false; _userNavigationSequence++; }
         _settings = _settings with { FollowMode = options.Follow, InvertPdfColors = options.Invert, AutoCropPdf = options.Crop,
             CompressPdfWhitespace = options.CompressWhitespace, AutoWidthMaximumCm = options.MaximumWidthCm };
-        Preview.InvertColors = options.Invert; Preview.SetCropOptions(options.Crop, options.CompressWhitespace);
-        Preview.AutoWidthMaximumCm = options.MaximumWidthCm;
+        foreach (var preview in ExistingPreviews)
+        {
+            preview.InvertColors = options.Invert; preview.SetCropOptions(options.Crop, options.CompressWhitespace);
+            preview.AutoWidthMaximumCm = options.MaximumWidthCm;
+        }
         if (options.AutoWidth) Preview.FitWidth(); else Preview.SetZoom(options.Zoom);
         UpdatePendingPreviewZoom();
         PersistSettings(); QueueFollowSync();

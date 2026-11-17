@@ -3,7 +3,7 @@ namespace TeXeed.Core;
 public enum TabSide { Left, Right }
 public enum TabCloseRange { This, All, Others, Before, After }
 
-/// <summary>Two optional tab groups with a protected primary preview.</summary>
+/// <summary>Workspace tab groups with a protected primary preview.</summary>
 public sealed class TabWorkspace
 {
     public const string AiSettingsKey = "@texeed:ai-settings";
@@ -23,27 +23,43 @@ public sealed class TabWorkspace
     public static bool IsSource(string key) => !IsPreview(key) && !IsAiConversation(key) && !IsAiRelations(key) && key != AiSettingsKey && key != AiHistoryKey;
     private List<string> _left = [], _right = [PreviewKey];
     private string? _leftActive, _rightActive = PreviewKey;
+    private readonly Dictionary<TabSide, List<string>> _extra = [];
+    private readonly Dictionary<TabSide, string?> _extraActive = [];
+    private int _nextGroup = 2;
+    public IEnumerable<TabSide> ExtraGroups => _extra.Keys;
+    public TabSide AddGroup()
+    {
+        var side = (TabSide)_nextGroup++;
+        _extra.Add(side, []); _extraActive.Add(side, null); return side;
+    }
+    public void RemoveGroup(TabSide side)
+    {
+        if (!_extra.TryGetValue(side, out var tabs) || tabs.Count != 0) return;
+        _extra.Remove(side); _extraActive.Remove(side);
+        if (FocusedSide == side) FocusedSide = Has(TabSide.Left) ? TabSide.Left : TabSide.Right;
+    }
     public TabSide FocusedSide { get; private set; } = TabSide.Left;
-    public IReadOnlyList<string> Tabs(TabSide side) => side == TabSide.Left ? _left : _right;
-    public string? Active(TabSide side) => side == TabSide.Left ? _leftActive : _rightActive;
+    public IReadOnlyList<string> Tabs(TabSide side) => List(side);
+    public string? Active(TabSide side) => side == TabSide.Left ? _leftActive : side == TabSide.Right ? _rightActive : _extraActive.GetValueOrDefault(side);
     public string? FocusedTab => Active(FocusedSide);
     public bool Has(TabSide side) => Tabs(side).Count != 0;
-    public IEnumerable<string> Sources => _left.Concat(_right).Where(IsSource);
-    private List<string> List(TabSide side) => side == TabSide.Left ? _left : _right;
+    public IEnumerable<string> Sources => _left.Concat(_right).Concat(_extra.Values.SelectMany(items => items)).Where(IsSource);
+    private List<string> List(TabSide side) => side == TabSide.Left ? _left : side == TabSide.Right ? _right : _extra[side];
     public TabSide? Owner(string key) => _left.Contains(key, StringComparer.OrdinalIgnoreCase) ? TabSide.Left
-        : _right.Contains(key, StringComparer.OrdinalIgnoreCase) ? TabSide.Right : null;
-    private void SetActive(TabSide side, string? key) { if (side == TabSide.Left) _leftActive = key; else _rightActive = key; }
+        : _right.Contains(key, StringComparer.OrdinalIgnoreCase) ? TabSide.Right : _extra.Where(pair => pair.Value.Contains(key, StringComparer.OrdinalIgnoreCase)).Select(pair => (TabSide?)pair.Key).FirstOrDefault();
+    private void SetActive(TabSide side, string? key) { if (side == TabSide.Left) _leftActive = key; else if (side == TabSide.Right) _rightActive = key; else _extraActive[side] = key; }
     public void Reset(string main)
-    { _left = [main]; _right = [PreviewKey]; _leftActive = main; _rightActive = PreviewKey; FocusedSide = TabSide.Left; }
+    { _left = [main]; _right = [PreviewKey]; _extra.Clear(); _extraActive.Clear(); _nextGroup = 2; _leftActive = main; _rightActive = PreviewKey; FocusedSide = TabSide.Left; }
     public void Restore(IEnumerable<string> left, IEnumerable<string> right, string? leftActive, string? rightActive, TabSide focused)
     {
+        _extra.Clear(); _extraActive.Clear(); _nextGroup = 2;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _left = left.Where(seen.Add).ToList();
         _right = right.Where(seen.Add).ToList();
         if (!seen.Contains(PreviewKey)) _right.Add(PreviewKey);
         _leftActive = _left.FirstOrDefault(item => string.Equals(item, leftActive, StringComparison.OrdinalIgnoreCase)) ?? _left.FirstOrDefault();
         _rightActive = _right.FirstOrDefault(item => string.Equals(item, rightActive, StringComparison.OrdinalIgnoreCase)) ?? _right.FirstOrDefault();
-        FocusedSide = Has(focused) ? focused : Has(TabSide.Left) ? TabSide.Left : TabSide.Right;
+        FocusedSide = focused is TabSide.Left or TabSide.Right && Has(focused) ? focused : Has(TabSide.Left) ? TabSide.Left : TabSide.Right;
     }
     public void Open(string path)
     {
@@ -55,7 +71,7 @@ public sealed class TabWorkspace
     public void RenameSource(string previous, string next)
     {
         if (!IsSource(previous) || !IsSource(next)) throw new ArgumentException("Only source tabs can be renamed.");
-        foreach (var side in new[] { TabSide.Left, TabSide.Right })
+        foreach (var side in new[] { TabSide.Left, TabSide.Right }.Concat(ExtraGroups))
         {
             var tabs = List(side);
             for (var i = 0; i < tabs.Count; i++) if (tabs[i].Equals(previous, StringComparison.OrdinalIgnoreCase)) tabs[i] = next;
@@ -66,7 +82,7 @@ public sealed class TabWorkspace
     {
         var oldKey = PreviewKeyFor(previous); var newKey = PreviewKeyFor(next);
         if (Owner(oldKey) is null || Owner(newKey) is not null && !oldKey.Equals(newKey, StringComparison.OrdinalIgnoreCase)) return;
-        foreach (var side in new[] { TabSide.Left, TabSide.Right })
+        foreach (var side in new[] { TabSide.Left, TabSide.Right }.Concat(ExtraGroups))
         {
             var tabs = List(side);
             for (var i = 0; i < tabs.Count; i++) if (tabs[i].Equals(oldKey, StringComparison.OrdinalIgnoreCase)) tabs[i] = newKey;
@@ -108,7 +124,7 @@ public sealed class TabWorkspace
         tabs.RemoveAll(item => close.Contains(item));
         if (tabs.Count == 0) SetActive(side, null);
         else if (Active(side) is null || close.Contains(Active(side)!)) SetActive(side, tabs[Math.Clamp(activeIndex, 0, tabs.Count - 1)]);
-        if (!Has(FocusedSide)) FocusedSide = side == TabSide.Left ? TabSide.Right : TabSide.Left;
+        if (!Has(FocusedSide)) FocusedSide = Has(TabSide.Left) ? TabSide.Left : Has(TabSide.Right) ? TabSide.Right : _extra.Keys.FirstOrDefault(Has);
         return close.ToArray();
     }
 }

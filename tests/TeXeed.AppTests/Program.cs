@@ -46,6 +46,7 @@ internal static partial class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
         var window = new MainWindow { Width = 1440, Height = 900, WindowStartupLocation = WindowStartupLocation.Manual, Left = 30, Top = 30 };
+        if (args.Contains("--preview-dock-sim-only") || args.Contains("--multi-main-offscreen")) { window.Left = -3000; window.Top = -3000; window.ShowActivated = false; }
         app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
         window.Loaded += async (_, _) =>
         {
@@ -138,6 +139,11 @@ internal static partial class Program
                 if (args.Contains("--multi-main-only"))
                 {
                     await CheckMultiMainAsync(window, root, output);
+                    result = 0; return;
+                }
+                if (args.Contains("--preview-dock-drag-only") || args.Contains("--preview-dock-sim-only"))
+                {
+                    await CheckPreviewDockDragAsync(window, root, output, !args.Contains("--preview-dock-sim-only"));
                     result = 0; return;
                 }
                 if (args.Contains("--ai-live-layout-only"))

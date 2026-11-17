@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 using TeXeed.App.Controls;
@@ -17,6 +18,9 @@ public partial class MainWindow
     {
         if (_project is null) return;
         CaptureEntryPreview();
+        foreach (var pair in _entryPreviews)
+            if (!string.Equals(pair.Key, _activePreviewEntry, StringComparison.OrdinalIgnoreCase) && pair.Value.View is { } view && view.CaptureReadingPosition() is { } position)
+                pair.Value.Position = position;
         var editorPositions = new Dictionary<string, EditorReadingPosition>(StringComparer.OrdinalIgnoreCase);
         foreach (var editor in Editors)
             foreach (var pair in editor.CaptureReadingPositions()) editorPositions[pair.Key] = pair.Value;
@@ -27,6 +31,8 @@ public partial class MainWindow
         {
             LeftTabs = _workspaceTabs.Tabs(TabSide.Left).ToArray(), RightTabs = _workspaceTabs.Tabs(TabSide.Right).ToArray(),
             LeftActive = _workspaceTabs.Active(TabSide.Left), RightActive = _workspaceTabs.Active(TabSide.Right), FocusedSide = _workspaceTabs.FocusedSide,
+            PreviewDocks = CapturePreviewDocks(),
+            ActivePreviewEntry = _activePreviewEntry,
             Editors = editorPositions, Preview = EntryState(_project.MainPath).Position,
             PreviewPositions = _entryPreviews.Where(p => p.Value.Position is not null).ToDictionary(p => p.Key, p => p.Value.Position!, StringComparer.OrdinalIgnoreCase),
             MainEntries = _entryPreviews.Keys.Append(_project.MainPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
@@ -100,11 +106,6 @@ public partial class MainWindow
         }
         var left = (state.LeftTabs ?? []).Where(key => key is not null && Valid(key)).Take(200).ToArray();
         var right = (state.RightTabs ?? []).Where(key => key is not null && Valid(key)).Take(200).ToArray();
-        if (left.Any(TabWorkspace.IsPreview) && right.Any(TabWorkspace.IsPreview))
-        {
-            right = right.Concat(left.Where(TabWorkspace.IsPreview)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            left = left.Where(key => !TabWorkspace.IsPreview(key)).ToArray();
-        }
         if (left.Concat(right).Contains(TabWorkspace.AiHistoryKey)) OpenAiHistory();
         foreach (var (path, position) in state.Editors ?? [])
         {
@@ -113,6 +114,28 @@ public partial class MainWindow
             if (file is not null) SourceEditor(left.Contains(path, StringComparer.OrdinalIgnoreCase) ? TabSide.Left : TabSide.Right).RestoreReadingPosition(file, position);
         }
         _workspaceTabs.Restore(left, right, state.LeftActive, state.RightActive, state.FocusedSide);
+        PreviewDock? focusedDock = null;
+        var restoredTabs = new HashSet<string>(left.Concat(right), StringComparer.OrdinalIgnoreCase);
+        foreach (var saved in (state.PreviewDocks ?? []).Take(100))
+        {
+            if (saved is null) continue;
+            if (!Enum.TryParse<Dock>(saved.Edge, out var edge) || !Enum.IsDefined(edge)) continue;
+            var tabs = (saved.Tabs ?? []).Where(key => key is not null && TabWorkspace.IsPreview(key) && Valid(key) && restoredTabs.Add(key)).ToArray();
+            if (tabs.Length == 0) continue;
+            var dock = AddPreviewDock(edge, double.IsFinite(saved.Share) ? saved.Share : .5);
+            if (saved.Focused) focusedDock = dock;
+            foreach (var key in tabs)
+            {
+                if (_workspaceTabs.Owner(key) is null) _workspaceTabs.Open(key);
+                _workspaceTabs.Move(key, dock.Side);
+            }
+            if (saved.Active is not null) _workspaceTabs.Select(dock.Side, saved.Active);
+        }
+        RebuildPreviewDocks();
+        if (state.LeftActive is not null && _workspaceTabs.Owner(state.LeftActive) == TabSide.Left) _workspaceTabs.Select(TabSide.Left, state.LeftActive);
+        if (state.RightActive is not null && _workspaceTabs.Owner(state.RightActive) == TabSide.Right) _workspaceTabs.Select(TabSide.Right, state.RightActive);
+        if (focusedDock is not null) _workspaceTabs.Focus(focusedDock.Side);
+        else if (state.FocusedSide is TabSide.Left or TabSide.Right) _workspaceTabs.Focus(state.FocusedSide);
         _splitLeftWidth = new GridLength(ValidWidth(state.LeftWidth, 1), GridUnitType.Star);
         _splitRightWidth = new GridLength(ValidWidth(state.RightWidth, 1), GridUnitType.Star);
         Workspace.ColumnDefinitions[2].Width = _splitLeftWidth; Workspace.ColumnDefinitions[4].Width = _splitRightWidth;
@@ -124,8 +147,15 @@ public partial class MainWindow
         if (_workspaceExpanded) SidebarColumn.Width = new GridLength(_expandedWorkspaceWidth);
         RestoreWindowBounds(state);
         _pendingPreviewPosition = state.PreviewPositions is not null && state.PreviewPositions.TryGetValue(_project.MainPath, out var mainPosition) ? mainPosition : state.Preview;
-        _restoredPreviewEntry = new[] { state.LeftActive, state.RightActive }.Where(key => key is not null && TabWorkspace.IsPreview(key))
-            .Select(key => PreviewEntryForKey(key!)).FirstOrDefault(path => path is not null && !path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase));
+        var rememberedEntry = state.ActivePreviewEntry;
+        if (rememberedEntry is not null && (rememberedEntry.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase) || _entryPreviews.ContainsKey(rememberedEntry))
+            && _workspaceTabs.Owner(PreviewKeyForEntry(rememberedEntry)) is not null)
+            _restoredPreviewEntry = rememberedEntry.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase) ? null : rememberedEntry;
+        else
+            _restoredPreviewEntry = new[] { _workspaceTabs.FocusedTab, state.LeftActive, state.RightActive }
+                .Concat(_previewDocks.Select(d => _workspaceTabs.Active(d.Side)))
+                .Where(key => key is not null && TabWorkspace.IsPreview(key))
+                .Select(key => PreviewEntryForKey(key!)).FirstOrDefault(path => path is not null && !path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase));
         _followAwaitingSourceInteraction = _pendingPreviewPosition is not null;
         RefreshWorkspaceViews(); RefreshIndex();
         return true;
@@ -164,7 +194,11 @@ public partial class MainWindow
     {
         if (_pendingPreviewPosition is not { } position || !Preview.IsVisible) return;
         UpdateLayout();
-        if (Preview.RestoreReadingPosition(position)) _pendingPreviewPosition = null;
+        if (Preview.RestoreReadingPosition(position))
+        {
+            _pendingPreviewPosition = null;
+            if (_activePreviewEntry is { } entry) EntryState(entry).PositionPending = false;
+        }
     }
 
     private void QueueRestorePendingPreviewPosition() => Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(RestorePendingPreviewPosition));

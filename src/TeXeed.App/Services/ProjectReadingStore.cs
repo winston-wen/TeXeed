@@ -7,6 +7,15 @@ using TeXeed.Core;
 
 namespace TeXeed.App.Services;
 
+internal sealed record PreviewDockState
+{
+    public string Edge { get; init; } = "Right";
+    public double Share { get; init; } = .5;
+    public string[] Tabs { get; init; } = [];
+    public string? Active { get; init; }
+    public bool Focused { get; init; }
+}
+
 internal sealed record ProjectReadingState
 {
     public int Version { get; init; } = 1;
@@ -15,6 +24,8 @@ internal sealed record ProjectReadingState
     public string? LeftActive { get; init; }
     public string? RightActive { get; init; }
     public TabSide FocusedSide { get; init; }
+    public PreviewDockState[] PreviewDocks { get; init; } = [];
+    public string? ActivePreviewEntry { get; init; }
     public Dictionary<string, EditorReadingPosition> Editors { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public PdfReadingPosition? Preview { get; init; }
     public Dictionary<string, PdfReadingPosition> PreviewPositions { get; init; } = new(StringComparer.OrdinalIgnoreCase);

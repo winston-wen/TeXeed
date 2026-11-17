@@ -1,0 +1,30 @@
+[
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\preview-split-performance\\after-run\\TeXeed.dll",
+    "Hash": "9FE424876AE505A7A36442662ADF2A581841E624F01E5B1BB980C9245A2575A7"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\src\\TeXeed.App\\MainWindow.PreviewDocks.cs",
+    "Hash": "D2BE1F7CE90105FE8F738FCBE30BEA78B9B01F60B892A830BEEB327284A68EEF"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\src\\TeXeed.App\\MainWindow.Entries.cs",
+    "Hash": "0C594846AFF52B3DF39636161605AC3E6D0F6F375A72B18AB57EF9406EBD5F48"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\src\\TeXeed.App\\MainWindow.Tabs.cs",
+    "Hash": "3FA050A7FB6958BAB60F4350AC54F22D2A52D26506E9F0296444D482D3D34976"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\src\\TeXeed.App\\MainWindow.ReadingHistory.cs",
+    "Hash": "221C1CB995CD3070F60136234107E95BAFE78421B81EDC951181D2D1CE529BAD"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\src\\TeXeed.Core\\TabWorkspace.cs",
+    "Hash": "796A94B384B8F7FF1BF192D0B2EDAFD940869731AFBAEDA92FAFD7F4AC866030"
+  },
+  {
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\preview-split-20261117\\fixture.cs.txt",
+    "Hash": "3960CA3D5F2221F55966E80841D8C384612FFA09616D4B4CE7566655A5D4D672"
+  }
+]

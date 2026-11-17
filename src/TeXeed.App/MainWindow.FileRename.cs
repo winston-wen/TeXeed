@@ -93,7 +93,8 @@ public partial class MainWindow
                 foreach (var conversation in _aiStore.Book.Conversations)
                     foreach (var entry in conversation.Entries)
                         entry.Sources = entry.Sources.Select(source => source.File.Replace('\\', '/').Equals(Path.GetRelativePath(root, previous).Replace('\\', '/'), StringComparison.OrdinalIgnoreCase) ? source with { File = Path.GetRelativePath(root, next) } : source).ToList();
-            foreach (var layer in _sourceAnnotations.Values) layer.CloseEditor(); _pdfAnnotations?.CloseEditor();
+            foreach (var layer in _sourceAnnotations.Values) layer.CloseEditor();
+            foreach (var layer in _pdfAnnotationLayers.Values) layer.CloseEditor();
             _revision++; _pdfRevision = -1; _previewProject = null; CancelPendingNavigation();
             _priorityFiles = _priorityFiles.Select(path => path.Equals(previous, StringComparison.OrdinalIgnoreCase) ? next : path).ToArray();
             try { await Task.Run(() => ProjectExplorerSettings.Save(root, _priorityFiles)); }

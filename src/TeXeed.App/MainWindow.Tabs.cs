@@ -19,7 +19,7 @@ public partial class MainWindow
     private Grid SourceView(TabSide side) => side == TabSide.Left ? LeftSourceView : RightSourceView;
     private Grid GroupBody(TabSide side) => side == TabSide.Left ? LeftGroupBody : RightGroupBody;
     private Grid GroupPane(TabSide side) => side == TabSide.Left ? EditorPane : PreviewPane;
-    private EditorTabStrip GroupStrip(TabSide side) => side == TabSide.Left ? FileTabs : RightFileTabs;
+    private EditorTabStrip GroupStrip(TabSide side) => side == TabSide.Left ? FileTabs : side == TabSide.Right ? RightFileTabs : PreviewDockStrip(side)!;
     private IEnumerable<LatexEditor> Editors => new[] { LeftEditor, RightEditor };
     private void InitializeTabs()
     {
@@ -27,14 +27,7 @@ public partial class MainWindow
         foreach (var side in new[] { TabSide.Left, TabSide.Right })
         {
             var strip = GroupStrip(side); var editor = SourceEditor(side);
-            strip.Selected += key => SelectWorkspaceTab(side, key);
-            strip.RenameRequested += ShowAiConversationRename;
-            strip.CloseRequested += CloseTabs;
-            strip.ReorderRequested += (key, target) => MoveTab(key, target);
-            strip.SettingsRequested += OpenPreviewSettings;
-            strip.DockDragMoved = UpdateDockDrag;
-            strip.DockDropped += DropWorkspaceTab;
-            strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
+            InitializeTabStrip(strip, side);
             GroupPane(side).PreviewMouseDown += (_, _) => { if (!_updatingWorkspace) _workspaceTabs.Focus(side); };
             editor.GotKeyboardFocus += (_, _) => SetActiveSource(editor);
             editor.PreviewMouseDown += (_, _) => ResumeFollowFromSource(editor);
@@ -42,6 +35,22 @@ public partial class MainWindow
             editor.PreviewMouseWheel += (_, _) => ResumeFollowFromSource(editor);
         }
         LogToggle.Click += (_, _) => MoveLogTo(TabSide.Left);
+    }
+    private void InitializeTabStrip(EditorTabStrip strip, TabSide side)
+    {
+        strip.Selected += key => SelectWorkspaceTab(side, key);
+        strip.RenameRequested += ShowAiConversationRename;
+        strip.CloseRequested += CloseTabs;
+        strip.ReorderRequested += (key, target) => MoveTab(key, target);
+        strip.SettingsRequested += async () =>
+        {
+            var key = _workspaceTabs.Active(side);
+            if (key is not null && TabWorkspace.IsPreview(key) && PreviewEntryForKey(key) is { } entry && !await SelectEntryPreviewAsync(entry)) return;
+            OpenPreviewSettings();
+        };
+        strip.DockDragMoved = UpdateDockDrag;
+        strip.DockDropped += DropWorkspaceTab;
+        strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
     }
     private void ResumeFollowFromSource(LatexEditor editor)
     {
@@ -79,8 +88,10 @@ public partial class MainWindow
     private async void SelectWorkspaceTab(TabSide side, string key)
     {
         if (_transitioning || _closing) return;
-        if (_switchingEntryPreview) { Status("正在切换预览，请稍候。"); return; }
+        if (!TabWorkspace.IsPreview(key)) CancelQueuedBuildPreview();
+        if (_switchingEntryPreview && !TabWorkspace.IsPreview(key)) { Status("正在切换预览，请稍候。"); return; }
         if (TabWorkspace.IsPreview(key) && PreviewEntryForKey(key) is { } entry && !await SelectEntryPreviewAsync(entry)) return;
+        if (_workspaceTabs.Owner(key) != side) return;
         _workspaceTabs.Select(side, key);
         if (AiConversationForKey(key) is { } selectedAi && _aiPanels.TryGetValue(selectedAi.Id,out var selectedPanel)) SetAiTarget(selectedPanel);
         RefreshWorkspaceViews();
@@ -106,10 +117,11 @@ public partial class MainWindow
             }
         }
         var closed = _workspaceTabs.Close(path, range);
+        ReleaseClosedPreviewViews(closed);
         foreach (var key in closed.Where(TabWorkspace.IsAiRelations)) RemoveAiRelations(key);
         foreach (var editor in Editors)
             if (editor.CurrentFilePath is { } current && closed.Contains(current, StringComparer.OrdinalIgnoreCase)) editor.CloseView();
-        RefreshTabs();
+        RemoveEmptyPreviewDocks(); RefreshTabs();
         var aiClose = CloseAiPanelsAsync(closed); _aiCloseTasks.Add(aiClose);
         try
         {
@@ -141,23 +153,26 @@ public partial class MainWindow
         try
         {
             if (split) _workspaceTabs.Split(key, side); else _workspaceTabs.Move(key, side, index);
-            if (TabWorkspace.IsPreview(key))
-            {
-                var previews = _workspaceTabs.Tabs(TabSide.Left).Concat(_workspaceTabs.Tabs(TabSide.Right)).Where(TabWorkspace.IsPreview).ToArray();
-                foreach (var preview in previews.Where(item => _workspaceTabs.Owner(item) != side)) _workspaceTabs.Move(preview, side);
-                _workspaceTabs.Select(side, key);
-            }
             foreach (var (path, oldSide) in before)
                 if (_workspaceTabs.Owner(path) is { } newSide && oldSide != newSide) SourceEditor(oldSide).TransferSessionTo(SourceEditor(newSide), path);
         }
         finally { _updatingWorkspace = false; }
         if (TabWorkspace.IsSource(key)) _activeEditor = SourceEditor(side);
-        RefreshTabs();
+        RemoveEmptyPreviewDocks(); RefreshTabs();
         if (TabWorkspace.IsSource(key)) SourceEditor(side).TextArea.Focus();
+        else if (TabWorkspace.IsPreview(key)) ActivateMovedPreviewIfNeeded(side, key);
+    }
+    private void ActivateMovedPreviewIfNeeded(TabSide side, string key)
+    {
+        if (_entryPreviewSwitch is { IsCompleted: false } ||
+            !string.Equals(_activePreviewEntry, PreviewEntryForKey(key), StringComparison.OrdinalIgnoreCase))
+            SelectWorkspaceTab(side, key);
     }
     private void RefreshWorkspaceViews()
     {
         if (_updatingWorkspace) return;
+        if (_previewDocks.Count > 0 && (Workspace.Parent is null) == (_workspaceTabs.Has(TabSide.Left) || _workspaceTabs.Has(TabSide.Right)))
+            RebuildPreviewDocks();
         _updatingWorkspace = true;
         try
         {
@@ -201,11 +216,7 @@ public partial class MainWindow
                     if (_aiPanel.Settings.Parent is Panel oldSettings && oldSettings != GroupBody(side)) oldSettings.Children.Remove(_aiPanel.Settings);
                     if (_aiPanel.Settings.Parent is null) GroupBody(side).Children.Add(_aiPanel.Settings);
                 }
-                if (active is not null && TabWorkspace.IsPreview(active) && string.Equals(PreviewEntryForKey(active), _activePreviewEntry, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (PreviewContent.Parent is Panel old && old != GroupBody(side)) { old.Children.Remove(PreviewContent); GroupBody(side).Children.Add(PreviewContent); }
-                    PreviewContent.Visibility = Visibility.Visible;
-                }
+                if (active is not null && TabWorkspace.IsPreview(active) && PreviewEntryForKey(active) is not null) AttachPreviewContainer(active, GroupBody(side));
                 if (active == TabWorkspace.AiHistoryKey && _aiHistory is not null)
                 {
                     if (_aiHistory.Parent is Panel oldHistory && oldHistory != GroupBody(side)) oldHistory.Children.Remove(_aiHistory);
@@ -228,9 +239,14 @@ public partial class MainWindow
             if(_aiHistory is not null) _aiHistory.Visibility=_workspaceTabs.Owner(TabWorkspace.AiHistoryKey) is { } historySide && _workspaceTabs.Active(historySide)==TabWorkspace.AiHistoryKey ? Visibility.Visible : Visibility.Collapsed;
             foreach (var (key, relations) in _aiRelationViews)
                 relations.Visibility = _workspaceTabs.Owner(key) is { } relationsSide && _workspaceTabs.Active(relationsSide) == key ? Visibility.Visible : Visibility.Collapsed;
-            var activePreviewKey = _activePreviewEntry is null ? TabWorkspace.PreviewKey : PreviewKeyForEntry(_activePreviewEntry);
-            var previewSide = _workspaceTabs.Owner(activePreviewKey);
-            PreviewContent.Visibility = previewSide is { } ps && _workspaceTabs.Active(ps) == activePreviewKey ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var group in _previewDocks)
+            {
+                var active = _workspaceTabs.Active(group.Side);
+                if (active is not null && TabWorkspace.IsPreview(active) && PreviewEntryForKey(active) is not null) AttachPreviewContainer(active, group.Body);
+                UpdateTabStrip(group.Side);
+            }
+            RefreshPreviewContainers(new[] { TabSide.Left, TabSide.Right }.Concat(_workspaceTabs.ExtraGroups)
+                .Select(_workspaceTabs.Active).Where(key => key is not null && TabWorkspace.IsPreview(key)).Select(key => key!));
             _wasSplit = split;
             PreviewSplitter.Visibility = split ? Visibility.Visible : Visibility.Collapsed;
             Workspace.ColumnDefinitions[3].Width = new GridLength(split ? 2 : 0);
@@ -244,27 +260,41 @@ public partial class MainWindow
         OutlineTree.MarkCaret(Editor.CurrentLocation); BookmarkTree.MarkCaret(Editor.CurrentLocation);
         OutlineTree.HighlightViewport(Editor.IsVisible ? Editor.VisibleSourceRange : null); BookmarkTree.HighlightViewport(Editor.IsVisible ? Editor.VisibleSourceRange : null);
     }
-    private (TabSide Side, bool Split, Rect Bounds)? DockTarget(Point screen)
+    private (TabSide Side, bool Split, Rect Bounds, Dock? Edge)? DockTarget(string key, Point screen)
     {
         var point = DockDropOverlay.PointFromScreen(screen);
         if (point.Y < 0 || point.Y > DockDropOverlay.ActualHeight || point.X < 0 || point.X > DockDropOverlay.ActualWidth) return null;
+        var onlyOneBaseGroup = _previewDocks.Count == 0 && (!_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right));
+        if (TabWorkspace.IsPreview(key) && (point.X < 52 || point.X > DockDropOverlay.ActualWidth - 52 || point.Y < 52 || point.Y > DockDropOverlay.ActualHeight - 52))
+        {
+            var distances = new[] { (Dock.Left, point.X), (Dock.Right, DockDropOverlay.ActualWidth - point.X), (Dock.Top, point.Y), (Dock.Bottom, DockDropOverlay.ActualHeight - point.Y) };
+            var edge = distances.OrderBy(item => item.Item2).First().Item1;
+            var w = DockDropOverlay.ActualWidth; var h = DockDropOverlay.ActualHeight;
+            var bounds = edge switch { Dock.Left => new Rect(0, 0, w / 2, h), Dock.Right => new Rect(w / 2, 0, w / 2, h), Dock.Top => new Rect(0, 0, w, h / 2), _ => new Rect(0, h / 2, w, h / 2) };
+            if (!onlyOneBaseGroup || edge is Dock.Top or Dock.Bottom) return (default, true, bounds, edge);
+        }
         var single = !_workspaceTabs.Has(TabSide.Left) || !_workspaceTabs.Has(TabSide.Right);
         if (single && (point.X < 52 || point.X > DockDropOverlay.ActualWidth - 52))
         {
             var left = point.X < 52;
-            return (left ? TabSide.Left : TabSide.Right, true, new Rect(left ? 0 : DockDropOverlay.ActualWidth / 2, 0, DockDropOverlay.ActualWidth / 2, DockDropOverlay.ActualHeight));
+            return (left ? TabSide.Left : TabSide.Right, true, new Rect(left ? 0 : DockDropOverlay.ActualWidth / 2, 0, DockDropOverlay.ActualWidth / 2, DockDropOverlay.ActualHeight), null);
         }
         foreach (var side in new[] { TabSide.Left, TabSide.Right })
         {
             if (!_workspaceTabs.Has(side)) continue;
             var pane = GroupPane(side); var bounds = pane.TransformToVisual(DockDropOverlay).TransformBounds(new Rect(pane.RenderSize));
-            if (bounds.Contains(point)) return (side, false, bounds);
+            if (bounds.Contains(point)) return (side, false, bounds, null);
+        }
+        foreach (var group in _previewDocks)
+        {
+            var bounds = group.Pane.TransformToVisual(DockDropOverlay).TransformBounds(new Rect(group.Pane.RenderSize));
+            if (bounds.Contains(point) && TabWorkspace.IsPreview(key)) return (group.Side, false, bounds, null);
         }
         return null;
     }
     private bool UpdateDockDrag(string key, Point screen)
     {
-        var target = DockTarget(screen);
+        var target = DockTarget(key, screen);
         if (target is null || !target.Value.Split && target.Value.Side == _workspaceTabs.Owner(key)) { DockDropCue.Visibility = Visibility.Collapsed; return false; }
         var box = target.Value.Bounds;
         Canvas.SetLeft(DockDropCue, box.X + 3); Canvas.SetTop(DockDropCue, box.Y + 3);
@@ -274,8 +304,9 @@ public partial class MainWindow
     private void DropWorkspaceTab(string key, Point screen)
     {
         DockDropCue.Visibility = Visibility.Collapsed;
-        if (DockTarget(screen) is not { } target || !target.Split && target.Side == _workspaceTabs.Owner(key)) return;
-        var strip = GroupStrip(target.Side);
+        if (DockTarget(key, screen) is not { } target || !target.Split && target.Side == _workspaceTabs.Owner(key)) return;
+        if (target.Edge is { } edge) { CreatePreviewDock(key, edge); return; }
+        var strip = PreviewDockStrip(target.Side) ?? GroupStrip(target.Side);
         var point = strip.IsVisible ? strip.PointFromScreen(screen) : new Point();
         var index = strip.IsVisible && point.Y <= strip.ActualHeight ? strip.InsertionIndex(screen) : int.MaxValue;
         MoveWorkspaceTab(key, target.Side, index, target.Split);

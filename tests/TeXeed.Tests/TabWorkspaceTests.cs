@@ -49,6 +49,20 @@ public static class TabWorkspaceTests
         Check.True(tabs.Owner(extra) is null && tabs.Owner(movedPreview) == TabSide.Right);
         tabs.Close(movedPreview, TabCloseRange.This);
         Check.True(tabs.Owner(movedPreview) is null && tabs.Owner(TabWorkspace.PreviewKey) is not null);
+        var groups = new TabWorkspace(); groups.Reset("main.tex"); groups.Open(extra);
+        var firstDock = groups.AddGroup(); var secondDock = groups.AddGroup();
+        groups.Move(extra, firstDock); groups.Move(TabWorkspace.PreviewKey, secondDock);
+        Check.True(groups.Owner(extra) == firstDock && groups.Owner(TabWorkspace.PreviewKey) == secondDock && groups.Has(TabSide.Left));
+        groups.Move(extra, secondDock, 0);
+        Check.True(!groups.Has(firstDock) && groups.Tabs(secondDock).SequenceEqual(new[] { extra, TabWorkspace.PreviewKey }));
+        groups.RemoveGroup(firstDock);
+        Check.True(!groups.ExtraGroups.Contains(firstDock));
+        groups.RenamePreviewEntry("other.tex", "renamed.tex");
+        Check.True(groups.Owner(movedPreview) == secondDock);
+        groups.Close(movedPreview, TabCloseRange.This);
+        Check.True(groups.Owner(movedPreview) is null && groups.Owner(TabWorkspace.PreviewKey) == secondDock);
+        groups.Reset("next.tex");
+        Check.True(!groups.ExtraGroups.Any() && groups.Owner(TabWorkspace.PreviewKey) == TabSide.Right);
         Console.WriteLine("PASS: source-left defaults, protected singleton preview, reorder/move/rename, edge splitting, empty-pane collapse and scoped bulk close");
     }
 }

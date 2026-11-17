@@ -61,10 +61,14 @@ internal static partial class Program
         Check(string.Equals((string?)Field(window, "_pdfPath"), aPdf, StringComparison.OrdinalIgnoreCase), "Switching to the first preview showed the wrong PDF");
         Check(((PdfPreview)window.FindName("Preview")).PageCount == 1, "First preview should still show its own one-page PDF");
         Check(((TextBlock)window.FindName("StatusText")).Text.Contains("main.tex") && ((TextBlock)window.FindName("StatusText")).Text.Contains("过期"), "Preview status described a different entry or hid the stale state");
+        var firstPreview = (PdfPreview)window.FindName("Preview");
+        Check(!ReferenceEquals(preview, firstPreview), "Independent main files reused a single PDF view");
+        preview = firstPreview;
         preview.SetZoom(1.1); await WaitForPreviewRenderedAsync(window);
         Capture(window, Path.Combine(output, "multi-main-a.png"));
         Invoke(window, "SelectWorkspaceTab", TabSide.Right, TabWorkspace.PreviewKeyFor(b));
         await WaitUntilAsync(() => string.Equals((string?)Field(window, "_activePreviewEntry"), b, StringComparison.OrdinalIgnoreCase) && !(bool)Field(window, "_switchingEntryPreview")!, "Could not switch back to the second PDF");
+        preview = (PdfPreview)window.FindName("Preview");
         Check(string.Equals((string?)Field(window, "_pdfPath"), bPdf, StringComparison.OrdinalIgnoreCase), "Switching back showed the wrong PDF");
         await WaitUntilAsync(() => Field(window, "_pendingPreviewPosition") is null, "Second preview position did not restore");
         Check(preview.VisiblePage == bPage && Math.Abs(preview.Zoom - bZoom) < .01, "Second preview lost its own page or zoom");
@@ -83,9 +87,15 @@ internal static partial class Program
         await WaitForPreviewRenderedAsync(window);
         Capture(window, Path.Combine(output, "multi-main.png"));
         Console.WriteLine("multi-main: preview switching verified");
+        await CheckMultiPreviewInteractionsAsync(window, a, b);
+        aPdf = (string?)Field(Invoke(window, "EntryState", a)!, "Pdf");
+        var aBeforeClose = (PdfPreview)Field(Invoke(window, "EntryState", a)!, "View")!;
+        var bBeforeClose = (PdfPreview)Field(Invoke(window, "EntryState", b)!, "View")!;
         await CloseAndObserveAsync(window, "multi-main project close");
+        Check((bool)Field(aBeforeClose, "_disposed")! && (bool)Field(bBeforeClose, "_disposed")!, "Closing the project left PDF instances alive");
         Console.WriteLine("multi-main: original window closed");
         var reopened = new MainWindow(a) { Width = 1100, Height = 800, Left = 80, Top = 80, WindowStartupLocation = WindowStartupLocation.Manual };
+        if (Environment.GetCommandLineArgs().Contains("--multi-main-offscreen")) { reopened.Left = -3000; reopened.Top = -3000; reopened.ShowActivated = false; }
         reopened.Show();
         Console.WriteLine("multi-main: reopening window");
         await WaitUntilAsync(() => Field(reopened, "_project") is TexProject && !(bool)Field(reopened, "_transitioning")!, "Project did not reopen");
@@ -100,6 +110,7 @@ internal static partial class Program
         Check(reopenedPreview.VisiblePage == bPage && Math.Abs(reopenedPreview.Zoom - bZoom) < .01, "Restart lost the second PDF page or zoom");
         Invoke(reopened, "SelectWorkspaceTab", TabSide.Right, TabWorkspace.PreviewKey);
         await WaitUntilAsync(() => string.Equals((string?)Field(reopened, "_activePreviewEntry"), a, StringComparison.OrdinalIgnoreCase) && !(bool)Field(reopened, "_switchingEntryPreview")!, "Restart did not restore first preview");
+        reopenedPreview = (PdfPreview)reopened.FindName("Preview");
         Check(string.Equals((string?)Field(reopened, "_pdfPath"), aPdf, StringComparison.OrdinalIgnoreCase) && ((PdfPreview)reopened.FindName("Preview")).PageCount == 1, "Restart restored the wrong first PDF cache");
         await WaitUntilAsync(() => Field(reopened, "_pendingPreviewPosition") is null, "Restart did not restore first PDF position");
         Check(Math.Abs(reopenedPreview.Zoom - 1.1) < .01, "Restart lost the first PDF zoom");
@@ -113,6 +124,13 @@ internal static partial class Program
             && string.Equals((string?)Field(reopened, "_activePreviewEntry"), renamed, StringComparison.OrdinalIgnoreCase), "Renaming a main file did not retarget its preview tab");
         var restoredAi = (AiPanel)Field(reopened, "_aiPanel")!;
         Check(((TextBox)restoredAi.FindName("Composer")).Text == "待发送的 AI 草稿", "Restart lost the AI draft");
+        var previousSecondView = (PdfPreview)Field(Invoke(reopened, "EntryState", renamed)!, "View")!;
+        var otherFolder = Path.Combine(output, "other-preview-project"); Directory.CreateDirectory(otherFolder);
+        var otherMain = Path.Combine(otherFolder, "other.tex");
+        File.WriteAllText(otherMain, "\\documentclass{article}\n\\begin{document}Another project.\\end{document}\n");
+        await CallAsync(reopened, "OpenAsync", otherMain);
+        Check(((TexProject)Field(reopened, "_project")!).MainPath == otherMain && (bool)Field(previousSecondView, "_disposed")!,
+            "Switching projects did not release the old additional PDF view");
         await CloseAndObserveAsync(reopened, "reopened multi-main project");
         Console.WriteLine($"PASS: {checks} multi-entry checks for independent PDFs, shared and private unsaved edits, preview switching, AI draft and restart restoration.");
     }

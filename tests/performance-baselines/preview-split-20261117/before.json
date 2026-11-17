@@ -1,0 +1,146 @@
+{
+  "hasMulti": true,
+  "fixture": "120 paragraphs, 1200x800 WPF, two warmups, seven samples, paired empty ApplicationIdle; preview excludes asynchronous raster completion",
+  "samples": [
+    {
+      "label": "source-switch",
+      "rawMs": 50.9028,
+      "idleMs": 0.0541,
+      "correctedMs": 50.8487,
+      "rawBytes": 4186680,
+      "idleBytes": 2232,
+      "correctedBytes": 4184448,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 71.9238,
+      "idleMs": 0.0804,
+      "correctedMs": 71.8434,
+      "rawBytes": 4744448,
+      "idleBytes": 2232,
+      "correctedBytes": 4742216,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 40.4428,
+      "idleMs": 0.0439,
+      "correctedMs": 40.3989,
+      "rawBytes": 4168264,
+      "idleBytes": 2232,
+      "correctedBytes": 4166032,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 58.8609,
+      "idleMs": 0.0661,
+      "correctedMs": 58.7948,
+      "rawBytes": 4757184,
+      "idleBytes": 2232,
+      "correctedBytes": 4754952,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 61.7833,
+      "idleMs": 0.0457,
+      "correctedMs": 61.7376,
+      "rawBytes": 4150264,
+      "idleBytes": 2232,
+      "correctedBytes": 4148032,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 61.8496,
+      "idleMs": 0.0978,
+      "correctedMs": 61.7518,
+      "rawBytes": 4736200,
+      "idleBytes": 2232,
+      "correctedBytes": 4733968,
+      "visibleControls": 50
+    },
+    {
+      "label": "source-switch",
+      "rawMs": 43.4564,
+      "idleMs": 0.7017,
+      "correctedMs": 42.7547,
+      "rawBytes": 4170040,
+      "idleBytes": 2232,
+      "correctedBytes": 4167808,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 26.6433,
+      "idleMs": 0.039,
+      "correctedMs": 26.6043,
+      "rawBytes": 156200,
+      "idleBytes": 2232,
+      "correctedBytes": 153968,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 29.4468,
+      "idleMs": 0.0516,
+      "correctedMs": 29.3952,
+      "rawBytes": 156632,
+      "idleBytes": 2232,
+      "correctedBytes": 154400,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 31.1791,
+      "idleMs": 0.0672,
+      "correctedMs": 31.1119,
+      "rawBytes": 146728,
+      "idleBytes": 2232,
+      "correctedBytes": 144496,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 35.3153,
+      "idleMs": 0.0515,
+      "correctedMs": 35.2638,
+      "rawBytes": 156632,
+      "idleBytes": 2232,
+      "correctedBytes": 154400,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 34.5192,
+      "idleMs": 0.0684,
+      "correctedMs": 34.4508,
+      "rawBytes": 156032,
+      "idleBytes": 2232,
+      "correctedBytes": 153800,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 50.5714,
+      "idleMs": 0.0602,
+      "correctedMs": 50.511199999999995,
+      "rawBytes": 156464,
+      "idleBytes": 2232,
+      "correctedBytes": 154232,
+      "visibleControls": 50
+    },
+    {
+      "label": "preview-switch",
+      "rawMs": 30.5924,
+      "idleMs": 0.0476,
+      "correctedMs": 30.544800000000002,
+      "rawBytes": 146728,
+      "idleBytes": 2232,
+      "correctedBytes": 144496,
+      "visibleControls": 50
+    }
+  ]
+}

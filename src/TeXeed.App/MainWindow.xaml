@@ -29,7 +29,9 @@
     </StackPanel>
    </Grid>
   </Border>
-  <Grid Grid.Row="1" x:Name="Workspace" Visibility="Collapsed">
+  <Grid Grid.Row="1" x:Name="DockHost">
+   <Grid x:Name="DockLayoutRoot">
+  <Grid x:Name="Workspace" Visibility="Collapsed">
    <Grid.ColumnDefinitions><ColumnDefinition x:Name="SidebarColumn" Width="294" MinWidth="242"/><ColumnDefinition x:Name="SidebarSplitterColumn" Width="2"/><ColumnDefinition Width="*" MinWidth="300"/><ColumnDefinition Width="2"/><ColumnDefinition Width="0.95*" MinWidth="300"/></Grid.ColumnDefinitions>
    <Grid x:Name="SidebarHost"><Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <Border x:Name="WorkspaceRail" PreviewMouseLeftButtonDown="Sidebar_BlankDoubleClick" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">     <UniformGrid x:Name="WorkspaceIconBar" Columns="1" Margin="3" VerticalAlignment="Top">
@@ -109,12 +111,14 @@
       </DockPanel></Border>
      </Grid>
      <Grid x:Name="PreviewContent" Background="{DynamicResource PreviewBackground}"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
-      <controls:PdfPreview x:Name="Preview"/>
-      <Border x:Name="PreviewStatusBar" Grid.Row="1" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><TextBlock x:Name="PdfStatus" Text="等待首次编译" Margin="12,0" Foreground="{DynamicResource Muted}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="右键双击或 Ctrl+左键返回源码；预览设置在标签齿轮中"/></Border>
+      <controls:PdfPreview x:Name="InitialPreview"/>
+      <Border x:Name="PreviewStatusBar" Grid.Row="1" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><TextBlock x:Name="InitialPdfStatus" Text="等待首次编译" Margin="12,0" Foreground="{DynamicResource Muted}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="右键双击或 Ctrl+左键返回源码；预览设置在标签齿轮中"/></Border>
      </Grid>
     </Grid>
    </Grid>
-   <Canvas x:Name="DockDropOverlay" Grid.Column="2" Grid.ColumnSpan="3" Panel.ZIndex="100" IsHitTestVisible="False"><Border x:Name="DockDropCue" Visibility="Collapsed" Background="{DynamicResource Accent}" Opacity="0.18" BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="4"/></Canvas>
+  </Grid>
+   </Grid>
+   <Canvas x:Name="DockDropOverlay" Panel.ZIndex="100" IsHitTestVisible="False"><Border x:Name="DockDropCue" Visibility="Collapsed" Background="{DynamicResource Accent}" Opacity="0.18" BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="4"/></Canvas>
   </Grid>
   <Grid Grid.Row="1" x:Name="Welcome" SizeChanged="Welcome_SizeChanged">
    <Grid.Resources>

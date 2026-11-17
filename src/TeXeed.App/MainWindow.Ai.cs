@@ -12,12 +12,11 @@ public partial class MainWindow
     private AiPanel _aiPanel = null!;
     private bool _aiMarking;
     private readonly Dictionary<LatexEditor, AiAnnotationLayer> _sourceAnnotations = [];
+    private readonly Dictionary<PdfPreview, AiAnnotationLayer> _pdfAnnotationLayers = [];
     private void InitializeAi()
     {
         _aiSettings = new AiSettingsPanel(_aiConnection); _aiPanel = CreateAiPanel();
-        _pdfAnnotations = new AiAnnotationLayer(Preview, () => _aiPanel.AnnotationEntries, Preview.AnnotationPosition, entry=>_aiPanel.RemoveAnnotation(entry), confirm: entry=>_aiPanel.ConfirmAnnotation(entry), commit: () => _aiPanel.SaveAnnotationChanges());
-        Preview.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) _pdfAnnotations.Edit(entry); };
-        Preview.AiMarkingChanged += (_, active) => SetAiMarking(active);
+        RegisterPdfAi(InitialPreview);
         foreach (var editor in Editors)
         {
             var annotations = new AiAnnotationLayer(editor, () => _aiPanel.AnnotationEntries,
@@ -39,6 +38,15 @@ public partial class MainWindow
             editor.ContextMenu = menu;
         }
     }
+    private void RegisterPdfAi(PdfPreview view)
+    {
+        var layer = new AiAnnotationLayer(view, () => _aiPanel.AnnotationEntries, view.AnnotationPosition, entry => _aiPanel.RemoveAnnotation(entry), confirm: entry => _aiPanel.ConfirmAnnotation(entry), commit: () => _aiPanel.SaveAnnotationChanges());
+        _pdfAnnotationLayers[view] = layer;
+        view.AiSelectionConfirmed += (_, entry) => { if (_aiPanel.AddEntry(entry, false)) layer.Edit(entry); };
+        view.AiMarkingChanged += (_, active) => { if (ReferenceEquals(view, Preview)) SetAiMarking(active); };
+    }
+    private void RemovePdfAi(PdfPreview view)
+    { if (_pdfAnnotationLayers.Remove(view, out var layer)) layer.Dispose(); }
     private void SetAiMarking(bool active)
     {
         if (active && (_project is null || _transitioning)) return;
