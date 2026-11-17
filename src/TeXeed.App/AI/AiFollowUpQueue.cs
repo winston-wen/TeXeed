@@ -132,6 +132,18 @@ internal sealed class AiFollowUpQueue
     internal bool MarkUnknown(IReadOnlyList<string> ids, string reason) => MarkProblem(ids, "unknown", reason);
     internal bool MarkFailed(IReadOnlyList<string> ids, string reason) => MarkProblem(ids, "failed", reason);
 
+    internal bool ResolveDispatch(string id, AiConversation conversation, string reason, out bool needsReview)
+    {
+        if (conversation.Id != _conversationId) throw new InvalidOperationException("不能把排队消息与其他会话匹配。");
+        needsReview = false;
+        var item = _data.Items.FirstOrDefault(i => i.Id == id && i.State == "dispatching");
+        if (item is null) return false;
+        if (item.Kind == "queue" && item.DispatchTurnId is { } turnId && conversation.Turns.Count(turn => turn.Id == turnId) == 1)
+            return Complete([id]);
+        needsReview = MarkUnknown([id], reason);
+        return needsReview;
+    }
+
     private bool MarkProblem(IReadOnlyList<string> ids, string state, string reason)
     {
         var items = FindExact(ids);
@@ -190,9 +202,24 @@ internal sealed class AiFollowUpQueue
         return true;
     }
 
-    internal bool RecoverWithoutActiveTurn()
+    internal bool RecoverWithoutActiveTurn(AiConversation? conversation = null)
     {
-        var changed = RecoverInterrupted();
+        var changed = false;
+        if (conversation is not null)
+        {
+            if (conversation.Id != _conversationId) throw new InvalidOperationException("不能把排队消息与其他会话匹配。");
+            var turns = conversation.Turns.Where(turn => !string.IsNullOrWhiteSpace(turn.Id)).GroupBy(turn => turn.Id, StringComparer.Ordinal)
+                .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single(), StringComparer.Ordinal);
+            var delivered = _data.Items.Where(item => item.Kind == "queue" && (item.State is "dispatching" or "unknown" or "failed")
+                && item.DispatchTurnId is not null && turns.ContainsKey(item.DispatchTurnId)).ToArray();
+            foreach (var item in delivered)
+            {
+                if (turns[item.DispatchTurnId!].IsIncomplete) Pause("上一轮未完成，排队已暂停。");
+                _data.Items.Remove(item);
+            }
+            changed = delivered.Length > 0;
+        }
+        changed |= RecoverInterrupted();
         foreach (var target in _data.Items.Where(i => i.Kind == "steer" && i.State == "pending")
                      .Select(i => i.TargetTurnId ?? "").Distinct(StringComparer.Ordinal).ToArray())
             changed |= MarkUnsubmittedSteers(target);

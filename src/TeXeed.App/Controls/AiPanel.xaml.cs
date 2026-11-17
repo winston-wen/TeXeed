@@ -179,7 +179,7 @@ public partial class AiPanel : UserControl, IDisposable
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；本轮已保留，可继续提问。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { _steering?.Close(); _steering = null; _followUpBuffer = null; operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; SteerButton.IsEnabled = false; QueueButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; Attachments.IsEnabled = true; UpdateRetryActions(); RefreshFollowUps(); } _operationDone = null; done.TrySetResult(); }
+        finally { _steering?.Close(); _steering = null; _followUpBuffer = null; _liveQueuedId = null; operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; SteerButton.IsEnabled = false; QueueButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; Attachments.IsEnabled = true; UpdateRetryActions(); RefreshFollowUps(); } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。问题已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());
@@ -387,7 +387,7 @@ public partial class AiPanel : UserControl, IDisposable
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             var buffer = new AiStreamBuffer();
-            var pendingTurn = AiForms.WithSubmissions(new AiTurn(question, "[本轮未完成]") { CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations }, submittedForms);
+            var pendingTurn = AiForms.WithSubmissions(new AiTurn(question, "[本轮未完成]") { Id = queued?.DispatchTurnId ?? Guid.NewGuid().ToString("N"), CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations }, submittedForms);
             foreach (var submission in submittedForms) batch.Add(new AiEntry { Title = "用户填写的控件", Question = "本次提交消息标识：" + pendingTurn.Id + "\n" + AiForms.Describe(submission) });
             _followUpBuffer = buffer;
             _steering = CreateSteeringController(book, pendingTurn.Id);
@@ -411,6 +411,8 @@ public partial class AiPanel : UserControl, IDisposable
             LiveSentTime.Text = pendingTurn.SentTime; LiveReplyStatus.IsCollapsed = false;
             LiveReplyStatus.PendingText = "等待 AI 响应";
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
+            _liveQueuedId = queued?.Id;
+            if (queued is not null) RefreshFollowUps();
             _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (_foldingLiveTurn == pendingTurn && !_disposed) RevealLiveTurn(); }));
             AiTurnCheckpoint checkpoint;
             _pendingFormSubmissions.Clear();
@@ -418,11 +420,17 @@ public partial class AiPanel : UserControl, IDisposable
             RefreshFormEnabled();
             try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
             catch { _pendingFormSubmissions.Clear(); RefreshFormEnabled(); LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            var queueRefreshed = false;
+            if (queued is not null)
+            {
+                try { queueRefreshed = await MutateFollowUpsAsync(book, queue => queue.Complete([queued.Id])); }
+                catch (Exception ex) { ShowError(ex); }
+            }
             InvalidateSameConversationLinks(); RefreshVisibleBranchLinks();
             foreach (var submission in submittedForms) AiForms.Lock(book.Active, submission);
             RefreshFormEnabled();
             SteerButton.IsEnabled = true;
-            RefreshFollowUps();
+            if (!queueRefreshed) RefreshFollowUps();
             book.Active.LastSentAt = sentAt;
             if (retry is null && queued is null && Composer.Text == submittedDraft)
             {

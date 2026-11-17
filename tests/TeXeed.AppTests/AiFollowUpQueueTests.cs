@@ -72,6 +72,64 @@ internal static partial class Program
         Assert(emptyQueue.Remove(pending.Id), "Pending removal failed");
         emptyQueue.Store(empty);
         Assert(notebook.IsEmptyNewConversation(empty), "A cleared queue must not protect a blank conversation");
+        var interrupted = new AiConversation();
+        var inFlight = AiFollowUpQueue.Load(interrupted);
+        var sent = inFlight.Enqueue("queue", "already in transcript", []);
+        var waiting = inFlight.Enqueue("queue", "still waiting", []);
+        Assert(inFlight.MarkDispatching([sent.Id], "persisted-turn"), "Unable to mark recovered dispatch");
+        inFlight.Store(interrupted);
+        interrupted.Turns.Add(new AiTurn("already in transcript", "[本轮未完成]") { Id = "persisted-turn", Incomplete = true });
+        inFlight = AiFollowUpQueue.Load(interrupted);
+        Assert(inFlight.RecoverWithoutActiveTurn(interrupted) && inFlight.Items.Count == 1 && inFlight.Items[0].Id == waiting.Id && inFlight.IsPaused,
+            "A recovered incomplete turn must replace its queue record without resending it");
+        inFlight.Store(interrupted);
+        var unknownConversation = new AiConversation();
+        var unknown = AiFollowUpQueue.Load(unknownConversation);
+        var noTurn = unknown.Enqueue("queue", "not safely accepted", []);
+        Assert(unknown.MarkDispatching([noTurn.Id], "missing-turn"), "Unable to mark unconfirmed dispatch");
+        unknown.Store(unknownConversation);
+        unknown = AiFollowUpQueue.Load(unknownConversation);
+        Assert(unknown.RecoverWithoutActiveTurn(unknownConversation) && unknown.Items.Single().State == "unknown" && unknown.IsPaused,
+            "A dispatch without its turn must remain available for manual recovery");
+        var legacyQueueConversation = new AiConversation();
+        var legacyQueue = AiFollowUpQueue.Load(legacyQueueConversation);
+        var legacyItem = legacyQueue.Enqueue("queue", "legacy item", []);
+        Assert(legacyQueue.MarkDispatching([legacyItem.Id], null), "Unable to mark legacy dispatch");
+        legacyQueue.Store(legacyQueueConversation);
+        legacyQueueConversation.Turns.Add(new AiTurn("legacy item", "[本轮未完成]") { Incomplete = true });
+        legacyQueue = AiFollowUpQueue.Load(legacyQueueConversation);
+        Assert(legacyQueue.RecoverWithoutActiveTurn(legacyQueueConversation) && legacyQueue.Items.Single().State == "unknown",
+            "Legacy records without a turn identifier must not be matched by message text");
+        var intermittent = new AiConversation();
+        var intermittentQueue = AiFollowUpQueue.Load(intermittent);
+        var interruptedRemoval = intermittentQueue.Enqueue("queue", "delivered", []);
+        Assert(intermittentQueue.MarkDispatching([interruptedRemoval.Id], "saved-turn"), "Unable to prepare interrupted removal");
+        intermittentQueue.Store(intermittent);
+        var savedBeforeRemoval = JsonSerializer.Serialize(intermittent);
+        Assert(intermittentQueue.Complete([interruptedRemoval.Id]), "Unable to prepare removal");
+        // A failed save rolls the queue record back, while the conversation turn may already be durable.
+        intermittent = JsonSerializer.Deserialize<AiConversation>(savedBeforeRemoval)!;
+        intermittent.Turns.Add(new AiTurn("delivered", "finished") { Id = "saved-turn", AnsweredAt = DateTimeOffset.UtcNow });
+        intermittentQueue = AiFollowUpQueue.Load(intermittent);
+        Assert(intermittentQueue.ResolveDispatch(interruptedRemoval.Id, intermittent, "unknown", out var needsReview) && !needsReview && intermittentQueue.Items.Count == 0,
+            "A saved turn must not reappear as unknown after a queue-removal save failure");
+        var missing = new AiConversation();
+        var missingQueue = AiFollowUpQueue.Load(missing);
+        var uncertain = missingQueue.Enqueue("queue", "uncertain", []);
+        Assert(missingQueue.MarkDispatching([uncertain.Id], "not-saved") && missingQueue.ResolveDispatch(uncertain.Id, missing, "unknown", out needsReview)
+            && needsReview && missingQueue.Items.Single().State == "unknown", "An unconfirmed dispatch must remain available for review");
+        var ambiguous = new AiConversation();
+        var ambiguousQueue = AiFollowUpQueue.Load(ambiguous);
+        var ambiguousItem = ambiguousQueue.Enqueue("queue", "ambiguous", []);
+        Assert(ambiguousQueue.MarkDispatching([ambiguousItem.Id], "duplicate-id"), "Could not mark ambiguous dispatch");
+        ambiguousQueue.Store(ambiguous);
+        ambiguous.Turns.Add(new AiTurn("first", "answer") { Id = "duplicate-id" });
+        ambiguous.Turns.Add(new AiTurn("second", "[本轮未完成]") { Id = "duplicate-id", Incomplete = true });
+        Assert(ambiguousQueue.ResolveDispatch(ambiguousItem.Id, ambiguous, "ambiguous", out needsReview) && needsReview && ambiguousQueue.Items.Single().State == "unknown",
+            "Duplicate turn IDs must not cause the queue record to be removed");
+        ambiguousQueue = AiFollowUpQueue.Load(ambiguous);
+        Assert(ambiguousQueue.RecoverWithoutActiveTurn(ambiguous) && ambiguousQueue.Items.Single().State == "unknown",
+            "Duplicate turn IDs must stay unknown during recovery");
         var bad = new AiConversation { AdditionalData = new() { [AiFollowUpQueue.StorageKey] = JsonSerializer.SerializeToElement("broken") } };
         try { AiFollowUpQueue.Load(bad); throw new Exception("Broken data must fail safely"); }
         catch (InvalidDataException) { }

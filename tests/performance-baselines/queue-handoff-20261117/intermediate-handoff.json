@@ -1,0 +1,117 @@
+{
+  "fixture": "120 turns; queue two messages while first response is held; release first, wait for second request and measure queue UI; 900x760 offscreen; two warmups and seven samples; paired 800ms queue and save gate",
+  "samples": [
+    {
+      "feedbackMs": 96.2846,
+      "feedbackBytes": 6313600,
+      "rawMs": 905.5178,
+      "idleMs": 813.17,
+      "correctedMs": 92.3478,
+      "rawBytes": 6403680,
+      "idleBytes": 11680,
+      "correctedBytes": 6392000,
+      "visibleControls": 40,
+      "dockVisible": true,
+      "rowCount": 1,
+      "labels": [
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 83.9421,
+      "feedbackBytes": 6236760,
+      "rawMs": 885.3713,
+      "idleMs": 813.5114,
+      "correctedMs": 71.85990000000004,
+      "rawBytes": 6326008,
+      "idleBytes": 11640,
+      "correctedBytes": 6314368,
+      "visibleControls": 40,
+      "dockVisible": true,
+      "rowCount": 1,
+      "labels": [
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 83.5734,
+      "feedbackBytes": 6184576,
+      "rawMs": 896.1268,
+      "idleMs": 808.8875,
+      "correctedMs": 87.23929999999996,
+      "rawBytes": 6273496,
+      "idleBytes": 11656,
+      "correctedBytes": 6261840,
+      "visibleControls": 40,
+      "dockVisible": true,
+      "rowCount": 1,
+      "labels": [
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 91.008,
+      "feedbackBytes": 6222960,
+      "rawMs": 898.9156,
+      "idleMs": 810.1049,
+      "correctedMs": 88.8107,
+      "rawBytes": 6312136,
+      "idleBytes": 11672,
+      "correctedBytes": 6300464,
+      "visibleControls": 40,
+      "dockVisible": true,
+      "rowCount": 1,
+      "labels": [
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 98.2136,
+      "feedbackBytes": 6298528,
+      "rawMs": 902.5002,
+      "idleMs": 810.996,
+      "correctedMs": 91.50419999999997,
+      "rawBytes": 6398680,
+      "idleBytes": 12312,
+      "correctedBytes": 6386368,
+      "visibleControls": 40,
+      "dockVisible": true,
+      "rowCount": 1,
+      "labels": [
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 81.4431,
+      "feedbackBytes": 6170104,
+      "rawMs": 888.1383,
+      "idleMs": 810.1337,
+      "correctedMs": 78.00459999999998,
+      "rawBytes": 6259248,
+      "idleBytes": 11640,
+      "correctedBytes": 6247608,
+      "visibleControls": 40,
+      "dockVisible": true,
+      "rowCount": 1,
+      "labels": [
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 90.41,
+      "feedbackBytes": 6198392,
+      "rawMs": 900.9574,
+      "idleMs": 812.3526,
+      "correctedMs": 88.60479999999995,
+      "rawBytes": 6287576,
+      "idleBytes": 11640,
+      "correctedBytes": 6275936,
+      "visibleControls": 40,
+      "dockVisible": true,
+      "rowCount": 1,
+      "labels": [
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "69311F19990EABE3367749A7AD729179BAC0C600DE0900CE86F0C01FC78E23AD",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-v3-product\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6CEDB9D017A18BA0D199DEAD307D431BD7CC25B6E7F2044041B1F66020DD3147",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-v3-queue-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "24AB9196A65B747B7BFFB8BCEF0DD27D2E8F0547EB7D41266248A28467EB9AA6",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\queue-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E85146B3674FB5F89C8044DBFE1C65E8CD1D463E7E4F75DA1E10321CD84E88FE",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\Harness.csproj"
+  }
+]

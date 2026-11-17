@@ -46,7 +46,7 @@ internal static partial class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
         var window = new MainWindow { Width = 1440, Height = 900, WindowStartupLocation = WindowStartupLocation.Manual, Left = 30, Top = 30 };
-        if (args.Contains("--preview-dock-sim-only") || args.Contains("--multi-main-offscreen")) { window.Left = -3000; window.Top = -3000; window.ShowActivated = false; }
+        if (args.Contains("--preview-dock-sim-only") || args.Contains("--multi-main-offscreen") || args.Contains("--ai-follow-up-panel-offscreen")) { window.Left = -3000; window.Top = -3000; window.ShowActivated = false; }
         app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
         window.Loaded += async (_, _) =>
         {
@@ -126,7 +126,7 @@ internal static partial class Program
                 if (Math.Abs(((FrameworkElement)window.FindName("Welcome")).TranslatePoint(new Point(), windowGrid).Y - 40) > 1)
                     throw new Exception("Welcome page must begin directly below the custom title bar");
                 Capture(window, Path.Combine(output, "welcome.png"));
-                if (args.Contains("--ai-follow-up-panel-only"))
+                if (args.Contains("--ai-follow-up-panel-only") || args.Contains("--ai-follow-up-panel-offscreen"))
                 {
                     await CheckFollowUpPanelAsync(window, output);
                     await CloseAndObserveAsync(window, "AI queued messages"); result = 0; return;

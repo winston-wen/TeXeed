@@ -9,6 +9,7 @@ namespace TeXeed.App.Controls;
 public partial class AiPanel
 {
     private bool _followUpSaving, _queueDispatching;
+    private string? _liveQueuedId;
     private AiConversation? _queueDispatchConversation;
     private readonly SemaphoreSlim _followUpGate = new(1, 1);
     private TaskCompletionSource? _followUpIdle;
@@ -131,7 +132,7 @@ public partial class AiPanel
 
     private async void RestoreFollowUps()
     {
-        try { if (_operation is null) await MutateFollowUpsAsync(_book, queue => queue.RecoverWithoutActiveTurn()); RefreshFollowUps(); }
+        try { if (_operation is null) await MutateFollowUpsAsync(_book, queue => queue.RecoverWithoutActiveTurn(_book.Active)); RefreshFollowUps(); }
         catch (Exception ex) { ShowError(ex); }
     }
 
@@ -139,8 +140,15 @@ public partial class AiPanel
     {
         if (_project is null) return;
         var queue = AiFollowUpQueue.Load(_book.Active);
-        var items = queue.Items;
-        FollowUpDock.Visibility = items.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        var queuedItems = queue.Items;
+        var savedTurnIds = queuedItems.Any(item => item.Kind == "queue" && item.DispatchTurnId is not null && (item.State is "dispatching" or "unknown" or "failed")
+            && !(item.State == "dispatching" && item.Id == _liveQueuedId))
+            ? _book.Turns.Where(turn => !string.IsNullOrWhiteSpace(turn.Id)).GroupBy(turn => turn.Id, StringComparer.Ordinal)
+                .Where(group => group.Count() == 1).Select(group => group.Key).ToHashSet(StringComparer.Ordinal) : null;
+        var items = queuedItems.Where(item => item.Kind != "queue" ||
+            !(item.State == "dispatching" && item.Id == _liveQueuedId ||
+              (item.State is "dispatching" or "unknown" or "failed") && item.DispatchTurnId is { } id && savedTurnIds?.Contains(id) == true)).ToArray();
+        FollowUpDock.Visibility = items.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         FollowUpHeading.Text = queue.IsPaused ? "待处理消息 · 已暂停" : "待处理消息";
         FollowUpHeading.ToolTip = queue.IsPaused ? queue.PauseReason : null;
         ResumeQueueButton.Visibility = queue.IsPaused && items.Any(x => x.Kind == "queue" && x.State == "pending") ? Visibility.Visible : Visibility.Collapsed;
@@ -171,7 +179,7 @@ public partial class AiPanel
                     await Task.CompletedTask;
                 });
             }
-            var label = new TextBlock { Text = (item.Kind == "steer" ? "引导" : "排队") + " · " + (item.State switch { "dispatching" => "发送中", "unknown" => "结果未知", "failed" => "失败", _ => "等待" }) + "  " + (item.Prompt.Length > 0 ? item.Prompt : "引用与附件") + (item.Entries.Count > 0 ? $"  [引用/附件 {item.Entries.Count}]" : ""), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, ToolTip = item.Error ?? item.Prompt };
+            var label = new TextBlock { Text = (item.Kind == "steer" ? "引导" : "排队") + " · " + (item.State switch { "dispatching" when item.Kind == "steer" => "发送中", "unknown" => "结果未知", "failed" => "失败", _ => "等待" }) + "  " + (item.Prompt.Length > 0 ? item.Prompt : "引用与附件") + (item.Entries.Count > 0 ? $"  [引用/附件 {item.Entries.Count}]" : ""), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, ToolTip = item.Error ?? item.Prompt };
             row.Children.Add(label); FollowUpItems.Children.Add(row);
         }
     }
@@ -241,8 +249,7 @@ public partial class AiPanel
             var pendingSteers = queue.MarkUnsubmittedSteers(turnId);
             if (queued is not null)
             {
-                if (success) queue.Complete([queued.Id]);
-                else queue.MarkUnknown([queued.Id], "排队消息的执行结果未知，请检查会话后决定是否重试。");
+                queue.Complete([queued.Id]);
             }
             if (!success && queue.Items.Count > 0) queue.Pause("上一轮未完成，排队已暂停。");
             return unknownSteers.Length > 0 || pendingSteers || queued is not null || !success && queue.Items.Count > 0;
@@ -262,11 +269,14 @@ public partial class AiPanel
             while (!_disposed && !_followUpsClosing && _operation is null)
             {
                 AiFollowUpMessage? item = null;
+                var dispatchTurnId = Guid.NewGuid().ToString("N");
                 await MutateFollowUpsAsync(book, queue =>
                 {
                     if (BlockPendingFormAttachmentRead(book.Active)) return false;
                     item = queue.NextQueued();
-                    return item is not null && queue.MarkDispatching([item.Id], null);
+                    if (item is null || !queue.MarkDispatching([item.Id], dispatchTurnId)) return false;
+                    item.DispatchTurnId = dispatchTurnId;
+                    return true;
                 });
                 if (item is null) break;
                 if (_followUpsClosing || _disposed)
@@ -275,7 +285,9 @@ public partial class AiPanel
                     break;
                 }
                 await SubmitAsync(queued: item);
-                if (await MutateFollowUpsAsync(book, after => after.MarkUnknown([item.Id], "未能确认排队消息是否发送，请检查后重试。"))) break;
+                var needsReview = false;
+                await MutateFollowUpsAsync(book, after => after.ResolveDispatch(item.Id, book.Active, "未能确认排队消息是否发送，请检查后重试。", out needsReview));
+                if (needsReview) break;
             }
         }
         catch (Exception ex) { ShowError(ex); }

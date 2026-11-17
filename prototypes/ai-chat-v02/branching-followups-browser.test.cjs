@@ -50,6 +50,9 @@ catch { console.log('SKIP followups browser: Playwright unavailable'); process.e
     assert.equal(await page.locator('#followup-queue input').first().inputValue(), '转为引导的消息');
     await page.getByRole('button', { name: '转为引导' }).first().click();
     assert(await page.locator('.example-steer').filter({ hasText: '转为引导的消息' }).isVisible());
+    assert.equal(await page.locator('#followup-queue input').count(), 1, '转为引导后不应继续留在待处理列表');
+    assert.equal(await page.locator('#followup-queue input').inputValue(), '稍后再问具体条件');
+    if (process.env.TEXEED_FOLLOWUP_SCREENSHOT) await page.screenshot({ path: process.env.TEXEED_FOLLOWUP_SCREENSHOT.replace('.png', '-converted.png') });
     await page.locator('#composer').fill('保留主草稿');
     await page.reload();
     assert.equal(await page.locator('#composer').inputValue(), '保留主草稿');
@@ -57,6 +60,7 @@ catch { console.log('SKIP followups browser: Playwright unavailable'); process.e
     assert(await page.locator('#followup-queue').getByText('待处理消息 · 已暂停').isVisible());
     await page.getByRole('button', { name: '继续', exact: true }).click();
     assert(await page.locator('.turn-question').filter({ hasText: '稍后再问具体条件' }).isVisible());
+    assert(await page.locator('#followup-queue').isHidden(), '已派发的消息不应继续显示在待处理列表');
     assert.equal(await page.locator('#composer').inputValue(), '保留主草稿');
     await page.locator('#composer').fill('中断后保留'); await page.locator('#enqueue').click();
     await page.locator('#demo-stop').click();
@@ -73,6 +77,36 @@ catch { console.log('SKIP followups browser: Playwright unavailable'); process.e
     const queued = snapshot.followups[snapshot.active].at(-1);
     assert.equal(queued.references[0].comment, '附注'); assert.equal(queued.attachments[0].name, 'example.txt');
     assert.deepEqual(snapshot.sessions.find(s => s.id === snapshot.active).references.map(r => r.id), ['left']);
+    await page.evaluate(() => branchDemo.reset());
+    await page.reload();
+    await page.locator('#demo-running').click();
+    await page.locator('#composer').fill('第一条待处理'); await page.locator('#enqueue').click();
+    await page.locator('#composer').fill('第二条待处理'); await page.locator('#enqueue').click();
+    await page.locator('#composer').fill('另有未发送草稿');
+    await page.evaluate(() => {
+      window.originalStorageSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === 'texeed-branch-reading-prototype-v1') throw new DOMException('storage unavailable', 'QuotaExceededError');
+        return window.originalStorageSetItem.call(this, key, value);
+      };
+    });
+    await page.locator('#demo-running').click();
+    assert.deepEqual(await page.locator('#followup-queue input').evaluateAll(nodes => nodes.map(node => node.value)), ['第一条待处理', '第二条待处理'], '保存失败时等待消息应原样保留');
+    assert.equal(await page.locator('.turn-question').filter({ hasText: '第一条待处理' }).count(), 0, '保存失败不得生成一条已发送消息');
+    assert.equal(await page.locator('#composer').inputValue(), '另有未发送草稿');
+    await page.evaluate(() => { Storage.prototype.setItem = window.originalStorageSetItem; });
+    await page.locator('#demo-running').click(); await page.locator('#demo-running').click();
+    assert.equal(await page.locator('.turn-question').filter({ hasText: '第一条待处理' }).count(), 1, '派发后应只显示一个新轮次');
+    assert.deepEqual(await page.locator('#followup-queue input').evaluateAll(nodes => nodes.map(node => node.value)), ['第二条待处理'], '已派发消息从队列消失，其余消息保留');
+    assert.equal(await page.locator('#composer').inputValue(), '另有未发送草稿');
+    if (process.env.TEXEED_FOLLOWUP_SCREENSHOT) await page.screenshot({ path: process.env.TEXEED_FOLLOWUP_SCREENSHOT.replace('.png', '-dispatched.png') });
+    await page.locator('#demo-stop').click();
+    assert.equal(await page.locator('.turn-question').filter({ hasText: '第一条待处理' }).count(), 1, '中止后已进入会话的消息仍只保留一份');
+    assert.deepEqual(await page.locator('#followup-queue input').evaluateAll(nodes => nodes.map(node => node.value)), ['第二条待处理'], '中止后不得把已派发消息重新放回队列');
+    await page.reload();
+    assert.equal(await page.locator('.turn-question').filter({ hasText: '第一条待处理' }).count(), 1, '重新打开不得重复派发');
+    assert.equal(await page.locator('#followup-queue input').inputValue(), '第二条待处理');
+    assert.equal(await page.locator('#composer').inputValue(), '另有未发送草稿');
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log('PASS followups browser');
   } finally { await browser.close(); }

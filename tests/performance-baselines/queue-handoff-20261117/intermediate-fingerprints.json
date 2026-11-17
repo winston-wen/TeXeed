@@ -1,0 +1,42 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "218A0B3DC2E669007280C3DC5F36184857D98D2777434925E9D9F004005A0FEF",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-after-product\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "F7205CC8605D46F8D7724B8A2ADC0DFDCF8B64DDDBCAB33DE6158C100A0A8AE6",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-after-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "B4EA181D6C77F95831308EAE5A5B7701935FF88A6514B512302BE2735A450552",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-v2-product\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6A84817E2FD063B9BC4F91E75745F87CAC8BCC0A1D7F808E76B26D73763D5173",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-v2-queue-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "BA35252FD429AA6980E53507C701F955296B9FF1A29B842EC30DD2B7E29C41BD",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-v2-deep-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7A403BF069303F2438467F12AE2323E85FF18F5664B6B1B7A9546DD7CD68AF9E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\panel-offscreen.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "24AB9196A65B747B7BFFB8BCEF0DD27D2E8F0547EB7D41266248A28467EB9AA6",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\queue-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "8753C93A4A737502DFA4F7C4FFD1AB8016E091C73BE257CB0368054DA5CD3299",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\handoff-deep.cs.txt"
+  }
+]

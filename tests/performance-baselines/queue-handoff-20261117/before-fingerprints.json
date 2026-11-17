@@ -1,0 +1,32 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "1AA19F621FAC08A4D07B522EA3DC1944A1453D6A65AD75CABA3492114775AA4F",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\TeXeed-0.5.7-20261117\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6B14579FB71A87A0EB915560B192E59784E48ECB07470B834A366862F79898DA",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-before-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E138B66095BA589C3D4E87CF968FBF4FEA17B4CBA150747081917B4AFBA28C90",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\queue-handoff-before-queue-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7A403BF069303F2438467F12AE2323E85FF18F5664B6B1B7A9546DD7CD68AF9E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\panel-offscreen.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "24AB9196A65B747B7BFFB8BCEF0DD27D2E8F0547EB7D41266248A28467EB9AA6",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\queue-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E85146B3674FB5F89C8044DBFE1C65E8CD1D463E7E4F75DA1E10321CD84E88FE",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\Harness.csproj"
+  }
+]

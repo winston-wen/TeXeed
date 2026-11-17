@@ -1,0 +1,124 @@
+{
+  "fixture": "120 turns; queue two messages while first response is held; release first, wait for second request and measure queue UI; 900x760 offscreen; two warmups and seven samples; paired 800ms queue and save gate",
+  "samples": [
+    {
+      "feedbackMs": 82.6245,
+      "feedbackBytes": 5678416,
+      "rawMs": 888.1034,
+      "idleMs": 811.8216,
+      "correctedMs": 76.28179999999998,
+      "rawBytes": 5766896,
+      "idleBytes": 11616,
+      "correctedBytes": 5755280,
+      "visibleControls": 41,
+      "dockVisible": true,
+      "rowCount": 2,
+      "labels": [
+        "\u6392\u961F \u00B7 \u53D1\u9001\u4E2D  queued active",
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 75.1044,
+      "feedbackBytes": 5570464,
+      "rawMs": 886.9461,
+      "idleMs": 810.3784,
+      "correctedMs": 76.56769999999995,
+      "rawBytes": 5658944,
+      "idleBytes": 11576,
+      "correctedBytes": 5647368,
+      "visibleControls": 41,
+      "dockVisible": true,
+      "rowCount": 2,
+      "labels": [
+        "\u6392\u961F \u00B7 \u53D1\u9001\u4E2D  queued active",
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 113.5932,
+      "feedbackBytes": 5684504,
+      "rawMs": 917.9328,
+      "idleMs": 814.4531,
+      "correctedMs": 103.4797000000001,
+      "rawBytes": 5783984,
+      "idleBytes": 12200,
+      "correctedBytes": 5771784,
+      "visibleControls": 41,
+      "dockVisible": true,
+      "rowCount": 2,
+      "labels": [
+        "\u6392\u961F \u00B7 \u53D1\u9001\u4E2D  queued active",
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 78.9769,
+      "feedbackBytes": 5570416,
+      "rawMs": 890.0719,
+      "idleMs": 809.1086,
+      "correctedMs": 80.9633,
+      "rawBytes": 5658848,
+      "idleBytes": 11608,
+      "correctedBytes": 5647240,
+      "visibleControls": 41,
+      "dockVisible": true,
+      "rowCount": 2,
+      "labels": [
+        "\u6392\u961F \u00B7 \u53D1\u9001\u4E2D  queued active",
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 73.7473,
+      "feedbackBytes": 5657680,
+      "rawMs": 888.3853,
+      "idleMs": 801.8916,
+      "correctedMs": 86.49369999999999,
+      "rawBytes": 5746400,
+      "idleBytes": 12184,
+      "correctedBytes": 5734216,
+      "visibleControls": 41,
+      "dockVisible": true,
+      "rowCount": 2,
+      "labels": [
+        "\u6392\u961F \u00B7 \u53D1\u9001\u4E2D  queued active",
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 79.5838,
+      "feedbackBytes": 5477760,
+      "rawMs": 889.5967,
+      "idleMs": 810.1182,
+      "correctedMs": 79.47850000000005,
+      "rawBytes": 5565880,
+      "idleBytes": 10984,
+      "correctedBytes": 5554896,
+      "visibleControls": 41,
+      "dockVisible": true,
+      "rowCount": 2,
+      "labels": [
+        "\u6392\u961F \u00B7 \u53D1\u9001\u4E2D  queued active",
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    },
+    {
+      "feedbackMs": 83.9821,
+      "feedbackBytes": 5613440,
+      "rawMs": 897.3581,
+      "idleMs": 813.6304,
+      "correctedMs": 83.72770000000003,
+      "rawBytes": 5701848,
+      "idleBytes": 11608,
+      "correctedBytes": 5690240,
+      "visibleControls": 41,
+      "dockVisible": true,
+      "rowCount": 2,
+      "labels": [
+        "\u6392\u961F \u00B7 \u53D1\u9001\u4E2D  queued active",
+        "\u6392\u961F \u00B7 \u7B49\u5F85  queued waiting"
+      ]
+    }
+  ]
+}
