@@ -1,0 +1,17 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E775F5E6F06BFE556F293813F3F25DF04416E6EFD8232C0D92D97B200A3BFB31",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\same-link-perf-v4-055\\app\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "9291EB7B256D394FCF56E33893028CF46E66DABD687D3E11D97AA875333FE04B",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\same-link-perf-v4-055\\app\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "8915BEAAB1C23FF208531B8C89202E4FE0EA23C1C359601D70C462787A5F48E7",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\same-session-links-fixture.cs.txt"
+  }
+]

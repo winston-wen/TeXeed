@@ -125,11 +125,6 @@ internal static partial class Program
                     await CheckMultiMainAsync(window, root, output);
                     result = 0; return;
                 }
-                if (args.Contains("--wave-cache-diff-only"))
-                {
-                    await CheckWaveCacheDiffAsync(window);
-                    await CloseAndObserveAsync(window, "Wave cache differential"); result = 0; return;
-                }
                 if (args.Contains("--ai-live-layout-only"))
                 {
                     await CheckAiLiveLayoutAsync(window, output, args.Contains("--assert-live-layout"));
@@ -182,6 +177,11 @@ internal static partial class Program
                 {
                     await CheckAiInlineBranchAsync(window, output);
                     await CloseAndObserveAsync(window, "AI inline branch links"); result = 0; return;
+                }
+                if (args.Contains("--ai-same-conversation-links-only"))
+                {
+                    await CheckSameConversationLinksAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI same-conversation links"); result = 0; return;
                 }
                 if (args.Contains("--ai-attachment-grouping-only"))
                 {

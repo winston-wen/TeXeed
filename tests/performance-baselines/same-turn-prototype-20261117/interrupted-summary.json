@@ -1,0 +1,21 @@
+{
+  "status": "Interrupted before all rounds completed to remove avoidable full-history redraw on navigation. The fixture writes raw pairs only at completion, so these are the emitted summaries, not complete samples.",
+  "baseline": "bba33593ae62b1ac85357e13a4c1f401710074ee",
+  "historic": "7af94c2562d4f0ea2eae0a29413e49d465f7e172",
+  "method": "120 turns, 60 same-session links, 10 formula quotes; first round historic, before and after; second round after partially sampled; paired empty operation, two frames and 700 ms wait; V8 sampled allocation is an estimate.",
+  "summary": [
+    {"round":0,"mode":"historic","operation":"input","medianSync":1.3,"medianCorrected":1.7,"allocatedBytes":169867.43,"nodes":2733,"links":0,"visibleControls":11},
+    {"round":0,"mode":"historic","operation":"scroll","medianSync":0.1,"medianCorrected":-2.2,"allocatedBytes":171431.43,"nodes":2733,"links":0,"visibleControls":11},
+    {"round":0,"mode":"historic","operation":"render","medianSync":21.1,"medianCorrected":14.9,"allocatedBytes":1169506.86,"nodes":2733,"links":0,"visibleControls":11},
+    {"round":0,"mode":"before","operation":"input","medianSync":1.4,"medianCorrected":-3.2,"allocatedBytes":179909.71,"nodes":3927,"links":0,"visibleControls":18},
+    {"round":0,"mode":"before","operation":"scroll","medianSync":0.1,"medianCorrected":-2.6,"allocatedBytes":178974.29,"nodes":3927,"links":0,"visibleControls":18},
+    {"round":0,"mode":"before","operation":"render","medianSync":29.5,"medianCorrected":28.5,"allocatedBytes":1046718.86,"nodes":3927,"links":0,"visibleControls":18},
+    {"round":0,"mode":"after","operation":"input","medianSync":1.5,"medianCorrected":-9.4,"allocatedBytes":174861.14,"nodes":3987,"links":60,"visibleControls":20},
+    {"round":0,"mode":"after","operation":"scroll","medianSync":0.1,"medianCorrected":-5.3,"allocatedBytes":180193.71,"nodes":3987,"links":60,"visibleControls":18},
+    {"round":0,"mode":"after","operation":"render","medianSync":34.9,"medianCorrected":34.4,"allocatedBytes":1157754.29,"nodes":3987,"links":60,"visibleControls":18},
+    {"round":0,"mode":"after","operation":"navigate","medianSync":34.3,"medianCorrected":29.0,"allocatedBytes":1523675.43,"nodes":3987,"links":60,"visibleControls":22},
+    {"round":1,"mode":"after","operation":"input","medianSync":1.5,"medianCorrected":-0.2,"allocatedBytes":176765.14,"nodes":3987,"links":60,"visibleControls":20},
+    {"round":1,"mode":"after","operation":"scroll","medianSync":0,"medianCorrected":-3.3,"allocatedBytes":184071.43,"nodes":3987,"links":60,"visibleControls":18},
+    {"round":1,"mode":"after","operation":"render","medianSync":33.9,"medianCorrected":31.3,"allocatedBytes":1166412.57,"nodes":3987,"links":60,"visibleControls":18}
+  ]
+}

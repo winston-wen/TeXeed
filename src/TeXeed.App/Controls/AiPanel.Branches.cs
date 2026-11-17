@@ -76,8 +76,9 @@ public partial class AiPanel
         await view.RenderTask;
         if (_disposed || _book.Active.Id != conversationId || !view.IsLoaded) return;
         var branches = _book.Conversations.Where(c => c.ParentConversationId == conversationId && c.BranchAnchor?.TurnId == turn.Id && c.BranchAnchor.SegmentId == segment.Id).ToArray();
-        if (branches.Length == 0 && view.BranchLinkBlocks.Count == 0) return;
-        var branchIds = branches.Select(branch => branch.Id).ToHashSet(StringComparer.Ordinal);
+        var localLinks = SameConversationLinks(turn.Id, segment.Id);
+        if (branches.Length == 0 && localLinks.Count == 0 && view.BranchLinkBlocks.Count == 0) return;
+        var branchIds = branches.Select(branch => branch.Id).Concat(localLinks.Select(link => link.Id)).ToHashSet(StringComparer.Ordinal);
         var obsolete = view.BranchLinkBlocks.Where(pair => !branchIds.Contains(pair.Key)).ToArray();
         var visibleTurn = obsolete.Length > 0 && view.IsVisible ? ActiveReadingTurn() : null;
         var previousTop = visibleTurn?.TranslatePoint(new Point(), MessagesScroll).Y;
@@ -102,6 +103,9 @@ public partial class AiPanel
             view.AddBranchLink(branch.Id, branch.Title, anchor, branch.BranchContextBefore, branch.BranchContextAfter,
                 () => OpenRelatedConversation(branch.Id));
         }
+        foreach (var link in localLinks)
+            view.AddBranchLink(link.Id, "[" + link.TargetNumber + "]", link.Anchor, link.Before, link.After,
+                () => OpenSameConversationTurn(link.TargetTurnId));
     }
 
     internal void RefreshVisibleBranchLinks()

@@ -1,0 +1,173 @@
+{
+  "fixture": "standalone MarkdownView; eight short text anchors; 900x760; two warmups and seven paired 800ms samples",
+  "samples": [
+    {
+      "op": "resolve-eight",
+      "feedbackMs": 0.324,
+      "rawMs": 803.0278,
+      "idleMs": 801.228,
+      "correctedMs": 1.7998000000000047,
+      "rawBytes": 21904,
+      "idleBytes": 3744,
+      "correctedBytes": 18160,
+      "visibleControls": 2,
+      "links": 0
+    },
+    {
+      "op": "resolve-eight",
+      "feedbackMs": 0.1916,
+      "rawMs": 813.2693,
+      "idleMs": 814.443,
+      "correctedMs": -1.1736999999999398,
+      "rawBytes": 21904,
+      "idleBytes": 3744,
+      "correctedBytes": 18160,
+      "visibleControls": 2,
+      "links": 0
+    },
+    {
+      "op": "resolve-eight",
+      "feedbackMs": 0.148,
+      "rawMs": 814.4362,
+      "idleMs": 813.8194,
+      "correctedMs": 0.616800000000012,
+      "rawBytes": 21904,
+      "idleBytes": 3744,
+      "correctedBytes": 18160,
+      "visibleControls": 2,
+      "links": 0
+    },
+    {
+      "op": "resolve-eight",
+      "feedbackMs": 0.1649,
+      "rawMs": 814.9297,
+      "idleMs": 814.8539,
+      "correctedMs": 0.07580000000007203,
+      "rawBytes": 21904,
+      "idleBytes": 3744,
+      "correctedBytes": 18160,
+      "visibleControls": 2,
+      "links": 0
+    },
+    {
+      "op": "resolve-eight",
+      "feedbackMs": 0.1426,
+      "rawMs": 801.0783,
+      "idleMs": 815.2151,
+      "correctedMs": -14.136799999999994,
+      "rawBytes": 21904,
+      "idleBytes": 3744,
+      "correctedBytes": 18160,
+      "visibleControls": 2,
+      "links": 0
+    },
+    {
+      "op": "resolve-eight",
+      "feedbackMs": 0.2164,
+      "rawMs": 813.8901,
+      "idleMs": 812.3442,
+      "correctedMs": 1.5458999999999605,
+      "rawBytes": 21904,
+      "idleBytes": 3744,
+      "correctedBytes": 18160,
+      "visibleControls": 2,
+      "links": 0
+    },
+    {
+      "op": "resolve-eight",
+      "feedbackMs": 0.2171,
+      "rawMs": 801.2297,
+      "idleMs": 811.7811,
+      "correctedMs": -10.551400000000058,
+      "rawBytes": 21904,
+      "idleBytes": 3744,
+      "correctedBytes": 18160,
+      "visibleControls": 2,
+      "links": 0
+    },
+    {
+      "op": "insert-eight",
+      "feedbackMs": 10.5789,
+      "rawMs": 812.3506,
+      "idleMs": 801.1335,
+      "correctedMs": 11.21709999999996,
+      "rawBytes": 992880,
+      "idleBytes": 3744,
+      "correctedBytes": 989136,
+      "visibleControls": 10,
+      "links": 8
+    },
+    {
+      "op": "insert-eight",
+      "feedbackMs": 7.7235,
+      "rawMs": 813.8589,
+      "idleMs": 813.0168,
+      "correctedMs": 0.8420999999999594,
+      "rawBytes": 992256,
+      "idleBytes": 3744,
+      "correctedBytes": 988512,
+      "visibleControls": 10,
+      "links": 8
+    },
+    {
+      "op": "insert-eight",
+      "feedbackMs": 8.9819,
+      "rawMs": 815.2493,
+      "idleMs": 814.0631,
+      "correctedMs": 1.1861999999999853,
+      "rawBytes": 992272,
+      "idleBytes": 3744,
+      "correctedBytes": 988528,
+      "visibleControls": 10,
+      "links": 8
+    },
+    {
+      "op": "insert-eight",
+      "feedbackMs": 10.0614,
+      "rawMs": 813.5608,
+      "idleMs": 814.3061,
+      "correctedMs": -0.7453000000000429,
+      "rawBytes": 992480,
+      "idleBytes": 3744,
+      "correctedBytes": 988736,
+      "visibleControls": 10,
+      "links": 8
+    },
+    {
+      "op": "insert-eight",
+      "feedbackMs": 7.7592,
+      "rawMs": 817.1008,
+      "idleMs": 812.4998,
+      "correctedMs": 4.600999999999999,
+      "rawBytes": 992496,
+      "idleBytes": 3744,
+      "correctedBytes": 988752,
+      "visibleControls": 10,
+      "links": 8
+    },
+    {
+      "op": "insert-eight",
+      "feedbackMs": 10.3827,
+      "rawMs": 817.6428,
+      "idleMs": 802.7635,
+      "correctedMs": 14.879299999999944,
+      "rawBytes": 991872,
+      "idleBytes": 3744,
+      "correctedBytes": 988128,
+      "visibleControls": 10,
+      "links": 8
+    },
+    {
+      "op": "insert-eight",
+      "feedbackMs": 8.5065,
+      "rawMs": 813.584,
+      "idleMs": 814.1713,
+      "correctedMs": -0.5873000000000275,
+      "rawBytes": 991888,
+      "idleBytes": 3744,
+      "correctedBytes": 988144,
+      "visibleControls": 10,
+      "links": 8
+    }
+  ]
+}

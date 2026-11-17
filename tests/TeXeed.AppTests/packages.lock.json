@@ -24,8 +24,8 @@
       },
       "Markdig": {
         "type": "Transitive",
-        "resolved": "0.41.3",
-        "contentHash": "i3vSTyGpBGWbJB04aJ3cPJs0T3BV2e1nduW3EUHK/i+xUupYbym75iZPss/XjqhS5JlBErwQYnx7ofK3Zcsozg=="
+        "resolved": "1.1.1",
+        "contentHash": "wACpji8aLjtmghzdancNFRDUH66F2kS8QE0uywUXvLHgfbTD7LPNj7Vx43sTckpEQFtn5YndEoZvGqIHosBzGQ=="
       },
       "PDFiumCore": {
         "type": "Transitive",
@@ -54,7 +54,7 @@
         "type": "Project",
         "dependencies": {
           "AvalonEdit": "[6.3.1.120, )",
-          "Markdig": "[0.41.3, )",
+          "Markdig": "[1.1.1, )",
           "PDFiumCore": "[155.0.8057, )",
           "TeXeed.Core": "[1.0.0, )",
           "WpfMath": "[2.1.0, )"

@@ -32,6 +32,8 @@ public static class ThemeManager
         if (theme is null || theme.Id != id || string.IsNullOrWhiteSpace(theme.Name) || theme.Colors is null)
             throw new InvalidDataException("主题缺少有效的 id、name 或 colors。");
         var colors = new Dictionary<string, string>(Default.Colors);
+        if (!theme.IsDark && !theme.Colors.ContainsKey("ChatEmphasis"))
+            colors["ChatEmphasis"] = ReadEmbedded("github-light-default").Colors["ChatEmphasis"];
         foreach (var pair in theme.Colors)
         {
             if (!colors.ContainsKey(pair.Key) || !Regex.IsMatch(pair.Value ?? "", "^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"))

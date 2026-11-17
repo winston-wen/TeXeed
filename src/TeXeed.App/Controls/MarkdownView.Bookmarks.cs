@@ -25,7 +25,7 @@ public sealed partial class MarkdownView
     {
         var math = new ChatMath();
         var prepared = math.Prepare(source, Pipeline);
-        var document = Markdig.Markdown.Parse(prepared, Pipeline);
+        var document = ChatMarkdown.Parse(prepared, Pipeline, out var repaired);
         var results = new List<AiBookmarkFragment>();
         foreach (var heading in document.Descendants<HeadingBlock>())
         {
@@ -35,7 +35,7 @@ public sealed partial class MarkdownView
                 if (contents is null) return;
                 foreach (var inline in contents)
                 {
-                    if (inline is LiteralInline literal) text.Append(literal.Content.ToString());
+                    if (inline is LiteralInline literal) text.Append(ChatMarkdown.RestoreSpaces(literal.Content.ToString(), repaired));
                     else if (inline is CodeInline code) text.Append(code.Content);
                     else if (inline is LineBreakInline) text.Append(' ');
                     else if (inline is ContainerInline nested) Append(nested);
@@ -141,7 +141,7 @@ public sealed partial class MarkdownView
         if (reveal) RevealBookmarkFolds(target.FoldKeys);
         else if (target.FoldKeys.Any(key => _folds?.GetValueOrDefault(key) == true)) return null;
         if (!target.Block.ElementStart.IsInSameDocument(Document.ContentStart)) return null;
-        var offset = CopySource(Document.ContentStart, target.Block.ElementStart).Length + match - target.Start;
+        var offset = CopySourceLength(Document.ContentStart, target.Block.ElementStart) + match - target.Start;
         return AnnotationPointer("branch-source:" + anchor.TurnId + ":" + anchor.SegmentId + ":" + offset,
             anchor with { TextOffset = offset });
     }

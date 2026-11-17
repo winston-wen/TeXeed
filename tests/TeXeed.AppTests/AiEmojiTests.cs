@@ -13,6 +13,7 @@ internal static partial class Program
         static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         const string source = "中文 😀 🗨️ 👩🏽‍💻 🇨🇳 结尾";
         var view = new MarkdownView { ChatMode = true, FontSize = 24, Markdown = source };
+        CheckCopySourceLengths(view);
         var host = new Window { Owner = owner, Content = view, Width = 800, Height = 160, ShowInTaskbar = false };
         host.Show(); host.UpdateLayout();
         try

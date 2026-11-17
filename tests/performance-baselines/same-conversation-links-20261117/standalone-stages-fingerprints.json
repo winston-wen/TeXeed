@@ -1,0 +1,17 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6BA7283D7E3F1084D385CE7B5D90C7FA301177EC4A6C0802C4CD349EBF306D0C",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\same-link-standalone-final\\app\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "776C00D03D3CDD45B1FDF07DEB6CB304E426348012AFBB296135EE5E3A972A13",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\same-link-standalone-final\\app\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "DDE8DED478BB9D0A40A38081E74D3F462CB861EE24010C8A18D311A3457A57ED",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\same-conversation-links-20261117\\standalone-stages-fixture.cs.txt"
+  }
+]

@@ -18,6 +18,8 @@ const branch = pathToFileURL(path.join(__dirname, 'branching.html')).href;
     }, quote);
     await page.reload();
     const summary = page.locator('#quote-visual-test .sent-summary');
+    const styles = await summary.evaluate(element => { const s = getComputedStyle(element); return { paddingLeft: s.paddingLeft, textIndent: s.textIndent, decoration: s.textDecorationLine }; });
+    assert.deepEqual(styles, { paddingLeft: '0px', textIndent: '0px', decoration: 'none' }, '引用列表不缩进、不显示链接下划线');
     await summary.scrollIntoViewIfNeeded();
     await page.waitForFunction(() => document.querySelector('#quote-visual-test .quote-math-more:not([hidden])'));
     assert.equal(await summary.locator('.quote-math-window').count(), 4, '完整公式先正确解析');

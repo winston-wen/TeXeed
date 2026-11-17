@@ -1,0 +1,89 @@
+{
+  "fixture": "120 turns; eight references to one source; 900x760; two warmups and seven paired 800ms samples",
+  "samples": [
+    {
+      "op": "initial-restore-with-references",
+      "feedbackMs": 36.1478,
+      "rawMs": 843.0131,
+      "idleMs": 803.1143,
+      "correctedMs": 39.89880000000005,
+      "rawBytes": 3279616,
+      "idleBytes": 3744,
+      "correctedBytes": 3275872,
+      "visibleControls": 48,
+      "links": 0
+    },
+    {
+      "op": "initial-restore-with-references",
+      "feedbackMs": 36.3651,
+      "rawMs": 848.3776,
+      "idleMs": 801.3732,
+      "correctedMs": 47.00440000000003,
+      "rawBytes": 3296112,
+      "idleBytes": 3744,
+      "correctedBytes": 3292368,
+      "visibleControls": 48,
+      "links": 0
+    },
+    {
+      "op": "initial-restore-with-references",
+      "feedbackMs": 33.1754,
+      "rawMs": 845.9773,
+      "idleMs": 814.975,
+      "correctedMs": 31.00229999999999,
+      "rawBytes": 3278568,
+      "idleBytes": 3744,
+      "correctedBytes": 3274824,
+      "visibleControls": 48,
+      "links": 0
+    },
+    {
+      "op": "initial-restore-with-references",
+      "feedbackMs": 33.6866,
+      "rawMs": 842.1732,
+      "idleMs": 813.8219,
+      "correctedMs": 28.351299999999924,
+      "rawBytes": 3267680,
+      "idleBytes": 3744,
+      "correctedBytes": 3263936,
+      "visibleControls": 48,
+      "links": 0
+    },
+    {
+      "op": "initial-restore-with-references",
+      "feedbackMs": 33.3204,
+      "rawMs": 846.0436,
+      "idleMs": 801.8494,
+      "correctedMs": 44.19420000000002,
+      "rawBytes": 3276648,
+      "idleBytes": 3744,
+      "correctedBytes": 3272904,
+      "visibleControls": 48,
+      "links": 0
+    },
+    {
+      "op": "initial-restore-with-references",
+      "feedbackMs": 48.3514,
+      "rawMs": 857.9089,
+      "idleMs": 801.6618,
+      "correctedMs": 56.247100000000046,
+      "rawBytes": 3318992,
+      "idleBytes": 3744,
+      "correctedBytes": 3315248,
+      "visibleControls": 48,
+      "links": 0
+    },
+    {
+      "op": "initial-restore-with-references",
+      "feedbackMs": 31.6714,
+      "rawMs": 845.2957,
+      "idleMs": 813.289,
+      "correctedMs": 32.00670000000002,
+      "rawBytes": 3278928,
+      "idleBytes": 3744,
+      "correctedBytes": 3275184,
+      "visibleControls": 48,
+      "links": 0
+    }
+  ]
+}

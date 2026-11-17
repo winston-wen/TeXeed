@@ -18,6 +18,35 @@
  let md;
  try{
   md=root.markdownit({html:false,linkify:false,breaks:false});
+  // Apply CJK-friendly flanking rules during tokenization, keeping code and TeX opaque.
+  const BaseInlineState=md.inline.State;
+  const cjk=/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\ufe30-\ufe4f\uff01-\uffef]/u;
+  const cjkNeighbor=char=>!!char&&cjk.test(char)&&!/\p{Emoji_Presentation}/u.test(char);
+  md.inline.State=class extends BaseInlineState{
+   scanDelims(start,canSplitWord){
+    const result=super.scanDelims(start,canSplitWord);
+    if(!canSplitWord)return result;
+    const previous=start>1&&/[\uDC00-\uDFFF]/.test(this.src[start-1])?start-2:start-1;
+    const before=previous<0?'':String.fromCodePoint(this.src.codePointAt(previous));
+    const after=String.fromCodePoint(this.src.codePointAt(start+result.length)||0x20);
+    if(cjkNeighbor(before)||cjkNeighbor(after)){
+     if(after&&!md.utils.isWhiteSpace(after.codePointAt(0)))result.can_open=true;
+     if(before&&!md.utils.isWhiteSpace(before.codePointAt(0)))result.can_close=true;
+    }
+    // Recover a common AI typo only for paired strong markers and CJK punctuation.
+    if(this.src.charCodeAt(start)===42&&result.length===2){
+     this._strongOpeners??=new WeakMap();
+     const open=this._strongOpeners.get(this.delimiters);
+     if(open!==undefined&&!result.can_close&&before===' '){
+      const content=this.src.slice(open+2,start);
+      if(!content.includes('**')&&!/[\r\n]/.test(content)&&/[：；，。！？、）】》」』] $/u.test(content))result.can_close=true;
+     }
+     if(open!==undefined&&result.can_close)this._strongOpeners.delete(this.delimiters);
+     else if(result.can_open)this._strongOpeners.set(this.delimiters,start);
+    }
+    return result;
+   }
+  };
   const renderImage=md.renderer.rules.image;
   md.renderer.rules.image=(tokens,i,options,env,self)=>{
    const token=tokens[i];token.attrJoin('class','zoomable-image');token.attrSet('tabindex','0');token.attrSet('role','button');token.attrSet('aria-haspopup','dialog');token.attrSet('loading','lazy');token.attrSet('decoding','async');token.attrSet('referrerpolicy','no-referrer');

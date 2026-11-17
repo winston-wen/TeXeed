@@ -25,12 +25,12 @@ public sealed partial class MarkdownView
         var start = ResolveBranchAnchor(anchor, before, after, reveal: false);
         if (start is null) return false;
         int startOffset;
-        if (start.IsInSameDocument(Document.ContentStart)) startOffset = CopySource(Document.ContentStart, start).Length;
+        if (start.IsInSameDocument(Document.ContentStart)) startOffset = CopySourceLength(Document.ContentStart, start);
         else
         {
             var table = _tableViews.FirstOrDefault(t => start.IsInSameDocument(t.View.Document.ContentStart));
             if (table is null) return false;
-            startOffset = CopySource(Document.ContentStart, table.Block.ElementStart).Length + table.View.CopySource(table.View.Document.ContentStart, start).Length;
+            startOffset = CopySourceLength(Document.ContentStart, table.Block.ElementStart) + table.View.CopySourceLength(table.View.Document.ContentStart, start);
         }
         var end = BranchTextPointer(startOffset + anchor.Quote.Trim().Length);
         if (end?.Paragraph is null) return false;
@@ -39,7 +39,7 @@ public sealed partial class MarkdownView
         if (selectionView is null || selectionView.CopySource(start, end).Trim() != anchor.Quote.Trim()) return false;
         // Repeated references to the same text are kept in their original order.
         foreach (var inline in _branchLinkBlocks.Values.Where(link => link.Parent is not null && link.ElementStart.IsInSameDocument(end) && link.ElementStart.Paragraph == end.Paragraph).OrderBy(link => link.ElementStart, TextPointerComparer.Instance))
-            if (end.CompareTo(inline.ElementStart) <= 0 && CopySource(end, inline.ElementStart).Length == 0) end = inline.ElementEnd;
+            if (end.CompareTo(inline.ElementStart) <= 0 && CopySourceLength(end, inline.ElementStart) == 0) end = inline.ElementEnd;
         var linkButton = new Button
         {
             Content = "🗨️ " + title, ToolTip = title, FontSize = FontSize, FontFamily = FontFamily, FontWeight = FontWeights.Normal,
@@ -52,6 +52,7 @@ public sealed partial class MarkdownView
         linkButton.SetResourceReference(Control.ForegroundProperty, "ChatFocus");
         linkButton.Click += (_, _) => open();
         InlineUIContainer container;
+        NotifyAsyncLayoutChanging();
         try { container = new InlineUIContainer(linkButton, end) { BaselineAlignment = BaselineAlignment.TextBottom }; }
         catch (ArgumentException) { return false; }
         linkButton.SizeChanged += (_, _) =>
@@ -81,7 +82,7 @@ public sealed partial class MarkdownView
 
     private void BranchLinksChanged()
     {
-        LayoutVersion++; _annotationPointers.Clear(); _markerVisibleTextVersion = -1; QueueWaveLayout();
+        LayoutVersion++; _annotationPointers.Clear(); _markerVisibleTextVersion = -1;
     }
 
     private void UpdateBranchLineMode(Paragraph paragraph)

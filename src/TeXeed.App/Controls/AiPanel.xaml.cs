@@ -278,6 +278,7 @@ public partial class AiPanel : UserControl, IDisposable
     }
     private void RefreshTranscript()
     {
+        InvalidateSameConversationLinks();
         // Keep existing document visuals when appending a follow-up. Never bind the mutable
         // notebook List directly: WPF's item generator needs collection notifications.
         if (_visibleTurns.Count > _book.Turns.Count || !_visibleTurns.SequenceEqual(_book.Turns.Take(_visibleTurns.Count)))
@@ -288,6 +289,7 @@ public partial class AiPanel : UserControl, IDisposable
         LiveContainer.Visibility = Visibility.Collapsed;
         _liveSegments.Clear();
         MessageSearch_Changed(MessageSearchBox, null!);
+        RefreshVisibleBranchLinks();
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
     private void Composer_Changed(object sender, TextChangedEventArgs e) { if (!_updating) _book.Draft = Composer.Text; Dirty(); }
@@ -416,6 +418,7 @@ public partial class AiPanel : UserControl, IDisposable
             RefreshFormEnabled();
             try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
             catch { _pendingFormSubmissions.Clear(); RefreshFormEnabled(); LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            InvalidateSameConversationLinks(); RefreshVisibleBranchLinks();
             foreach (var submission in submittedForms) AiForms.Lock(book.Active, submission);
             RefreshFormEnabled();
             SteerButton.IsEnabled = true;

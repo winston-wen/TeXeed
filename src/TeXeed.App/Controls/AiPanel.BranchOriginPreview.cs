@@ -50,7 +50,7 @@ public partial class AiPanel
         {
             var markdown = anchor.PreviewTableMarkdown ?? (anchor.PreviewKind == "formula" && !string.IsNullOrWhiteSpace(anchor.PreviewSource)
                 ? "$$\n" + anchor.PreviewSource + "\n$$" : anchor.Quote);
-            var content = new MarkdownView { ChatMode = true, UseWavyEmphasis = true, Padding = new Thickness(0),
+            var content = new MarkdownView { ChatMode = true, UseChatEmphasis = true, Padding = new Thickness(0),
                 ImageBaseDirectory = Path.GetDirectoryName(_project), Markdown = markdown };
             preview.Children.Add(content);
         }

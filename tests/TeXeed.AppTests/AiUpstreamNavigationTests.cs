@@ -32,7 +32,7 @@ internal static partial class Program
         static string Key(AiTurn turn, string source, string heading) =>
             turn.DisplaySegments[0].Id + ":" + MarkdownView.BookmarkFragments(source).Single(f => f.Kind == AiBookmarkKind.Heading && f.Description == heading).Position;
 
-        var project = Path.Combine(output, "upstream-focused-folds.tex");
+        var project = Path.Combine(output, "upstream-focused-folds-" + Guid.NewGuid().ToString("N") + ".tex");
         using var panel = new AiPanel(new AiConnection(new AiFakeHandler()));
         panel.InitializeBranchUi();
         panel.ConversationOpenRequested += (_, _) => { };
@@ -103,7 +103,8 @@ internal static partial class Program
                 throw new Exception("Changed document unexpectedly accepted old origin");
             await panel.SaveAsync();
             var restored = AiStorage.Load(project);
-            if (restored.Conversations.Single(c => c.Id == child.Id).BranchAnchor != oldAnchor || restored.Conversations.Single(c => c.Id == child.Id).Draft != "追问草稿不变")
+            if (System.Text.Json.JsonSerializer.Serialize(restored.Conversations.Single(c => c.Id == child.Id).BranchAnchor) !=
+                System.Text.Json.JsonSerializer.Serialize(oldAnchor) || restored.Conversations.Single(c => c.Id == child.Id).Draft != "追问草稿不变")
                 throw new Exception("Origin navigation changed the saved branch or draft");
 
             var edges = new AiConversation { Title = "居中边界" }; book.Conversations.Add(edges);

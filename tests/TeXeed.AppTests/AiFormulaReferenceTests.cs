@@ -53,6 +53,8 @@ internal static partial class Program
             var list = (System.Windows.Documents.List)question.Document.Blocks.FirstBlock;
             var paragraph = (Paragraph)list.ListItems.FirstListItem.Blocks.FirstBlock;
             var link = paragraph.Inlines.OfType<Hyperlink>().Single();
+            if (list.Padding.Left != 0 || link.TextDecorations is { Count: > 0 })
+                throw new Exception("Sent reference retained list indentation or a link underline");
             var text = new TextRange(question.Document.ContentStart, question.Document.ContentEnd).Text;
             if (text.Contains("](#snapshot-") || text.Contains("TEXEED_REFERENCE_") || text.Contains("\\left"))
                 throw new Exception("A reference was parsed as broken Markdown or raw formula text");
@@ -71,6 +73,25 @@ internal static partial class Program
             Console.WriteLine("Formula reference: old anchor, safe markup, SVG, source link, copy and revision passed.");
         }
         finally { host.Close(); }
+
+        var alignmentView = new AiTurnView { TurnNumber = 1, Turn = new AiTurn("问题", "答复") { Prompt = "问题", SentAnnotations = [entry, new AiEntry { AnswerAnchor = prose }] } };
+        var alignmentHost = new Window { Owner = owner, Width = 800, Height = 500, Content = alignmentView }; alignmentHost.Show();
+        try
+        {
+            await Task.WhenAll(alignmentView.Questions.Select(q => q.RenderTask));
+            alignmentHost.UpdateLayout();
+            var promptView = alignmentView.Questions.First(); var referencesView = alignmentView.Questions.Last();
+            var references = (System.Windows.Documents.List)referencesView.Document.Blocks.FirstBlock;
+            var links = references.ListItems.Select(item => ((Paragraph)item.Blocks.FirstBlock).Inlines.OfType<Hyperlink>().Single()).ToArray();
+            if (links.Length != 2 || ((Run)links[0].Inlines.FirstInline).Text != "1. " || ((Run)links[1].Inlines.FirstInline).Text != "2. " || references.Padding.Left != 0 || links.Any(link => link.TextDecorations is { Count: > 0 }))
+                throw new Exception("Multiple sent references lost their numbers or retained indentation/underlines");
+            var promptRect = promptView.Document.ContentStart.GetNextInsertionPosition(LogicalDirection.Forward).GetCharacterRect(LogicalDirection.Forward);
+            var referenceRect = links[0].Inlines.FirstInline.ContentStart.GetCharacterRect(LogicalDirection.Forward);
+            var promptX = promptView.TranslatePoint(promptRect.TopLeft, alignmentView).X;
+            var referenceX = referencesView.TranslatePoint(referenceRect.TopLeft, alignmentView).X;
+            if (Math.Abs(promptX - referenceX) > 2) throw new Exception($"Sent references are not aligned with the question: {promptX} / {referenceX}");
+        }
+        finally { alignmentHost.Close(); }
 
         const string longFormula = @"\operatorname{Adv}^{\mathrm{dMLWR}}_{D} = \left|\Pr[D(A,s)=1]-\Pr[D(A,u)=1]\right|+\Pr[D(A,t)=0]";
         var quoteText = @"形式化地，对于一个输出 $0$ 或 $1$ 的区分算法 $D$，定义其优势 $$" + longFormula + "$$";
@@ -227,6 +248,8 @@ internal static partial class Program
                 throw new Exception("The live question exposed broken markup before the reply completed");
             var list = live.Document.Blocks.OfType<System.Windows.Documents.List>().Single();
             var link = ((Paragraph)list.ListItems.FirstListItem.Blocks.FirstBlock).Inlines.OfType<Hyperlink>().Single();
+            if (list.Padding.Left != 0 || link.TextDecorations is { Count: > 0 })
+                throw new Exception("Live sent reference retained list indentation or a link underline");
             for (var i = 0; i < 200 && !link.Inlines.OfType<InlineUIContainer>().Any(); i++) await Task.Delay(50);
             if (!link.Inlines.OfType<InlineUIContainer>().Any()) throw new Exception("Live reference did not render its formula SVG");
             liveHost.UpdateLayout(); Capture(liveHost, Path.Combine(output, "ai-formula-reference-live.png"));

@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
+(async()=>{const browser=await chromium.launch({headless:true,...(process.env.TEXEED_BROWSER_PATH?{executablePath:process.env.TEXEED_BROWSER_PATH}:{})});try{
+ const page=await browser.newPage({viewport:{width:1000,height:800}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(pathToFileURL(path.join(__dirname,'branching.html')).href);
+ await page.evaluate(()=>{const f=branchDemo.getState(),s=f.sessions[0];s.turns=[{id:'origin',question:'原问题',answer:[{id:'first',kind:'paragraph',text:'第一处需要解释，第二处也需要解释。'},{id:'second',kind:'paragraph',text:'另一段的来源内容。'}]}];s.draft='待发送的问题';s.references=[{id:'r1',sessionId:s.id,blockId:'first',textOffset:0,endBlockId:'first',endTextOffset:3,quote:'第一处',selected:true,comment:'第一问'},{id:'r2',sessionId:s.id,blockId:'second',textOffset:0,endBlockId:'second',endTextOffset:3,quote:'另一段',selected:true,comment:'第二问'}];f.sessions.push({id:'branch',title:'旧追问',parent:s.id,source:{blockId:'first',textOffset:0,endTextOffset:3,quote:'第一处'},turns:[],references:[],attachments:[],draft:'分支草稿'});branchDemo.setState(f)});
+ await page.locator('#send').click();const links=page.locator('[data-open-turn]');await links.first().waitFor();assert.equal(await links.count(),2);assert.equal(await links.first().textContent(),'🗨️ [2]');assert.equal(await page.locator('[data-open-session="branch"]').count(),1);
+ assert.equal(await links.first().evaluate(node=>{const range=document.createRange();range.selectNodeContents(node.parentElement);range.setEndBefore(node);const copy=range.cloneContents();copy.querySelectorAll('.associated').forEach(link=>link.remove());return copy.textContent;}),'第一处');
+ await links.first().click();assert.equal(await page.locator('[data-turn-id]').last().evaluate(node=>node.getBoundingClientRect().top<innerHeight),true);
+ let state=await page.evaluate(()=>branchDemo.getState());assert.equal(state.sessions.find(s=>s.id==='branch').draft,'分支草稿');assert.equal(state.sessions[0].turns[1].references.length,2);
+ await page.locator('#composer').fill('新的未发送草稿');await page.reload();await page.locator('[data-open-turn]').first().waitFor();assert.equal(await page.locator('[data-open-turn]').count(),2);assert.equal(await page.locator('#composer').inputValue(),'新的未发送草稿');
+ await page.evaluate(()=>{const f=branchDemo.getState(),s=f.sessions[0];s.turns.push({id:'legacy-target',question:'旧引用',references:[{blockId:'first',quote:'第二处'}],answer:[{id:'legacy-answer',kind:'paragraph',text:'旧答复'}]});s.turns.push({id:'ambiguous-target',question:'不能猜',references:[{blockId:'first',quote:'需要解释'}],answer:[{id:'ambiguous-answer',kind:'paragraph',text:'旧答复'}]});branchDemo.setState(f)});
+ assert.equal(await page.locator('[data-open-turn="legacy-target"]').count(),1);assert.equal(await page.locator('[data-open-turn="ambiguous-target"]').count(),0);
+ assert.deepEqual(errors,[]);console.log('PASS same-session links: multiple references, old unique/ambiguous anchors, branch links, target navigation and drafts');
+}finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

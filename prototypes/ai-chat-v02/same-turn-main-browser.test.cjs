@@ -1,0 +1,45 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
+(async()=>{const browser=await chromium.launch({headless:true,...(process.env.TEXEED_BROWSER_PATH?{executablePath:process.env.TEXEED_BROWSER_PATH}:{})});try{
+ const page=await browser.newPage({viewport:{width:1000,height:800}}),errors=[];page.setDefaultTimeout(5000);page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
+ await page.evaluate(()=>{const c=current();state.reviewPinnedTurns=[];state.reviewTemporaryTurns=[];state.reviewAutoSeen={};c.draft='尚未发送的草稿';c.entries=[];c.turns=[{id:'origin-main',question:'原问题',answer:'第一处与第二处需要解释。\n\n公式 $x+y$ 在这里。\n\n![示例图](assets/flight-comparison.svg)\n\n| 甲 | 乙 |\n|---|---|\n| 一 | 二 |',segments:[],reviewDraft:{blocks:{},comments:[{id:'old-comment',turn:'origin-main',block:'origin-main-p0',start:7,end:11,quote:'需要解释',text:'原有评论',replies:[],resolved:false}]}}];c.bookmarks=[{id:'old-bookmark',kind:'user',name:'原有书签',turn:'origin-main',block:'origin-main-p0',scope:'block',quote:'需要解释',offset:7,offsetVersion:3}];renderConversation()});
+ await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(300);
+ const annotate=async(selector,start,end,comment)=>{
+  await page.evaluate(({selector,start,end})=>{const el=document.querySelector(selector),node=el.firstChild,range=document.createRange();range.setStart(node,start);range.setEnd(node,end);const sel=getSelection();sel.removeAllRanges();sel.addRange(range);el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));},{selector,start,end});
+  await page.locator('#annotate').click();await page.locator('#annotation-input').fill(comment);await page.locator('#send-annotation').click();
+ };
+ await annotate('#origin-main-p0 p',0,3,'第一处的疑问');
+ await annotate('#origin-main-p0 p',4,7,'第二处的疑问');
+ await page.evaluate(()=>{const first=document.querySelector('#origin-main-p0 p').firstChild,last=document.querySelector('#origin-main-p1 p').firstChild,r=document.createRange();r.setStart(first,4);r.setEnd(last,2);const s=getSelection();s.removeAllRanges();s.addRange(r);last.parentElement.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));});
+ await page.locator('#annotate').click();await page.locator('#annotation-input').fill('跨段追问');await page.locator('#send-annotation').click();
+ const media=async selector=>{await page.evaluate(selector=>{getSelection()?.removeAllRanges();const context=targetContext(document.querySelector(selector));if(!context?.quote)throw Error('媒体来源没有引用内容');addAnnotation(context);},selector);await page.locator('#annotation-input').fill('请解释此处');await page.locator('#send-annotation').click();};
+ await media('#origin-main-p1 .math');await media('#origin-main-p2 img');await media('#origin-main-p3 table');
+ assert.equal(await page.locator('#composer').inputValue(),'尚未发送的草稿');
+ await page.locator('#send').click();await page.waitForSelector('.same-turn-link');
+ assert.equal(await page.locator('#origin-main-p0 .same-turn-link').count(),2);
+ await page.waitForSelector('#origin-main-p0 .user-bookmark-marker',{state:'attached'});
+ assert.equal(await page.locator('#origin-main-p0 .review-mark').textContent(),'需要解释');
+ for(const selector of ['#origin-main-p1 .math + .same-turn-link','#origin-main-p2 img + .same-turn-link','#origin-main-p3 table + .same-turn-link'])assert.equal(await page.locator(selector).count(),1,selector);
+ for(const link of await page.locator('#origin-main-p0 .same-turn-link').all())assert.equal(await link.textContent(),'🗨️ [2]');
+ assert.equal(await page.evaluate(()=>serialize(document.querySelector('#origin-main-p0 .passage-body')).trim()),'第一处与第二处需要解释。');
+ assert.equal(await page.evaluate(()=>{const p=document.querySelector('#origin-main-p0 p'),r=document.createRange();r.selectNodeContents(p);const s=getSelection();s.removeAllRanges();s.addRange(r);const data=new DataTransfer(),event=new ClipboardEvent('copy',{bubbles:true,cancelable:true,clipboardData:data});p.dispatchEvent(event);s.removeAllRanges();return data.getData('text/plain').trim();}),'第一处与第二处需要解释。');
+ await page.evaluate(()=>{const p=document.querySelector('#origin-main-p0 p'),r=document.createRange();r.selectNodeContents(p);const s=getSelection();s.removeAllRanges();s.addRange(r)});await page.waitForTimeout(50);await page.locator('#review-comment').click();await page.locator('dialog.review-dialog textarea').fill('新评论');await page.locator('dialog.review-dialog button[value="save"]').click();await page.waitForFunction(()=>current().turns[0].reviewDraft.comments.some(comment=>comment.text==='新评论'));
+ const newComment=await page.evaluate(()=>current().turns[0].reviewDraft.comments.find(comment=>comment.text==='新评论'));assert.equal(newComment.quote,'第一处与第二处需要解释。');assert.equal(newComment.start,0);assert.equal(newComment.end,'第一处与第二处需要解释。'.length);
+ await page.locator('#composer').fill('发送后保留的新草稿');await page.reload();await page.waitForSelector('.same-turn-link');
+ assert.equal(await page.locator('.same-turn-link').count(),6);assert.equal(await page.locator('#origin-main-p0 .same-turn-link').count(),2);assert.equal(await page.locator('#composer').inputValue(),'发送后保留的新草稿');
+ await page.evaluate(()=>{window.sourceBeforeNavigation=document.querySelector('#origin-main-p0');});
+ await page.locator('#origin-main-p0 .same-turn-link').first().click();await page.waitForTimeout(100);
+ assert.equal(await page.locator('.turn').last().evaluate(el=>el.getBoundingClientRect().top<innerHeight),true);
+ assert.equal(await page.evaluate(()=>window.sourceBeforeNavigation===document.querySelector('#origin-main-p0')),true,'目标已展开时不能重建历史');
+ await page.evaluate(()=>document.getElementById('reader').scrollTop=0);await page.waitForTimeout(100);assert.equal(await page.locator('#reader').evaluate(el=>el.scrollTop),0,'用户后续滚动不能被延迟定位覆盖');
+ await page.evaluate(()=>{current().turns[1].collapsed=true;renderTurns()});await page.locator('#origin-main-p0 .same-turn-link').first().click();
+ assert.equal(await page.evaluate(()=>current().turns[1].collapsed),false,'折叠目标必须重新展开');
+ assert.equal(await page.locator('#composer').inputValue(),'发送后保留的新草稿');
+ await page.evaluate(()=>{const c=current();c.turns.push({id:'old-unique',question:'旧引用',request:{annotations:[{block:'origin-main-p0',quote:'第二处'}]},answer:'旧答复',segments:[]});c.turns.push({id:'old-ambiguous',question:'旧重复',request:{annotations:[{block:'origin-main-p0',quote:'处'}]},answer:'旧答复',segments:[]});c.turns.push({id:'old-formula',question:'旧公式',request:{annotations:[{block:'origin-main-p1',quote:'$x+y$'}]},answer:'旧答复',segments:[]});c.turns.push({id:'old-image',question:'旧图片',request:{annotations:[{block:'origin-main-p2',quote:'示例图'}]},answer:'旧答复',segments:[]});c.turns.push({id:'old-table',question:'旧表格',request:{annotations:[{block:'origin-main-p3',quote:'甲\n乙\n\n\n\n\n一\n二'}]},answer:'旧答复',segments:[]});renderTurns();});
+ assert.equal(await page.locator('[data-open-turn="old-unique"]').count(),1);assert.equal(await page.locator('[data-open-turn="old-ambiguous"]').count(),0);
+ for(const id of ['old-formula','old-image','old-table'])assert.equal(await page.locator('[data-open-turn="'+id+'"]').count(),1,id);
+ if(process.env.TEXEED_SAME_TURN_SCREENSHOT){await page.evaluate(()=>document.getElementById('reader').scrollTop=0);await page.waitForTimeout(100);await page.screenshot({path:process.env.TEXEED_SAME_TURN_SCREENSHOT});}
+ assert.deepEqual(errors,[]);console.log('PASS main same-turn links: selected text, multiple references, old unique/ambiguous anchors, navigation, copy and draft');
+}finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,0 +1,52 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E7457B7C759D7AA0446C05DEE9123473F1394E7A1F0B30F514E65594C151AB8D",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\format-perf-before\\app\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "38EAD202CB1C1F74BC2F25E4442692ADF55692D2A3DC02C1EA647BD2ED0D52CF",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\format-perf-before\\app\\Perf.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "0A4903703EABF12F00448BAB3EC010584F3152642939356AB1E89B443FBA1024",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\format-perf-before\\app\\Harness.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "977AA616CCF7C4D45A9C463512E31845A151BE225F249330FF91584D441D9CFC",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\interaction-deep.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "A52DB958492CAF50D84BAC50BEE5131F98CEEDF093C490392A8C56D91099C95D",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\steering-20261112\\panel-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "99D5D426AE9D11DF961D3BF7744A3A25BF82A23F961AF39F982E5F76AB3B839E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\math-svg\\17D13912F7999354E9689D98ABD2667170D8787AA5F7A6CC7204CABBE9207194.svg"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "B8BD30FBB1DE7F6E2B4E38D8445E5DFDBC415C5BD2429A467EA4E8EDF86FC4FE",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\math-svg\\1A8BE698ABE50B33A15C42490AFF6582115992B09CDB9F765FFE43188CEDFD66.svg"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "739118BFF5AD8B2A00752C3DD7CC24BC4B83A911A8F17453DF3F2DD2074B0C47",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\math-svg\\43BBAB8FAEEBEAB793A8CC064B9C4FED686492002DDF74BDE350279F735B9C0C.svg"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "A62064BC8E39943C7691CF0CAD0772263CD3BA7B655123CA3B36BD36504ABD78",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\math-svg\\699D7E059F7D76400985B3AB123DAB55E24DC7CE0CCC2841D1E0C45CFA29893F.svg"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "63917C23D5E137749EE228DD0078797E8E5FE49ECD9A911210DFC5D5EC33172C",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\math-svg\\91702D70B1FF43DF509F5C91F1D38C2112109A7E918F7CCE4BD86EDB5F572A6A.svg"
+  }
+]

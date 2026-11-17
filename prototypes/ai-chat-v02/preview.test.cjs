@@ -4,6 +4,7 @@ const prompts=JSON.parse(fs.readFileSync(__dirname+'/prompts.json','utf8'));
 const index=fs.readFileSync(__dirname+'/index.html','utf8').replace(/\r\n/g,'\n'),start=index.indexOf('const DATA=')+'const DATA='.length,end=index.indexOf(';\n',start);
 assert.ok(start>='const DATA='.length&&end>start,'Built prototype must contain its generated data');
 assert.deepEqual(JSON.parse(index.slice(start,end)).prompts,prompts,'Built prototype must use current default instructions');
+assert.match(prompts.answer,/克制使用加粗/);
 assert.match(prompts.answer,/首个分节标题必须使用 Markdown 一级标题 #/);
 assert.match(prompts.answer,/不得跳过上级/);
 assert.match(prompts.answer,/不要添加包裹全文的统一一级标题/);

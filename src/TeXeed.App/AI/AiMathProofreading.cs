@@ -8,7 +8,7 @@ internal sealed record AiMathCheck(int Count, string? Error = null, bool CanRepa
 internal static class AiMathProofreading
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
-        .UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseAutoLinks().DisableHtml().Build();
+        .UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseCjkFriendlyEmphasis().UseAutoLinks().DisableHtml().Build();
 
     internal static async Task<AiMathCheck> CheckAsync(string answer, CancellationToken token)
     {

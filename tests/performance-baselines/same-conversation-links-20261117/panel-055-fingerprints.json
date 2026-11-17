@@ -1,0 +1,17 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6BA7283D7E3F1084D385CE7B5D90C7FA301177EC4A6C0802C4CD349EBF306D0C",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\format-perf-actual-055-optimized\\app\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "83C76C9DABCF007A0694C59D3201009D9F79229779BC0710F9584AADF68E2E84",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\format-perf-actual-055-optimized\\app\\Perf.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "BA44E97EFA440789D25679F6418167F4D13C1351FB684F55346509F41FF5351B",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\quote-scroll-20261116\\panel-width-validated.cs.txt"
+  }
+]

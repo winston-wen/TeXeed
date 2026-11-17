@@ -15,7 +15,7 @@ internal static class AiForms
     private const string LockedKey = "texeedFormLockedV1";
     internal const string ProtocolKey = "texeedFormProtocolVersion";
     internal static readonly Regex Token = new(@"\{\{(?:(?<text>text|textarea):(?<tid>[A-Za-z0-9-]{1,64})|radio:(?<rid>[A-Za-z0-9-]{1,64}):(?<value>[A-Za-z0-9-]{1,64}):(?<rlabel>[^{}\r\n:|]{1,80})|checkbox:(?<cid>[A-Za-z0-9-]{1,64}):(?<clabel>[^{}\r\n:|]{1,80})|file:(?<fid>[A-Za-z0-9-]{1,64}):(?<flabel>[^{}\r\n:|]{1,80}))\}\}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseAutoLinks().DisableHtml().Build();
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseCjkFriendlyEmphasis().UseAutoLinks().DisableHtml().Build();
     internal sealed record Submission(string TurnId, Dictionary<string, string> Values)
     {
         public Dictionary<string, string[]>? Attachments { get; set; }
@@ -118,28 +118,29 @@ internal static class AiForms
     }
     private static IEnumerable<Match> Tokens(AiTurn turn)
     {
-        static IEnumerable<Match> Inlines(ContainerInline inline)
+        static IEnumerable<Match> Inlines(ContainerInline inline, bool repaired)
         {
             foreach (var child in inline)
                 if (child is LiteralInline literal)
-                    foreach (Match match in Token.Matches(literal.Content.ToString())) yield return match;
+                    foreach (Match match in Token.Matches(ChatMarkdown.RestoreSpaces(literal.Content.ToString(), repaired))) yield return match;
                 else if (child is ContainerInline nested)
-                    foreach (var match in Inlines(nested)) yield return match;
+                    foreach (var match in Inlines(nested, repaired)) yield return match;
         }
-        static IEnumerable<Match> Blocks(ContainerBlock block)
+        static IEnumerable<Match> Blocks(ContainerBlock block, bool repaired)
         {
             foreach (var child in block)
                 if (child is LeafBlock { Inline: { } inline })
-                    foreach (var match in Inlines(inline)) yield return match;
+                    foreach (var match in Inlines(inline, repaired)) yield return match;
                 else if (child is ContainerBlock nested)
-                    foreach (var match in Blocks(nested)) yield return match;
+                    foreach (var match in Blocks(nested, repaired)) yield return match;
         }
         var sources = turn.Segments.Count == 0 ? [turn.Answer] : turn.Segments.Where(s => s.Kind != "activity").Select(s => s.Text);
         foreach (var source in sources)
         {
             if (!source.Contains("{{", StringComparison.Ordinal)) continue;
             var prepared = new ChatMath().Prepare(source, Pipeline);
-            foreach (var match in Blocks(Markdig.Markdown.Parse(prepared, Pipeline))) yield return match;
+            var document = ChatMarkdown.Parse(prepared, Pipeline, out var repaired);
+            foreach (var match in Blocks(document, repaired)) yield return match;
         }
     }
     internal static string HistoryQuestion(AiTurn turn)

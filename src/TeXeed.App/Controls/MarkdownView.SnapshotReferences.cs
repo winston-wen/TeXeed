@@ -27,6 +27,8 @@ public partial class MarkdownView
             !int.TryParse(key.AsSpan("snapshot-".Length), out var number) || number <= 0 || number > entries.Count ||
             source.FirstChild is not LiteralInline literal || literal.NextSibling is not null ||
             literal.Content.ToString() != AiReferencePresentation.PlaceholderPrefix + number) return false;
+        link.Name = "SnapshotReference";
+        link.TextDecorations = null;
         var entry = entries[number - 1];
         var anchor = entry.AnswerAnchor is null ? null : AiReferencePresentation.NormalizePreview(entry.AnswerAnchor);
         var formula = anchor is { PreviewKind: "formula", PreviewSource.Length: > 0 };

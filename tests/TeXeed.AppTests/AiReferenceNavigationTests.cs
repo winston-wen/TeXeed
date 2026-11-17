@@ -26,7 +26,7 @@ internal static partial class Program
         host.Show();
         try
         {
-            var project = Path.Combine(output, "reference-navigation.tex");
+            var project = Path.Combine(output, "reference-navigation-" + Guid.NewGuid().ToString("N") + ".tex");
             await panel.SetProjectAsync(project);
             var book = (AiNotebook)Field(panel, "_book")!;
             var parent = book.Active;
@@ -89,7 +89,8 @@ internal static partial class Program
                 throw new Exception("The referenced origin could not be located after reopening the parent");
             await panel.SaveAsync();
             var restored = AiStorage.Load(project);
-            if (restored.Conversations.Single(c => c.Id == child.Id).BranchAnchor != child.BranchAnchor)
+            if (System.Text.Json.JsonSerializer.Serialize(restored.Conversations.Single(c => c.Id == child.Id).BranchAnchor) !=
+                System.Text.Json.JsonSerializer.Serialize(child.BranchAnchor))
                 throw new Exception("Existing branch anchor was not preserved on reload");
             await CallAsync(owner, "InitializeAiProjectAsync", project);
             ((FrameworkElement)owner.FindName("Welcome")).Visibility = Visibility.Collapsed;

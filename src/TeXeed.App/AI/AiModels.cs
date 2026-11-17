@@ -68,6 +68,15 @@ public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset,
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewNumber { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewBefore { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewAfter { get; init; }
+
+    internal static bool SamePayload(AiAnswerAnchor? left, AiAnswerAnchor? right) =>
+        ReferenceEquals(left, right) || left is not null && right is not null &&
+        left.TurnId == right.TurnId && left.SegmentId == right.SegmentId && left.Offset == right.Offset && left.Length == right.Length &&
+        left.Quote == right.Quote && left.Revision == right.Revision && left.TextOffset == right.TextOffset &&
+        left.PreviewKind == right.PreviewKind && left.PreviewSource == right.PreviewSource && left.PreviewImageUri == right.PreviewImageUri &&
+        left.PreviewTableMarkdown == right.PreviewTableMarkdown && left.PreviewNumber == right.PreviewNumber &&
+        left.PreviewBefore == right.PreviewBefore && left.PreviewAfter == right.PreviewAfter &&
+        (left.PreviewParts is null ? right.PreviewParts is null : right.PreviewParts is not null && left.PreviewParts.SequenceEqual(right.PreviewParts));
 }
 
 public sealed record AiUserBookmark
@@ -285,7 +294,7 @@ public sealed class AiConversation
                     if (snapshot.SentReferencePart != true && snapshot.SentAttachmentPart != false &&
                         !entry.HasReference && entry.HasAttachments && entry.Title == snapshot.Title &&
                         entry.PdfRevision == snapshot.PdfRevision && entry.IsPoint == snapshot.IsPoint &&
-                        entry.AnswerAnchor == snapshot.AnswerAnchor && entry.Sources.SequenceEqual(snapshot.Sources) &&
+                        AiAnswerAnchor.SamePayload(entry.AnswerAnchor, snapshot.AnswerAnchor) && entry.Sources.SequenceEqual(snapshot.Sources) &&
                         entry.PdfBlocks.SequenceEqual(snapshot.PdfBlocks) && entry.Images.SequenceEqual(snapshot.Images) &&
                         entry.Files.SequenceEqual(snapshot.Files) && AiFormAttachmentOrigins.MatchesPendingSnapshot(entry, snapshot))
                     { Entries.Remove(entry); changed = true; break; }
@@ -294,7 +303,7 @@ public sealed class AiConversation
                 if (snapshot.SentReferencePart is null && snapshot.SentAttachmentPart is null)
                 {
                     if (entry.Title == snapshot.Title && entry.Question == snapshot.Question && entry.PdfRevision == snapshot.PdfRevision && entry.IsPoint == snapshot.IsPoint &&
-                        entry.AnswerAnchor == snapshot.AnswerAnchor && entry.Sources.SequenceEqual(snapshot.Sources) && entry.PdfBlocks.SequenceEqual(snapshot.PdfBlocks) &&
+                        AiAnswerAnchor.SamePayload(entry.AnswerAnchor, snapshot.AnswerAnchor) && entry.Sources.SequenceEqual(snapshot.Sources) && entry.PdfBlocks.SequenceEqual(snapshot.PdfBlocks) &&
                         entry.Images.SequenceEqual(snapshot.Images) && entry.Files.SequenceEqual(snapshot.Files))
                     { Entries.Remove(entry); changed = true; break; }
                     continue;
@@ -303,7 +312,7 @@ public sealed class AiConversation
                 if (entry.AdditionalData is { Count: > 0 } && entry.AdditionalData.Keys.Any(key => key != AiEntry.MentionTokenKey)) continue;
                 var imageIsAttachment = entry.HasAttachmentImages;
                 var referenceMatches = snapshot.SentReferencePart == true && entry.HasReference && entry.Title == snapshot.Title &&
-                    entry.Question == snapshot.Question && entry.AnswerAnchor == snapshot.AnswerAnchor && entry.PdfRevision == snapshot.PdfRevision &&
+                    entry.Question == snapshot.Question && AiAnswerAnchor.SamePayload(entry.AnswerAnchor, snapshot.AnswerAnchor) && entry.PdfRevision == snapshot.PdfRevision &&
                     entry.IsPoint == snapshot.IsPoint && entry.Sources.SequenceEqual(snapshot.Sources) && entry.PdfBlocks.SequenceEqual(snapshot.PdfBlocks) &&
                     (imageIsAttachment || entry.Images.SequenceEqual(snapshot.Images));
                 var attachmentMatches = snapshot.SentAttachmentPart == true && entry.HasAttachments && entry.Title == snapshot.Title &&

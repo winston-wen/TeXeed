@@ -165,7 +165,7 @@ public sealed class AiTurnView : StackPanel
     }
     private MarkdownView Rich(string source, Thickness margin, bool numbers = false, IReadOnlyList<AiEntry>? snapshots = null, string? revisionSource = null)
     {
-        var view = new MarkdownView { SourceLink = value => SourceRequested?.Invoke(value), LinkListNumbers = numbers, UseWavyEmphasis = true,
+        var view = new MarkdownView { SourceLink = value => SourceRequested?.Invoke(value), LinkListNumbers = numbers, UseChatEmphasis = true,
             SnapshotEntries = snapshots, RevisionSourceOverride = revisionSource,
             Margin = new Thickness(margin.Left - AiChatTypography.RichTextInset, margin.Top, margin.Right, margin.Bottom), Padding = new Thickness(0) };
         view.Markdown = source;

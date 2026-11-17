@@ -1,0 +1,79 @@
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+class StandaloneStagesPerf
+{
+    static async Task Idle(Window window) { await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout(); }
+    static async Task Drain(Window window) { await Task.Delay(800); await Idle(window); }
+    static IEnumerable<T> Children<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in Children<T>(child)) yield return nested;
+        }
+    }
+    static int Visible(Window window) => Children<Control>(window).Count(control =>
+    {
+        if (!control.IsVisible || control.ActualWidth <= 0 || control.ActualHeight <= 0) return false;
+        try { return control.TransformToAncestor(window).TransformBounds(new Rect(0, 0, control.ActualWidth, control.ActualHeight)).IntersectsWith(new Rect(0, 0, window.ActualWidth, window.ActualHeight)); }
+        catch (InvalidOperationException) { return false; }
+    });
+
+    [STAThread] static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        var host = new Window { Width = 900, Height = 760, Left = 20, Top = 20 }; var exit = 1;
+        app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                var fragments = Enumerable.Range(1, 8).Select(i => $"来源选区{i}号").ToArray();
+                var body = string.Join("，", fragments) + "。这是用于比较虚拟列表恢复的合成回答。";
+                var samples = new List<object>();
+                foreach (var op in new[] { "resolve-eight", "insert-eight" })
+                {
+                    for (var i = 0; i < 9; i++)
+                    {
+                        var view = new MarkdownView { ChatMode = true, Width = 820, Markdown = body };
+                        host.Content = view; await view.RenderTask; await Drain(host);
+                        var anchors = fragments.Select(quote => { var offset = body.IndexOf(quote, StringComparison.Ordinal); return new AiAnswerAnchor("source-turn", "source-segment", offset, quote.Length, quote, view.Revision) { TextOffset = offset }; }).ToArray();
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Drain(host); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread(); var watch = Stopwatch.StartNew();
+                        for (var index = 0; index < anchors.Length; index++)
+                        {
+                            if (op == "resolve-eight")
+                            {
+                                if (view.ResolveBranchAnchor(anchors[index], null, null, reveal: false) is null) throw new Exception("Could not resolve fixture anchor");
+                            }
+                            else if (!view.AddBranchLink("link-" + index, "[" + (index + 2) + "]", anchors[index], null, null, () => { })) throw new Exception("Could not insert fixture link");
+                        }
+                        await Idle(host); var feedback = watch.Elapsed.TotalMilliseconds; await Drain(host); watch.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        var controls = Visible(host);
+                        if (!host.IsVisible || host.WindowState == WindowState.Minimized || controls == 0) throw new Exception("Standalone fixture window was not visible");
+                        var links = view.BranchLinkBlocks.Count;
+                        if (op == "insert-eight" && links != 8 || op == "resolve-eight" && links != 0) throw new Exception($"Unexpected link count: {links}");
+                        if (i >= 2) samples.Add(new { op, feedbackMs = feedback, rawMs = watch.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = watch.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = controls, links });
+                        host.Content = null; await Idle(host);
+                    }
+                }
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "standalone MarkdownView; eight short text anchors; 900x760; two warmups and seven paired 800ms samples", samples }, new JsonSerializerOptions { WriteIndented = true })); exit = 0;
+            }
+            catch (Exception error) { Console.Error.WriteLine(error); }
+            finally { host.Content = null; host.Close(); app.Shutdown(exit); }
+        };
+        host.Show(); app.Run(); return exit;
+    }
+}

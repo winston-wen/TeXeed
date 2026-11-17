@@ -197,6 +197,46 @@
     return text.slice(leading).startsWith(last) ? leading + last.length : null;
   }
   function branchLink(child) { const link = document.createElement('button'); link.type = 'button'; link.className = 'associated'; const icon = document.createElement('span'); icon.className = 'branch-emoji'; icon.textContent = '🗨️'; link.append(icon, document.createTextNode(' ' + child.title)); link.title = child.title; link.dataset.openSession = child.id; return link; }
+  let sameSessionLinks = new Map();
+  function indexSameSessionLinks() {
+    const owners = new Map(), sourceTurns = new Map(), here = current();
+    for (const session of state.sessions) for (const [i, turn] of (session.turns || []).entries()) for (const item of turn.answer || []) {
+      if (!item.id) continue;
+      const existing = owners.get(item.id); owners.set(item.id, existing && existing !== session.id ? null : existing === null ? null : session.id);
+      if (session.id === here.id) sourceTurns.set(item.id, i);
+    }
+    const links = new Map();
+    for (const [index, turn] of here.turns.entries()) for (const source of turn.references || []) {
+      if (source.sourceLocked || !source.blockId || (source.sessionId ? source.sessionId !== here.id : owners.get(source.blockId) !== here.id)) continue;
+      const origin = sourceTurns.get(source.blockId), end = source.endBlockId || source.blockId;
+      if (origin === undefined || origin >= index || sourceTurns.get(end) !== origin) continue;
+      if (!links.has(end)) links.set(end, []);
+      links.get(end).push({ source, turnId: turn.id, number: index + 1 });
+    }
+    sameSessionLinks = links;
+  }
+  function turnLink(target) {
+    const link = document.createElement('button'); link.type = 'button'; link.className = 'associated';
+    const icon = document.createElement('span'); icon.className = 'branch-emoji'; icon.textContent = '🗨️';
+    link.append(icon, document.createTextNode(' [' + target.number + ']')); link.title = '跳转到第 ' + target.number + ' 轮'; link.dataset.openTurn = target.turnId; return link;
+  }
+  function refreshLocalSources(references) {
+    indexSameSessionLinks();
+    const ids = new Set(references.filter(ref => !ref.sessionId || ref.sessionId === current().id).map(ref => ref.endBlockId || ref.blockId).filter(Boolean));
+    for (const id of ids) {
+      const old = transcript.querySelector('[data-block-id="' + CSS.escape(id) + '"]'); if (!old) continue;
+      const turnIndex = current().turns.findIndex(turn => turn.answer.some(item => item.id === id)); if (turnIndex < 0) continue;
+      const turn = current().turns[turnIndex], itemIndex = turn.answer.findIndex(item => item.id === id), item = turn.answer[itemIndex];
+      const heading = turn.answer.slice(0, itemIndex + 1).filter(block => block.kind === 'heading').length;
+      const temp = document.createElement('div'); renderBlock(temp, item, turnIndex + 1, heading);
+      const replacement = temp.firstElementChild; if (!replacement) continue;
+      replacement.hidden = old.hidden;
+      if (old.hasAttribute('aria-expanded')) replacement.setAttribute('aria-expanded', old.getAttribute('aria-expanded'));
+      if (temp.children[1]?.dataset.linkFor === id) temp.children[1].hidden = old.hidden;
+      const oldExtra = old.nextElementSibling?.dataset.linkFor === id ? old.nextElementSibling : null;
+      old.replaceWith(...temp.childNodes); oldExtra?.remove();
+    }
+  }
   function formState(turn) {
     const turns = current().turns, index = turns.indexOf(turn); let submitted = -1, graded = -1, assessment = null;
     for (let i = index + 1; i < turns.length; i++) { if ((turns[i].formResponses || []).some(item => item.turnId === turn.id)) submitted = i; if (turns[i].formAssessment?.turnId === turn.id) { graded = i; assessment = turns[i].formAssessment; } }
@@ -244,6 +284,7 @@
       for (const [title, picker] of [['上传文件', 'form-file-input'], ['引用文件', 'form-path-file-input'], ['引用文件夹', 'form-folder-input']]) { const button = document.createElement('button'); button.type = 'button'; button.textContent = title; button.disabled = locked; button.addEventListener('click', () => { choices.hidden = true; pick.setAttribute('aria-expanded', 'false'); formAttachmentOrigin = { sessionId: current().id, turnId: turn.id, fieldId: 'source-material', purpose: '核对题目的参考资料' }; $(picker).click(); }); choices.appendChild(button); } el.appendChild(fileGroup);
       if (locked) appendText('small', 'exercise-locked', '已随下一条消息提交', el);
       else if (form.assessment) appendText('small', 'exercise-locked', '已根据 AI 判题重新开放，可修改后再次提交。', el);
+      for (const target of sameSessionLinks.get(item.id) || []) el.appendChild(turnLink(target));
       parent.appendChild(el); return;
     }
     if (item.kind === 'heading') { el = document.createElement('div'); el.className = 'passage passage-heading'; el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0'); el.dataset.headingId = item.id; const mark = document.createElement('span'); mark.className = 'heading-number'; mark.textContent = `[${number}:${heading}]`; markerLength = mark.textContent.length; el.append(mark); }
@@ -251,23 +292,30 @@
     else if (item.kind === 'image') { el = document.createElement('div'); el.className = 'passage'; const img = document.createElement('img'); img.src = item.src; img.alt = item.alt || ''; img.className = 'sample-image'; el.appendChild(img); }
     else { el = document.createElement('p'); el.className = 'passage'; }
     const related = state.sessions.filter(s => s.parent === current().id && s.source && (s.source.endBlockId || s.source.blockId) === item.id);
+    const local = sameSessionLinks.get(item.id) || [];
     if (item.kind !== 'math' && item.kind !== 'image') {
       const placements = [], unresolved = [];
       for (const child of related) {
         const saved = child.source.endTextOffset;
         const offset = Number.isInteger(saved) ? saved - markerLength : legacyLinkOffset(item, child.source, markerLength);
         if (offset === null || offset < 0 || offset > item.text.length) unresolved.push(child);
-        else placements.push({ child, offset });
+        else placements.push({ link: branchLink(child), offset });
+      }
+      for (const target of local) {
+        const saved = target.source.endTextOffset;
+        const offset = Number.isInteger(saved) ? saved - markerLength : legacyLinkOffset(item, target.source, markerLength);
+        if (offset !== null && offset >= 0 && offset <= item.text.length) placements.push({ link: turnLink(target), offset });
       }
       placements.sort((a, b) => a.offset - b.offset);
       let cursor = 0;
-      for (const placement of placements) { el.appendChild(document.createTextNode(item.text.slice(cursor, placement.offset))); el.appendChild(branchLink(placement.child)); cursor = placement.offset; }
+      for (const placement of placements) { el.appendChild(document.createTextNode(item.text.slice(cursor, placement.offset))); el.appendChild(placement.link); cursor = placement.offset; }
       el.appendChild(document.createTextNode(item.text.slice(cursor)));
       el.dataset.blockId = item.id; parent.appendChild(el);
       if (unresolved.length) { const box = document.createElement('div'); box.className = 'unresolved-associated'; box.dataset.linkFor = item.id; appendText('span', '', '来源位置待确认：', box); for (const child of unresolved) box.appendChild(branchLink(child)); parent.appendChild(box); }
       return;
     }
     for (const child of related) el.appendChild(branchLink(child));
+    for (const target of local) el.appendChild(turnLink(target));
     el.dataset.blockId = item.id; parent.appendChild(el);
   }
   function headingLevel(item) { return Number.isInteger(item.level) && item.level > 0 ? item.level : 1; }
@@ -286,7 +334,7 @@
     }
   }
   function renderTurn(turn, i) {
-      const wrap = document.createElement('section'); wrap.className = 'turn';
+      const wrap = document.createElement('section'); wrap.className = 'turn'; wrap.dataset.turnId = turn.id;
       const q = appendText('div', 'turn-question', turn.question, wrap); const num = document.createElement('span'); num.className = 'turn-number'; num.textContent = `[${i + 1}]`; q.prepend(num);
       if (i === 0 && current().parent && current().source?.blockId && session(current().parent) && !(turn.references || []).some(ref => ref.sourceLocked)) {
         const origin = document.createElement('button'); origin.type = 'button'; origin.className = 'sent-origin'; origin.dataset.sourceSession = current().id;
@@ -320,6 +368,7 @@
       appendText('div', 'time', '示例时间　答复', wrap); return wrap;
   }
   function renderTranscript() {
+    indexSameSessionLinks();
     transcript.replaceChildren();
     const s = current();
     if (!s.turns.length && s.source) renderInitialSource(s);
@@ -505,7 +554,7 @@
   function renderReferenceEditor() { const ref = ensureSession(current()).references.find(r => r.id === editingReference); if (!ref) return; const preview = $('reference-preview'); preview.replaceChildren(); renderReferencePreview(preview, ref); $('reference-comment').value = ref.comment || ''; const media = $('reference-attachments'); media.replaceChildren(); renderAttachments(media, ref.attachments, 'reference', ref.id); }
   function openReference(id) { editingReference = id; if ($('references-panel').open) $('references-panel').close(); renderReferenceEditor(); $('reference-editor').showModal(); $('reference-comment').focus(); }
   function addReference(context) {
-    const refs = ensureSession(current()).references; const ref = { id: uid(), sessionId: state.active, blockId: context.blockId, textOffset: context.textOffset, quote: context.quote, kind: context.kind || 'text', svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large, comment: '', selected: true, attachments: [] };
+    const refs = ensureSession(current()).references; const ref = { id: uid(), sessionId: state.active, blockId: context.blockId, textOffset: context.textOffset, endBlockId: context.endBlockId, endTextOffset: context.endTextOffset, quote: context.quote, kind: context.kind || 'text', svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large, comment: '', selected: true, attachments: [] };
     refs.push(ref); if (!saveReferences()) { refs.pop(); return; } $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges(); renderReferencesButton(); openReference(ref.id);
   }
   function renderReferenceList() {
@@ -600,7 +649,7 @@
     if (!save()) { state = JSON.parse(previousState); $('status').textContent = '无法保存本次问题，输入内容已保留。'; composer.focus(); return; }
     mentionUndo.delete(previousSessionId); mentionUndo.delete(previousSessionId + ':branch'); mentionHistoryInput = false;
     if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); localStorage.removeItem(referencesKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
-    composer.value = ''; if (branching || hadInitialSource || formResponses.length || formAssessment) renderTranscript(); else { transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); refreshReferenceClips(); } setComposer();
+    composer.value = ''; if (branching || hadInitialSource || formResponses.length || formAssessment) renderTranscript(); else { refreshLocalSources(sentReferences); transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); refreshReferenceClips(); } setComposer();
     requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
     $('status').textContent = '已保存示例问题和附件；下方是预设答复，未连接 AI。';
   }
@@ -692,7 +741,7 @@
   reader.addEventListener('pointerup', showSelection); reader.addEventListener('keyup', showSelection);
   reader.addEventListener('scroll', () => { if (!mapOpen) { current().viewport = reader.scrollTop; try { localStorage.setItem(viewportKey(state.active), String(reader.scrollTop)); } catch { $('status').textContent = '当前浏览器无法保存视口位置。'; } } }, { passive: true });
   function toggleHeading(target) { const heading = target.closest('[data-heading-id]'); if (!heading || window.getSelection()?.toString().trim()) return; const section = heading.closest('.turn'), turnIndex = Array.from(transcript.children).indexOf(section); const turn = current().turns[turnIndex]; if (!turn) return; const collapsed = heading.getAttribute('aria-expanded') === 'true'; turn.collapsedSections ||= {}; turn.collapsedSections[heading.dataset.headingId] = collapsed; syncFoldVisibility(section, turn); save(); }
-  transcript.addEventListener('click', e => { const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const source = e.target.closest('[data-source-session]')?.dataset.sourceSession; if (source) { parentSource(session(source)); return; } const reference = e.target.closest('[data-reference-session]'); if (reference) { const target = session(reference.dataset.referenceSession); if (!target) { $('status').textContent = '无法定位引用出处。'; return; } const blockId = reference.dataset.referenceBlock; unfoldFor(target, blockId); const offset = reference.dataset.referenceOffset; navigate(target.id, { blockId, textOffset: offset === undefined ? undefined : Number(offset), center: true }); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
+  transcript.addEventListener('click', e => { const turnId = e.target.closest('[data-open-turn]')?.dataset.openTurn; if (turnId) { const turn = transcript.querySelector('[data-turn-id="' + CSS.escape(turnId) + '"]'); if (turn) turn.scrollIntoView({block:'center'}); else $('status').textContent = '无法定位目标轮次。'; return; } const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const source = e.target.closest('[data-source-session]')?.dataset.sourceSession; if (source) { parentSource(session(source)); return; } const reference = e.target.closest('[data-reference-session]'); if (reference) { const target = session(reference.dataset.referenceSession); if (!target) { $('status').textContent = '无法定位引用出处。'; return; } const blockId = reference.dataset.referenceBlock; unfoldFor(target, blockId); const offset = reference.dataset.referenceOffset; navigate(target.id, { blockId, textOffset: offset === undefined ? undefined : Number(offset), center: true }); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
   transcript.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-heading-id]')) { e.preventDefault(); toggleHeading(e.target); } });
   $('composer-context').addEventListener('click', e => { if (e.target.id !== 'cancel-context') return; if (state.pending?.kind === 'branch') state.pending = null; else state.pending = null; setComposer(); save(); });
   composer.addEventListener('beforeinput', e => { mentionHistoryInput = e.inputType === 'historyUndo' || e.inputType === 'historyRedo'; });

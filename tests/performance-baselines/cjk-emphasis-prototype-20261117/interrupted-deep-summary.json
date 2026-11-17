@@ -1,0 +1,11 @@
+{
+  "status": "interrupted after the historic version in the first round; raw pair samples were not written by the fixture",
+  "fixture": "tests/performance-baselines/quote-scrollbar-prototype-20261116/measure.cjs",
+  "historic": "7af94c2562d4f0ea2eae0a29413e49d465f7e172",
+  "round": 0,
+  "summary": [
+    {"operation":"input","medianSync":1.2,"medianCorrected":-3.1,"allocatedBytes":143555.43,"nodes":2733,"visibleControls":11},
+    {"operation":"scroll","medianSync":0,"medianCorrected":-0.2,"allocatedBytes":152594.29,"nodes":2733,"visibleControls":11},
+    {"operation":"render","medianSync":22.2,"medianCorrected":21.7,"allocatedBytes":1166864,"nodes":2733,"visibleControls":11}
+  ]
+}

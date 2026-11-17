@@ -59,13 +59,13 @@ public sealed partial class MarkdownView
                     var closed = !_folds.GetValueOrDefault(key); _folds[key] = closed;
                     if (closed) { owner.Blocks.Remove(body); link.Inlines.Add(hint); }
                     else { owner.Blocks.Add(body); link.Inlines.Remove(hint); }
-                    LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); _foldChanged?.Invoke(); e.Handled = true;
+                    LayoutVersion++; _annotationPointers.Clear(); _foldChanged?.Invoke(); e.Handled = true;
                 };
                 _revealSections[body] = () =>
                 {
                     if (!_folds.GetValueOrDefault(key)) return;
                     _folds[key] = false; owner.Blocks.Add(body); link.Inlines.Remove(hint);
-                    LayoutVersion++; _annotationPointers.Clear(); QueueWaveLayout(); _foldChanged?.Invoke();
+                    LayoutVersion++; _annotationPointers.Clear(); _foldChanged?.Invoke();
                 };
                 if (_folds.GetValueOrDefault(key)) { owner.Blocks.Remove(body); link.Inlines.Add(hint); }
                 parents.Push((heading.Level, body));

@@ -4,167 +4,127 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Markdig;
+using Markdig.Syntax;
+using MdEmphasisInline = Markdig.Syntax.Inlines.EmphasisInline;
+using MdLinkInline = Markdig.Syntax.Inlines.LinkInline;
 using TeXeed.App;
+using TeXeed.App.AI;
 using TeXeed.App.Controls;
 using TeXeed.App.Services;
 
 internal static partial class Program
 {
+    private sealed class CountedSourceSpans(SourceSpan[] spans) : IReadOnlyList<SourceSpan>
+    {
+        public int Reads { get; private set; }
+        public int Count => spans.Length;
+        public SourceSpan this[int index] { get { Reads++; return spans[index]; } }
+        public IEnumerator<SourceSpan> GetEnumerator() => ((IEnumerable<SourceSpan>)spans).GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
     private static async Task CheckAiEmphasisAsync(MainWindow owner, string output)
     {
         var checks = 0;
         void Check(bool condition, string message) { checks++; if (!condition) throw new Exception(message); }
         IEnumerable<Inline> InlineTree(InlineCollection items) => items.SelectMany(i => i is Span span ? new[] { i }.Concat(InlineTree(span.Inlines)) : [i]);
-        IEnumerable<(GeometryDrawing Drawing, Rect Bounds)> WaveDrawings(DrawingGroup group, Matrix parent)
-        {
-            var transform = group.Transform?.Value ?? Matrix.Identity; transform.Append(parent);
-            foreach (var child in group.Children)
-                if (child is DrawingGroup nested)
-                {
-                    foreach (var item in WaveDrawings(nested, transform)) yield return item;
-                }
-                else if (child is GeometryDrawing drawing)
-                    foreach (var figure in PathGeometry.CreateFromGeometry(drawing.Geometry).Figures)
-                        yield return (drawing, new MatrixTransform(transform).TransformBounds(new PathGeometry([figure]).Bounds));
-        }
-        var view = new MarkdownView { ChatMode = true, Padding = new Thickness(0), Markdown = "普通文字 **加粗内容和多个字符，长段落换行时仍须连续显示波浪下划线并保持可选择。** 再有 ***粗斜体 gjpqy*** 和 **[链接](https://example.com)**。\n\n行内公式 $x_i + y_j$ 前后 **gjpqy 的底部** 应当留白，**公式 $a+b$ 也强调**。" };
-        var host = new Window { Owner = owner, Width = 350, Height = 350, Content = view, Title = "波浪强调验证" };
+        Span[] Strong(MarkdownView view) => view.Document.Blocks.OfType<Paragraph>().SelectMany(p => InlineTree(p.Inlines)).OfType<Span>()
+            .Where(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker)).ToArray();
+        var view = new MarkdownView { ChatMode = true, Padding = new Thickness(0), Markdown = "普通文字与 **主题强调**。\n\n**出处也正在这里： **项目附带论文，查看 [**链接内强调**](https://example.com) 或 **[强调中的链接](https://example.com)**。\n\n**公式 $a+b$ 后的重点**。\n\n1. 列表内 **重点内容**\n2. 普通列表文字" };
+        var host = new Window { Owner = owner, Width = 600, Height = 420, Content = view, Title = "强调颜色验证" };
         host.Show();
         try
         {
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
             await AwaitMathAsync(view); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            Span[] Strong() => view.Document.Blocks.OfType<Paragraph>().SelectMany(p => InlineTree(p.Inlines)).OfType<Span>()
-                .Where(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker)).ToArray();
-            var strong = Strong();
-            Check(strong.Length == 5, "Strong Markdown semantic markers were lost");
-            Check(strong.All(s => s.FontWeight == FontWeights.Normal), "Strong text should have normal weight");
-            Check(strong.Any(s => InlineTree(s.Inlines).Any(i => i.FontStyle == FontStyles.Italic)), "Strong italic lost its italic style");
-            Check(strong.Any(s => InlineTree(s.Inlines).Any(i => i is Hyperlink)), "Strong link lost link semantics");
-            var drawing = (DrawingGroup)Field(view, "_waves")!;
-            var linkGaps = new List<(double Size, double Gap)>();
-            void ReportGaps(DrawingGroup waves)
-            {
-                var ink = GlyphInk(view, view);
-                foreach (var wave in WaveDrawings(waves, Matrix.Identity))
-                {
-                    var bounds = wave.Bounds;
-                    var above = ink.Where(i => i.Bounds.Right > bounds.Left && i.Bounds.Left < bounds.Right && i.Bounds.Top < bounds.Top && i.Bounds.Bottom <= bounds.Top + 1)
-                        .OrderByDescending(i => i.Bounds.Bottom).FirstOrDefault();
-                    if (above is not null) Console.WriteLine($"Wave ink gap at {view.FontSize}: {bounds.Top - above.Bounds.Bottom:F2} DIP, text={above.Text}");
-                }
-            }
-            void ReportLinkGap(DrawingGroup waves, Run link)
-            {
-                var glyph = GlyphInk(view, view).Single(i => i.Text == "链接");
-                var wave = WaveDrawings(waves, Matrix.Identity).Where(w => ReferenceEquals(w.Drawing.Pen.Brush, link.Foreground) && w.Bounds.Left < glyph.Bounds.Right && w.Bounds.Right > glyph.Bounds.Left)
-                    .OrderBy(w => Math.Abs(w.Bounds.Top - glyph.Bounds.Bottom)).First();
-                var first = link.ContentStart.GetCharacterRect(LogicalDirection.Forward);
-                var gap = wave.Bounds.Top - glyph.Bounds.Bottom - wave.Drawing.Pen.Thickness / 2;
-                Console.WriteLine($"Strong link at {view.FontSize}: ink={glyph.Bounds}; baseline={glyph.Baseline:F2}; face={glyph.Face}; weight={glyph.Weight}; line={first}; wave={wave.Bounds}; pen={wave.Drawing.Pen.Thickness:F2}; visible gap={gap:F2}; family={link.FontFamily}; style={link.FontStyle}");
-                linkGaps.Add((view.FontSize, gap));
-            }
-            ReportGaps(drawing);
-            Check(WaveDrawings(drawing, Matrix.Identity).Count() >= 4, "Wave is missing from one or more wrapped lines");
-            var linkedRun = InlineTree(strong.Single(s => InlineTree(s.Inlines).Any(i => i is Hyperlink)).Inlines).OfType<Run>().Single(r => r.Text == "链接");
-            ReportLinkGap(drawing, linkedRun);
-            Check(((Hyperlink)linkedRun.Parent).TextDecorations is null or { Count: 0 }, "Strong link retained a straight underline over the wave");
-            Check(WaveDrawings(drawing, Matrix.Identity).Any(g => ReferenceEquals(g.Drawing.Pen.Brush, linkedRun.Foreground)), "Linked emphasis wave does not follow the link color");
+            var strong = Strong(view);
+            Check(strong.Length >= 5, "Strong semantic spans were lost");
+            Check(strong.All(s => s.FontWeight == FontWeights.Normal), "Emphasis changed font weight");
+            var plainStrong = strong.Single(s => new TextRange(s.ContentStart, s.ContentEnd).Text == "主题强调");
+            Check(((SolidColorBrush)plainStrong.Foreground).Color == ThemeManager.Brush("ChatEmphasis").Color, "Dark theme emphasis color is wrong");
+            Check(plainStrong.TextDecorations is null or { Count: 0 }, "Emphasis still has an underline");
+            var links = view.Document.Blocks.OfType<Paragraph>().SelectMany(p => InlineTree(p.Inlines)).OfType<Hyperlink>().ToArray();
+            Check(links.Length == 2 && links.All(l => ((SolidColorBrush)l.Foreground).Color == ThemeManager.Brush("Accent").Color), "Links lost their existing theme color");
+            var innerStrong = links.SelectMany(l => InlineTree(l.Inlines)).OfType<Span>().First(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker));
+            Check(((SolidColorBrush)innerStrong.Foreground).Color == ThemeManager.Brush("Accent").Color, "Emphasis inside a link changed its link color");
+            Check(Descendants<ChatFormula>(view).Any(f => f.Source == "a+b"), "Inline formula was lost inside emphasis");
             var copied = view.CopySource(view.Document.ContentStart, view.Document.ContentEnd);
-            Check(copied.Contains("加粗内容") && copied.Contains("链接"), "Wavy formatting changed copyable text");
-            Capture(host, Path.Combine(output, "ai-wavy-16.png"));
-            view.FontSize = 24; await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            await AwaitMathAsync(view); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            var scaled = (DrawingGroup)Field(view, "_waves")!;
-            ReportGaps(scaled);
-            linkedRun = InlineTree(Strong().Single(s => InlineTree(s.Inlines).Any(i => i is Hyperlink)).Inlines).OfType<Run>().Single(r => r.Text == "链接");
-            ReportLinkGap(scaled, linkedRun);
-            Check(WaveDrawings(scaled, Matrix.Identity).Any(g => Math.Abs(g.Bounds.Height - 3) < .1), "Wave does not scale when font size changes");
-            Check(view.Document.LineHeight >= 37.5, "Enlarged text does not reserve space for the next line");
-            Capture(host, Path.Combine(output, "ai-wavy-24.png"));
-            Check(linkGaps.All(g => g.Gap >= g.Size / 8 - .5), "Linked emphasis wave is too close to its text");
-            linkedRun = InlineTree(Strong().Single(s => InlineTree(s.Inlines).Any(i => i is Hyperlink)).Inlines).OfType<Run>().Single(r => r.Text == "链接");
+            Check(copied.Contains("主题强调") && copied.Contains("链接内强调") && copied.Contains("$a+b$"), "Copying lost text or formula source");
+            Capture(host, Path.Combine(output, "ai-emphasis-dark.png"));
             ThemeManager.Apply("github-light-default"); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            var light = (DrawingGroup)Field(view, "_waves")!;
-            Check(WaveDrawings(light, Matrix.Identity).Any(g => ReferenceEquals(g.Drawing.Pen.Brush, linkedRun.Foreground)), "Wave did not follow the link color after changing theme");
-            Capture(host, Path.Combine(output, "ai-wavy-light.png"));
+            Check(((SolidColorBrush)plainStrong.Foreground).Color == ThemeManager.Brush("ChatEmphasis").Color, "Emphasis did not follow theme changes");
+            Check(((SolidColorBrush)innerStrong.Foreground).Color == ThemeManager.Brush("Accent").Color, "Link color did not follow theme changes");
+            Capture(host, Path.Combine(output, "ai-emphasis-light.png"));
+            var themesPath = ThemeManager.DirectoryPath; Directory.CreateDirectory(themesPath);
+            var customLight = Path.Combine(themesPath, "emphasis-test-light.json");
+            var customDark = Path.Combine(themesPath, "emphasis-test-dark.json");
+            try
+            {
+                File.WriteAllText(customLight, "{\"id\":\"emphasis-test-light\",\"name\":\"Test light\",\"isDark\":false,\"colors\":{}}");
+                File.WriteAllText(customDark, "{\"id\":\"emphasis-test-dark\",\"name\":\"Test dark\",\"isDark\":true,\"colors\":{}}");
+                Check(ThemeManager.Load("emphasis-test-light").Colors["ChatEmphasis"] == "#006B66", "Light custom theme did not receive a readable fallback");
+                Check(ThemeManager.Load("emphasis-test-dark").Colors["ChatEmphasis"] == "#85DACC", "Dark custom theme did not receive a readable fallback");
+            }
+            finally { File.Delete(customLight); File.Delete(customDark); }
             ThemeManager.Apply("ristretto");
-            var question = new MarkdownView { UseWavyEmphasis = true, Markdown = "用户的 **强调内容**" };
-            var questionSpan = ((Paragraph)question.Document.Blocks.FirstBlock!).Inlines.OfType<Span>().Single();
-            Check(ReferenceEquals(questionSpan.Tag, MarkdownView.StrongEmphasisMarker), "Question emphasis does not use a wave");
+            const string cjkSource = "**出处也正在这里：**项目附带论文。\n\n前文**括号（测试）。**后文。\n\n**公式 $x+y$：**后文。\n\n**[链接](https://example.com)：**后文。\n\n代码 `**原样：**文字` 与转义 \\*\\*原样\\*\\*。";
+            var cjkView = new MarkdownView { ChatMode = true, Markdown = cjkSource };
+            var cjkInlines = cjkView.Document.Blocks.OfType<Paragraph>().SelectMany(p => InlineTree(p.Inlines)).ToArray();
+            var cjkStrong = cjkInlines.OfType<Span>().Where(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker)).ToArray();
+            Check(cjkStrong.Length == 4, "CJK punctuation, formula or link broke strong emphasis");
+            Check(cjkStrong.Any(s => new TextRange(s.ContentStart, s.ContentEnd).Text.Contains("出处也正在这里：")), "CJK closing punctuation was not emphasized");
+            Check(cjkStrong.Any(s => InlineTree(s.Inlines).OfType<Hyperlink>().Any()), "CJK emphasis lost its nested link");
+            var cjkCopied = cjkView.CopySource(cjkView.Document.ContentStart, cjkView.Document.ContentEnd);
+            Check(cjkCopied.Contains("**原样：**文字") && cjkCopied.Contains("**原样**"), "Code or escaped delimiters were changed");
+            cjkView.IsStreaming = true; cjkView.Markdown = cjkSource; cjkView.IsStreaming = false;
+            Check(cjkView.Document.Blocks.OfType<Paragraph>().SelectMany(p => InlineTree(p.Inlines)).OfType<Span>()
+                .Count(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker)) == 4, "Completed streaming answer did not use the same emphasis grammar");
+            const string spacedSource = "**出处也正在这里： **项目。\n\n**公式 $x+y$： **后文。\n\n$x$**重要： **后文。\n\n**重要**$x$。\n\n`**代码： **文字` 和 \\*\\*转义： **文字。\n\n**无标点 **后文，以及 **未闭合。";
+            var spacedView = new MarkdownView { ChatMode = true, Markdown = spacedSource };
+            var spacedInlines = spacedView.Document.Blocks.OfType<Paragraph>().SelectMany(p => InlineTree(p.Inlines)).ToArray();
+            var spacedStrong = spacedInlines.OfType<Span>().Where(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker)).ToArray();
+            Check(spacedStrong.Length == 4, "Spaced closing delimiter or adjacent math changed emphasis semantics");
+            var spacedCopy = spacedView.CopySource(spacedView.Document.ContentStart, spacedView.Document.ContentEnd);
+            Check(spacedCopy.Contains("出处也正在这里： 项目") && spacedCopy.Contains("**代码： **文字") && spacedCopy.Contains("**无标点 **后文") && !spacedCopy.Contains('\uE000'), "Spaced emphasis changed copied text or leaked its parser sentinel");
+            Check(MarkdownView.BookmarkFragments("# **标题： **后文").Single().Description.Contains("标题： 后文"), "Spaced emphasis changed a heading bookmark");
+            var privateUse = new MarkdownView { ChatMode = true, Markdown = "私用字符 \uE000 保留" };
+            Check(privateUse.CopySource(privateUse.Document.ContentStart, privateUse.Document.ContentEnd).Contains('\uE000'), "An original private-use character was changed");
+            const string formSource = "**填写 {{text:answer}}： **后文。";
+            var formTurn = AiForms.WithSubmission(new AiTurn("练习", formSource), null);
+            Check(AiForms.Snapshot(formTurn)?.Values.ContainsKey("text:answer") == true, "Spaced emphasis hid a form field from submission");
+            var formView = new MarkdownView { ChatMode = true };
+            formView.ConfigureForms(new AiFormContext("turn", (_, _) => "", (_, _, _) => { }, () => false));
+            formView.Markdown = formSource;
+            Check(((List<Control>)Field(formView, "_formControls")!).OfType<TextBox>().Any(), "Spaced emphasis hid a rendered form field");
+            Check(!formView.CopySource(formView.Document.ContentStart, formView.Document.ContentEnd).Contains('\uE000'), "Spaced form copy leaked parser sentinel");
+            var tableView = new MarkdownView { ChatMode = true, Markdown = "| 标题 |\n| --- |\n| **表格： **后文 |" };
+            host.Content = tableView; host.UpdateLayout();
+            var tableText = Descendants<MarkdownView>(tableView).Select(v => v.CopySource(v.Document.ContentStart, v.Document.ContentEnd)).ToArray();
+            Check(tableText.Any(t => t.Contains("表格： 后文")) && tableText.All(t => !t.Contains('\uE000')), "Spaced table emphasis lost text or leaked parser sentinel");
+            var spans = new CountedSourceSpans(Enumerable.Range(0, 4096).Select(i => new SourceSpan(i * 4, i * 4 + 1)).ToArray());
+            Check(ChatMarkdown.LiteralAt(spans, 4095 * 4) && !ChatMarkdown.LiteralAt(spans, 4095 * 4 + 1) && spans.Reads <= 26,
+                "Literal boundary lookup did not preserve two-character bounds with logarithmic indexing");
+            const int scaleCount = 512;
+            var scaleSource = string.Join(" ", Enumerable.Repeat("**标准** **重点： **后文 [链接](https://example.com)", scaleCount));
+            var scalePipeline = new MarkdownPipelineBuilder().UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseCjkFriendlyEmphasis().UseAutoLinks().DisableHtml().Build();
+            var scaleDocument = ChatMarkdown.Parse(scaleSource, scalePipeline, out var scaleRepaired);
+            var scaleInline = scaleDocument.Descendants<LeafBlock>().Where(b => b.Inline is not null).SelectMany(b => b.Inline!.Descendants()).ToArray();
+            Check(scaleRepaired && scaleInline.OfType<MdEmphasisInline>().Count(e => e.DelimiterCount == 2) == scaleCount * 2 &&
+                scaleInline.OfType<MdLinkInline>().Count() == scaleCount && scaleDocument.Span.End == scaleSource.Length - 1,
+                "Large mixed emphasis/link paragraph lost structure or source extent");
+            var question = new MarkdownView { UseChatEmphasis = true, Markdown = "用户的 **强调内容**" };
+            var questionSpan = Strong(question).Single();
+            Check(((SolidColorBrush)questionSpan.Foreground).Color == ThemeManager.Brush("ChatEmphasis").Color && questionSpan.TextDecorations is null or { Count: 0 }, "Question did not use theme-colored emphasis");
             var generic = new MarkdownView { Markdown = "其他页面的 **强调内容**" };
             var genericSpan = ((Paragraph)generic.Document.Blocks.FirstBlock!).Inlines.OfType<Span>().Single();
             Check(genericSpan.FontWeight == FontWeights.Bold, "AI-specific emphasis leaked into other views");
-            var spacingView = new MarkdownView { ChatMode = true, Padding = new Thickness(0), Markdown =
-                "普通第一行  \n普通第二行\n\n" +
-                "**波线第一行 gjpqy**  \n正文第二行 gjpqy  \n**波线第三行 gjpqy**  \n正文第四行 gjpqy  \n**[强调链接](https://example.com)**  \n链接下一行\n\n" +
-                "1. **列表第一项 gjpqy**\n2. 列表第二项 gjpqy\n3. **列表第三项 gjpqy**\n4. 列表第四项 gjpqy\n\n" +
-                "**公式之前 gjpqy**  \n公式下一行 $a+b$\n\n" +
-                "**段尾强调 gjpqy**\n\n段后正文 gjpqy\n\n**段尾公式 gjpqy**\n\n$$a^2+b^2=c^2$$\n\n" +
-                "## **强调标题 gjpqy**\n\n标题下面正文\n\n普通最后一段\n\n" +
-                "1. 普通数字一\n2. 普通数字二\n\n- 普通圆点一\n- 普通圆点二\n\n" +
-                "98. 多位数字第一项\n99. 多位数字第二项\n100. 多位数字第三项" };
-            host.Content = new ScrollViewer { Content = spacingView }; host.Width = 600; host.Height = 1150;
-            foreach (var size in new[] { 16d, 24d })
-            {
-                spacingView.FontSize = size; host.UpdateLayout();
-                await AwaitMathAsync(spacingView); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-                var ink = GlyphInk(spacingView, spacingView);
-                var waves = WaveDrawings((DrawingGroup)Field(spacingView, "_waves")!, Matrix.Identity).ToArray();
-                InkSample Ink(string text) => ink.First(i => i.Text.Contains(text));
-                double Gap(string upper, string lower)
-                {
-                    var up = Ink(upper); var down = Ink(lower);
-                    var wave = waves.Where(w => w.Bounds.Left < up.Bounds.Right && w.Bounds.Right > up.Bounds.Left && w.Bounds.Top >= up.Bounds.Bottom - 1 && w.Bounds.Bottom < down.Bounds.Top)
-                        .OrderBy(w => w.Bounds.Top - up.Bounds.Bottom).First();
-                    return down.Bounds.Top - wave.Bounds.Bottom - wave.Drawing.Pen.Thickness / 2;
-                }
-                var gaps = new[] { Gap("波线第一行", "正文第二行"), Gap("波线第三行", "正文第四行"),
-                    Gap("强调链接", "链接下一行"), Gap("列表第一项", "列表第二项"), Gap("列表第三项", "列表第四项"), Gap("公式之前", "公式下一行"),
-                    Gap("段尾强调", "段后正文"), Gap("强调标题", "标题下面正文") };
-                var beforeDisplay = Ink("段尾公式");
-                var displayWave = waves.Where(w => w.Bounds.Left < beforeDisplay.Bounds.Right && w.Bounds.Right > beforeDisplay.Bounds.Left && w.Bounds.Top >= beforeDisplay.Bounds.Bottom - 1)
-                    .OrderBy(w => w.Bounds.Top - beforeDisplay.Bounds.Bottom).First();
-                var display = Descendants<ChatFormula>(spacingView).Single(f => f.Source == "a^2+b^2=c^2");
-                var formulaTop = display.TranslatePoint(new Point(), spacingView).Y;
-                var formulaGap = formulaTop - displayWave.Bounds.Bottom - displayWave.Drawing.Pen.Thickness / 2;
-                var plainLine = Ink("普通第二行").Baseline - Ink("普通第一行").Baseline;
-                var headingParagraph = Ink("标题下面正文").Baseline - Ink("强调标题").Baseline;
-                var plainParagraph = Ink("普通最后一段").Baseline - Ink("标题下面正文").Baseline;
-                var orderedGap = Ink("普通数字二").Baseline - Ink("普通数字一").Baseline;
-                var unorderedGap = Ink("普通圆点二").Baseline - Ink("普通圆点一").Baseline;
-                Console.WriteLine($"Wave to next ink at {size}: " + string.Join(", ", gaps.Select(g => g.ToString("F2"))) + $"; display formula {formulaGap:F2}; plain line {plainLine:F2}; heading/body {headingParagraph:F2}; body/body {plainParagraph:F2}");
-                Console.WriteLine("List marker glyphs: " + string.Join(", ", ink.Where(i => i.Text.Contains("1.") || i.Text.Contains("2.") || i.Text.Contains("•")).Select(i => $"{i.Text}:{i.Bounds.Left:F2}")));
-                Check(gaps.All(g => g >= size / 8), "Wave is too close to the next line of ink, including separate list items");
-                Check(formulaGap >= size / 8, "Wave is too close to the following display formula");
-                Check(Math.Abs(plainLine - Math.Max(25, size * 25 / 16)) < .5, "Unemphasized line spacing changed");
-                Check(Math.Abs(orderedGap - plainLine) < .5 && Math.Abs(unorderedGap - plainLine) < .5, "Unemphasized list item spacing changed");
-                var numberMarkers = ink.Where(i => i.Text is "1." or "2.").ToArray();
-                Check(numberMarkers.Length >= 4 && numberMarkers.All(i => i.Bounds.Left >= 0), "Ordered list number is clipped at the left edge");
-                var longMarkers = ink.Where(i => i.Text is "98." or "99." or "100.").ToArray();
-                Check(longMarkers.Length == 3 && longMarkers.All(i => i.Bounds.Left >= 0), "Multi-digit ordered list number is clipped at the left edge");
-                Check(Math.Abs(headingParagraph - plainParagraph) < 1, "Emphasized heading changed the paragraph gap");
-                Capture(host, Path.Combine(output, $"ai-wavy-nextline-{size:0}.png"));
-            }
-            var foldView = new MarkdownView { ChatMode = true, Markdown = "# 第一节\n\n**被折叠的重点**\n\n# 第二节\n\n**保持显示的重点**" };
-            foldView.ConfigureFolding(new Dictionary<string, bool>(), "wave-test", () => { });
-            host.Content = foldView; host.UpdateLayout();
-            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            int WaveCount() => WaveDrawings((DrawingGroup)Field(foldView, "_waves")!, Matrix.Identity).Count();
-            var expandedWaves = WaveCount();
-            var section = (Section)foldView.Document.Blocks.FirstBlock!;
-            var heading = (Paragraph)section.Blocks.FirstBlock!;
-            var toggle = heading.Inlines.OfType<Hyperlink>().Single();
-            Check(expandedWaves >= 2, "Expanded sections did not render both emphasis waves");
-            toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); host.UpdateLayout();
-            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            Check(WaveCount() == expandedWaves - 1, "Folding a section left its emphasis wave visible");
-            toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent)); host.UpdateLayout();
-            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            Check(WaveCount() == expandedWaves, "Expanding a section did not restore its emphasis wave");
-            Console.WriteLine($"AI wavy emphasis: {checks} checks passed (semantics, italic, link, wrap, copy and scale).");
+            var live = new MarkdownView { ChatMode = true, IsStreaming = true, Markdown = "正在生成 **重要内容**" };
+            Check(new TextRange(live.Document.ContentStart, live.Document.ContentEnd).Text.Contains("**重要内容**"), "Streaming source was not visible");
+            live.IsStreaming = false;
+            Check(Strong(live).Length == 1 && ((SolidColorBrush)Strong(live)[0].Foreground).Color == ThemeManager.Brush("ChatEmphasis").Color, "Completed response did not render theme emphasis");
+            Console.WriteLine($"AI theme emphasis: {checks} checks passed (themes, links, formulas, streaming, source and parser).");
         }
-        finally { host.Close(); }
+        finally { ThemeManager.Apply("ristretto"); host.Close(); }
     }
 }

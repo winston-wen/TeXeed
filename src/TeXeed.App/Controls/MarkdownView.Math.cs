@@ -110,7 +110,7 @@ public sealed partial class MarkdownView
     }
     private Inline FormulaInline(ChatMath.Token token)
     {
-        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; QueueWaveLayout(); }, FormulaAsset?.Invoke(token.Source, token.Display)))
+        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, token.Display)))
             { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
         _clipboardMath.Add(inline, token);
         return inline;
@@ -119,7 +119,7 @@ public sealed partial class MarkdownView
     {
         var paragraph = new Paragraph { Margin = ChatMode ? new Thickness(0, 0, 0, ChatParagraphSpacing) : new Thickness(0, 12, 0, 18),
             Padding = ChatMode ? new Thickness(0) : new Thickness(8), LineHeight = double.NaN };
-        var formula = new ChatFormula(token.Source, true, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; QueueWaveLayout(); }, FormulaAsset?.Invoke(token.Source, true));
+        var formula = new ChatFormula(token.Source, true, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, true));
         var grid = new ChatFormulaRow(formula, token.Number, ChatMode ? Math.Max(0, 4 * FontSize - paragraph.Padding.Left) : 0, ChatMode);
         _formulaWidths.Add((grid, _columnCount));
         grid.Width = FormulaAvailableWidth(double.IsFinite(_measuredWidth) ? _measuredWidth : 0, _columnCount);
@@ -185,5 +185,26 @@ public sealed partial class MarkdownView
             p = p.GetNextContextPosition(LogicalDirection.Forward);
         }
         return output.ToString();
+    }
+
+    internal int CopySourceLength(TextPointer start, TextPointer end)
+    {
+        var length = 0;
+        for (var p = start; p is not null && p.CompareTo(end) < 0;)
+        {
+            if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
+            if (EmbeddedTable(p) is { } table)
+            { length += table.Text.Length; p = table.Block.ElementEnd; continue; }
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
+            { length += source.Length; p = ui.ElementEnd; continue; }
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+            {
+                var count = Math.Min(p.GetTextRunLength(LogicalDirection.Forward), p.GetOffsetToPosition(end));
+                length += count; p = p.GetPositionAtOffset(count); continue;
+            }
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementEnd && p.GetAdjacentElement(LogicalDirection.Forward) is Paragraph) length += Environment.NewLine.Length;
+            p = p.GetNextContextPosition(LogicalDirection.Forward);
+        }
+        return length;
     }
 }

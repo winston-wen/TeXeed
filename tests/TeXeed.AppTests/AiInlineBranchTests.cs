@@ -26,6 +26,7 @@ internal static partial class Program
             await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             var original = view.CopySource(view.Document.ContentStart, view.Document.ContentEnd);
             var originalClipboard = view.CopyForClipboard(view.Document.ContentStart, view.Document.ContentEnd);
+            CheckCopySourceLengths(view);
             var initialParagraph = Paragraphs(view.Document.Blocks).First(paragraph => new TextRange(paragraph.ContentStart, paragraph.ContentEnd).Text.Contains("加粗子句"));
             var initialLine = initialParagraph.ContentStart.GetCharacterRect(LogicalDirection.Forward);
             AiAnswerAnchor Anchor(string quote, int occurrence = 0)
@@ -58,6 +59,7 @@ internal static partial class Program
             Check(view.BranchLinkBlocks["repeat"].ElementStart.Paragraph is { } repeatedParagraph && new TextRange(repeatedParagraph.ContentStart, view.BranchLinkBlocks["repeat"].ElementStart).Text.Contains("后一处重名"), "Repeated selection linked to the wrong occurrence");
             Check(view.CopySource(view.Document.ContentStart, view.Document.ContentEnd) == original, "Inline links changed stored source offsets");
             Check(view.CopyForClipboard(view.Document.ContentStart, view.Document.ContentEnd) == originalClipboard, "Inline links appeared in copied source text");
+            CheckCopySourceLengths(view);
             var nestedButton = (Button)first.Child;
             Check(nestedButton.FontFamily.Source == view.FontFamily.Source && Math.Abs(nestedButton.FontSize - view.FontSize) < .01 && nestedButton.FontWeight == FontWeights.Normal, "Link typography does not match the body");
             nestedButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -141,6 +143,7 @@ internal static partial class Program
             hiddenHeading.Inlines.OfType<Hyperlink>().First().RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
             Check(spanningFolds.Values.Count(value => value) == 1, "The spanning fixture section did not fold");
             var foldedText = view.CopySource(view.Document.ContentStart, view.Document.ContentEnd);
+            CheckCopySourceLengths(view);
             void CheckHiddenSelection(string id, string ending)
             {
                 var begin = unfoldedText.IndexOf("可见起点甲", StringComparison.Ordinal);

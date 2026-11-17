@@ -119,7 +119,30 @@ function turnHtml(t,index=0,turns=[t]){
 function renderTurns(){
  const pos=$('reader').scrollTop;
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
- enhanceAnswers();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
+ enhanceAnswers();addSameTurnLinks();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
+}
+function sourceTextNodes(root){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){const node=walker.currentNode;if(!node.parentElement.closest('.same-turn-link,.heading-marker,.margin-notes,.math,svg'))nodes.push(node);}return nodes;}
+function sourceText(root){return sourceTextNodes(root).map(node=>node.nodeValue).join('');}
+function addSameTurnLinks(){
+ const turns=current().turns,positions=new Map();
+ for(const [index,turn] of turns.entries())for(const entry of turn.request?.annotations||turn.annotations||[]){
+  const id=entry.endBlock||entry.block,source=entry.block&&$(entry.block),end=id&&$(id);if(!source||!end||source.closest('.answer')!==end.closest('.answer'))continue;
+  const sourceIndex=turns.findIndex(t=>t.id===source.closest('.answer')?.dataset.turn);if(sourceIndex<0||sourceIndex>=index)continue;
+  const body=end.querySelector('.passage-body');if(!body)continue;
+  if(Number.isInteger(entry.endMediaIndex)){const media=body.querySelectorAll('.math,img,table')[entry.endMediaIndex];if(media){if(!positions.has(id))positions.set(id,[]);positions.get(id).push({media,turn,index});}continue;}
+  const text=sourceText(body);let offset=entry.endTextOffset;
+  if(!Number.isInteger(offset)){const quote=String(entry.quote||'').trim();if(!quote||source!==end)continue;
+   const matches=[...body.querySelectorAll('.math,img,table')].filter(media=>(media.matches('img')?media.alt:serialize(media).trim())===quote);
+   if(matches.length===1){if(!positions.has(id))positions.set(id,[]);positions.get(id).push({media:matches[0],turn,index});continue;}
+   const at=text.indexOf(quote);if(at<0||text.indexOf(quote,at+1)>=0)continue;offset=at+quote.length;}
+  if(offset<0||offset>text.length)continue;if(!positions.has(id))positions.set(id,[]);positions.get(id).push({offset,turn,index});
+ }
+ for(const [id,links] of positions){const body=$(id)?.querySelector('.passage-body');if(!body)continue;links.sort((a,b)=>(b.offset??-1)-(a.offset??-1)||b.index-a.index);
+  for(const item of links){const nodes=sourceTextNodes(body);let n=item.offset,target=null;if(!item.media){for(const node of nodes){if(n<=node.length){target=node;break;}n-=node.length;}if(!target)continue;}
+   const link=document.createElement('button');link.type='button';link.className='same-turn-link';link.dataset.openTurn=item.turn.id;link.title='跳转到第 '+(item.index+1)+' 轮';link.textContent='🗨️ ['+(item.index+1)+']';
+   if(item.media)item.media.after(link);else{const tail=target.splitText(n);tail.parentNode.insertBefore(link,tail);}
+  }
+ }
 }
 function enhanceAnswers(){
  document.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
@@ -213,9 +236,25 @@ function renderBubbles(){document.querySelectorAll('.margin-notes').forEach(e=>e
 function renderConversation(){running=requests.get(state.active)||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';const version=++readingRestoreVersion;restoring=true;renderTurns();setBusy(!!running);restoreComposerHeight();refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading,version));}
 
 function removeEntry(id){const e=current().entries.find(e=>e.id===id);if(!e||e.state==='提交中')return;current().entries=current().entries.filter(e=>e.id!==id);if(editing===id){editing=null;$('annotation-editor').hidden=true;}renderEntries();record('remove-entry',{number:e.number});}
-function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number,.heading-marker'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h1,h2,h3,h4,h5,h6,blockquote,.equation,.passage'))text+='\n';return text;}
-function targetContext(target){const p=target.closest('.passage'),answer=target.closest('.answer');if(!p||!answer)return null;const sel=window.getSelection();let quote='',selected=false;if(sel?.rangeCount&&!sel.isCollapsed){const r=sel.getRangeAt(0),start=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;if(start.closest('.answer')===answer){quote=serialize(r.cloneContents());selected=true;}}if(!quote.trim())quote=serialize(p.querySelector('.passage-body')).trim();return {block:p.id,quote,selected,turn:answer.dataset.turn};}
-function addAnnotation(ctx){if(!ctx||!ctx.quote.trim())return;const c=current();const e={id:'a'+Date.now(),number:c.next++,title:'AI 回答批注',question:'',selected:true,state:'待提交',sources:[],pdf:[],block:ctx.block,quote:ctx.quote};c.entries.push(e);renderEntries();record('add-answer-annotation',{number:e.number,quote:e.quote});openEditor(e.id);}
+function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number,.heading-marker,.same-turn-link'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h1,h2,h3,h4,h5,h6,blockquote,.equation,.passage'))text+='\n';return text;}
+function targetContext(target){
+ const p=target.closest('.passage'),answer=target.closest('.answer');if(!p||!answer)return null;
+ const sel=window.getSelection(),media=target.closest('.math,img,table'),body=p.querySelector('.passage-body');
+ let quote='',selected=false,startBlock=p.id,endBlock,endTextOffset,endMediaIndex,endInMedia=false;
+ if(sel?.rangeCount&&!sel.isCollapsed){
+  const r=sel.getRangeAt(0),start=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement,end=r.endContainer.nodeType===1?r.endContainer:r.endContainer.parentElement;
+  if(start.closest('.answer')===answer&&end.closest('.answer')===answer){
+   quote=serialize(r.cloneContents());selected=true;startBlock=start.closest('.passage')?.id||p.id;endInMedia=!!media?.contains(r.endContainer);
+   const block=end.closest('.passage'),endBody=block?.querySelector('.passage-body');
+   if(endBody?.contains(r.endContainer)){const prefix=document.createRange();prefix.selectNodeContents(endBody);prefix.setEnd(r.endContainer,r.endOffset);const fragment=prefix.cloneContents();fragment.querySelectorAll('.same-turn-link,.heading-marker,.margin-notes,.math,svg').forEach(el=>el.remove());endBlock=block.id;endTextOffset=fragment.textContent.length;}
+  }
+ }
+ if(!quote.trim())quote=serialize(body).trim();
+ if(!quote.trim()&&media?.matches('img'))quote=media.alt||sourceText(p.previousElementSibling||p.nextElementSibling||p).trim().slice(-80)||'图片';
+ if(media&&body?.contains(media)&&(!selected||endInMedia)){endBlock=p.id;endMediaIndex=[...body.querySelectorAll('.math,img,table')].indexOf(media);}
+ return {block:startBlock,quote,selected,turn:answer.dataset.turn,endBlock,endTextOffset,endMediaIndex};
+}
+function addAnnotation(ctx){if(!ctx||!ctx.quote.trim())return;const c=current();const e={id:'a'+Date.now(),number:c.next++,title:'AI 回答批注',question:'',selected:true,state:'待提交',sources:[],pdf:[],block:ctx.block,endBlock:ctx.endBlock,endTextOffset:ctx.endTextOffset,endMediaIndex:ctx.endMediaIndex,quote:ctx.quote};c.entries.push(e);renderEntries();record('add-answer-annotation',{number:e.number,quote:e.quote});openEditor(e.id);}
 function openEditor(id){const e=current().entries.find(e=>e.id===id);if(!e)return;commitAnnotation();deleteKeyboardAt=0;editing=id;$('annotation-title').innerHTML=esc('#'+e.number+' · '+e.title)+'<span class="anchor-state"></span>';$('annotation-input').value=e.question;$('annotation-editor').hidden=false;refreshEditors();positionEditor();$('annotation-input').focus({preventScroll:true});}
 function commitAnnotation(){if(!editing)return;const e=current().entries.find(e=>e.id===editing);if(e)e.question=$('annotation-input').value;record('commit-annotation',{id:editing});editing=null;$('annotation-editor').hidden=true;}
 function confirmAnnotation(id){const e=current().entries.find(e=>e.id===id);if(!e)return;if(editing===id)commitAnnotation();e.selected=true;renderEntries();if($('entries-dialog').open)$('entries-dialog').close();record('confirm-annotation',{id});}
@@ -391,6 +430,7 @@ $('thread').addEventListener('click',event=>{const b=event.target.closest('butto
 // Persist answer and heading folds independently of activity disclosures.
 $('thread').addEventListener('dblclick',event=>{const divider=event.target.closest('[data-turn-divider]');if(!divider||event.target.closest('button,a'))return;event.preventDefault();const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t);});
 $('thread').addEventListener('keydown',event=>{const id=event.target.dataset.toggleTurn;if(id&&(event.key==='Enter'||event.key===' ')){event.preventDefault();if(event.repeat)return;const t=current().turns.find(t=>t.id===id);if(t){toggleTurn(t);$(id+'-divider').focus({preventScroll:true});}}});
+$('thread').addEventListener('click',event=>{const link=event.target.closest('[data-open-turn]');if(!link)return;const turn=current().turns.find(t=>t.id===link.dataset.openTurn);if(!turn)return;if(turn.collapsed){turn.collapsed=false;renderTurns();}$(turn.id)?.scrollIntoView({block:'center'});saveReading();});
 $('thread').addEventListener('click',event=>{const link=event.target.closest('[data-snapshot-turn]');if(link){event.preventDefault();showSnapshot(link);return;}const close=event.target.closest('[data-close-preview]');if(close){const preview=$(close.dataset.closePreview+'-preview'),number=preview.dataset.number;hideSnapshot(preview);document.querySelector('[data-snapshot-turn="'+close.dataset.closePreview+'"][data-snapshot-number="'+number+'"]').focus({preventScroll:true});}});
 $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const preview=event.target.closest('.snapshot-preview');if(preview){event.preventDefault();preview.querySelector('[data-close-preview]').click();}}});
 // Keep formula clicks in the reading surface.
