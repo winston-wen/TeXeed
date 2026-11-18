@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Threading;
 using TeXeed.App.AI;
 
 namespace TeXeed.App.Controls;
@@ -14,6 +15,10 @@ public partial class AiPanel
     internal IReadOnlyList<AiEntry> AnnotationEntries => _book.Entries;
     private bool _answerMarking;
     private Window? _answerMarkWindow;
+    private const string AnswerActiveHint = "回答批注模式：选择文字或内容区域；Esc 退出。";
+    private const string AnswerExitHint = "已退出回答批注模式。";
+    private DispatcherTimer? _answerExitHintTimer;
+    private DependencyPropertyDescriptor? _answerExitHintDescriptor;
     internal bool HasActiveOperation => _operation is not null;
     internal void RetargetProject(string path) => _project = path;
     private readonly Dictionary<MarkdownView, AiAnnotationLayer> _answerLayers = [];
@@ -121,6 +126,7 @@ public partial class AiPanel
     internal void SetAnswerMarking(bool active)
     {
         if (_answerMarking == active) return;
+        CancelAnswerExitHint();
         _answerMarking = active;
         if (active)
         {
@@ -135,8 +141,44 @@ public partial class AiPanel
             _answerMarkWindow = null;
             IsVisibleChanged -= AnswerMarkVisibilityChanged;
         }
-        StatusText.Text = active ? "回答批注模式：选择文字或内容区域；Esc 退出。" : "已退出回答批注模式。";
+        if (active) StatusText.Text = AnswerActiveHint;
+        else if (IsVisible && !_disposed && (StatusText.Text == AnswerActiveHint || string.IsNullOrEmpty(StatusText.Text)))
+        {
+            StatusText.Text = AnswerExitHint;
+            _answerExitHintDescriptor = DependencyPropertyDescriptor.FromProperty(TextBlock.TextProperty, typeof(TextBlock));
+            _answerExitHintDescriptor?.AddValueChanged(StatusText, AnswerExitHintChanged);
+            Unloaded += AnswerExitHintUnloaded;
+            _answerExitHintTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromSeconds(3) };
+            _answerExitHintTimer.Tick += AnswerExitHintElapsed;
+            _answerExitHintTimer.Start();
+        }
+        else if (StatusText.Text == AnswerActiveHint) StatusText.Text = "";
         Mouse.UpdateCursor();
+    }
+    private void AnswerExitHintChanged(object? sender, EventArgs e) => CancelAnswerExitHint();
+    private void AnswerExitHintUnloaded(object sender, RoutedEventArgs e)
+    {
+        var clear = StatusText.Text == AnswerExitHint;
+        CancelAnswerExitHint();
+        if (clear) StatusText.Text = "";
+    }
+    private void AnswerExitHintElapsed(object? sender, EventArgs e)
+    {
+        var clear = !_disposed && !_answerMarking && StatusText.Text == AnswerExitHint;
+        CancelAnswerExitHint();
+        if (clear) StatusText.Text = "";
+    }
+    private void CancelAnswerExitHint()
+    {
+        if (_answerExitHintTimer is not null)
+        {
+            _answerExitHintTimer.Stop();
+            _answerExitHintTimer.Tick -= AnswerExitHintElapsed;
+            _answerExitHintTimer = null;
+        }
+        _answerExitHintDescriptor?.RemoveValueChanged(StatusText, AnswerExitHintChanged);
+        _answerExitHintDescriptor = null;
+        Unloaded -= AnswerExitHintUnloaded;
     }
     private void AnswerMarkWindow_MouseDown(object sender, MouseButtonEventArgs e)
     {

@@ -72,9 +72,37 @@ internal static partial class Program
             annotate.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Check((bool)Field(panel, "_answerMarking")! && book.Entries.Count == 2, "Right clicking another paragraph created an annotation without a new region.");
             panel.CancelAnswerMarking();
+            var status = (TextBlock)panel.FindName("StatusText");
+            Check(status.Text == "已退出回答批注模式。" && status.Visibility == Visibility.Visible, "Exiting annotation mode did not show a brief hint.");
+            var timer = (DispatcherTimer?)Field(panel, "_answerExitHintTimer");
+            Check(timer is { IsEnabled: true } && timer.Interval == TimeSpan.FromSeconds(3), "Exit hint did not schedule its three-second timeout.");
+            await Task.Delay(3250); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
+            Check(status.Text == "" && status.Visibility == Visibility.Collapsed && status.ActualHeight == 0 && Field(panel, "_answerExitHintTimer") is null,
+                "Exit hint did not disappear and release its layout space.");
+            panel.SetAnswerMarking(true); panel.CancelAnswerMarking();
+            timer = (DispatcherTimer?)Field(panel, "_answerExitHintTimer"); timer!.Interval = TimeSpan.FromMilliseconds(120);
+            status.Text = "新的错误提示";
+            Check(Field(panel, "_answerExitHintTimer") is null, "A new status did not cancel the pending exit hint.");
+            await Task.Delay(180); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            Check(status.Text == "新的错误提示", "Exit timeout cleared a newer status.");
+            panel.SetAnswerMarking(true); status.Text = "圈点期间出现错误"; panel.CancelAnswerMarking();
+            Check(status.Text == "圈点期间出现错误" && Field(panel, "_answerExitHintTimer") is null,
+                "Exiting annotation mode overwrote an existing error status.");
+            panel.SetAnswerMarking(true); panel.CancelAnswerMarking();
+            timer = (DispatcherTimer?)Field(panel, "_answerExitHintTimer"); timer!.Interval = TimeSpan.FromMilliseconds(220);
+            await Task.Delay(100);
+            panel.SetAnswerMarking(true); panel.CancelAnswerMarking();
+            timer = (DispatcherTimer?)Field(panel, "_answerExitHintTimer"); timer!.Interval = TimeSpan.FromMilliseconds(220);
+            await Task.Delay(140); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            Check(status.Text == "已退出回答批注模式。", "An earlier timeout cleared a newer exit hint.");
+            await Task.Delay(130); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            Check(status.Text == "" && status.Visibility == Visibility.Collapsed, "Repeated exit hint did not expire.");
             CheckAiContextBudget(Check);
             Capture(host, Path.Combine(output, "answer-annotation-offscreen.png"));
-            Console.WriteLine("PASS: answer selection-first and annotation-first, no points, cursor, empty references, stale selection and all three reference serializers.");
+            panel.SetAnswerMarking(true); panel.CancelAnswerMarking();
+            host.Content = null; await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            Check(Field(panel, "_answerExitHintTimer") is null && status.Text == "", "Unloading retained the exit hint or timer.");
+            Console.WriteLine("PASS: answer selection-first and annotation-first, no points, cursor, empty references, stale selection, transient exit hint and all three reference serializers.");
         }
         finally { panel.CancelAnswerMarking(); host.Close(); }
     }

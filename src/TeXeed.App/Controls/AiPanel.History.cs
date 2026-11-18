@@ -67,7 +67,7 @@ public partial class AiPanel
         _updating = true;
         Composer.Text = _book.Draft;
         _updating = false;
-        SyncPermission(); UpdateContextUsage();
+        SyncPermission(); SyncModelChoices();
         MessageSearchBox.Clear();
         Rebind(); RefreshTranscript(); RefreshBookmarkMarkers(); RestoreFollowUps();
         StatusText.Text = "";

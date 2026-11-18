@@ -1,0 +1,33 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
+(async()=>{const browser=await chromium.launch({headless:true,...(process.env.TEXEED_BROWSER_PATH?{executablePath:process.env.TEXEED_BROWSER_PATH}:{})});try{
+ const page=await browser.newPage({viewport:{width:1000,height:800}}),errors=[];page.setDefaultTimeout(5000);page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
+ await page.evaluate(()=>{const c=current();c.draft='主会话草稿';c.turns=[{id:'model-origin',question:'问题',answer:'来源文字',segments:[]}];renderConversation();});
+ const parent=await page.evaluate(()=>current().id);
+ await page.locator('#model').selectOption('example-model-b');await page.locator('#effort').selectOption('低');
+ await page.evaluate(()=>openBranchFrom({quote:'来源文字',turn:'model-origin',block:'model-origin-p0'}));
+ const child=await page.evaluate(()=>current().id);assert.notEqual(child,parent);assert.equal(await page.locator('#model').inputValue(),'example-model-b');assert.equal(await page.locator('#effort').inputValue(),'低');
+ await page.locator('#model').selectOption('gpt-6.1-sol');await page.locator('#effort').selectOption('高');await page.locator('#composer').fill('分支草稿');
+ await page.evaluate(id=>openConversation(id),parent);assert.equal(await page.locator('#model').inputValue(),'example-model-b');assert.equal(await page.locator('#effort').inputValue(),'低');assert.equal(await page.locator('#composer').inputValue(),'主会话草稿');
+ await page.evaluate(()=>newConversation());const independent=await page.evaluate(()=>current().id);assert.equal(await page.locator('#model').inputValue(),'gpt-6.1-sol');assert.equal(await page.locator('#effort').inputValue(),'高');
+ await page.evaluate(()=>showView('settings'));await page.locator('#settings-model').selectOption('example-model-b');await page.locator('#settings-effort').selectOption('低');
+ await page.evaluate(id=>openConversation(id),independent);assert.equal(await page.locator('#model').inputValue(),'gpt-6.1-sol');assert.equal(await page.locator('#effort').inputValue(),'高');
+ await page.evaluate(()=>newConversation());assert.equal(await page.locator('#model').inputValue(),'example-model-b');assert.equal(await page.locator('#effort').inputValue(),'低');
+ await page.evaluate(id=>{const c=state.conversations.find(x=>x.id===id);c.model='future-model-id';delete c.effort;openConversation(id);},independent);assert.equal(await page.locator('#model').inputValue(),'future-model-id');assert.match(await page.locator('#model option:checked').textContent(),/当前不可用/);assert.equal(await page.locator('#effort').inputValue(),'低');
+ await page.reload();assert.equal(await page.locator('#model').inputValue(),'future-model-id');assert.match(await page.locator('#model option:checked').textContent(),/当前不可用/);assert.equal(await page.locator('#effort').inputValue(),'低');await page.evaluate(id=>openConversation(id),child);assert.equal(await page.locator('#model').inputValue(),'gpt-6.1-sol');assert.equal(await page.locator('#effort').inputValue(),'高');assert.equal(await page.locator('#composer').inputValue(),'分支草稿');
+ await page.evaluate(id=>openConversation(id),parent);assert.equal(await page.locator('#composer').inputValue(),'主会话草稿');assert.equal(await page.locator('#model').inputValue(),'example-model-b');
+ await page.goto(pathToFileURL(path.join(__dirname,'branching.html')).href);await page.evaluate(()=>branchDemo.reset());
+ await page.locator('#conversation-model').selectOption('example-model-b');await page.locator('#conversation-effort').selectOption('低');await page.locator('#composer').fill('原会话草稿');
+ const p=page.locator('.passage').filter({hasText:'先看一个较简单的模型'});await p.scrollIntoViewIfNeeded();await p.evaluate(e=>{const n=e.firstChild,r=document.createRange();r.setStart(n,0);r.setEnd(n,Math.min(n.length,8));getSelection().removeAllRanges();getSelection().addRange(r);e.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));});await page.locator('#selection-branch').click();
+ assert.equal(await page.locator('#conversation-model').inputValue(),'example-model-b');assert.equal(await page.locator('#conversation-effort').inputValue(),'低');await page.locator('#conversation-model').selectOption('gpt-6.1-sol');await page.locator('#conversation-effort').selectOption('高');await page.locator('#composer').fill('追问草稿');
+ await page.locator('#back-source').click();assert.equal(await page.locator('#conversation-model').inputValue(),'example-model-b');assert.equal(await page.locator('#conversation-effort').inputValue(),'低');assert.equal(await page.locator('#composer').inputValue(),'原会话草稿');
+ await page.locator('#new-conversation').click();assert.equal(await page.locator('#conversation-model').inputValue(),'gpt-6.1-sol');assert.equal(await page.locator('#conversation-effort').inputValue(),'高');await page.reload();
+ const data=await page.evaluate(()=>branchDemo.getState());const root=data.sessions.find(s=>s.id==='root'),branch=data.sessions.find(s=>s.parent==='root');assert.equal(root.model,'example-model-b');assert.equal(root.effort,'低');assert.equal(root.draft,'原会话草稿');assert.equal(branch.model,'gpt-6.1-sol');assert.equal(branch.effort,'高');assert.equal(branch.draft,'追问草稿');
+ await page.evaluate(()=>{const s=branchDemo.getState();s.defaultModel='example-model-b';s.defaultEffort='低';s.active='root';delete s.sessions[0].model;delete s.sessions[0].effort;branchDemo.setState(s);});assert.equal(await page.locator('#conversation-model').inputValue(),'example-model-b');assert.equal(await page.locator('#conversation-effort').inputValue(),'低');assert.equal(await page.locator('#composer').inputValue(),'原会话草稿');
+ await page.evaluate(()=>{const s=branchDemo.getState();s.sessions[0].model='unknown-model';branchDemo.setState(s);});await page.reload();assert.equal(await page.locator('#conversation-model').inputValue(),'unknown-model');assert.match(await page.locator('#conversation-model option:checked').textContent(),/当前不可用/);
+ await page.setViewportSize({width:420,height:800});if(process.env.TEXEED_BRANCH_MODEL_SCREENSHOT)await page.screenshot({path:process.env.TEXEED_BRANCH_MODEL_SCREENSHOT});
+ for(const id of ['conversation-model','conversation-effort','send']){const box=await page.locator('#'+id).boundingBox();assert.ok(box&&box.x>=0&&box.x+box.width<=420,id+' must remain visible');}
+ assert.deepEqual(errors,[]);console.log('PASS per-conversation model, effort, inheritance, defaults and drafts');
+}finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1});

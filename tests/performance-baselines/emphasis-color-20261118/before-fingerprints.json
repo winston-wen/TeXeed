@@ -1,0 +1,42 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E088EC052C14BC34E79ECB6A13F357F27E30C3F7C2C77EB44004737E1E87A25A",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\TeXeed-0.5.10-20261118\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "6CD745D5A4EDB33EADD4BED8B3C79E07EEC9899A3EE16051F437C2CB43112E3E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\emphasis-20261118-before-normal-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "68FA0EF4FA8FB7087CA7DD341EC640E94ED73135BCC82D24C113C52557FB4B41",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\emphasis-20261118-before-bold-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "51E6576C9AAFA89535DADCF63E03AC207BA648CEB87BAA7C8E4FE0EF0A65EE86",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\emphasis-20261118-before-mark-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7A403BF069303F2438467F12AE2323E85FF18F5664B6B1B7A9546DD7CD68AF9E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\panel-offscreen.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "8129C864F00DA4154C897A9FD8CD8967C9E18932858A397700C7798CC078CC0E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\emphasis-color-20261118\\bold-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "4B1F769DB017CDA343F5BB4A3FE522F666552DE709235D030AADA58AA90E99E1",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\emphasis-color-20261118\\mark-mode-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E85146B3674FB5F89C8044DBFE1C65E8CD1D463E7E4F75DA1E10321CD84E88FE",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\annotation-modes-20261118\\Harness.csproj"
+  }
+]

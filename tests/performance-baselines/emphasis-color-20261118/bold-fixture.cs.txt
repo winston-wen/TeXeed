@@ -1,0 +1,59 @@
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.Controls;
+using TeXeed.App.Services;
+
+internal static class BoldPerf
+{
+    private static async Task Idle(Window window) { await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout(); }
+    private static async Task Drain(Window window) { await Idle(window); await Task.Delay(250); await Idle(window); }
+    private static int Visible(DependencyObject root)
+    {
+        var count = 0;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        { var child = VisualTreeHelper.GetChild(root, i); if (child is Control c && c.IsVisible && c.ActualWidth > 0 && c.ActualHeight > 0) count++; count += Visible(child); }
+        return count;
+    }
+    [STAThread] private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        ThemeManager.Apply("ristretto");
+        var paragraph = string.Join("\n\n", Enumerable.Range(0, 60).Select(i => $"第 {i} 段。普通正文与 **深色强调内容** 相邻，说明概念并给出示例。继续阅读 **另一处重点**。"));
+        var view = new MarkdownView { ChatMode = true, Markdown = paragraph };
+        var host = new Window { Width = 900, Height = 760, Left = -12000, Top = 20, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Content = view };
+        var result = 1;
+        app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await Drain(host); var samples = new List<object>();
+                async Task Measure(string op, Action<int> action)
+                {
+                    for (var i = 0; i < 9; i++)
+                    {
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Drain(host); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread(); var sw = Stopwatch.StartNew(); action(i); await Idle(host); var feedback = sw.Elapsed.TotalMilliseconds; var immediate = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        var controls = Visible(host); await Drain(host); sw.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        if (i >= 2) samples.Add(new { op, feedbackMs = feedback, feedbackBytes = immediate, rawMs = sw.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = sw.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = controls });
+                    }
+                }
+                await Measure("bold-render", i => view.Markdown = paragraph + (i % 2 == 0 ? "\n\n末句甲。" : "\n\n末句乙。"));
+                await Measure("bold-resize", i => host.Width = i % 2 == 0 ? 620 : 900);
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "60 CJK paragraphs with two strong spans, 900/620x760 offscreen WPF; 2 warmups and 7 samples, paired 250ms and ApplicationIdle", samples }, new JsonSerializerOptions { WriteIndented = true }));
+                result = 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); }
+            finally { host.Close(); app.Shutdown(result); }
+        };
+        host.Show(); app.Run(); return result;
+    }
+}

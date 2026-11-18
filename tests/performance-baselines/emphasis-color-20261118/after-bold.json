@@ -1,0 +1,173 @@
+{
+  "fixture": "60 CJK paragraphs with two strong spans, 900/620x760 offscreen WPF; 2 warmups and 7 samples, paired 250ms and ApplicationIdle",
+  "samples": [
+    {
+      "op": "bold-render",
+      "feedbackMs": 48.7534,
+      "feedbackBytes": 4824256,
+      "rawMs": 304.3177,
+      "idleMs": 258.8339,
+      "correctedMs": 45.483799999999974,
+      "rawBytes": 4830152,
+      "idleBytes": 5936,
+      "correctedBytes": 4824216,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-render",
+      "feedbackMs": 54.4189,
+      "feedbackBytes": 5046448,
+      "rawMs": 319.029,
+      "idleMs": 260.5518,
+      "correctedMs": 58.47719999999998,
+      "rawBytes": 5052344,
+      "idleBytes": 5936,
+      "correctedBytes": 5046408,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-render",
+      "feedbackMs": 37.2532,
+      "feedbackBytes": 5045808,
+      "rawMs": 289.1557,
+      "idleMs": 255.8057,
+      "correctedMs": 33.35000000000002,
+      "rawBytes": 5051704,
+      "idleBytes": 5936,
+      "correctedBytes": 5045768,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-render",
+      "feedbackMs": 31.3114,
+      "feedbackBytes": 4791504,
+      "rawMs": 288.1817,
+      "idleMs": 257.3351,
+      "correctedMs": 30.846599999999967,
+      "rawBytes": 4797400,
+      "idleBytes": 5936,
+      "correctedBytes": 4791464,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-render",
+      "feedbackMs": 23.8505,
+      "feedbackBytes": 4772656,
+      "rawMs": 289.2291,
+      "idleMs": 256.451,
+      "correctedMs": 32.778099999999995,
+      "rawBytes": 4778552,
+      "idleBytes": 5936,
+      "correctedBytes": 4772616,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-render",
+      "feedbackMs": 23.0934,
+      "feedbackBytes": 4770216,
+      "rawMs": 287.9238,
+      "idleMs": 259.1881,
+      "correctedMs": 28.73570000000001,
+      "rawBytes": 4776112,
+      "idleBytes": 5936,
+      "correctedBytes": 4770176,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-render",
+      "feedbackMs": 24.8064,
+      "feedbackBytes": 5003752,
+      "rawMs": 290.6632,
+      "idleMs": 260.7938,
+      "correctedMs": 29.86940000000004,
+      "rawBytes": 5009648,
+      "idleBytes": 5936,
+      "correctedBytes": 5003712,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-resize",
+      "feedbackMs": 30.666,
+      "feedbackBytes": 2890888,
+      "rawMs": 290.5213,
+      "idleMs": 260.9316,
+      "correctedMs": 29.589699999999993,
+      "rawBytes": 2896784,
+      "idleBytes": 5936,
+      "correctedBytes": 2890848,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-resize",
+      "feedbackMs": 17.0007,
+      "feedbackBytes": 2194512,
+      "rawMs": 276.2164,
+      "idleMs": 260.5228,
+      "correctedMs": 15.693600000000004,
+      "rawBytes": 2200408,
+      "idleBytes": 5936,
+      "correctedBytes": 2194472,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-resize",
+      "feedbackMs": 23.5513,
+      "feedbackBytes": 2890888,
+      "rawMs": 274.6942,
+      "idleMs": 260.3634,
+      "correctedMs": 14.33080000000001,
+      "rawBytes": 2896784,
+      "idleBytes": 5936,
+      "correctedBytes": 2890848,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-resize",
+      "feedbackMs": 16.8827,
+      "feedbackBytes": 2194512,
+      "rawMs": 276.5039,
+      "idleMs": 262.7937,
+      "correctedMs": 13.710199999999986,
+      "rawBytes": 2200408,
+      "idleBytes": 5936,
+      "correctedBytes": 2194472,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-resize",
+      "feedbackMs": 30.6219,
+      "feedbackBytes": 2891112,
+      "rawMs": 291.6224,
+      "idleMs": 258.8583,
+      "correctedMs": 32.76410000000004,
+      "rawBytes": 2897008,
+      "idleBytes": 5936,
+      "correctedBytes": 2891072,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-resize",
+      "feedbackMs": 12.2489,
+      "feedbackBytes": 2194512,
+      "rawMs": 276.9581,
+      "idleMs": 260.7553,
+      "correctedMs": 16.202800000000025,
+      "rawBytes": 2200408,
+      "idleBytes": 5936,
+      "correctedBytes": 2194472,
+      "visibleControls": 2
+    },
+    {
+      "op": "bold-resize",
+      "feedbackMs": 27.4076,
+      "feedbackBytes": 2890888,
+      "rawMs": 290.2534,
+      "idleMs": 258.8012,
+      "correctedMs": 31.452200000000005,
+      "rawBytes": 2896784,
+      "idleBytes": 5936,
+      "correctedBytes": 2890848,
+      "visibleControls": 2
+    }
+  ]
+}

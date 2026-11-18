@@ -131,6 +131,8 @@ public partial class AiPanel
         var snapshot = parent.Snapshot();
         var branch = new AiConversation { ParentConversationId = parent.Id, BranchAnchor = anchor, BranchContextBefore = context.Before, BranchContextAfter = context.After,
             Title = string.Concat(quote.EnumerateRunes().Take(16)),
+            SelectedModelId = snapshot.SelectedModelId ?? Settings.SelectedModel?.Id,
+            SelectedReasoningEffort = snapshot.SelectedReasoningEffort ?? Settings.SelectedEffort,
             InheritedTurns = snapshot.InheritedTurns.Concat(snapshot.Turns.Take(turnIndex + 1)).ToList(),
             Entries = [AiSessionExcerptReferences.Create(parent.Id, anchor, context.Before, context.After, protectOrigin: true)] };
         _book.Conversations.Add(branch);

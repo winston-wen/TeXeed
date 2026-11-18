@@ -1,0 +1,111 @@
+using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+internal static class ModelIsolationPerf
+{
+    private const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+    private static object? Field(object obj, string name) => obj.GetType().GetField(name, Private)?.GetValue(obj);
+    private sealed class Catalog : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken token) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"models\":[{\"slug\":\"gpt-6.1-sol\",\"display_name\":\"GPT 6.1 Sol\",\"visibility\":\"list\",\"supported_reasoning_levels\":[{\"effort\":\"low\"},{\"effort\":\"high\"}]},{\"slug\":\"gpt-6-astra\",\"display_name\":\"GPT 6 Astra\",\"visibility\":\"list\",\"supported_reasoning_levels\":[{\"effort\":\"low\"},{\"effort\":\"high\"}]}]}") });
+    }
+    private static async Task Idle(Window window) { await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout(); }
+    private static async Task Drain(Window window, AiWorkspaceStore store, params AiPanel[] panels)
+    {
+        await Task.Delay(800);
+        foreach (var panel in panels)
+        {
+            var timer = (DispatcherTimer)Field(panel, "_saveTimer")!;
+            for (var i = 0; timer.IsEnabled && i < 250; i++) await Task.Delay(20);
+            if (timer.IsEnabled) throw new TimeoutException("Draft save timer did not drain.");
+            var pending = Field(panel, "_modelPreferenceIdle") as TaskCompletionSource;
+            if (pending is not null) await pending.Task.WaitAsync(TimeSpan.FromSeconds(20));
+            var gate = (SemaphoreSlim)Field(panel, "_saveGate")!; await gate.WaitAsync(); gate.Release();
+        }
+        var writer = (SemaphoreSlim)Field(store, "_gate")!; await writer.WaitAsync(); writer.Release();
+        using (await AiCredentials.LockAsync(CancellationToken.None)) { }
+        await Idle(window);
+    }
+    private static int Visible(DependencyObject root, Window host)
+    {
+        var count = 0;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is Control c && c.IsVisible && c.ActualWidth > 0 && c.ActualHeight > 0)
+                try { if (c.TransformToAncestor(host).TransformBounds(new Rect(0, 0, c.ActualWidth, c.ActualHeight)).IntersectsWith(new Rect(0, 0, host.ActualWidth, host.ActualHeight))) count++; } catch (InvalidOperationException) { }
+            count += Visible(child, host);
+        }
+        return count;
+    }
+    private static ComboBox Pick(AiPanel p, string name) => (ComboBox)p.FindName(name);
+    private static string Model(AiPanel p) => (Pick(p, "ModelPicker").SelectedItem as AiModel)?.Id ?? "";
+    private static string Effort(AiPanel p) => (Pick(p, "EffortPicker").SelectedItem as AiEffort)?.Value ?? "";
+    [STAThread] private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        new AiCredentials { ApiKey = "fixture-not-real", UseApiKey = true }.Save();
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        using var connection = new AiConnection(new Catalog()); using var settings = new AiSettingsPanel(connection);
+        using var aPanel = new AiPanel(connection, settings); using var bPanel = new AiPanel(connection, settings);
+        var tabs = new TabControl(); tabs.Items.Add(new TabItem { Header = "A", Content = aPanel }); tabs.Items.Add(new TabItem { Header = "B", Content = bPanel });
+        var window = new Window { Width = 900, Height = 760, Left = -12000, Top = 20, ShowActivated = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Content = tabs };
+        var exit = 1; app.DispatcherUnhandledException += (_, e) => { File.WriteAllText(Path.Combine(output, "error.txt"), e.Exception.ToString()); e.Handled = true; app.Shutdown(1); };
+        window.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await settings.LoadModelsAsync(CancellationToken.None);
+                var book = new AiNotebook(); var a = book.Active; a.Title = "A"; var b = book.NewConversation(); b.Title = "B";
+                foreach (var c in new[] { a, b }) for (var n = 0; n < 60; n++) c.Turns.Add(new AiTurn("问题 " + n, "样例回答：说明步骤和依据。") { SentAt = DateTimeOffset.UnixEpoch });
+                var store = new AiWorkspaceStore(Path.Combine(output, "fixture.tex"), book); aPanel.Bind(store, a.Id); bPanel.Bind(store, b.Id);
+                await Drain(window, store, aPanel, bPanel);
+                var samples = new List<object>();
+                foreach (var op in new[] { "model-A", "effort-A", "model-B", "effort-B", "session-switch", "catalog-refresh" })
+                {
+                    for (var i = 0; i < 9; i++)
+                    {
+                        if (op.EndsWith("-A")) tabs.SelectedIndex = 0; else if (op.EndsWith("-B")) tabs.SelectedIndex = 1;
+                        await Drain(window, store, aPanel, bPanel);
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Drain(window, store, aPanel, bPanel); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread(); var sw = Stopwatch.StartNew();
+                        var panel = op.EndsWith("-B") ? bPanel : aPanel;
+                        if (op.StartsWith("model-"))
+                        {
+                            var picker = Pick(panel, "ModelPicker"); var next = Model(panel) == "gpt-6.1-sol" ? "gpt-6-astra" : "gpt-6.1-sol";
+                            picker.SelectedItem = picker.Items.OfType<AiModel>().First(m => m.Id == next);
+                        }
+                        else if (op.StartsWith("effort-"))
+                        {
+                            var picker = Pick(panel, "EffortPicker"); var next = Effort(panel) == "low" ? "high" : "low";
+                            picker.SelectedItem = picker.Items.OfType<AiEffort>().First(e => e.Value == next);
+                        }
+                        else if (op == "session-switch") tabs.SelectedIndex = 1 - tabs.SelectedIndex;
+                        else await settings.LoadModelsAsync(CancellationToken.None);
+                        await Idle(window); var feedbackMs = sw.Elapsed.TotalMilliseconds; var feedbackBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        await Drain(window, store, aPanel, bPanel); sw.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        if (!window.IsVisible || Visible(window, window) == 0) throw new InvalidOperationException("Benchmark window closed.");
+                        if (i >= 2) samples.Add(new { op, feedbackMs, feedbackBytes, rawMs = sw.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = sw.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = Visible(window, window), aControls = Visible(aPanel, window), bControls = Visible(bPanel, window), aModel = Model(aPanel), bModel = Model(bPanel), aEffort = Effort(aPanel), bEffort = Effort(bPanel) });
+                    }
+                }
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "Two 60-turn conversations, shared settings and writer, simulated two-model catalog; 900x760 offscreen WPF tabs; 2 warmups and 7 samples, paired 800ms, preference/draft/store/credential queues and ApplicationIdle; no real network", samples }, new JsonSerializerOptions { WriteIndented = true }));
+                exit = 0;
+            }
+            catch (Exception ex) { File.WriteAllText(Path.Combine(output, "error.txt"), ex.ToString()); }
+            finally { window.Close(); app.Shutdown(exit); }
+        };
+        window.Show(); app.Run(); return exit;
+    }
+}

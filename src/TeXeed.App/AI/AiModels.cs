@@ -241,6 +241,9 @@ public sealed class AiConversation
     public string? BranchContextAfter { get; set; }
     public List<AiTurn> InheritedTurns { get; set; } = [];
     public AiPermission Permission { get; set; } = AiPermission.FullAccess;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? SelectedModelId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? SelectedReasoningEffort { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool ModelPreferenceExplicit { get; set; }
     public AiContextUsage? ContextUsage { get; set; }
     public AiContextMemory? ContextMemory { get; set; }
     public bool HeaderPinned { get; set; }
@@ -338,6 +341,7 @@ public sealed class AiConversation
     {
         Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => e.Snapshot()).ToList(), ParentConversationId = ParentConversationId, BranchAnchor = BranchAnchor, BranchContextBefore = BranchContextBefore, BranchContextAfter = BranchContextAfter,
+        SelectedModelId = SelectedModelId, SelectedReasoningEffort = SelectedReasoningEffort, ModelPreferenceExplicit = ModelPreferenceExplicit,
         InheritedTurns = InheritedTurns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), AdditionalData = AdditionalData is null ? null : new(AdditionalData)
     };
 }
@@ -368,7 +372,7 @@ public sealed class AiNotebook
         c.BranchContextBefore is null && c.BranchContextAfter is null && c.InheritedTurns is { Count: 0 } &&
         c.ContextUsage is null && c.ContextMemory is null && !c.HeaderPinned && c.ReadingOffset == 0 &&
         c.ReadingTurnId is null && c.ReadingTurnOffset == 0 && c.BookmarkBallX is null && c.BookmarkBallY is null &&
-        c.BookmarkSort == "document" && c.Permission == AiPermission.FullAccess && c.ShellApprovals.Count == 0 &&
+        c.BookmarkSort == "document" && c.Permission == AiPermission.FullAccess && !c.ModelPreferenceExplicit && c.ShellApprovals.Count == 0 &&
         (c.AdditionalData is null || c.AdditionalData.Count == 0);
 
     internal bool IsEmptyNewConversation(AiConversation c) => HasEmptyNewConversationContent(c) &&

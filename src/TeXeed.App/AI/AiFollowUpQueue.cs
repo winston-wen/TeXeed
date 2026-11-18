@@ -132,6 +132,14 @@ internal sealed class AiFollowUpQueue
     internal bool MarkUnknown(IReadOnlyList<string> ids, string reason) => MarkProblem(ids, "unknown", reason);
     internal bool MarkFailed(IReadOnlyList<string> ids, string reason) => MarkProblem(ids, "failed", reason);
 
+    internal bool ReturnUnsent(string id, string turnId)
+    {
+        var item = _data.Items.FirstOrDefault(i => i.Id == id && i.Kind == "queue" && i.State == "dispatching" && i.DispatchTurnId == turnId);
+        if (item is null) return false;
+        item.State = "pending"; item.DispatchTurnId = null; item.Error = null;
+        return true;
+    }
+
     internal bool ResolveDispatch(string id, AiConversation conversation, string reason, out bool needsReview)
     {
         if (conversation.Id != _conversationId) throw new InvalidOperationException("不能把排队消息与其他会话匹配。");

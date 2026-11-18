@@ -138,6 +138,11 @@ internal static partial class Program
                     await CheckAiFormulaReferenceAsync(window, output);
                     await CloseAndObserveAsync(window, "Formula references"); result = 0; return;
                 }
+                if (args.Contains("--ai-model-isolation-only"))
+                {
+                    await CheckConversationModelIsolationAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI conversation model isolation"); result = 0; return;
+                }
                 var mainMenu = (Menu)window.FindName("MainMenu");
                 if (mainMenu.Visibility != Visibility.Visible) throw new Exception("Wide title bar must show its menu");
                 var windowGrid = (Grid)window.Content;

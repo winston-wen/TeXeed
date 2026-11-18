@@ -21,6 +21,7 @@ public partial class AiPanel
     {
         _followUpsClosing = true;
         _operation?.Cancel();
+        if (_modelPreferenceIdle is { } preference) await preference.Task;
         if (_followUpIdle is { } pending) await pending.Task;
         if (_conversionIdle is { } conversion) await conversion.Task;
         if (_queueDispatchIdle is { } dispatch) await dispatch.Task;
@@ -258,7 +259,7 @@ public partial class AiPanel
 
     private async Task DispatchNextQueuedAsync()
     {
-        if (_queueDispatching || _followUpsClosing || _operation is not null || _disposed || _project is null) return;
+        if (_queueDispatching || _followUpsClosing || _operation is not null || _modelPreferenceSaving || _disposed || _project is null) return;
         if (BlockPendingFormAttachmentRead(_book.Active)) return;
         _queueDispatching = true;
         _queueDispatchIdle = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -274,11 +275,18 @@ public partial class AiPanel
                 {
                     if (BlockPendingFormAttachmentRead(book.Active)) return false;
                     item = queue.NextQueued();
+                    if (item is not null && ConversationModelProblem() is { } problem) { StatusText.Text = problem; item = null; return false; }
                     if (item is null || !queue.MarkDispatching([item.Id], dispatchTurnId)) return false;
                     item.DispatchTurnId = dispatchTurnId;
                     return true;
                 });
                 if (item is null) break;
+                if (ConversationModelProblem() is { } problem)
+                {
+                    await MutateFollowUpsAsync(book, after => after.ReturnUnsent(item.Id, dispatchTurnId));
+                    if (!_disposed) StatusText.Text = problem;
+                    break;
+                }
                 if (_followUpsClosing || _disposed)
                 {
                     await MutateFollowUpsAsync(book, after => after.MarkUnknown([item.Id], "会话关闭，消息尚未开始，请确认后重试。"));

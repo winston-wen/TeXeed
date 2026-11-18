@@ -33,6 +33,7 @@ internal static partial class Program
             .Where(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker)).ToArray();
         var view = new MarkdownView { ChatMode = true, Padding = new Thickness(0), Markdown = "普通文字与 **主题强调**。\n\n**出处也正在这里： **项目附带论文，查看 [**链接内强调**](https://example.com) 或 **[强调中的链接](https://example.com)**。\n\n**公式 $a+b$ 后的重点**。\n\n1. 列表内 **重点内容**\n2. 普通列表文字" };
         var host = new Window { Owner = owner, Width = 600, Height = 420, Content = view, Title = "强调颜色验证" };
+        if (!owner.ShowActivated) { host.ShowActivated = false; host.WindowStartupLocation = WindowStartupLocation.Manual; host.Left = owner.Left; host.Top = owner.Top; }
         host.Show();
         try
         {
@@ -64,7 +65,9 @@ internal static partial class Program
                 File.WriteAllText(customLight, "{\"id\":\"emphasis-test-light\",\"name\":\"Test light\",\"isDark\":false,\"colors\":{}}");
                 File.WriteAllText(customDark, "{\"id\":\"emphasis-test-dark\",\"name\":\"Test dark\",\"isDark\":true,\"colors\":{}}");
                 Check(ThemeManager.Load("emphasis-test-light").Colors["ChatEmphasis"] == "#006B66", "Light custom theme did not receive a readable fallback");
-                Check(ThemeManager.Load("emphasis-test-dark").Colors["ChatEmphasis"] == "#85DACC", "Dark custom theme did not receive a readable fallback");
+                Check(ThemeManager.Load("emphasis-test-dark").Colors["ChatEmphasis"] == "#55C7EE", "Dark custom theme did not receive the cyan fallback");
+                File.WriteAllText(customDark, "{\"id\":\"emphasis-test-dark\",\"name\":\"Test dark\",\"isDark\":true,\"colors\":{\"ChatEmphasis\":\"#123456\"}}");
+                Check(ThemeManager.Load("emphasis-test-dark").Colors["ChatEmphasis"] == "#123456", "Explicit custom theme emphasis color was overwritten");
             }
             finally { File.Delete(customLight); File.Delete(customDark); }
             ThemeManager.Apply("ristretto");

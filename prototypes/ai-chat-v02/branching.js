@@ -33,14 +33,27 @@
   const initial = () => ({ version: 1, active: 'root', selected: 'root', pending: null, bookmarks: [], sessions: [{ id: 'root', title: 'Saber OT 的代数结构', parent: null, source: null, draft: '', turns: [{ id: 'root-turn', question: '请给我讲讲 Saber OT 底层的代数结构。', answer: rootBlocks(), demo: true }] }] });
   const readState = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); const loaded = value && value.version === 1 && Array.isArray(value.sessions) && value.sessions.length ? value : initial(); loaded.pendingBySession ||= {}; loaded.bookmarks ||= []; if (loaded.pending?.parentId && !loaded.pendingBySession[loaded.pending.parentId]) loaded.pendingBySession[loaded.pending.parentId] = loaded.pending; for (const s of loaded.sessions) { s.references ||= []; s.attachments ||= []; for (const turn of s.turns || []) { if (!turn.answer?.some(item => item.kind === 'exercise')) continue; try { const values = JSON.parse(localStorage.getItem(formKey(s.id, turn.id)) || 'null'); if (values && typeof values === 'object' && !Array.isArray(values)) { if (values.values && typeof values.values === 'object') { turn.formValues = values.values; turn.formInvalidations = values.invalidations || {}; } else turn.formValues = values; } } catch { /* Preserve the rest of the session if a form draft is unreadable. */ } } const references = JSON.parse(localStorage.getItem(referencesKey(s.id)) || 'null'); if (Array.isArray(references)) s.references = references; const viewport = localStorage.getItem(viewportKey(s.id)); if (viewport !== null && Number.isFinite(Number(viewport))) s.viewport = Number(viewport); const draft = JSON.parse(localStorage.getItem(draftKey(s.id)) || 'null'); if (draft) { s.draft = draft.draft; if (draft.attachments) s.attachments = draft.attachments; if (draft.pending) loaded.pendingBySession[s.id] = draft.pending; else delete loaded.pendingBySession[s.id]; } const old = loaded.pendingBySession[s.id]; if (old?.kind === 'quote') { if (!s.references.some(r => r.legacyPending)) s.references.push({ id: uid(), blockId: old.blockId, quote: old.quote, textOffset: old.sourceTextOffset, comment: '', selected: true, attachments: [], legacyPending: old }); delete loaded.pendingBySession[s.id]; } } loaded.pending = loaded.pendingBySession[loaded.active] || null; return loaded; } catch { return initial(); } };
   let state = readState(), currentSelection = null, currentParagraph = null, focusedBlock = null, bookmarkCandidate = null, editingReference = null, mapOpen = false, relationAnchor = null, pendingFileReads = 0;
-  let formAttachmentOrigin = null, answerMarking = false;
-  function setAnswerMarking(active) { answerMarking = active; transcript.classList.toggle('answer-marking', active); if (active) $('status').textContent = '回答批注模式：选择文字或内容区域；Esc 退出。'; }
+  let formAttachmentOrigin = null, answerMarking = false, answerMarkingStatusTimer = null;
+  function setAnswerMarking(active) {
+    const was = answerMarking; answerMarking = active; transcript.classList.toggle('answer-marking', active);
+    if (answerMarkingStatusTimer !== null) { clearTimeout(answerMarkingStatusTimer); answerMarkingStatusTimer = null; }
+    if (active) $('status').textContent = '回答批注模式：选择文字或内容区域；Esc 退出。';
+    else if (was && (!$('status').textContent || $('status').textContent === '回答批注模式：选择文字或内容区域；Esc 退出。')) {
+      const message = '已退出回答批注模式。'; $('status').textContent = message;
+      answerMarkingStatusTimer = setTimeout(() => { answerMarkingStatusTimer = null; if ($('status').textContent === message) $('status').textContent = ''; }, 3000);
+    }
+  }
   state.pausedFollowups ||= {};
   for (const [id, items] of Object.entries(state.followups || {})) if (items.length) state.pausedFollowups[id] = true;
   const running = new Set();
   const session = id => state.sessions.find(s => s.id === id);
   const current = () => session(state.active) || state.sessions[0];
-  function isBlankSession(s) { return s.title === '新对话' && !s.parent && !s.source && !(s.turns || []).length && !s.draft && !(s.references || []).length && !(s.attachments || []).length && !state.pendingBySession?.[s.id] && !(state.followups?.[s.id] || []).length && !(state.bookmarks || []).some(b => b.sessionId === s.id) && !state.sessions.some(child => child.parent === s.id) && Object.keys(s).every(k => ['id','title','parent','source','draft','turns','references','attachments','viewport'].includes(k)); }
+  function defaultModel() { return state.defaultModel || 'gpt-6.1-sol'; }
+  function defaultEffort() { return state.defaultEffort || '高'; }
+  function sessionModel(s = current()) { return s.model || defaultModel(); }
+  function sessionEffort(s = current()) { return s.effort || defaultEffort(); }
+  function selectStoredValue(select, value) { if (!Array.from(select.options).some(option => option.value === value)) { const option = document.createElement('option'); option.value = value; option.textContent = value + '（当前不可用）'; select.appendChild(option); } select.value = value; }
+  function isBlankSession(s) { return s.title === '新对话' && !s.parent && !s.source && !(s.turns || []).length && !s.draft && !(s.references || []).length && !(s.attachments || []).length && (!s.model || s.model === defaultModel()) && (!s.effort || s.effort === defaultEffort()) && !state.pendingBySession?.[s.id] && !(state.followups?.[s.id] || []).length && !(state.bookmarks || []).some(b => b.sessionId === s.id) && !state.sessions.some(child => child.parent === s.id) && Object.keys(s).every(k => ['id','title','parent','source','draft','turns','references','attachments','viewport','model','effort'].includes(k)); }
   function trimBlankSessions() {
     const blanks = state.sessions.filter(isBlankSession); if (blanks.length < 2) return;
     const keep = blanks.find(s => s.id === state.active) || blanks[0];
@@ -418,11 +431,13 @@
     $('mention-menu').hidden = true;
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     composer.value = pending && pending.kind === 'branch' ? (pending.draft || '') : (current().draft || '');
+    selectStoredValue($('conversation-model'), sessionModel()); selectStoredValue($('conversation-effort'), sessionEffort());
     renderComposerContext(); renderReferencesButton(); renderMainAttachments(); renderFollowups();
   }
   function renderFollowups() {
     const active = running.has(current().id), blocked = state.pending?.kind === 'branch';
     $('steer').disabled = $('enqueue').disabled = !active || blocked;
+    $('conversation-model').disabled = $('conversation-effort').disabled = active;
     $('send').disabled = active || pendingFileReads > 0;
     $('demo-running-status').hidden = !active;
     $('demo-running').textContent = active ? '结束当前模拟轮' : '模拟运行';
@@ -545,7 +560,7 @@
     const previous = JSON.stringify(state), parent = current(), context = currentSelection;
     const source = { blockId: context.blockId, endBlockId: context.endBlockId, endTextOffset: context.endTextOffset, textOffset: context.textOffset, quote: context.quote, kind: context.kind, svg: context.svg, src: context.src, math: context.math, number: context.number, large: context.large, table: context.table };
     const origin = { id: uid(), sessionId: parent.id, ...source, sourceLocked: true, comment: '', selected: true, attachments: [] };
-    const child = { id: uid(), title: Array.from(context.quote || '追问').slice(0, 16).join(''), parent: parent.id, source, draft: '', references: [origin], attachments: [], turns: [] };
+    const child = { id: uid(), title: Array.from(context.quote || '追问').slice(0, 16).join(''), parent: parent.id, source, draft: '', references: [origin], attachments: [], turns: [], model: sessionModel(parent), effort: sessionEffort(parent) };
     state.sessions.push(child);
     if (!save()) { state = JSON.parse(previous); return; }
     $('selection-tools').hidden = true; $('context-menu').hidden = true; window.getSelection()?.removeAllRanges();
@@ -655,7 +670,7 @@
     const branching = pending && pending.kind === 'branch';
     if (branching) {
       const parent = current();
-      const child = { id: uid(), title: (question || selected[0]?.comment || '追问').slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, endBlockId: pending.endBlockId, endTextOffset: pending.endTextOffset, textOffset: pending.sourceTextOffset, quote: pending.quote, kind: pending.sourceKind, svg: pending.svg, src: pending.src }, draft: '', references: [], attachments: [], turns: [] };
+      const child = { id: uid(), title: (question || selected[0]?.comment || '追问').slice(0, 36), parent: parent.id, source: { blockId: pending.blockId, endBlockId: pending.endBlockId, endTextOffset: pending.endTextOffset, textOffset: pending.sourceTextOffset, quote: pending.quote, kind: pending.sourceKind, svg: pending.svg, src: pending.src }, draft: '', references: [], attachments: [], turns: [], model: sessionModel(parent), effort: sessionEffort(parent) };
       if (state.pendingBySession) delete state.pendingBySession[parent.id]; state.sessions.push(child); state.active = child.id; state.selected = child.id; state.pending = null;
       child.turns.push({ id: uid(), question, references: sentReferences, attachments: sentAttachments, answer: demoAnswer(question, pending.quote), demo: true });
     } else {
@@ -717,7 +732,11 @@
   $('map-toggle').addEventListener('click', () => openMap()); $('map-close').addEventListener('click', closeMap);
   $('conversation-tab').addEventListener('click', closeMap); $('relation-tab').addEventListener('click', () => openMap(false));
   $('relation-tab-close').addEventListener('click', () => { closeMap(); relationAnchor = null; $('relation-tab-wrap').hidden = true; });
-  $('new-conversation').addEventListener('click', () => { persistCurrent(); trimBlankSessions(); let blank = state.sessions.find(isBlankSession); if (!blank) { blank = { id: uid(), title: '新对话', parent: null, source: null, draft: '', turns: [], references: [], attachments: [] }; state.sessions.push(blank); } navigate(blank.id); save(); });
+  $('new-conversation').addEventListener('click', () => { persistCurrent(); trimBlankSessions(); let blank = state.sessions.find(isBlankSession); if (!blank) { blank = { id: uid(), title: '新对话', parent: null, source: null, draft: '', turns: [], references: [], attachments: [], model: defaultModel(), effort: defaultEffort() }; state.sessions.push(blank); } navigate(blank.id); save(); });
+  for (const [id, key] of [['conversation-model', 'model'], ['conversation-effort', 'effort']]) $(id).addEventListener('change', () => {
+    const target = current(), previous = target[key]; target[key] = $(id).value;
+    if (!save()) { if (previous === undefined) delete target[key]; else target[key] = previous; selectStoredValue($(id), key === 'model' ? sessionModel(target) : sessionEffort(target)); }
+  });
   $('back-source').addEventListener('click', () => parentSource(current()));
   $('child-sessions').addEventListener('click', () => { const children = state.sessions.filter(s => s.parent === current().id); if (children.length === 1) { navigate(children[0].id); return; } const menu = $('child-menu'); menu.replaceChildren(); for (const child of children) { const button = document.createElement('button'); button.type = 'button'; button.textContent = child.title; button.addEventListener('click', () => { menu.hidden = true; navigate(child.id); }); menu.appendChild(button); } menu.hidden = !menu.hidden; });
   const selectedCopy=()=>currentSelection?.kind==='math'&&currentSelection.math?'$$\n'+currentSelection.math+'\n$$':currentSelection?.quote||'';

@@ -1,0 +1,27 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E088EC052C14BC34E79ECB6A13F357F27E30C3F7C2C77EB44004737E1E87A25A",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\TeXeed-0.5.10-20261118\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "C0D91815D70C00CCF2C501307BA1B9024A4DC91CEE1B3F8A2962568A1269C06A",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\emphasis-20261118-after-product\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "3EA8EC42E54A7458CFFB6662BD9B5E5097D2DFFF6C78F3C3EA62BC5E73FA24AA",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\emphasis-20261118-before-exit-v2-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "2EA11587C56B5E30479D32657E8614281019688F544EC9305EC59A9087C26ADE",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\emphasis-20261118-after-exit-v2-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "B964991B159357079FC0D1FE2BCEC6C6B79429E92B8ED4C557709DDA22C998BE",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\emphasis-color-20261118\\mark-exit-complete-fixture.cs.txt"
+  }
+]

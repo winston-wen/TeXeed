@@ -351,6 +351,7 @@ public partial class AiPanel : UserControl, IDisposable
     internal async Task SubmitAsync(AiTurn? retry = null, AiFollowUpMessage? queued = null)
     {
         if (_project is null || _operation is not null || _queueDispatching && queued is null) return;
+        if (_modelPreferenceSaving) { StatusText.Text = "正在保存本会话模型，请稍候。"; return; }
         if (BlockPendingFormAttachmentRead(_book.Active)) return;
         if (retry is not null && (_book.Turns.LastOrDefault()?.Id != retry.Id || !retry.IsIncomplete)) return;
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }
@@ -370,6 +371,17 @@ public partial class AiPanel : UserControl, IDisposable
         if (prompt.Length == 0 && sentAnnotations.Any(e => string.IsNullOrWhiteSpace(e.Question)) && !hasFormResponse) { StatusText.Text = "请在编辑栏描述要问的问题。"; Composer.Focus(); return; }
         if (sentAnnotations.Count > 20 || sentAnnotations.Sum(e => e.Sources.Sum(s => s.Text.Length) + e.Question.Length + (e.AnswerAnchor?.Quote.Length ?? 0)) + prompt.Length + submittedForms.Sum(form => (long)AiForms.Describe(form).Length + 100) > 80000 || sentAnnotations.Sum(e => e.PdfBlocks.Sum(p => p.ImageBase64.Length)) > 24_000_000)
         { StatusText.Text = "每批最多 20 个问题、8 万字符和约 18 MB 截图，请分批提交。"; return; }
+        InitializeConversationModel();
+        var requestedModelId = ConversationModelId;
+        var requestedEffort = ConversationEffort;
+        var catalog = Settings.AvailableModels;
+        if (requestedModelId is not null && catalog.Count > 0)
+        {
+            var selectedModel = catalog.FirstOrDefault(item => item.Id == requestedModelId);
+            if (selectedModel is null) { StatusText.Text = "当前会话选择的模型暂不可用，请刷新模型或选择其他模型。"; return; }
+            if (!AiEffort.Choices(selectedModel).Any(item => item.Value == requestedEffort))
+            { StatusText.Text = "当前会话的推理强度暂不可用，请重新选择。"; return; }
+        }
         var followUpTurnSucceeded = false;
         var followUpBook = _book;
         await RunOperationAsync(async token =>
@@ -482,10 +494,18 @@ public partial class AiPanel : UserControl, IDisposable
             try
             {
                 await SaveAsync();
-                if (Settings.SelectedModel is null) await Settings.LoadModelsAsync(token);
-                if (Settings.SelectedModel is not AiModel model) throw new InvalidOperationException("请选择可用模型。");
-                modelId = model.Id; effort = Settings.SelectedEffort;
-                await Settings.SaveSelectionAsync(token);
+                if (Settings.AvailableModels.Count == 0) await Settings.LoadModelsAsync(token);
+                if (requestedModelId is null)
+                {
+                    InitializeConversationModel();
+                    requestedModelId = ConversationModelId;
+                    requestedEffort = ConversationEffort;
+                }
+                var model = Settings.AvailableModels.FirstOrDefault(item => item.Id == requestedModelId)
+                    ?? throw new InvalidOperationException(requestedModelId is null ? "请选择可用模型。" : "当前会话选择的模型暂不可用，请刷新模型或选择其他模型。");
+                if (!AiEffort.Choices(model).Any(item => item.Value == requestedEffort))
+                    throw new InvalidOperationException("当前会话的推理强度暂不可用，请重新选择。");
+                modelId = model.Id; effort = requestedEffort;
                 var files = ProjectFiles?.Invoke().ToArray() ?? [];
                 var toolRunner = CreateToolRunner?.Invoke();
                 var acceptedSteers = AiFollowUpQueue.Load(book.Active).History;
@@ -550,5 +570,5 @@ public partial class AiPanel : UserControl, IDisposable
         ScheduleViewportCapture();
     }
     public async Task StopAndSaveAsync() { await StopFollowUpsAsync(); _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
-    public void Dispose() { CancelLayoutAnchor(); _disposed = true; ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
+    public void Dispose() { CancelLayoutAnchor(); _disposed = true; CancelAnswerMarking(); CancelAnswerExitHint(); ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }
 }
