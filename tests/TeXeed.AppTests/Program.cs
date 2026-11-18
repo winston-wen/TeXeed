@@ -111,6 +111,11 @@ internal static partial class Program
                     await CheckAiFormContextAsync();
                     await CloseAndObserveAsync(window, "AI forms"); result = 0; return;
                 }
+                if (args.Contains("--ai-chat-font-only"))
+                {
+                    await CheckAiChatReadingFontAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI chat reading typography"); result = 0; return;
+                }
                 if (args.Contains("--ai-unlock-viewport-only"))
                 {
                     await CheckAiFormUnlockViewportAsync(window, output);

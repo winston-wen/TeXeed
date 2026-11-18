@@ -1,0 +1,2 @@
+System.InvalidOperationException: Reading glyphs did not match both requested fonts
+   at ChatReadingFontPerf.<>c__DisplayClass4_0.<<Main>b__2>d.MoveNext() in /_/tests/performance-baselines/chat-reading-fonts-20261118/mixed-math-fixture.cs.txt:line 80

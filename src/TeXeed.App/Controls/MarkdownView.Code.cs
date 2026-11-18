@@ -42,6 +42,7 @@ public sealed partial class MarkdownView
     {
         var paragraph = new Paragraph(new Run(source)) { FontFamily = CodeFont, FontSize = 14, LineHeight = 23,
             Padding = new Thickness(14), Margin = new Thickness(0, 6, 0, 14) };
+        Typography.SetStylisticSet4(paragraph, false);
         var shape = new RectangleGeometry(new Rect(0, 0, 400, 100), BlockCodeRadius, BlockCodeRadius);
         var drawing = new GeometryDrawing { Geometry = shape };
         BindingOperations.SetBinding(drawing, GeometryDrawing.BrushProperty, new Binding { Source = this, Path = new PropertyPath(CodeSurfaceBrushProperty) });
@@ -55,6 +56,7 @@ public sealed partial class MarkdownView
     {
         var text = new Run(source);
         var span = new Span { FontFamily = CodeFont, FontSize = 14, FontWeight = FontWeights.Normal, FontStyle = FontStyles.Normal, Tag = CodeSpanMarker };
+        Typography.SetStylisticSet4(span, false);
         // An en-space is half an em. Equal padding fills the existing 25-DIP line
         // without turning code into an embedded control or changing copied text.
         Run PaddingRun() => new("\u2002") { FontFamily = new FontFamily("Arial"), FontSize = CodePadding * 2, Tag = CodePaddingMarker };

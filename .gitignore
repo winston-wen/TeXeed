@@ -9,3 +9,4 @@ artifacts/
 test-results/
 .tools/
 *.drawio.bkp
+prototypes/ai-chat-v02/fonts/local/

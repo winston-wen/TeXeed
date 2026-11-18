@@ -1,0 +1,7 @@
+System.InvalidOperationException: 调用线程无法访问此对象，因为另一个线程拥有该对象。
+   at System.Windows.Threading.Dispatcher.<VerifyAccess>g__ThrowVerifyAccess|7_0()
+   at System.Windows.DependencyObject.SetValue(DependencyProperty dp, Object value)
+   at TeXeed.App.Controls.ChatFormula.LoadAsync() in /_/src/TeXeed.App/Controls/ChatFormula.cs:line 45
+   at ChatReadingFontPerf.<>c__DisplayClass4_0.<<Main>g__Settle|3>d.MoveNext() in /_/tests/performance-baselines/chat-reading-fonts-20261118/mixed-math-fixture.cs.txt:line 56
+--- End of stack trace from previous location ---
+   at ChatReadingFontPerf.<>c__DisplayClass4_0.<<Main>b__2>d.MoveNext() in /_/tests/performance-baselines/chat-reading-fonts-20261118/mixed-math-fixture.cs.txt:line 58

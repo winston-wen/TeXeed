@@ -47,6 +47,15 @@ public partial class AiPanel : UserControl, IDisposable
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
     {
         _connection = connection; InitializeComponent(); InitializeComposer(); InitializeBookmarkUi(); InitializeMentions(); InitializeComposerDrop();
+        History.FontFamily = ChatReadingTypography.Family;
+        System.Windows.Documents.Typography.SetStylisticSet4(History, true);
+        if (!ChatReadingTypography.HasHiragino || !ChatReadingTypography.HasPlex)
+        {
+            FontFallbackNotice.Text = !ChatReadingTypography.HasHiragino && !ChatReadingTypography.HasPlex ? "未找到阅读字体，暂用系统字体。" :
+                !ChatReadingTypography.HasHiragino ? "未找到冬青黑体 W3，中文暂用系统字体。" : "未找到 IBM Plex Sans，英文与数字暂用系统字体。";
+            FontFallbackNotice.ToolTip = !ChatReadingTypography.HasHiragino ? "冬青黑体位置：" + System.IO.Path.Combine(ChatReadingTypography.LocalFontDirectory, ChatReadingTypography.HiraginoFile) : null;
+            FontFallbackNotice.Visibility = Visibility.Visible;
+        }
         LiveQuestion.Loaded += (_, _) => BookmarkQuestionLoaded(LiveQuestion);
         LiveQuestion.Unloaded += (_, _) => BookmarkQuestionUnloaded(LiveQuestion);
         LiveTurnNumber.FontFamily = LiveQuestion.FontFamily;

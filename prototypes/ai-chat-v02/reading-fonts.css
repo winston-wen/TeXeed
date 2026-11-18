@@ -1,0 +1,42 @@
+@font-face {
+  font-family: 'TeXeed Plex Sans';
+  src: url('fonts/IBMPlexSans-Regular.otf') format('opentype');
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'TeXeed Hiragino W3';
+  src: local('Hiragino Sans GB W3'), url('fonts/local/Hiragino_Sans_GB.ttc') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+}
+
+:root {
+  --reading-face: 'TeXeed Plex Sans', 'TeXeed Hiragino W3', 'Microsoft YaHei', sans-serif;
+}
+
+.question, .answer, .snapshot-scroll, .turn-number, .branch-origin-view,
+.sent-summary, .streaming-answer, .turn-time, .process-log,
+.transcript, .transcript .time, .transcript .quoted,
+.answer table, .snapshot-scroll table, .initial-source-table table {
+  font-family: var(--reading-face);
+  font-feature-settings: 'ss04' 1;
+  font-synthesis: none;
+}
+
+/* Math uses its existing TeX fonts and figures rather than the prose feature. */
+.katex, .katex * { font-feature-settings: normal; }
+
+.reading-shell :is(input, textarea, pre, code),
+.transcript :is(input, textarea, pre, code, .exercise-line-numbers, .exercise-line-mirror) {
+  font-feature-settings: normal;
+}
+
+.transcript .exercise :is(input[type=text], textarea, .exercise-line-numbers, .exercise-line-mirror) {
+  font-family: var(--serif);
+}
+
+.reading-font-notice { flex: none; padding: 3px 0; color: var(--muted); font: 12px/1.5 var(--sans); }
+.reader-view:has(> .reading-font-notice:not([hidden])) { display: flex; flex-direction: column; }
+.reader-view:has(> .reading-font-notice:not([hidden])) > .reader { height: auto; min-height: 0; flex: 1; }

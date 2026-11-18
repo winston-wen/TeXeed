@@ -47,7 +47,7 @@
     </StackPanel>
    </ItemsControl>
   </Grid>
-  <TextBlock x:Name="StatusText" Grid.Row="2" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="26,4,22,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+  <StackPanel Grid.Row="2"><TextBlock x:Name="FontFallbackNotice" Visibility="Collapsed" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" Margin="26,4,22,0"/><TextBlock x:Name="StatusText" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" FontSize="11" MaxHeight="44" Margin="26,4,22,0" Text="" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style></TextBlock></StackPanel>
   <Border x:Name="ComposerBorder" Grid.Row="3" BorderThickness="0,1,0,0" Background="{DynamicResource ChatQuestionBackground}" Padding="21,0,15,0">
    <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource Guide}"/><Style.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ChatFocus}"/></Trigger></Style.Triggers></Style></Border.Style>
    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

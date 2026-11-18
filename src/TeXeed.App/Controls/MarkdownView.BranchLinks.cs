@@ -46,6 +46,7 @@ public sealed partial class MarkdownView
             FontStyle = FontStyles.Normal, Padding = new Thickness(0), Margin = new Thickness(3, 0, 3, 0), BorderThickness = new Thickness(0), Background = Brushes.Transparent,
             HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, ContentTemplate = BranchLinkTemplate
         };
+        Typography.SetStylisticSet4(linkButton, true);
         System.Windows.Automation.AutomationProperties.SetName(linkButton, "追问：" + title);
         var owner = end.IsInSameDocument(Document.ContentStart) ? this : _tableViews.FirstOrDefault(table => end.IsInSameDocument(table.View.Document.ContentStart))?.View ?? this;
         linkButton.SetBinding(MaxWidthProperty, new Binding(nameof(ActualWidth)) { Source = owner, Converter = BranchLinkWidthConverter.Instance });

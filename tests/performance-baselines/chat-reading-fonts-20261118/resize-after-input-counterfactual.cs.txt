@@ -1,0 +1,100 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+internal static class ReadingResizeCounterfactual
+{
+    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    private static object Field(object target, string name) => target.GetType().GetField(name, Private)!.GetValue(target)!;
+    private static void Call(object target, string name) => target.GetType().GetMethod(name, Private)!.Invoke(target, null);
+    private static async Task Idle(Window window) { await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout(); }
+    private static async Task Drain(AiPanel panel, Window window)
+    {
+        await Task.Delay(800); var timer = (DispatcherTimer)Field(panel, "_saveTimer");
+        for (var i = 0; timer.IsEnabled && i < 250; i++) await Task.Delay(20);
+        if (timer.IsEnabled) throw new TimeoutException("Draft timer did not drain");
+        var gate = (SemaphoreSlim)Field(panel, "_saveGate"); await gate.WaitAsync(); gate.Release(); await Idle(window);
+    }
+    private static IEnumerable<T> Children<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        { var child = VisualTreeHelper.GetChild(root, i); if (child is T match) yield return match; foreach (var inner in Children<T>(child)) yield return inner; }
+    }
+    private static int Visible(Window window)
+    {
+        var bounds = new Rect(0, 0, window.ActualWidth, window.ActualHeight);
+        return Children<Control>(window).Count(control =>
+        {
+            if (!control.IsVisible || control.ActualWidth <= 0 || control.ActualHeight <= 0) return false;
+            try { return control.TransformToAncestor(window).TransformBounds(new Rect(0, 0, control.ActualWidth, control.ActualHeight)).IntersectsWith(bounds); }
+            catch (InvalidOperationException) { return false; }
+        });
+    }
+    [STAThread] private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); var oldFont = args[1] == "old-font"; Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        using var panel = new AiPanel(); typeof(AiPanel).GetMethod("InitializeBranchUi", Private)?.Invoke(panel, null);
+        var host = new Window { Width = 900, Height = 760, Left = -12000, Top = 20, ShowActivated = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Content = panel };
+        var result = 1;
+        app.DispatcherUnhandledException += (_, e) => { File.WriteAllText(Path.Combine(output, "error.txt"), e.Exception.ToString()); e.Handled = true; app.Shutdown(1); };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await panel.SetProjectAsync(Path.Combine(output, "fixture.tex")); var book = (AiNotebook)Field(panel, "_book");
+                for (var i = 0; i < 120; i++) book.Turns.Add(new AiTurn("如何检查结果？ " + i, "样例回答：说明步骤和依据。") { SentAt = DateTimeOffset.UnixEpoch, Segments = Enumerable.Range(0, 3).Select(k => new AiSegment { Kind = "activity", Text = "检查步骤 " + k, Details = string.Join('\n', Enumerable.Range(0, 200).Select(n => "示例日志 " + n)) }).Append(new AiSegment { Kind = "final", Text = "样例回答：说明步骤和依据。" }).ToList() });
+                Call(panel, "RefreshTranscript"); await Drain(panel, host);
+                var views = Children<MarkdownView>(panel).Where(view => view.ChatMode || view.UseChatEmphasis).ToArray();
+                if (views.Length == 0 || views.All(view => !view.FontFamily.Source.Contains("IBM Plex Sans", StringComparison.Ordinal))) throw new InvalidOperationException("The new reading font was not active before the counterfactual");
+                var overridden = 0;
+                if (oldFont)
+                {
+                    var previous = new FontFamily("Times New Roman, Source Han Serif SC, FangSong");
+                    foreach (var view in views)
+                    {
+                        view.FontFamily = previous; view.Document.FontFamily = previous;
+                        Typography.SetStylisticSet4(view, false); Typography.SetStylisticSet4(view.Document, false); overridden++;
+                    }
+                    foreach (var turn in Children<AiTurnView>(panel))
+                        foreach (var block in Children<TextBlock>(turn).Where(block => block.FontFamily.Source.Contains("IBM Plex Sans", StringComparison.Ordinal)))
+                        { block.FontFamily = previous; Typography.SetStylisticSet4(block, false); }
+                    await Drain(panel, host);
+                    if (overridden == 0 || views.Any(view => view.Document.FontFamily != previous)) throw new InvalidOperationException("The old-font counterfactual did not apply");
+                }
+                var samples = new List<object>(); var composer = (TextBox)panel.FindName("Composer");
+                async Task Measure(string op, Action<int> action)
+                {
+                  for (var i = 0; i < 9; i++)
+                  {
+                    var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Drain(panel, host); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                    var bytes = GC.GetAllocatedBytesForCurrentThread(); var timer = Stopwatch.StartNew(); action(i); await Idle(host);
+                    var feedback = timer.Elapsed.TotalMilliseconds; var feedbackBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                    await Drain(panel, host); timer.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                    var controls = Visible(host); if (!host.IsVisible || controls == 0) throw new InvalidOperationException("The benchmark window closed");
+                    if (oldFont && Children<MarkdownView>(panel).Where(view => view.ChatMode || view.UseChatEmphasis).Any(view => view.Document.FontFamily.Source.Contains("IBM Plex Sans", StringComparison.Ordinal)))
+                        throw new InvalidOperationException("A newly realized reading view escaped the old-font counterfactual");
+                    if (i >= 2) samples.Add(new { op, feedbackMs = feedback, feedbackBytes, rawMs = timer.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = timer.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = controls });
+                  }
+                }
+                await Measure("input", i => composer.Text = i % 2 == 0 ? "第一行\n第二行\n第三行" : "第一行\n第二行\n第三行。");
+                await Measure("resize", i => host.Width = i % 2 == 0 ? 620 : 900);
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "120 turns, 3 activities, 200 detail lines; new assembly with actual reading font or temporary old-font counterfactual; 900/620 x 760 offscreen WPF, 2 warmups, 7 samples, paired 800 ms idle and save gate; nine input operations before resize", oldFont, overridden, samples }, new JsonSerializerOptions { WriteIndented = true }));
+                result = 0;
+            }
+            catch (Exception ex) { File.WriteAllText(Path.Combine(output, "error.txt"), ex.ToString()); }
+            finally { host.Close(); app.Shutdown(result); }
+        };
+        host.Show(); app.Run(); return result;
+    }
+}

@@ -6,6 +6,7 @@ TeXeed uses the following separately licensed components. TeX distributions are 
 | --- | --- | --- | --- |
 | AvalonEdit | 6.3.1.120 | MIT | https://github.com/icsharpcode/AvalonEdit |
 | Markdig | 1.1.1 | BSD-2-Clause | https://github.com/xoofx/markdig |
+| IBM Plex Sans | 3.005 | OFL-1.1 | https://github.com/IBM/plex |
 | WpfMath / XamlMath.Shared | 2.1.0 | MIT; embedded fonts: Knuth License and OFL-1.1 | https://github.com/ForNeVeR/xaml-math |
 | GitHub Light Default palette (adapted from GitHub Theme) | 6.3.5 | MIT | https://github.com/primer/github-vscode-theme |
 | PDFiumCore | 155.0.8057 | Apache-2.0 | https://github.com/Dtronix/PDFiumCore |
@@ -20,5 +21,7 @@ TeXeed uses the following separately licensed components. TeX distributions are 
 Exact transitive versions are recorded in `packages.lock.json`. Redistribution notices from the native PDFium package and license texts are included in the application's `licenses` directory when published using this repository's packaging script.
 
 Emoji artwork attribution and license texts are included in `Assets/Emoji` in the published application. The sprites are resized and combined from the Google- and Twitter-specific clean sheets.
+
+IBM Plex Sans and its license are included in `Assets/Fonts` in the published application.
 
 The two tutorial formula SVGs in `src/TeXeed.App/Assets/Tutorial` are generated LaTeX document output containing vector glyph paths. They contain no font files, scripts, or external resources. Regenerate them with `scripts/build-tutorial-math.py` using an external TeX installation and dvisvgm; those development tools are not bundled. Selected vscode-icons explorer SVGs are retained in `src/TeXeed.App/Assets/Explorer` and converted to native WPF drawings by `scripts/build-explorer-icons.py`; their MIT license is included in `licenses/vscode-icons-MIT.txt`.

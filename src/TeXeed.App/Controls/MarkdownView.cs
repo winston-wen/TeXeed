@@ -32,10 +32,10 @@ public sealed partial class MarkdownView : RichTextBox
         nameof(IsStreaming), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
     public bool IsStreaming { get => (bool)GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
     public static readonly DependencyProperty ChatModeProperty = DependencyProperty.Register(
-        nameof(ChatMode), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
+        nameof(ChatMode), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).UpdateChatTypography()));
     public bool ChatMode { get => (bool)GetValue(ChatModeProperty); set => SetValue(ChatModeProperty, value); }
     public static readonly DependencyProperty UseChatEmphasisProperty = DependencyProperty.Register(
-        nameof(UseChatEmphasis), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).Render()));
+        nameof(UseChatEmphasis), typeof(bool), typeof(MarkdownView), new PropertyMetadata(false, (d, _) => ((MarkdownView)d).UpdateChatTypography()));
     public bool UseChatEmphasis { get => (bool)GetValue(UseChatEmphasisProperty); set => SetValue(UseChatEmphasisProperty, value); }
     public static readonly DependencyProperty TurnNumberProperty = DependencyProperty.Register(
         nameof(TurnNumber), typeof(int), typeof(MarkdownView), new PropertyMetadata(0, (d, _) => ((MarkdownView)d).UpdateHeadingNumbers()));
@@ -104,6 +104,12 @@ public sealed partial class MarkdownView : RichTextBox
     private bool _renderPending, _renderPaused;
     private double _estimatedHeight;
     private const int BackgroundRenderThreshold = 4000, UiRenderSliceMilliseconds = 6;
+    private void UpdateChatTypography()
+    {
+        if (ChatMode || UseChatEmphasis) FontFamily = ChatReadingTypography.Family;
+        Typography.SetStylisticSet4(this, ChatMode || UseChatEmphasis);
+        Render();
+    }
     private void Render()
     {
         var version = ++_renderVersion;
@@ -118,6 +124,7 @@ public sealed partial class MarkdownView : RichTextBox
                 ClearRichState();
                 _streamParagraph = new Paragraph();
                 Document = new FlowDocument(_streamParagraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseChatEmphasis ? ChatLineHeight : 25 };
+                Typography.SetStylisticSet4(Document, ChatMode || UseChatEmphasis);
                 Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
             }
             if (ChatMode && _streamParagraph is { } streamParagraph)
@@ -153,6 +160,7 @@ public sealed partial class MarkdownView : RichTextBox
     {
         var document = new FlowDocument { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
             FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseChatEmphasis ? ChatLineHeight : 25 };
+        Typography.SetStylisticSet4(document, ChatMode || UseChatEmphasis || _tableOwner?.ChatMode == true || _tableOwner?.UseChatEmphasis == true);
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
@@ -266,7 +274,11 @@ public sealed partial class MarkdownView : RichTextBox
                     {
                         var c = new TableCell { Padding = new Thickness(9, 6, 9, 6), BorderThickness = new Thickness(0, 0, 0, 1) };
                         c.SetResourceReference(TableCell.BorderBrushProperty, "Guide");
-                        if (row.IsHeader) { c.FontWeight = FontWeights.SemiBold; c.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground"); }
+                        if (row.IsHeader)
+                        {
+                            c.FontWeight = ChatMode || UseChatEmphasis || _tableOwner is { } owner && (owner.ChatMode || owner.UseChatEmphasis) ? FontWeights.Normal : FontWeights.SemiBold;
+                            c.SetResourceReference(TextElement.BackgroundProperty, "PanelBackground");
+                        }
                         AddBlocks(c.Blocks, cell, depth + 1); r.Cells.Add(c);
                     }
                 }

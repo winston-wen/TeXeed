@@ -63,6 +63,7 @@ public partial class AiPanel
         var view = new MarkdownView { ChatMode = true, Padding = new Thickness(0) };
         var document = new FlowDocument { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
             FontFamily = view.FontFamily, FontSize = view.FontSize, LineHeight = Math.Max(25, view.FontSize * 25 / 16) };
+        Typography.SetStylisticSet4(document, true);
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
         var paragraph = new Paragraph { Margin = new Thickness(0) };
         IReadOnlyList<AiReferencePresentation.ExcerptPart> parts = anchor.PreviewParts is { Count: > 0 }
