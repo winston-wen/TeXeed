@@ -25,18 +25,19 @@ internal static partial class Program
         async Task Settle() { window.UpdateLayout(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle); window.UpdateLayout(); }
         if (model.Owner(main) != TabSide.Left || model.Owner(TabWorkspace.PreviewKey) != TabSide.Right) throw new Exception("Default source/preview layout is incorrect");
         var previewRow = ((StackPanel)rightStrip.FindName("Items")).Children.Cast<Border>().Single();
-        var gear = (Button)((Grid)previewRow.Child).Children[1];
-        var sawSettings = false;
-        _ = window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
-        {
-            var dialog = Application.Current.Windows.OfType<PreviewSettingsWindow>().Single(); sawSettings = true;
-            Capture(dialog, Path.Combine(output, "preview-settings.png")); dialog.Close();
-        }));
-        gear.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        if (!sawSettings || model.Owner(TabWorkspace.PreviewKey) is null) throw new Exception("Preview gear did not open settings without closing preview");
+        var closePreview = (Button)((Grid)previewRow.Child).Children[1];
+        closePreview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); await Settle();
+        if (model.Owner(TabWorkspace.PreviewKey) is not null) throw new Exception("Primary preview close button did not close it");
+        Invoke(window, "ShowPreview_Click", window, new RoutedEventArgs()); await Settle();
+        if (model.Owner(TabWorkspace.PreviewKey) is null) throw new Exception("Closed preview did not reopen");
         Invoke(window, "SelectWorkspaceTab", TabSide.Right, TabWorkspace.PreviewKey);
         await CallAsync(window, "HandleShortcutAsync", CreateKey(window, Key.F4, Keyboard.PreviewKeyDownEvent), ModifierKeys.Control);
-        if (model.Owner(TabWorkspace.PreviewKey) is null) throw new Exception("Ctrl+F4 closed preview");
+        if (model.Owner(TabWorkspace.PreviewKey) is not null) throw new Exception("Ctrl+F4 did not close preview");
+        Invoke(window, "ShowPreview_Click", window, new RoutedEventArgs()); await Settle();
+        Invoke(window, "CloseTabs", TabWorkspace.PreviewKey, TabCloseScope.All); await Settle();
+        if (model.Owner(TabWorkspace.PreviewKey) is not null || model.Owner(main) != TabSide.Left)
+            throw new Exception("Close-all failed to close the primary preview in its group or incorrectly closed the source in another group");
+        Invoke(window, "ShowPreview_Click", window, new RoutedEventArgs()); await Settle();
         Invoke(window, "ActivateFile", one); await Settle();
         left.CaretOffset = 15; left.Select(10, 5); left.ScrollToVerticalOffset(180); await Settle();
         left.Document.Insert(left.Document.TextLength, "\nunsaved"); var document = left.Document; var text = left.Text;
@@ -91,25 +92,30 @@ internal static partial class Program
         if (!(bool)Field(window, "_followAwaitingSourceInteraction")!) throw new Exception("Left-edge preview split did not defer following");
         Invoke(window, "SelectWorkspaceTab", TabSide.Right, one); await Settle();
         if (!ReferenceEquals(document, right.Document) || right.Text != text) throw new Exception("Repeated group splits discarded the unsaved document");
-        var settings = (PreviewSettingsWindow)Invoke(window, "CreatePreviewSettings")!; settings.Show(); await Settle();
-        ((RadioButton)settings.FindName("ManualZoom")).IsChecked = true;
-        ((TextBox)settings.FindName("ZoomInput")).Text = "137.62%";
-        ((ComboBox)settings.FindName("FollowModeBox")).SelectedValue = PreviewFollowMode.None;
-        ((CheckBox)settings.FindName("InvertPdfBox")).IsChecked = false; ((CheckBox)settings.FindName("AutoCropPdfBox")).IsChecked = false;
-        if (Math.Abs(preview.Zoom - 1.3762) > .00001 || preview.IsAutoWidth || preview.InvertColors || preview.AutoCrop
-            || ((AppSettings)Field(window, "_settings")!).FollowMode != PreviewFollowMode.None) throw new Exception("Preview settings did not apply all options");
-        ((TextBox)settings.FindName("ZoomInput")).Text = "NaN";
-        if (Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Preview settings accepted invalid zoom");
-        settings.Close();
+        var sawSettings = false;
+        _ = window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+        {
+            var settings = Application.Current.Windows.OfType<SettingsWindow>().Single(); sawSettings = true;
+            ((RadioButton)settings.FindName("PreviewManualZoom")).IsChecked = true;
+            ((TextBox)settings.FindName("PreviewZoomInput")).Text = "137.62%";
+            ((ComboBox)settings.FindName("FollowModeBox")).SelectedValue = PreviewFollowMode.None;
+            ((CheckBox)settings.FindName("InvertPdfBox")).IsChecked = false; ((CheckBox)settings.FindName("AutoCropPdfBox")).IsChecked = false;
+            Capture(settings, Path.Combine(output, "preview-settings.png"));
+            Invoke(settings, "Save_Click", settings, new RoutedEventArgs());
+        }));
+        Invoke(window, "Settings_Click", window, new RoutedEventArgs()); await Settle();
+        if (!sawSettings || Math.Abs(preview.Zoom - 1.3762) > .00001 || preview.IsAutoWidth || preview.InvertColors || preview.AutoCrop
+            || ((AppSettings)Field(window, "_settings")!).FollowMode != PreviewFollowMode.None) throw new Exception("Layout settings did not apply preview options");
         await WaitForPreviewRenderedAsync(window);
         await CallAsync(window, "SaveAsync");
         if (!File.ReadAllText(one).Contains("unsaved")) throw new Exception("Moved source buffer was omitted from save-all");
         Capture(window, Path.Combine(output, "docking-dark.png")); ThemeManager.Apply("github-light-default"); await Settle(); Capture(window, Path.Combine(output, "docking-light.png"));
         ThemeManager.Apply("ristretto");
         Invoke(window, "CloseTabs", one, TabCloseScope.All); await Settle();
-        if (model.Sources.Any() || model.Owner(TabWorkspace.PreviewKey) is null || model.Has(TabSide.Right)) throw new Exception("Close-all removed preview or retained empty source pane");
+        if (model.Sources.Any() || model.Owner(TabWorkspace.PreviewKey) != TabSide.Left || model.Has(TabSide.Right))
+            throw new Exception("Close-all did not close the source group, or incorrectly closed the other group's preview");
         Invoke(window, "ActivateFile", main); await Settle();
         if (model.Owner(main) != TabSide.Left) throw new Exception("New source opening no longer defaults to left");
-        Console.WriteLine("PASS: preview gear/protection, two independent source panes, buffer/undo/caret/scroll retention, shared save, both edge split cues, empty-pane collapse, PDF retention, settings validation and dark/light layouts");
+        Console.WriteLine("PASS: closable/reopenable preview, two independent source panes, buffer/undo/caret/scroll retention, shared save, both edge split cues, empty-pane collapse, PDF retention, layout settings and dark/light layouts");
     }
 }

@@ -1,0 +1,94 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+using TeXeed.Core;
+
+internal static class NewFeaturesPerf
+{
+    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    private static object? Field(object obj, string name) => obj.GetType().GetField(name, Private)!.GetValue(obj);
+    private static object? Call(object obj, string name, params object?[] args) => obj.GetType().GetMethod(name, Private)!.Invoke(obj, args);
+    private static async Task Idle(Window w) { await w.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); w.UpdateLayout(); }
+    private static async Task Drain(Window w) { await Idle(w); await Task.Delay(250); await Idle(w); }
+    private static int Visible(DependencyObject root)
+    {
+        var count = 0;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        { var child = VisualTreeHelper.GetChild(root, i); if (child is Control c && c.IsVisible && c.ActualWidth > 0 && c.ActualHeight > 0) count++; count += Visible(child); }
+        return count;
+    }
+    private static void MakePdf(string path)
+    {
+        var objects = new List<string> { "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>" };
+        var content = "BT /F1 22 Tf 50 730 Td (A preview for annotation modes.) Tj ET"; objects.Add($"<< /Length {content.Length} >>\nstream\n{content}\nendstream");
+        var text = new StringBuilder("%PDF-1.4\n"); var offsets = new List<int>();
+        foreach (var obj in objects) { offsets.Add(text.Length); text.Append($"{offsets.Count} 0 obj\n{obj}\nendobj\n"); }
+        var xref = text.Length; text.Append($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n"); foreach (var offset in offsets) text.Append($"{offset:0000000000} 00000 n \n");
+        text.Append($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"); File.WriteAllText(path, text.ToString(), Encoding.ASCII);
+    }
+    private static async Task Until(Func<bool> condition, string error)
+    { for (var n = 0; n < 400 && !condition(); n++) await Task.Delay(10); if (!condition()) throw new Exception(error); }
+    [STAThread] private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output); Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var project = Path.Combine(output, "main.tex"); File.WriteAllText(project, "\\documentclass{article}\n\\begin{document}\n" + string.Join('\n', Enumerable.Range(0, 120).Select(i => "Example text and equation $a+b=c$. " + i)) + "\n\\end{document}\n");
+        var pdf = Path.Combine(output, "sample.pdf"); MakePdf(pdf);
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        var window = new MainWindow { Width = 1200, Height = 800, Left = -12000, Top = 20, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual }; var exit = 1;
+        app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
+        window.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await (Task)Call(window, "OpenAsync", project)!;
+                var editor = (LatexEditor)window.FindName("LeftEditor"); var preview = (PdfPreview)window.FindName("Preview");
+                preview.SetCropOptions(false, false); await preview.LoadAsync(pdf); typeof(MainWindow).GetField("_pdfPath", Private)!.SetValue(window, pdf); await Drain(window);
+                var ai = (AiPanel)Field(window, "_aiPanel")!; var book = (AiNotebook)Field(ai, "_book")!;
+                var sourceLayers = (Dictionary<LatexEditor, AiAnnotationLayer>)Field(window, "_sourceAnnotations")!;
+                var pdfLayers = (Dictionary<PdfPreview, AiAnnotationLayer>)Field(window, "_pdfAnnotationLayers")!;
+                var sourcePopup = (Popup)Field(sourceLayers[editor], "_popup")!; var pdfPopup = (Popup)Field(pdfLayers[preview], "_popup")!;
+                var sourceAction = editor.ContextMenu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "批注到当前会话"));
+                var tabs = (TabWorkspace)Field(window, "_workspaceTabs")!; var samples = new List<object>();
+                async Task Sample(string op, Func<Task> setup, Func<Task> action, Func<int> countExtra, Func<Task> cleanup)
+                {
+                    for (var i = 0; i < 9; i++)
+                    {
+                        await setup(); await Drain(window);
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Drain(window); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread(); var sw = Stopwatch.StartNew(); await action(); await Idle(window); var feedback = sw.Elapsed.TotalMilliseconds;
+                        var immediate = GC.GetAllocatedBytesForCurrentThread() - bytes; var controls = Visible(window) + countExtra();
+                        await Drain(window); sw.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        if (i >= 2) samples.Add(new { op, feedbackMs = feedback, feedbackBytes = immediate, rawMs = sw.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = sw.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = controls });
+                        await cleanup();
+                    }
+                }
+                await Sample("source-selected-annotation", () => { editor.Select(60, 12); return Task.CompletedTask; },
+                    async () => { sourceAction.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); await Until(() => sourcePopup.IsOpen && book.Entries.Count == 1, "Source annotation did not open"); },
+                    () => sourcePopup.Child is null ? 0 : Visible(sourcePopup.Child), () => { sourcePopup.IsOpen = false; ai.RemoveAnnotation(book.Entries.Single()); return Task.CompletedTask; });
+                var layouts = ((System.Collections.IEnumerable)Field(preview, "_layouts")!).Cast<object>().ToArray(); var page = layouts[0];
+                var left = (double)page.GetType().GetProperty("Left")!.GetValue(page)!; var top = (double)page.GetType().GetProperty("Top")!.GetValue(page)!;
+                await Sample("pdf-selected-annotation", () => { typeof(PdfPreview).GetField("_aiSelection", Private)!.SetValue(preview, new Rect(left + 30, top + 50, 100, 50)); return Task.CompletedTask; },
+                    async () => { await preview.ConfirmAiSelectionAsync(); await Until(() => pdfPopup.IsOpen && book.Entries.Count == 1 && book.Entries[0].PdfBlocks.Count > 0, "PDF annotation did not open"); },
+                    () => pdfPopup.Child is null ? 0 : Visible(pdfPopup.Child), () => { pdfPopup.IsOpen = false; ai.RemoveAnnotation(book.Entries.Single()); return Task.CompletedTask; });
+                await Sample("close-primary-preview", () => Task.CompletedTask,
+                    async () => { Call(window, "CloseTabs", TabWorkspace.PreviewKey, TabCloseScope.This); await Until(() => tabs.Owner(TabWorkspace.PreviewKey) is null, "Primary preview did not close"); },
+                    () => 0, async () => { Call(window, "ShowPreview_Click", null, new RoutedEventArgs()); await Until(() => tabs.Owner(TabWorkspace.PreviewKey) is not null, "Primary preview did not reopen"); await Idle(window); });
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "120 source lines and one PDF; new source/PDF annotation and primary preview close; 1200x800 offscreen WPF; two warmups and seven samples; paired 250ms and ApplicationIdle", samples }, new JsonSerializerOptions { WriteIndented = true }));
+                exit = 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); }
+            finally { window.Close(); app.Shutdown(exit); }
+        };
+        window.Show(); app.Run(); return exit;
+    }
+}

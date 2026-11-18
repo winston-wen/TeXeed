@@ -29,11 +29,5 @@ public partial class MainWindow
         PersistSettings(); QueueFollowSync();
     }
     private void ChangeFollowMode(PreviewFollowMode mode) => ApplyPreviewOptions(CurrentPreviewOptions with { Follow = mode });
-    private PreviewSettingsWindow CreatePreviewSettings() => new(CurrentPreviewOptions, ApplyPreviewOptions, Preview) { Owner = this };
-    private void OpenPreviewSettings()
-    {
-        if (_closing || _transitioning) return;
-        CreatePreviewSettings().ShowDialog();
-    }
     private void AutoWidth_Click(object sender, RoutedEventArgs e) { CancelPendingNavigation(); Preview.FitWidth(); UpdatePendingPreviewZoom(); }
 }

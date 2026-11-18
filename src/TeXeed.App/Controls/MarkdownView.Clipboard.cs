@@ -8,6 +8,23 @@ public sealed partial class MarkdownView
 {
     private (MarkdownView View, Paragraph Paragraph)? _contextParagraph;
 
+    internal void PrepareContextSelection(Point point)
+    {
+        var selected = SelectionView();
+        if (selected.Selection.IsEmpty) return;
+        var target = this;
+        foreach (var table in _tableViews)
+        {
+            var origin = table.Scroll.TranslatePoint(new Point(), this);
+            if (new Rect(origin, table.Scroll.RenderSize).Contains(point)) { target = table.View; break; }
+        }
+        var local = ReferenceEquals(target, this) ? point : TranslatePoint(point, target);
+        var hit = target.GetPositionFromPoint(local, true);
+        if (ReferenceEquals(selected, target) && hit is not null &&
+            selected.Selection.Start.CompareTo(hit) <= 0 && selected.Selection.End.CompareTo(hit) >= 0) return;
+        selected.Selection.Select(selected.Selection.Start, selected.Selection.Start);
+    }
+
     internal void CaptureContextParagraph(Point point)
     {
         var target = this;

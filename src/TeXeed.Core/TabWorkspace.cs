@@ -3,7 +3,7 @@ namespace TeXeed.Core;
 public enum TabSide { Left, Right }
 public enum TabCloseRange { This, All, Others, Before, After }
 
-/// <summary>Workspace tab groups with a protected primary preview.</summary>
+/// <summary>Workspace tab groups.</summary>
 public sealed class TabWorkspace
 {
     public const string AiSettingsKey = "@texeed:ai-settings";
@@ -56,7 +56,6 @@ public sealed class TabWorkspace
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _left = left.Where(seen.Add).ToList();
         _right = right.Where(seen.Add).ToList();
-        if (!seen.Contains(PreviewKey)) _right.Add(PreviewKey);
         _leftActive = _left.FirstOrDefault(item => string.Equals(item, leftActive, StringComparison.OrdinalIgnoreCase)) ?? _left.FirstOrDefault();
         _rightActive = _right.FirstOrDefault(item => string.Equals(item, rightActive, StringComparison.OrdinalIgnoreCase)) ?? _right.FirstOrDefault();
         FocusedSide = focused is TabSide.Left or TabSide.Right && Has(focused) ? focused : Has(TabSide.Left) ? TabSide.Left : TabSide.Right;
@@ -119,7 +118,7 @@ public sealed class TabWorkspace
             TabCloseRange.All => tabs.ToArray(), TabCloseRange.Others => tabs.Where(item => !string.Equals(item, key, StringComparison.OrdinalIgnoreCase)).ToArray(),
             TabCloseRange.Before => tabs.Take(index).ToArray(), TabCloseRange.After => tabs.Skip(index + 1).ToArray(), _ => new[] { key }
         };
-        var close = selected.Where(item => item != PreviewKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var close = selected.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var activeIndex = tabs.FindIndex(item => string.Equals(item, Active(side), StringComparison.OrdinalIgnoreCase));
         tabs.RemoveAll(item => close.Contains(item));
         if (tabs.Count == 0) SetActive(side, null);

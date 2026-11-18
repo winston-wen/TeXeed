@@ -184,15 +184,30 @@ internal static partial class Program
         await panel.SetProjectAsync(Path.Combine(output, "marking-input.tex"));
         var book = (AiNotebook)Field(panel, "_book")!; book.Entries.Clear(); book.Turns.Clear();
         const string sentence = "Synthetic drag selection.";
-        var answerText = sentence + "\n\n![Synthetic image](" + new Uri(imagePath).AbsoluteUri + ")";
+        var answerText = sentence + "\n\nSecond paragraph for a separate selection.\n\n![Synthetic image](" + new Uri(imagePath).AbsoluteUri + ")";
         book.Turns.Add(new AiTurn("Synthetic question", answerText));
         host.Content = panel; Invoke(panel, "RefreshTranscript"); host.Activate(); host.UpdateLayout();
         await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
         var answer = Descendants<MarkdownView>(panel).Single(v => v.Markdown == answerText);
-        await answer.MediaTask; host.UpdateLayout(); panel.IsMarking = true;
+        await answer.MediaTask; host.UpdateLayout(); panel.SetAnswerMarking(true);
         answer.Document.Blocks.FirstBlock!.BringIntoView();
         await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
         var text = ((Paragraph)answer.Document.Blocks.FirstBlock!).Inlines.OfType<Run>().First(r => r.Text.StartsWith(sentence));
+        var other = answer.Document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines.OfType<Run>())
+            .Single(run => run.Text.StartsWith("Second paragraph"));
+        answer.Selection.Select(text.ContentStart, text.ContentStart.GetPositionAtOffset(9)!);
+        var inside = text.ContentStart.GetPositionAtOffset(2)!.GetCharacterRect(LogicalDirection.Forward);
+        answer.PrepareContextSelection(new Point(inside.Left + inside.Width / 2, inside.Top + inside.Height / 2));
+        if (!answer.HasBookmarkSelection) throw new Exception("Right click inside the selected text discarded the selection.");
+        var outside = other.ContentStart.GetPositionAtOffset(2)!.GetCharacterRect(LogicalDirection.Forward);
+        answer.PrepareContextSelection(new Point(outside.Left + outside.Width / 2, outside.Top + outside.Height / 2));
+        if (answer.HasBookmarkSelection) throw new Exception("Right click outside the selection reused unrelated text.");
+        var menu = answer.ContextMenu ?? throw new Exception("Answer annotation menu is missing.");
+        if (menu.Items.OfType<MenuItem>().Any(item => Equals(item.Header, "引用到当前会话")))
+            throw new Exception("Separate quote action remains in the answer menu.");
+        var query = new QueryCursorEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.QueryCursorEvent };
+        answer.RaiseEvent(query);
+        if (query.Cursor != Cursors.Pen) throw new Exception("Answer annotation mode did not use its dedicated cursor.");
         Capture(host, Path.Combine(output, "native-marking-before-input.png"));
         var image = Descendants<Image>(answer).Single();
         if (inputReview)
@@ -216,6 +231,10 @@ internal static partial class Program
             finally { host.PreviewKeyDown -= finish; image.RemoveHandler(UIElement.PreviewMouseLeftButtonUpEvent, imageClick); }
             return;
         }
+        answer.Selection.Select(text.ContentStart, text.ContentStart);
+        answer.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent });
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        if (book.Entries.Count != 0) throw new Exception("A point click created an answer annotation without selecting a region.");
         answer.Selection.Select(text.ContentStart, text.ContentStart.GetPositionAtOffset(9)!);
         var release = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent };
         answer.RaiseEvent(release); release.Handled = true;
@@ -223,7 +242,11 @@ internal static partial class Program
         if (book.Entries.Count != 1 || string.IsNullOrWhiteSpace(book.Entries[0].AnswerAnchor?.Quote))
             throw new Exception("Text release was filtered after its routed event became handled.");
         var layers = (Dictionary<MarkdownView, AiAnnotationLayer>)Field(panel, "_answerLayers")!;
-        ((System.Windows.Controls.Primitives.Popup)Field(layers[answer], "_popup")!).IsOpen = false;
+        var popup = (System.Windows.Controls.Primitives.Popup)Field(layers[answer], "_popup")!;
+        var confirm = Descendants<Button>(popup.Child).Single(button => button.Name == "AnnotationConfirm");
+        confirm.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        if (popup.IsOpen || book.Entries[0].Question != "" || !book.Entries[0].ReferenceSelected)
+            throw new Exception("Confirming an empty annotation did not retain a selected reference.");
         async Task ClosePreview()
         {
             await WaitUntilAsync(() => Application.Current.Windows.OfType<ImagePreview>().Any(), "Routed image click did not open its preview.");

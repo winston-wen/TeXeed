@@ -78,7 +78,7 @@ internal static partial class Program
         Check(segment.Details.Contains("git log"), "Expandable command details did not persist");
         var preview = (PdfPreview)window.FindName("Preview");
         var source = (LatexEditor)window.FindName("Editor");
-        Check(preview.ContextMenu?.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "AI 圈点")) == true && !source.ContextMenu.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "AI 圈点")), "Marking entry should exist only in the PDF preview");
+        Check(preview.ContextMenu?.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "AI 圈点")) == true && source.ContextMenu.Items.OfType<MenuItem>().Any(i => Equals(i.Header, "批注到当前会话")), "Both PDF and source should provide their own annotation entry");
         Check(!((Panel)window.FindName("WorkspaceIconBar")).Children.OfType<Button>().Any(b => Equals(b.Tag, "ai-mark")), "Sidebar marking button remains");
 
         new AiCredentials { ApiKey = "test-key-never-send", UseApiKey = true }.Save();

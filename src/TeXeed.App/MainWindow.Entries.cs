@@ -55,7 +55,7 @@ public partial class MainWindow
         {
             var view = new PdfPreview();
             var status = new TextBlock { Text = state.Status, Margin = new Thickness(12, 0, 0, 0), FontSize = 11, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
-                ToolTip = "右键双击或 Ctrl+左键返回源码；预览设置在标签齿轮中" };
+                ToolTip = "右键菜单或 Ctrl+左键返回源码；预览设置在排版菜单中" };
             status.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             var bar = new Border { Child = status, BorderThickness = new Thickness(0, 1, 0, 0) };
             bar.SetResourceReference(Border.BackgroundProperty, "SidebarBackground"); bar.SetResourceReference(Border.BorderBrushProperty, "Line");
@@ -103,11 +103,10 @@ public partial class MainWindow
     {
         var view = state.View ?? InitialPreview;
         if (ReferenceEquals(_currentPreview, view)) return;
-        var marking = _aiMarking;
-        if (marking) { _aiMarking = false; Preview.SetAiMarking(false); _aiMarking = true; }
+        if (Preview.IsAiSelecting) Preview.SetAiMarking(false);
         _currentPreview = view;
         UnregisterName("Preview"); RegisterName("Preview", view);
-        if (marking) view.SetAiMarking(true);
+        _aiMarking = view.IsAiSelecting;
     }
 
     private void ConfigurePreview(PdfPreview view, string? path, TextBlock status)
@@ -192,6 +191,7 @@ public partial class MainWindow
             if (path is null || !_entryPreviews.TryGetValue(path, out var state) || state.View is null || ReferenceEquals(state.View, InitialPreview)) continue;
             state.Position = state.View.CaptureReadingPosition() ?? state.Position;
             state.PositionPending = state.Position is not null;
+            if (ReferenceEquals(state.View, Preview)) continue;
             RemovePdfAi(state.View); state.View.Dispose();
             if (state.Container?.Parent is Panel panel) panel.Children.Remove(state.Container);
             state.View = null; state.Container = null; state.StatusText = null; state.LoadedPdf = null; state.LoadedStamp = null; state.Loading = null;

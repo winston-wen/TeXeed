@@ -436,9 +436,9 @@ internal static partial class Program
         Check(tabs.FocusedTab == TabWorkspace.PreviewKey, "PDF marking must keep the original preview visible");
         Check(preview.IsAiSelecting && !editor.IsAiMarking, "PDF marking must remain active without enabling the source editor mode");
         var point = editor.CreateAiMark(0, 0, false);
-        Check(point.IsPoint && point.Offset == 0 && point.Length == 0, "Single click must create a source point");
+        Check(!point.IsPoint && point.Offset == 0 && point.Length == 0, "Source marking must not create a point");
         var sentence = editor.CreateAiMark(editor.Text.IndexOf("Hello", StringComparison.Ordinal), editor.Text.IndexOf("Hello", StringComparison.Ordinal) + 3, true);
-        Check(!sentence.IsPoint && editor.Document.GetText(sentence.Offset, sentence.Length).Trim() == "Hello from TeXeed.", "Source hold/drag must select the complete sentence");
+        Check(!sentence.IsPoint && editor.Document.GetText(sentence.Offset, sentence.Length) == "Hel", "Source marking must preserve the exact selection");
         Invoke(window, "SetAiMarking", false);
         Check(!editor.IsAiMarking && !preview.IsAiSelecting, "PDF marking did not exit");
         Invoke(window, "SetAiMarking", true);
@@ -456,7 +456,7 @@ internal static partial class Program
         Check(!preview.IsAiSelecting && escape.Handled, "Escape did not leave PDF marking mode");
         var beforePoint = book.Entries.Count;
         Invoke(window, "CollectSourceMark", editor, point);
-        Check(book.Entries.Count == beforePoint + 1 && book.Entries.Last().IsPoint, "Source point was not immediately collected in chat composer");
+        Check(book.Entries.Count == beforePoint, "A source point must not be collected");
         book.Active.Title = "群的单位元";
         book.Turns.Add(new("群的单位元为什么唯一？", "若 e 和 f 都是单位元，则 e = ef = f，因此单位元唯一。"));
         Invoke(ai, "RefreshTranscript");

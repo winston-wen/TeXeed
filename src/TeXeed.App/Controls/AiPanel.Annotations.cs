@@ -10,8 +10,10 @@ namespace TeXeed.App.Controls;
 public partial class AiPanel
 {
     public event EventHandler? AnnotationsChanged;
+    internal event EventHandler? AnswerMarkingStarted;
     internal IReadOnlyList<AiEntry> AnnotationEntries => _book.Entries;
-    internal bool IsMarking { get; set; }
+    private bool _answerMarking;
+    private Window? _answerMarkWindow;
     internal bool HasActiveOperation => _operation is not null;
     internal void RetargetProject(string path) => _project = path;
     private readonly Dictionary<MarkdownView, AiAnnotationLayer> _answerLayers = [];
@@ -58,16 +60,22 @@ public partial class AiPanel
         RefreshBookmarkMarker(view, false);
         view.PreviewMouseLeftButtonUp += Answer_MouseUp;
         view.PreviewMouseRightButtonDown += Answer_RightMouseDown;
+        view.PreviewKeyDown += Answer_KeyDown;
+        view.AddHandler(Mouse.QueryCursorEvent, new QueryCursorEventHandler(Answer_QueryCursor), true);
         view.IsVisibleChanged += Answer_VisibilityChanged;
         var menu = new ContextMenu();
         var annotate = new MenuItem { Header = "批注到当前会话" };
-        annotate.Click += (_, _) => AnnotateAnswer(view);
+        annotate.Click += (_, _) =>
+        {
+            if (view.HasBookmarkSelection) AnnotateAnswer(view);
+            else SetAnswerMarking(true);
+        };
         menu.Opened += (_, _) => annotate.IsEnabled = AnswerTurn(view) is not null;
         menu.Items.Add(annotate);
-        var quote = new MenuItem { Header = "引用到当前会话" };
-        quote.Click += (_, _) => AnnotateAnswer(view, edit: false);
-        menu.Opened += (_, _) => quote.IsEnabled = AnswerTurn(view) is not null && view.HasBookmarkSelection;
-        menu.Items.Add(quote);
+        var stopMarking = new MenuItem { Header = "退出批注模式", Visibility = Visibility.Collapsed };
+        stopMarking.Click += (_, _) => SetAnswerMarking(false);
+        menu.Opened += (_, _) => stopMarking.Visibility = _answerMarking ? Visibility.Visible : Visibility.Collapsed;
+        menu.Items.Add(stopMarking);
         AddBranchMenu(view, menu);
         var bookmark = new MenuItem { Header = "添加标签" };
         ToolTipService.SetShowOnDisabled(bookmark, true);
@@ -93,29 +101,78 @@ public partial class AiPanel
     private void Answer_Unloaded(object sender, RoutedEventArgs e)
     {
         // Layers follow Loaded/Unloaded themselves; keep only currently attached answers in the panel.
-        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; view.PreviewMouseRightButtonDown -= Answer_RightMouseDown; view.IsVisibleChanged -= Answer_VisibilityChanged; }
+        if (sender is MarkdownView view) { if (_answerLayers.Remove(view, out var layer)) layer.Dispose(); RemoveBookmarkMarker(view); view.PreviewMouseLeftButtonUp -= Answer_MouseUp; view.PreviewMouseRightButtonDown -= Answer_RightMouseDown; view.PreviewKeyDown -= Answer_KeyDown; view.RemoveHandler(Mouse.QueryCursorEvent, new QueryCursorEventHandler(Answer_QueryCursor)); view.IsVisibleChanged -= Answer_VisibilityChanged; }
     }
     private static void Answer_RightMouseDown(object sender, MouseButtonEventArgs e)
-    { if (sender is MarkdownView view) view.CaptureContextParagraph(e.GetPosition(view)); }
+    {
+        if (sender is not MarkdownView view) return;
+        var point = e.GetPosition(view);
+        view.PrepareContextSelection(point);
+        view.CaptureContextParagraph(point);
+    }
     private void Answer_VisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
     { if (sender is MarkdownView { IsVisible: true } view) AddBranchLinks(view); }
     private void Answer_MouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (!IsMarking || sender is not MarkdownView view || Keyboard.Modifiers != ModifierKeys.None || ImagePreview.IsPreviewImage(e.OriginalSource)) return;
-        view.Dispatcher.BeginInvoke(new Action(() => AnnotateAnswer(view)));
+        if (!_answerMarking || sender is not MarkdownView view || Keyboard.Modifiers != ModifierKeys.None || ImagePreview.IsPreviewImage(e.OriginalSource)) return;
+        view.Dispatcher.BeginInvoke(new Action(() => { if (_answerMarking && view.HasBookmarkSelection) AnnotateAnswer(view); }));
     }
-    internal void AnnotateAnswer(MarkdownView view, bool edit = true)
+    internal void CancelAnswerMarking() { if (_answerMarking) SetAnswerMarking(false); }
+    internal void SetAnswerMarking(bool active)
+    {
+        if (_answerMarking == active) return;
+        _answerMarking = active;
+        if (active)
+        {
+            AnswerMarkingStarted?.Invoke(this, EventArgs.Empty);
+            _answerMarkWindow = Window.GetWindow(this);
+            if (_answerMarkWindow is not null) _answerMarkWindow.PreviewMouseDown += AnswerMarkWindow_MouseDown;
+            IsVisibleChanged += AnswerMarkVisibilityChanged;
+        }
+        else
+        {
+            if (_answerMarkWindow is not null) _answerMarkWindow.PreviewMouseDown -= AnswerMarkWindow_MouseDown;
+            _answerMarkWindow = null;
+            IsVisibleChanged -= AnswerMarkVisibilityChanged;
+        }
+        StatusText.Text = active ? "回答批注模式：选择文字或内容区域；Esc 退出。" : "已退出回答批注模式。";
+        Mouse.UpdateCursor();
+    }
+    private void AnswerMarkWindow_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        for (var node = e.OriginalSource as DependencyObject; node is not null; node = node switch
+             { System.Windows.Media.Visual visual => System.Windows.Media.VisualTreeHelper.GetParent(visual), FrameworkContentElement content => content.Parent, ContentElement content => ContentOperations.GetParent(content), _ => LogicalTreeHelper.GetParent(node) })
+            if (ReferenceEquals(node, ReadingArea)) return;
+        CancelAnswerMarking();
+    }
+    private void AnswerMarkVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
+    { if (!IsVisible) CancelAnswerMarking(); }
+    private void Answer_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (!_answerMarking || e.Key != Key.Escape) return;
+        SetAnswerMarking(false); e.Handled = true;
+    }
+    private void Answer_QueryCursor(object sender, QueryCursorEventArgs e)
+    {
+        if (!_answerMarking || sender is not MarkdownView view || AnswerTurn(view) is null) return;
+        e.Cursor = Cursors.Pen; e.Handled = true;
+    }
+    internal void AnnotateAnswer(MarkdownView view)
     {
         if (AnswerTurn(view) is not { } turn || view.DataContext is not AiSegment segment || !_answerLayers.TryGetValue(view, out var layer)) return;
+        if (!view.HasBookmarkSelection) { StatusText.Text = "请先选择需要批注的内容。"; return; }
         var selection = view.GetAnnotationSelection();
         var quote = selection.Quote.Trim();
         if (quote.Length == 0 || quote.Length > 40000) { StatusText.Text = "请选择不超过 4 万字符的回答内容。"; return; }
         var preview = view.SelectedReferenceObject();
         var context = view.BookmarkSelectionContext();
+        var table = view.SelectedReferenceTableMarkdown();
         var entry = new AiEntry { Title = "AI 回答批注", AnswerAnchor = new(turn.Id, segment.Id,
             selection.Offset, selection.Length, quote, view.Revision)
             { TextOffset = selection.TextOffset, PreviewKind = preview.Kind, PreviewSource = preview.Source,
+              PreviewImageUri = preview.Kind == "image" ? view.SelectedReferenceImageUri() : null, PreviewTableMarkdown = table,
+              PreviewParts = preview.Kind is null && table is null ? view.SelectedReferenceParts() : null,
               PreviewNumber = preview.Number, PreviewBefore = context.Before, PreviewAfter = context.After } };
-        if (AddEntry(entry, false) && edit) layer.Edit(entry);
+        if (AddEntry(entry, false)) layer.Edit(entry);
     }
 }

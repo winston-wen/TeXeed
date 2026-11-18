@@ -26,7 +26,6 @@ public partial class EditorTabStrip : UserControl
     public event Action<string>? RenameRequested;
     public event Action<string, TabCloseScope>? CloseRequested;
     public event Action<string, int>? ReorderRequested;
-    public event Action? SettingsRequested;
     public Func<string, Point, bool>? DockDragMoved { get; set; }
     public event Action<string, Point>? DockDropped;
     public event Action? DragEnded;
@@ -72,31 +71,31 @@ public partial class EditorTabStrip : UserControl
         for (var i = 0; i < tabs.Count; i++)
         {
             var tab = tabs[i];
-            if (!_views.TryGetValue(tab.Path, out var view)) { view = CreateTab(tab.Path, tab.IsPreview); _views.Add(tab.Path, view); }
+            if (!_views.TryGetValue(tab.Path, out var view)) { view = CreateTab(tab.Path); _views.Add(tab.Path, view); }
             var label = (TextBlock)((Button)((Grid)view.Child).Children[0]).Content;
             var text = tab.Title + (tab.Warning ? " ⚠" : "") + (tab.Modified ? "  ●" : "");
             if (label.Text != text && string.Equals(tab.Path, active, StringComparison.OrdinalIgnoreCase)) reveal = true;
             label.Text = text;
-            AutomationProperties.SetName((Button)((Grid)view.Child).Children[1], tab.IsPreview ? "预览设置" : "关闭 " + (tab.FullTitle ?? tab.Title));
-            view.ToolTip = tab.IsPreview ? (tab.Warning ? "本次编译未生成有效预览，当前显示上次缓存的 PDF。请查看编译输出。" : "PDF 预览 · 齿轮打开预览设置") : tab.FullTitle ?? (TeXeed.Core.TabWorkspace.IsSource(tab.Path) ? tab.Path : tab.Title) + (tab.Modified ? "\n尚未保存" : "");
+            AutomationProperties.SetName((Button)((Grid)view.Child).Children[1], "关闭 " + (tab.FullTitle ?? tab.Title));
+            view.ToolTip = tab.Warning ? "本次编译未生成有效预览，当前显示上次缓存的 PDF。请查看编译输出。" : tab.FullTitle ?? (TeXeed.Core.TabWorkspace.IsSource(tab.Path) ? tab.Path : tab.Title) + (tab.Modified ? "\n尚未保存" : "");
             var previous = Items.Children.IndexOf(view);
             if (previous != i) { if (previous >= 0) Items.Children.Remove(view); Items.Children.Insert(i, view); }
         }
         UpdateChrome();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { UpdateOverflow(); if (reveal && active is not null) Reveal(active); }));
     }
-    private Border CreateTab(string path, bool preview)
+    private Border CreateTab(string path)
     {
         var grid = new Grid(); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var select = new Button { Style = (Style)Resources["TabTitleButton"], Padding = new Thickness(11, 0, 7, 0), Content = new TextBlock { VerticalAlignment = VerticalAlignment.Center }, Tag = path };
         select.Click += (_, _) => Selected?.Invoke(path);
-        var close = new Button { Style = (Style)Resources["TabButton"], Width = 20, Height = 20, Margin = new Thickness(0, 0, 7, 0), ToolTip = preview ? "预览设置" : "关闭标签 (Ctrl+F4)", Focusable = false };
-        AutomationProperties.SetName(close, preview ? "预览设置" : "关闭 " + System.IO.Path.GetFileName(path));
-        close.Content = new Path { Width = preview ? 14 : 12, Height = preview ? 14 : 12,
-            Data = Geometry.Parse(preview ? "M6,1 L8,1 8.5,3 10,4 12,3.5 13,5.5 11.5,7 11.5,9 13,10.5 12,12.5 10,12 8.5,13 8,15 6,15 5.5,13 4,12 2,12.5 1,10.5 2.5,9 2.5,7 1,5.5 2,3.5 4,4 5.5,3 Z M9.5,8 A2.5,2.5 0 1 1 4.5,8 A2.5,2.5 0 1 1 9.5,8" : "M1,1 L11,11 M11,1 L1,11"),
-            Stretch = Stretch.Uniform, StrokeThickness = preview ? 1.2 : 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+        var close = new Button { Style = (Style)Resources["TabButton"], Width = 20, Height = 20, Margin = new Thickness(0, 0, 7, 0), ToolTip = "关闭标签 (Ctrl+F4)", Focusable = false };
+        AutomationProperties.SetName(close, "关闭 " + System.IO.Path.GetFileName(path));
+        close.Content = new Path { Width = 12, Height = 12,
+            Data = Geometry.Parse("M1,1 L11,11 M11,1 L1,11"),
+            Stretch = Stretch.Uniform, StrokeThickness = 1.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
         ((Path)close.Content).SetResourceReference(Shape.StrokeProperty, "Ink");
-        close.Click += (_, e) => { e.Handled = true; if (preview) SettingsRequested?.Invoke(); else CloseRequested?.Invoke(path, TabCloseScope.This); };
+        close.Click += (_, e) => { e.Handled = true; CloseRequested?.Invoke(path, TabCloseScope.This); };
         grid.Children.Add(select);
         Grid.SetColumn(close, 1); grid.Children.Add(close);
         var view = new Border { Child = grid, Background = Brushes.Transparent, Height = 32, CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(1.5), Margin = new Thickness(3, 4, 3, 4), Tag = path };
@@ -109,7 +108,7 @@ public partial class EditorTabStrip : UserControl
         {
             if (e.ChangedButton != MouseButton.Middle) return;
             e.Handled = true;
-            if (middlePressed && !preview) CloseRequested?.Invoke(path, TabCloseScope.This);
+            if (middlePressed) CloseRequested?.Invoke(path, TabCloseScope.This);
             middlePressed = false;
         };
         view.MouseLeave += (_, _) => middlePressed = false;
@@ -142,11 +141,6 @@ public partial class EditorTabStrip : UserControl
         var position = _tabs.ToList().FindIndex(t => string.Equals(t.Path, path, StringComparison.OrdinalIgnoreCase));
         var menu = new ContextMenu { PlacementTarget = view, Placement = PlacementMode.MousePoint, Padding = new Thickness(4), BorderThickness = new Thickness(1) };
         menu.SetResourceReference(Control.BackgroundProperty, "EditorBackground"); menu.SetResourceReference(Control.ForegroundProperty, "Ink"); menu.SetResourceReference(Control.BorderBrushProperty, "Guide");
-        if (_tabs.Any(tab => tab.Path == path && tab.IsPreview))
-        {
-            var settings = new MenuItem { Header = "预览设置…" }; settings.Click += (_, _) => SettingsRequested?.Invoke(); menu.Items.Add(settings);
-            view.ContextMenu = menu; menu.IsOpen = true; return;
-        }
         foreach (var (text, scope, enabled) in new[] { ("全部关闭", TabCloseScope.All, true), ("关闭其他标签", TabCloseScope.Others, _tabs.Count > 1), ("关闭左侧标签", TabCloseScope.Left, position > 0), ("关闭右侧标签", TabCloseScope.Right, position < _tabs.Count - 1) })
         {
             var item = new MenuItem { Header = text, IsEnabled = enabled, Tag = scope };

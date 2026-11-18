@@ -200,7 +200,7 @@ internal static partial class Program
         Check(AiResponses.MakeInput([answerEntry], []).ToJsonString().Contains(answerEntry.AnswerAnchor!.TurnId), "Answer quote was not sent with its identity");
         await ai.SaveAsync();
         var savedAnswerEntry = AiStorage.Load(project.MainPath).Entries.Last();
-        Check(savedAnswerEntry.AnswerAnchor == answerEntry.AnswerAnchor && savedAnswerEntry.Images.Count == 1, "Answer annotation or image failed persistence");
+        Check(AiAnswerAnchor.SamePayload(savedAnswerEntry.AnswerAnchor, answerEntry.AnswerAnchor) && savedAnswerEntry.Images.Count == 1, "Answer annotation or image failed persistence");
         var oldId = book.Active.Id;
         await CallAsync(window, "OpenNewAiConversationAsync"); window.UpdateLayout();
         Check(((AiPanel)Field(window, "_aiPanel")!).AnnotationEntries.Count == 0, "Annotation leaked to another conversation");

@@ -380,7 +380,8 @@ public partial class AiPanel : UserControl, IDisposable
             var sentAt = DateTimeOffset.Now;
             DateTimeOffset? answeredAt = null;
             var permission = book.Active.Permission;
-            var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question : $"{x.DisplayTitle}：{x.Question}"));
+            var question = string.Join("\n", batch.Select(x => x.Title == "统一问题" ? x.Question :
+                x.HasReference && string.IsNullOrWhiteSpace(x.Question) ? $"{x.DisplayTitle}（引用）" : $"{x.DisplayTitle}：{x.Question}"));
             if (question.Length == 0 && submittedForms.Length > 0) question = "提交填写的答案";
             // Name the conversation as soon as the first valid question is accepted. The
             // initial save below persists it before any model request can fail or stall.

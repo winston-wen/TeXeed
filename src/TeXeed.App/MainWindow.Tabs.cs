@@ -42,12 +42,6 @@ public partial class MainWindow
         strip.RenameRequested += ShowAiConversationRename;
         strip.CloseRequested += CloseTabs;
         strip.ReorderRequested += (key, target) => MoveTab(key, target);
-        strip.SettingsRequested += async () =>
-        {
-            var key = _workspaceTabs.Active(side);
-            if (key is not null && TabWorkspace.IsPreview(key) && PreviewEntryForKey(key) is { } entry && !await SelectEntryPreviewAsync(entry)) return;
-            OpenPreviewSettings();
-        };
         strip.DockDragMoved = UpdateDockDrag;
         strip.DockDropped += DropWorkspaceTab;
         strip.DragEnded += () => DockDropCue.Visibility = Visibility.Collapsed;
@@ -103,7 +97,7 @@ public partial class MainWindow
         if (_switchingEntryPreview || (_building && _entryPreviews.Count > 0)) { Status("请等待编译或预览切换完成。"); return; }
         var range = scope switch { TabCloseScope.All => TabCloseRange.All, TabCloseScope.Others => TabCloseRange.Others,
             TabCloseScope.Left => TabCloseRange.Before, TabCloseScope.Right => TabCloseRange.After, _ => TabCloseRange.This };
-        if (_project is not null && _activePreviewEntry is { } activeEntry && !activeEntry.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase)
+        if (_project is not null && _activePreviewEntry is { } activeEntry
             && _workspaceTabs.Owner(path) is { } side)
         {
             var tabs = _workspaceTabs.Tabs(side); var index = tabs.ToList().FindIndex(item => item.Equals(path, StringComparison.OrdinalIgnoreCase));
@@ -112,8 +106,11 @@ public partial class MainWindow
                 TabCloseRange.Before => tabs.Take(index), TabCloseRange.After => tabs.Skip(index + 1), _ => new[] { path } };
             if (selected.Contains(activeKey, StringComparer.OrdinalIgnoreCase))
             {
-                if (!await SelectEntryPreviewAsync(_project.MainPath)) return;
-                if (_workspaceTabs.Owner(TabWorkspace.PreviewKey) is { } previewSide) _workspaceTabs.Select(previewSide, TabWorkspace.PreviewKey);
+                var removed = selected.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var remaining = new[] { TabSide.Left, TabSide.Right }.Concat(_workspaceTabs.ExtraGroups)
+                    .SelectMany(_workspaceTabs.Tabs).FirstOrDefault(key => TabWorkspace.IsPreview(key) && !removed.Contains(key));
+                if (remaining is not null && PreviewEntryForKey(remaining) is { } other && !await SelectEntryPreviewAsync(other)) return;
+                if (remaining is null) CaptureEntryPreview();
             }
         }
         var closed = _workspaceTabs.Close(path, range);
@@ -132,6 +129,21 @@ public partial class MainWindow
         finally { _aiCloseTasks.Remove(aiClose); }
         if (_workspaceTabs.FocusedTab is { } active && TabWorkspace.IsSource(active)) SourceEditor(_workspaceTabs.FocusedSide).TextArea.Focus();
         if (closed.Any(tab => _changes.ContainsKey(tab))) Status("标签已关闭 · 未保存内容仍保留，重新打开可继续编辑");
+    }
+    private async void ShowPreview_Click(object sender, RoutedEventArgs e)
+    {
+        if (_project is null || _closing || _transitioning) { Status("请先打开项目。"); return; }
+        var entry = _project.MainPath;
+        var key = PreviewKeyForEntry(entry);
+        var added = _workspaceTabs.Owner(key) is null;
+        if (added) _workspaceTabs.Open(key);
+        if (!await SelectEntryPreviewAsync(entry))
+        {
+            if (added) _workspaceTabs.Close(key, TabCloseRange.This);
+            RefreshTabs(); return;
+        }
+        if (_workspaceTabs.Owner(key) is { } side) _workspaceTabs.Select(side, key);
+        RefreshTabs();
     }
     private void MoveTab(string path, int target)
     {

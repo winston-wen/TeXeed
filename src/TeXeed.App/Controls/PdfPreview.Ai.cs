@@ -8,6 +8,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 using TeXeed.App.Services;
+using TeXeed.Core;
 
 namespace TeXeed.App.Controls;
 public sealed partial class PdfPreview
@@ -16,41 +17,69 @@ public sealed partial class PdfPreview
     public event EventHandler<bool>? AiMarkingChanged;
     private bool _aiSelecting, _aiDragging, _aiCapturing;
     private Point _aiStart;
-    private bool _aiPoint;
-    private long _aiStartedAt;
     private Rect _aiSelection = Rect.Empty;
     private Rectangle? _aiOutline;
+    private PdfLocation? _contextLocation;
+    private int _contextLoadVersion;
     private readonly DispatcherTimer _aiScrollTimer = new() { Interval = TimeSpan.FromMilliseconds(40) };
     public bool IsAiSelecting => _aiSelecting;
     private void InitializeAiSelection()
     {
         var menu = new ContextMenu();
+        var inverse = new MenuItem { Header = "跳转到源码" };
+        inverse.Click += (_, _) =>
+        {
+            if (_contextLocation is { } location && _contextLoadVersion == _loadVersion && _document is not null)
+                InverseRequested?.Invoke(this, location);
+        };
         var mark = new MenuItem { Header = "AI 圈点" };
-        mark.Click += (_, _) => BeginAiSelection();
-        menu.Opened += (_, _) => mark.IsEnabled = _document is not null && !_aiCapturing && !_aiSelecting;
-        menu.Items.Add(mark);
+        mark.Click += async (_, _) =>
+        {
+            if (HasAiSelection) await ConfirmAiSelectionAsync();
+            else BeginAiSelection();
+        };
+        var finish = new MenuItem { Header = "结束 AI 圈点" };
+        finish.Click += (_, _) => SetAiMarking(false);
+        menu.Opened += (_, _) =>
+        {
+            inverse.IsEnabled = _document is not null && _contextLocation is not null && _contextLoadVersion == _loadVersion;
+            mark.IsEnabled = _document is not null && !_aiCapturing && (!_aiSelecting || HasAiSelection);
+            finish.Visibility = _aiSelecting ? Visibility.Visible : Visibility.Collapsed;
+        };
+        menu.Items.Add(inverse); menu.Items.Add(mark); menu.Items.Add(finish);
         ContextMenu = menu;
-        _ = new AiMarkMenu(this, () => _aiSelecting, () => SetAiMarking(false));
+        PreviewMouseRightButtonDown += (_, e) => CaptureContextLocation(e.GetPosition(_pages));
         _pages.PreviewMouseLeftButtonDown += (_, e) =>
         {
-            if (!_aiSelecting || _aiCapturing || _document is null || Keyboard.Modifiers != ModifierKeys.None) return;
-            e.Handled = true; _aiStart = e.GetPosition(_pages); _aiPoint = false;
-            _aiStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
-            _aiDragging = true; _pages.CaptureMouse(); _aiScrollTimer.Start(); UpdateAiSelection(_aiStart);
+            if (_aiCapturing || _document is null || Keyboard.Modifiers != ModifierKeys.None) return;
+            CancelAiSelection();
+            _aiStart = e.GetPosition(_pages);
+            if (!_pages.CaptureMouse()) return;
+            _aiDragging = true;
+            if (_aiSelecting) e.Handled = true;
         };
-        _pages.PreviewMouseMove += (_, e) => { if (_aiDragging) { UpdateAiSelection(e.GetPosition(_pages)); e.Handled = true; } };
+        _pages.PreviewMouseMove += (_, e) =>
+        {
+            if (!_aiDragging) return;
+            UpdateAiSelection(e.GetPosition(_pages));
+            if (HasAiSelection && !_aiScrollTimer.IsEnabled) _aiScrollTimer.Start();
+            if (_aiSelecting || HasAiSelection) e.Handled = true;
+        };
         _pages.PreviewMouseLeftButtonUp += async (_, e) =>
         {
             if (!_aiDragging) return;
-            e.Handled = true; UpdateAiSelection(e.GetPosition(_pages)); _aiDragging = false; _aiScrollTimer.Stop(); _pages.ReleaseMouseCapture();
-            var held = System.Diagnostics.Stopwatch.GetElapsedTime(_aiStartedAt) >= TimeSpan.FromMilliseconds(350);
-            _aiPoint = !held && _aiSelection.Width < 5 && _aiSelection.Height < 5;
-            if (_aiSelection.Width < 5 || _aiSelection.Height < 5)
-                _aiSelection = new Rect(_aiStart.X - 32, _aiStart.Y - 32, 64, 64);
-            await ConfirmAiSelectionAsync();
+            UpdateAiSelection(e.GetPosition(_pages)); _aiDragging = false; _aiScrollTimer.Stop(); _pages.ReleaseMouseCapture();
+            if (!HasAiSelection)
+            {
+                CancelAiSelection();
+                if (_aiSelecting) { e.Handled = true; StatusChanged?.Invoke(this, "请拖动选择一个区域。"); }
+                return;
+            }
+            e.Handled = true;
+            if (_aiSelecting) await ConfirmAiSelectionAsync();
         };
         _pages.LostMouseCapture += (_, _) => { if (_aiDragging) CancelAiSelection(); };
-        PreviewKeyDown += (_, e) => { if (_aiSelecting && e.Key == Key.Escape) { SetAiMarking(false); e.Handled = true; } };
+        PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && (_aiSelecting || HasAiSelection)) { SetAiMarking(false); e.Handled = true; } };
         Unloaded += (_, _) => CancelAiSelection();
         _aiScrollTimer.Tick += (_, _) =>
         {
@@ -60,6 +89,24 @@ public sealed partial class PdfPreview
             else if (p.Y > _scroll.ActualHeight - 32) _scroll.ScrollToVerticalOffset(_scroll.VerticalOffset + 24);
             UpdateAiSelection(Mouse.GetPosition(_pages));
         };
+    }
+    private bool HasAiSelection => !_aiSelection.IsEmpty && _aiSelection.Width >= 2 && _aiSelection.Height >= 2;
+
+    internal void CaptureContextLocation(Point point)
+    {
+        if (HasAiSelection && !_aiSelection.Contains(point)) CancelAiSelection();
+        _contextLocation = null;
+        _contextLoadVersion = _loadVersion;
+        if (_document is null) return;
+        for (var i = 0; i < _layouts.Count; i++)
+        {
+            var layout = _layouts[i];
+            if (!new Rect(layout.Left + 1, layout.Top + 1, layout.Size.Width, layout.Size.Height).Contains(point)) continue;
+            var local = new Point(point.X - layout.Left - 1, point.Y - layout.Top - 1);
+            var pdf = DisplayToPage(i, local);
+            _contextLocation = new PdfLocation(i + 1, pdf.X, pdf.Y);
+            break;
+        }
     }
     internal Point? AnnotationPosition(AiEntry entry)
     {
@@ -74,14 +121,14 @@ public sealed partial class PdfPreview
     {
         if (_document is null || _aiCapturing) return;
         SetAiMarking(true);
-        StatusChanged?.Invoke(this, "AI 圈点：单击点位，按住框选；可跨 3 页，最大 1600 × 2400 DIP；Esc 或右键双击退出。");
+        StatusChanged?.Invoke(this, "AI 圈点：拖动选择区域；可跨 3 页，最大 1600 × 2400 DIP；Esc 或右键菜单退出。");
     }
     public void SetAiMarking(bool active)
     {
         var changed = _aiSelecting != active;
         _aiSelecting = active;
         CancelAiSelection();
-        _pages.Cursor = active ? Cursors.Help : null;
+        _pages.Cursor = active ? Cursors.Cross : null;
         if (changed) AiMarkingChanged?.Invoke(this, active);
     }
     public void CancelAiSelection()
@@ -112,23 +159,10 @@ public sealed partial class PdfPreview
     }
     internal async Task ConfirmAiSelectionAsync()
     {
-        if (_document is not { } document || _aiCapturing || _aiSelection.IsEmpty) return;
+        if (_document is not { } document || _aiCapturing || !HasAiSelection) return;
         _aiCapturing = true; var version = _loadVersion; var selected = new List<(int Page, Rect View)>();
-        var isPoint = _aiPoint;
-        Point? sourcePoint = null;
-        var pointPage = -1;
-        if (isPoint)
-            for (var i = 0; i < _layouts.Count; i++)
-            {
-                var layout = _layouts[i];
-                if (!new Rect(layout.Left + 1, layout.Top + 1, layout.Size.Width, layout.Size.Height).Contains(_aiStart)) continue;
-                pointPage = i;
-                sourcePoint = DisplayToPage(i, new Point(_aiStart.X - layout.Left - 1, _aiStart.Y - layout.Top - 1));
-                break;
-            }
         try
         {
-            if (isPoint && pointPage < 0) return;
             for (var i = 0; i < _layouts.Count; i++)
             {
                 var page = _layouts[i]; var intersection = Rect.Intersect(_aiSelection, new Rect(page.Left + 1, page.Top + 1, page.Size.Width, page.Size.Height));
@@ -140,7 +174,7 @@ public sealed partial class PdfPreview
             if (selected.Count == 0) return;
             var entry = await Task.Run(() =>
             {
-                var result = new AiEntry { Title = $"PDF 第 {selected.Min(p => p.Page) + 1}–{selected.Max(p => p.Page) + 1} 页" + (isPoint ? " · 点位" : " · 区域"), PdfRevision = document.Fingerprint, IsPoint = isPoint };
+                var result = new AiEntry { Title = $"PDF 第 {selected.Min(p => p.Page) + 1}–{selected.Max(p => p.Page) + 1} 页 · 区域", PdfRevision = document.Fingerprint, IsPoint = false };
                 var total = 0;
                 foreach (var group in selected.GroupBy(s => s.Page))
                 {
@@ -152,8 +186,7 @@ public sealed partial class PdfPreview
                         var crop = new CroppedBitmap(raster, new Int32Rect(left, top, right - left, bottom - top)); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(crop)); using var stream = new MemoryStream(); encoder.Save(stream);
                         total += (int)stream.Length; if (total > 8_000_000) throw new InvalidOperationException("选区截图超过 8 MB，请缩小选区。");
                         var a = document.ViewToPage(group.Key, rect.TopLeft, size); var b = document.ViewToPage(group.Key, rect.BottomRight, size); var bounds = new Rect(a, b);
-                        result.PdfBlocks.Add(new AiPdfBlock(group.Key + 1, bounds.X, bounds.Y, bounds.Width, bounds.Height, Convert.ToBase64String(stream.ToArray()))
-                        { PointX = group.Key == pointPage ? sourcePoint?.X : null, PointY = group.Key == pointPage ? sourcePoint?.Y : null });
+                        result.PdfBlocks.Add(new AiPdfBlock(group.Key + 1, bounds.X, bounds.Y, bounds.Width, bounds.Height, Convert.ToBase64String(stream.ToArray())));
                     }
                 }
                 return result;

@@ -182,16 +182,19 @@ internal static partial class Program
     private static async Task CheckZoomControlsAsync(MainWindow window, string output)
     {
         var preview = (PdfPreview)window.FindName("Preview");
-        var dialog = (PreviewSettingsWindow)Invoke(window, "CreatePreviewSettings")!;
-        dialog.Show(); await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-        var input = (TextBox)dialog.FindName("ZoomInput");
-        ((RadioButton)dialog.FindName("ManualZoom")).IsChecked = true; input.Text = "137.62%";
-        if (Math.Abs(preview.Zoom - 1.3762) > .00001 || preview.IsAutoWidth) throw new Exception("Preview settings failed to apply precise manual zoom");
-        input.Text = "NaN";
-        if (Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Invalid preview zoom was accepted");
-        ((RadioButton)dialog.FindName("AutoWidthBox")).IsChecked = true;
-        if (!preview.IsAutoWidth) throw new Exception("Preview settings failed to enable auto width");
-        Capture(dialog, Path.Combine(output, "preview-zoom-settings.png")); dialog.Close();
+        await WithLayoutSettingsAsync(window, dialog =>
+        {
+            var input = (TextBox)dialog.FindName("PreviewZoomInput");
+            ((RadioButton)dialog.FindName("PreviewManualZoom")).IsChecked = true; input.Text = "137.62%";
+            if (Math.Abs(preview.Zoom - 1.3762) > .00001 || preview.IsAutoWidth) throw new Exception("Preview settings failed to apply precise manual zoom");
+            input.Text = "NaN";
+            if (Math.Abs(preview.Zoom - 1.3762) > .00001) throw new Exception("Invalid preview zoom was accepted");
+            input.Text = "137.62%";
+            ((RadioButton)dialog.FindName("PreviewAutoWidth")).IsChecked = true;
+            if (!preview.IsAutoWidth) throw new Exception("Preview settings failed to enable auto width");
+            ((FrameworkElement)dialog.FindName("PreviewManualZoom")).BringIntoView(); dialog.UpdateLayout();
+            Capture(dialog, Path.Combine(output, "preview-zoom-settings.png")); ClickSettingsButton(dialog, "保存设置");
+        });
         var originalActualWidth = window.ActualWidth;
         var originalWidth = window.Width;
         try
@@ -213,6 +216,6 @@ internal static partial class Program
         }
         finally { window.Width = originalWidth; }
         await WaitUntilAsync(() => Math.Abs(window.ActualWidth - originalActualWidth) < 1, "Zoom fixture did not restore the native window width");
-        Console.WriteLine("PASS: gear-dialog precise zoom/validation and automatic width on resize");
+        Console.WriteLine("PASS: layout-settings precise zoom/validation and automatic width on resize");
     }
 }

@@ -565,8 +565,7 @@ public sealed partial class PdfPreview : UserControl, IDisposable
         page.Children.Add(image); page.Children.Add(overlay);
         page.PreviewMouseDown += (_, e) =>
         {
-            if ((e.ChangedButton == MouseButton.Right && e.ClickCount == 2)
-                || (e.ChangedButton == MouseButton.Left && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)))
+            if (e.ChangedButton == MouseButton.Left && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             {
                 if (_document is null || page.ActualWidth <= 0 || page.ActualHeight <= 0) return;
                 var point = DisplayToPage(index, e.GetPosition(page));

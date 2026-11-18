@@ -1,0 +1,62 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "47F80539BF5608EBDDA534534B11268A9D2EA87C29FE17C6AE3BB3F2E83E5E5B",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-final-v2-product\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "55E7EBEF29A1EC9523D1ADB8B260A73E7DFB0F64D3F0285121D20ECD6148EF18",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-final-v2-product\\pdfium.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E52607FC8AD601AF6F9AE920AEC0E4BF03DE25B3A8DB1F565425C47E21B59F12",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-v2-normal-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "0B7D9FC0CBD498959B7A31C3EEE1C3B63F304D9A72BCB04136C95772F6A18E9B",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-v2-modes-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "43BC7E67DE438EA6BB52F25C3A65979FB1C8709041B0038887C4D9078B040A29",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-v2-features-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "458B48D81A07A2595C4F1B483EFF572D3CB2D01ECE90F4B26C789077FA8320F1",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-settings-before-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "2FE468B0512772EFFBB3EF995E1D21F4CD7F3ED663107CDC445028AB6BCA6E27",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-settings-after-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7A403BF069303F2438467F12AE2323E85FF18F5664B6B1B7A9546DD7CD68AF9E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\panel-offscreen.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "37DF2B01B741578D526B561B3018258609EC4276A07B22C736B2D820F6A38154",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\annotation-modes-20261118\\modes-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E8D713F4330EEA6AF66CC271DB4A6770191C391BE8495BBA60DFEA1EF98A5D14",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\annotation-modes-20261118\\new-features-fixture.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E469FBCFB789A233F18275713C710297B1655711AD2A655E1C98FC46A16B2DF6",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\annotation-modes-20261118\\settings-deep.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E85146B3674FB5F89C8044DBFE1C65E8CD1D463E7E4F75DA1E10321CD84E88FE",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\annotation-modes-20261118\\Harness.csproj"
+  }
+]

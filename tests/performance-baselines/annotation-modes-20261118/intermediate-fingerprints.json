@@ -1,0 +1,27 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E9741C8059B124A5E9CE8E3C55E6B8E720F0D6E356908EC0B371237500F2AFE8",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-final-product\\TeXeed.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "50CF25EA54EAA86F86EC15295805CF1CDC9EE5E64420A634C9F353E4BC6754DD",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-final-normal-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "F69E432055B3983023388FE5742C9EADFF03B6A4A481AFB1D3515CF471BB3097",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\artifacts\\annotation-modes-final-modes-harness\\TeXeed.AppTests.dll"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7A403BF069303F2438467F12AE2323E85FF18F5664B6B1B7A9546DD7CD68AF9E",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\queue-handoff-20261117\\panel-offscreen.cs.txt"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "37DF2B01B741578D526B561B3018258609EC4276A07B22C736B2D820F6A38154",
+    "Path": "C:\\Users\\winst\\Desktop\\texeed\\tests\\performance-baselines\\annotation-modes-20261118\\modes-fixture.cs.txt"
+  }
+]

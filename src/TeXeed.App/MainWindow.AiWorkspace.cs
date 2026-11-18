@@ -42,6 +42,7 @@ public partial class MainWindow
         panel.ProjectRoot = () => _project?.Root;
         panel.CreateToolRunner = () => CreateAiToolRunner(panel.Permission, panel.ShellApprovals);
         panel.AnnotationsChanged += (_,_) => { if (ReferenceEquals(_aiPanel,panel)) RefreshAiAnnotations(); };
+        panel.AnswerMarkingStarted += (_, _) => CancelOtherMarkingModes(keepAnswer: panel);
         panel.PreviewMouseDown += (_,_) => SetAiTarget(panel);
         panel.GotKeyboardFocus += (_,_) => SetAiTarget(panel);
         return panel;
@@ -240,7 +241,7 @@ public partial class MainWindow
     }
     private void UpdateTabStrip(TabSide side) => GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(key=>new EditorTab(key,
         TabWorkspace.IsPreview(key) ? (PreviewEntryForKey(key) is { } entry && _entryPreviews.Count > 0 ? "预览 · " + System.IO.Path.GetFileName(entry) : "预览") : TabWorkspace.IsSource(key) ? System.IO.Path.GetFileName(key) : AiTabTitle(key),
-        _changes.ContainsKey(key),key==TabWorkspace.PreviewKey,TabWorkspace.IsPreview(key) && (string.Equals(PreviewEntryForKey(key), _activePreviewEntry, StringComparison.OrdinalIgnoreCase) ? _previewWarning : PreviewEntryForKey(key) is { } previewEntry && EntryState(previewEntry).Warning),TabWorkspace.IsPreview(key) ? PreviewEntryForKey(key) : AiConversationForKey(key)?.Title)).ToArray(),_workspaceTabs.Active(side));
+        _changes.ContainsKey(key),false,TabWorkspace.IsPreview(key) && (string.Equals(PreviewEntryForKey(key), _activePreviewEntry, StringComparison.OrdinalIgnoreCase) ? _previewWarning : PreviewEntryForKey(key) is { } previewEntry && EntryState(previewEntry).Warning),TabWorkspace.IsPreview(key) ? PreviewEntryForKey(key) : AiConversationForKey(key)?.Title)).ToArray(),_workspaceTabs.Active(side));
     private void AiSettings_Click(object sender,RoutedEventArgs e) { HideMainMenu(false); OpenAiSettings(); }
     private void AiHistory_Click(object sender,RoutedEventArgs e) { HideMainMenu(false); OpenAiHistory(); }
     private void AiRecent_Opened(object sender,RoutedEventArgs e)

@@ -18,6 +18,22 @@ internal static partial class Program
         check(referenceInput.Contains("甲引用") && referenceInput.Contains("乙引用") &&
               referenceInput.Contains("第一条评论") && referenceInput.Contains("第二条评论"),
             "Multiple references and their separate comments were not sent together");
+        var emptyReferences = new[] {
+            new AiEntry { Title = "源码", Sources = [new("main.tex", 1, 1, 0, "SOURCE", "rev")] },
+            new AiEntry { Title = "PDF", PdfBlocks = [new(1, 1, 2, 3, 4, "AQ==")] },
+            new AiEntry { Title = "回答", AnswerAnchor = new("t", "s", 0, 2, "原文", "rev") }
+        };
+        var emptyInput = AiResponses.MakeInput(emptyReferences, [])[0]!["content"]!.AsArray()
+            .Where(item => item?["type"]?.GetValue<string>() == "input_text")
+            .Select(item => item!["text"]!.GetValue<string>()).ToArray();
+        foreach (var entry in emptyReferences)
+            check(emptyInput.Any(text => text.StartsWith($"引用 [{entry.Id}]") && text.Contains(entry.Title)), "An empty region annotation was not identified as a reference");
+        check(!emptyInput.Any(text => text.StartsWith("问题 [")), "Empty references were presented as questions");
+        check(emptyInput.Any(text => text.Contains("SOURCE")) && emptyInput.Any(text => text.Contains("原文")) &&
+              emptyInput.Any(text => text.Contains("PDF SHA256=")), "A reference source was omitted");
+        check(AiResponses.MakeInput([references[0]], [])[0]!["content"]!.AsArray().Any(item =>
+            item?["type"]?.GetValue<string>() == "input_text" && item["text"]!.GetValue<string>().StartsWith("问题 [")),
+            "An annotation with a comment lost its question semantics");
 
         // Seven older long answers can consume nearly all the budget. The latest
         // instruction must win that competition, while retained pairs keep their order.

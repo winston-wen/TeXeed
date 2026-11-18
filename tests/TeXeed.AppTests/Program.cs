@@ -46,13 +46,33 @@ internal static partial class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
         var window = new MainWindow { Width = 1440, Height = 900, WindowStartupLocation = WindowStartupLocation.Manual, Left = 30, Top = 30 };
-        if (args.Contains("--preview-dock-sim-only") || args.Contains("--multi-main-offscreen") || args.Contains("--ai-follow-up-panel-offscreen")) { window.Left = -3000; window.Top = -3000; window.ShowActivated = false; }
+        if (args.Contains("--offscreen") || args.Contains("--preview-dock-sim-only") || args.Contains("--multi-main-offscreen") || args.Contains("--ai-follow-up-panel-offscreen") || args.Contains("--pdf-annotation-selection-only") || args.Contains("--source-annotation-modes-only") || args.Contains("--preview-close-restore-only") || args.Contains("--preview-settings-offscreen") || args.Contains("--answer-annotation-offscreen")) { window.Left = -3000; window.Top = -3000; window.ShowActivated = false; }
         app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
         window.Loaded += async (_, _) =>
         {
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--answer-annotation-offscreen"))
+                {
+                    await CheckAnswerAnnotationModesAsync(window, output);
+                    await CloseAndObserveAsync(window, "answer annotation modes"); result = 0; return;
+                }
+                if (args.Contains("--preview-close-restore-only"))
+                {
+                    await CheckPreviewCloseRestoreAsync(window, output);
+                    result = 0; return;
+                }
+                if (args.Contains("--pdf-annotation-selection-only"))
+                {
+                    await CheckPdfAnnotationSelectionAsync(window, output);
+                    await CloseAndObserveAsync(window, "PDF annotation selection"); result = 0; return;
+                }
+                if (args.Contains("--source-annotation-modes-only"))
+                {
+                    await CheckSourceAnnotationModesAsync(window, output);
+                    await CloseAndObserveAsync(window, "source annotation modes"); result = 0; return;
+                }
                 if (args.Contains("--scroll-activity-only"))
                 {
                     await CheckScrollActivityAsync(window, output);
@@ -426,7 +446,7 @@ internal static partial class Program
                     await CheckAiRenderingAsync(window, output);
                     await CloseAndObserveAsync(window, "AI workspace regression"); result = 0; return;
                 }
-                if (args.Contains("--preview-settings-only"))
+                if (args.Contains("--preview-settings-only") || args.Contains("--preview-settings-offscreen"))
                 {
                     await CheckPreviewSettingsAsync(window, output);
                     await CloseAndObserveAsync(window, "live preview settings regression");

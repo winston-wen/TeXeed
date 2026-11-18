@@ -149,6 +149,7 @@ public sealed partial class LatexEditor : TextEditor
 
     public void ClearSession()
     {
+        if (IsAiMarking) SetAiMarking(false);
         _completionIndex.Clear();
         ResetMultiCaret();
         CloseCompletion();
@@ -169,6 +170,7 @@ public sealed partial class LatexEditor : TextEditor
     /// <summary>Close the visible document without discarding its buffer or undo stack.</summary>
     public void CloseView()
     {
+        if (IsAiMarking) SetAiMarking(false);
         CaptureSession(); ResetMultiCaret(); CloseCompletion();
         _changingDocument = true;
         try
@@ -182,6 +184,7 @@ public sealed partial class LatexEditor : TextEditor
 
     public void ShowFile(ProjectFile file, string content)
     {
+        if (IsAiMarking && !string.Equals(CurrentFilePath, file.Path, StringComparison.OrdinalIgnoreCase)) SetAiMarking(false);
         // Saving/live compilation reactivates the current file. Keep the exact
         // selection (including independent carets) when its document has not changed.
         if (string.Equals(CurrentFilePath, file.Path, StringComparison.OrdinalIgnoreCase) && Document.Text == content)

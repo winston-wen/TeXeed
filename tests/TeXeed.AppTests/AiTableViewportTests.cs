@@ -93,8 +93,8 @@ internal static partial class Program
             if (Environment.GetCommandLineArgs().Contains("--table-menu-only"))
             {
                 var menu = answer.ContextMenu ?? throw new Exception("Answer context menu is missing");
-                var items = menu.Items.OfType<MenuItem>().ToArray();
-                Check(items.Select(item => item.Header?.ToString()).SequenceEqual(new[] { "批注到当前会话", "引用到当前会话", "开辟新会话", "添加标签", "复制所选", "复制所在段落" }), "Answer menu order or labels changed");
+                var items = menu.Items.OfType<MenuItem>().Where(item => !Equals(item.Header, "退出批注模式")).ToArray();
+                Check(items.Select(item => item.Header?.ToString()).SequenceEqual(new[] { "批注到当前会话", "开辟新会话", "添加标签", "复制所选", "复制所在段落" }), "Answer menu order or labels changed");
                 await Place(second); second.ScrollToHorizontalOffset(0); await Idle();
                 var paragraph = (Paragraph)((Table)tableView.Document.Blocks.FirstBlock!).RowGroups[0].Rows[1].Cells[0].Blocks.FirstBlock!;
                 var rect = paragraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward)!.GetCharacterRect(LogicalDirection.Forward);
@@ -102,8 +102,8 @@ internal static partial class Program
                 host.Activate(); Check(SetCursorPos((int)point.X, (int)point.Y), "Cannot position pointer for context menu"); await Task.Delay(25);
                 GetCursorPos(out var cursor); Check(Math.Abs(cursor.X - point.X) < 4 && Math.Abs(cursor.Y - point.Y) < 4, "Pointer moved externally before context menu");
                 mouse_event(0x0008, 0, 0, 0, UIntPtr.Zero); await Task.Delay(40); mouse_event(0x0010, 0, 0, 0, UIntPtr.Zero); await Idle();
-                Check(menu.IsOpen && items[5].IsEnabled, "Right click did not open paragraph copy menu");
-                items[5].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Check(menu.IsOpen && items[4].IsEnabled, "Right click did not open paragraph copy menu");
+                items[4].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 Check(Clipboard.GetText().Trim() == "第2表文字", "Paragraph copy did not use the right-clicked table cell");
                 menu.IsOpen = false;
                 var formulaParagraph = (Paragraph)((Table)tableView.Document.Blocks.FirstBlock!).RowGroups[0].Rows[1].Cells[1].Blocks.FirstBlock!;
@@ -149,7 +149,7 @@ internal static partial class Program
                 Check(Math.Abs(second.TranslatePoint(new Point(), outer).Y - y) < 3, "Dragging a table selection moved the viewport");
                 var bookmark = panel.CaptureBookmarkSelection(answer);
                 Check(bookmark is not null && panel.AddBookmarkFromSelection(bookmark, "表格标签"), "A table selection could not become a bookmark");
-                panel.AnnotateAnswer(answer, edit: false);
+                panel.AnnotateAnswer(answer);
                 Check(book.Entries.Any(entry => entry.AnswerAnchor?.Quote.Trim() == copied), "A table selection could not become a reference");
                 Console.WriteLine("PASS: physical table text selection, copy, bookmark and annotation preserve the reading viewport.");
                 return;
