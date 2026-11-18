@@ -350,6 +350,7 @@ public partial class AiPanel : UserControl, IDisposable
     private async void Submit_Click(object sender, RoutedEventArgs e) => await SubmitAsync();
     internal async Task SubmitAsync(AiTurn? retry = null, AiFollowUpMessage? queued = null)
     {
+        if (_formUnlockWait is { } unlockWait) { unlockWait.Cancel(); if (_formUnlockPopup is not null) _formUnlockPopup.IsOpen = false; }
         if (_project is null || _operation is not null || _queueDispatching && queued is null) return;
         if (_modelPreferenceSaving || _formUnlockSaving) { StatusText.Text = "正在保存，请稍候。"; return; }
         if (BlockPendingFormAttachmentRead(_book.Active)) return;

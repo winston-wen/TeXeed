@@ -69,6 +69,8 @@ public sealed partial class MarkdownView
             {
                 var multiline = _standaloneFormLine && _tableOwner is null && match.Groups["text"].Value == "textarea";
                 var box = new TextBox { Text = forms.Read(type, id), IsReadOnly = forms.IsLocked(), MinWidth = 90, MinHeight = 25, Width = _standaloneFormLine && _tableOwner is null ? double.NaN : 120, AcceptsReturn = multiline, TextWrapping = multiline ? TextWrapping.Wrap : TextWrapping.NoWrap, VerticalContentAlignment = VerticalAlignment.Top };
+                box.FontFamily = EditorTypography.DefaultFamily;
+                box.SetResourceReference(Control.FontWeightProperty, "EditorInputFontWeight");
                 System.Windows.Automation.AutomationProperties.SetName(box, id);
                 box.TextChanged += (_, _) => { if (!forms.IsLocked()) forms.Write(type, id, box.Text); };
                 if (forms.Ambiguous?.Invoke(type, id) is { } oldText) box.ToolTip = "旧记录的同名不同类型字段有冲突，无法判断旧值归属；请核对。\n保留的旧值：\n" + oldText;

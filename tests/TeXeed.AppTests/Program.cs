@@ -98,6 +98,8 @@ internal static partial class Program
                 {
                     CheckAiFormGrading();
                     await CheckAiFormUnlockAsync(window, output);
+                    await CheckAiFormUnlockViewportAsync(window, output);
+                    await CheckAiFormUnlockDifferentAnswersAsync(window, output);
                     await CheckAiFormsAsync(window, output);
                     await CheckAiFormCollisionsAsync(window, output);
                     await CheckAiFormGradingUiAsync(window, output);
@@ -108,6 +110,12 @@ internal static partial class Program
                     await CheckAiFormAttachmentsAsync(window, output);
                     await CheckAiFormContextAsync();
                     await CloseAndObserveAsync(window, "AI forms"); result = 0; return;
+                }
+                if (args.Contains("--ai-unlock-viewport-only"))
+                {
+                    await CheckAiFormUnlockViewportAsync(window, output);
+                    await CheckAiFormUnlockDifferentAnswersAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI unlock viewport"); result = 0; return;
                 }
                 if (args.Contains("--ai-form-viewport-only"))
                 {

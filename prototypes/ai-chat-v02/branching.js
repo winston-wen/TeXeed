@@ -266,23 +266,37 @@
   let dismissFormUnlock = null;
   function offerFormUnlock(turn, target) {
     dismissFormUnlock?.();
-    const popover = document.createElement('button'); popover.type = 'button'; popover.className = 'exercise-unlock-popover'; popover.textContent = '解锁题目';
+    const popover = document.createElement('div'); popover.className = 'exercise-unlock-popover';
+    const message = document.createElement('span'); message.hidden = true;
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = '解锁题目'; popover.append(message, button);
+    let waiting = null;
     document.body.appendChild(popover);
-    const position = () => { const rect = target.getBoundingClientRect(), area = reader.getBoundingClientRect(), size = popover.getBoundingClientRect(), gap = 5; if (!target.isConnected || rect.bottom < area.top || rect.top > area.bottom) { dismiss(); return; } popover.style.left = Math.max(8, Math.min(rect.left, innerWidth - size.width - 8)) + 'px'; popover.style.top = Math.max(area.top + 4, Math.min(area.bottom - size.height - 4, rect.bottom + gap + size.height <= area.bottom ? rect.bottom + gap : rect.top - gap - size.height)) + 'px'; };
-    const dismiss = () => { popover.remove(); document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', escape, true); document.removeEventListener('scroll', position, true); if (dismissFormUnlock === dismiss) dismissFormUnlock = null; };
-    const outside = event => { if (!popover.contains(event.target)) dismiss(); };
+    const position = () => { const rect = target.getBoundingClientRect(), area = reader.getBoundingClientRect(), size = popover.getBoundingClientRect(), gap = 5; if (!target.isConnected || (!waiting && (rect.bottom < area.top || rect.top > area.bottom))) { dismiss(); return; } popover.style.left = Math.max(8, Math.min(rect.left, innerWidth - size.width - 8)) + 'px'; popover.style.top = Math.max(area.top + 4, Math.min(area.bottom - size.height - 4, rect.bottom + gap + size.height <= area.bottom ? rect.bottom + gap : rect.top - gap - size.height)) + 'px'; };
+    const dismiss = () => { waiting?.abort(); waiting = null; popover.remove(); document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', escape, true); document.removeEventListener('scroll', position, true); if (dismissFormUnlock === dismiss) dismissFormUnlock = null; };
+    const outside = event => { if (!waiting && !popover.contains(event.target)) dismiss(); };
     const escape = event => { if (event.key === 'Escape') { dismiss(); target.focus({ preventScroll: true }); event.preventDefault(); } };
     dismissFormUnlock = dismiss; document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', escape, true); document.addEventListener('scroll', position, true); position();
-    popover.addEventListener('click', () => {
-      if (!unlockForm(turn)) return;
+    const completeUnlock = () => {
+      if (!unlockForm(turn)) { waiting?.abort(); waiting = null; message.hidden = true; button.textContent = '解锁题目'; position(); return; }
       const root = target.closest('.turn') || target.closest('.exercise');
       root.querySelectorAll('.exercise').forEach(exercise => {
         exercise.querySelectorAll('[aria-disabled="true"]').forEach(control => { control.removeAttribute('aria-disabled'); if ('readOnly' in control) control.readOnly = false; });
         const status = exercise.querySelector('.exercise-locked'); if (status) status.textContent = '已解锁，可修改后再次提交。';
       });
       dismiss(); target.focus({ preventScroll: true });
+    };
+    button.addEventListener('click', () => {
+      if (waiting) { dismiss(); return; }
+      const images = [...(target.closest('.turn') || target.closest('.exercise')).querySelectorAll('img')].filter(img => !img.complete);
+      const fontPending = document.fonts?.status === 'loading';
+      if (!fontPending && !images.length) { completeUnlock(); return; }
+      waiting = new AbortController(); const signal = waiting.signal;
+      message.textContent = '正在排版，稍后解锁'; message.hidden = false; button.textContent = '取消'; position();
+      const tasks = images.map(img => new Promise(resolve => { img.addEventListener('load', resolve, { once: true, signal }); img.addEventListener('error', resolve, { once: true, signal }); if (img.complete) resolve(); }));
+      if (fontPending) tasks.push(document.fonts.ready);
+      Promise.all(tasks).then(() => { if (!signal.aborted && target.isConnected && current().turns.includes(turn) && formState(turn).locked) completeUnlock(); });
     });
-    popover.focus({ preventScroll: true });
+    button.focus({ preventScroll: true });
   }
   function gradeDemo(question, responses) {
     if (!/批改|判题|判对错|对错|评分|检查.*答案/.test(question) && !(question.length === 0 && responses.length)) return null;
@@ -416,6 +430,7 @@
       appendText('div', 'time', '示例时间　答复', wrap); return wrap;
   }
   function renderTranscript() {
+    dismissFormUnlock?.();
     indexSameSessionLinks();
     transcript.replaceChildren();
     const s = current();
@@ -692,6 +707,7 @@
     const question = composer.value.trim(); const refs = ensureSession(current()).references; const selected = pendingReferences(current()).filter(ref => ref.selected !== false); const files = mainAttachments();
     const openForms = current().turns.filter(turn => turn.formValues && !formState(turn).locked), hasFormValues = openForms.some(turn => Object.values(turn.formValues).some(value => Array.isArray(value) ? value.length : value !== '' && value != null));
     if (!question && !selected.length && !files.length && !hasFormValues) { composer.focus(); return; }
+    dismissFormUnlock?.();
     const pending = state.pending && state.pending.parentId === state.active ? state.pending : null;
     const hadInitialSource = !current().turns.length && Boolean(current().source);
     const previousState = JSON.stringify(state);

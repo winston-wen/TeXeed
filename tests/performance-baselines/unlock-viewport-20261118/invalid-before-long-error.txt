@@ -1,0 +1,2 @@
+System.Exception: Form field is outside the viewport.
+   at LockedFormPerf.<>c__DisplayClass7_0.<<Main>b__1>d.MoveNext() in /_/tests/performance-baselines/unlock-viewport-20261118/viewport-fixture.cs.txt:line 61

@@ -1,0 +1,90 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+internal static class LockedFormPerf
+{
+    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    private static object Field(object obj, string name) => obj.GetType().GetField(name, Private)!.GetValue(obj)!;
+    private static void Call(object obj, string name) => obj.GetType().GetMethod(name, Private)!.Invoke(obj, null);
+    private static async Task Idle(Window window) { await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout(); }
+    private static async Task Drain(AiPanel panel, Window window)
+    {
+        await Task.Delay(800); var timer = (DispatcherTimer)Field(panel, "_saveTimer");
+        for (var i = 0; timer.IsEnabled && i < 250; i++) await Task.Delay(20);
+        if (timer.IsEnabled) throw new TimeoutException("Draft timer did not drain.");
+        var gate = (SemaphoreSlim)Field(panel, "_saveGate"); await gate.WaitAsync(); gate.Release(); await Idle(window);
+    }
+    private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        { var c = VisualTreeHelper.GetChild(root, i); if (c is T found) yield return found; foreach (var nested in Descendants<T>(c)) yield return nested; }
+    }
+    private static int Visible(DependencyObject root, Window host)
+    {
+        var count = 0;
+        foreach (var c in Descendants<Control>(root))
+            if (c.IsVisible && c.ActualWidth > 0 && c.ActualHeight > 0)
+                try { if (c.TransformToAncestor(host).TransformBounds(new Rect(0, 0, c.ActualWidth, c.ActualHeight)).IntersectsWith(new Rect(0, 0, host.ActualWidth, host.ActualHeight))) count++; } catch (InvalidOperationException) { }
+        return count;
+    }
+    [STAThread] private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        using var panel = new AiPanel(); typeof(AiPanel).GetMethod("InitializeBranchUi", Private)?.Invoke(panel, null);
+        var window = new Window { Width = 900, Height = 760, Left = -12000, Top = 20, ShowActivated = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Content = panel };
+        var exit = 1;
+        app.DispatcherUnhandledException += (_, e) => { File.WriteAllText(Path.Combine(output, "error.txt"), e.Exception.ToString()); e.Handled = true; app.Shutdown(1); };
+        window.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await panel.SetProjectAsync(Path.Combine(output, "fixture.tex")); var book = (AiNotebook)Field(panel, "_book");
+                for (var i = 0; i < 118; i++) book.Turns.Add(new AiTurn("如何检查结果？ " + i, "样例回答：说明步骤和依据。") { SentAt = DateTimeOffset.UnixEpoch, Segments = Enumerable.Range(0, 3).Select(k => new AiSegment { Kind = "activity", Text = "检查步骤 " + k, Details = string.Join('\n', Enumerable.Range(0, 200).Select(n => "示例日志 " + n)) }).Append(new AiSegment { Kind = "final", Text = "样例回答：说明步骤和依据。" }).ToList() });
+                var exercise = "| 题号 | 输入 | a | b | c |\n|---|---|---|---|---|\n" + string.Join("\n", Enumerable.Range(1, 6).Select(i => $"| {i} | {80+i} | {{{{text:a-{i}}}}} | {{{{text:b-{i}}}}} | {{{{text:c-{i}}}}} |")) + "\n\n说明：\n\n{{textarea:reason}}\n\n{{text:solo}}\n\n{{radio:choice:yes:是}} {{radio:choice:no:否}} {{checkbox:check:核对}}\n\n{{file:materials:请提供材料}}";
+                var prefix = string.Join("\n\n", Enumerable.Range(0, 25).Select(i => $"前文 {i}：这是用户还在阅读的说明。")); var suffix = string.Join("\n\n", Enumerable.Range(0, 60).Select(i => $"后文 {i}：这里仍是同一回答的内容。")); var source = AiForms.WithSubmission(new AiTurn("练习", prefix + "\n\n$z^2$\n\n" + exercise + "\n\n" + suffix) { SentAt = DateTimeOffset.UnixEpoch }, null); book.Turns.Add(source);
+                var blank = AiForms.Snapshot(source)!; book.Turns.Add(AiForms.WithSubmissions(new AiTurn("先问一个问题", "先解释背景") { SentAt = DateTimeOffset.UnixEpoch }, [blank]));
+                source.AdditionalData!["texeedFormLockedV1"] = JsonSerializer.SerializeToElement(blank);
+                Call(panel, "RefreshTranscript"); var scroll = (ScrollViewer)panel.FindName("MessagesScroll"); scroll.ScrollToEnd(); await Drain(panel, window);
+                var field = Descendants<TextBox>(panel).FirstOrDefault(x => System.Windows.Automation.AutomationProperties.GetName(x) == "a-1") ?? throw new Exception("The form field was not rendered.");
+                var initialY = field.TranslatePoint(new Point(), scroll).Y; scroll.ScrollToVerticalOffset(scroll.VerticalOffset + initialY - 180); await Drain(panel, window);
+                if (!field.IsVisible || !field.TransformToAncestor(window).TransformBounds(new Rect(0, 0, field.ActualWidth, field.ActualHeight)).IntersectsWith(new Rect(0, 0, window.ActualWidth, window.ActualHeight))) throw new Exception("Form field is outside the viewport.");
+                if (!field.IsReadOnly) throw new Exception("The legacy form is not locked before user action.");
+                var samples = new List<object>();
+                var originalSource = source.AdditionalData; var originalConversation = book.Active.AdditionalData;
+                typeof(AiPanel).GetField("_formUnlockSource", Private)!.SetValue(panel, source);
+                typeof(AiPanel).GetField("_formUnlockConversation", Private)!.SetValue(panel, book.Active);
+                var reopen = typeof(AiPanel).GetMethod("ReopenAnswerFormAsync", Private)!; var formula = Descendants<ChatFormula>(panel).FirstOrDefault() ?? throw new Exception("Formula missing."); await formula.RenderTask; var formulaTask = typeof(ChatFormula).GetField("<RenderTask>k__BackingField", Private)!;
+                for (var i = 0; i < 9; i++)
+                {
+                    source.AdditionalData = originalSource; book.Active.AdditionalData = originalConversation; Call(panel, "RefreshFormEnabled"); scroll.ScrollToEnd(); await Drain(panel, window); field = Descendants<TextBox>(panel).FirstOrDefault(x => System.Windows.Automation.AutomationProperties.GetName(x) == "a-1") ?? throw new Exception("The source field is no longer rendered."); field.BringIntoView(); await Drain(panel, window); var position = field.TranslatePoint(new Point(), scroll).Y; scroll.ScrollToVerticalOffset(scroll.VerticalOffset + position - 180); await Drain(panel, window);
+                    if (!field.IsReadOnly) throw new Exception("Reset did not restore locked field.");
+                    var idleBytes = GC.GetAllocatedBytesForCurrentThread(); var idle = Stopwatch.StartNew(); await Drain(panel, window); idle.Stop(); idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                    var yBefore = field.TranslatePoint(new Point(), scroll).Y; var offsetBefore = scroll.VerticalOffset; var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); formulaTask.SetValue(formula, gate.Task); var bytes = GC.GetAllocatedBytesForCurrentThread(); var sw = Stopwatch.StartNew(); _ = Task.Delay(200).ContinueWith(_ => gate.TrySetResult()); await (Task)reopen.Invoke(panel, null)!; var gateDoneAtUnlock = gate.Task.IsCompleted; await Idle(window); var feedback = sw.Elapsed.TotalMilliseconds; var feedbackBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                    await Drain(panel, window); sw.Stop(); bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                    var controls = Visible(window, window); if (!window.IsVisible || controls == 0 || field.IsReadOnly) throw new InvalidOperationException("Window closed or field did not unlock.");
+                    if (i >= 2) samples.Add(new { op = "unlock-pending-formula-200ms", feedbackMs = feedback, feedbackBytes, rawMs = sw.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = sw.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = controls, gateDoneAtUnlock, fieldReadOnly = field.IsReadOnly, fieldYBefore = yBefore, fieldYAfter = field.IsLoaded ? field.TranslatePoint(new Point(), scroll).Y : (double?)null, offsetBefore, offsetAfter = scroll.VerticalOffset });
+                }
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new { fixture = "120 turns with long answer around legacy blank locked form; unlock uses ReopenAnswerFormAsync without popup with a controlled pending formula released after 200 ms; 18 text fields, multi-line, single/multiple choice, file; 900/620 x 760 offscreen WPF, 2 warmups and 7 samples, paired 800 ms plus save gate and ApplicationIdle", samples }, new JsonSerializerOptions { WriteIndented = true }));
+                exit = 0;
+            }
+            catch (Exception e) { File.WriteAllText(Path.Combine(output, "error.txt"), e.ToString()); }
+            finally { window.Close(); app.Shutdown(exit); }
+        };
+        window.Show(); app.Run(); return exit;
+    }
+}
+
+
+
+
