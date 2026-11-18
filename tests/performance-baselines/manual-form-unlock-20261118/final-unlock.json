@@ -1,0 +1,96 @@
+{
+  "fixture": "120 turns with legacy blank locked form; unlock uses ReopenAnswerFormAsync without popup; 18 text fields, multi-line, single/multiple choice, file; 900/620 x 760 offscreen WPF, 2 warmups and 7 samples, paired 800 ms plus save gate and ApplicationIdle",
+  "samples": [
+    {
+      "op": "unlock-and-save",
+      "feedbackMs": 22.2259,
+      "feedbackBytes": 1236392,
+      "rawMs": 825.907,
+      "idleMs": 802.5908,
+      "correctedMs": 23.316200000000094,
+      "rawBytes": 1398000,
+      "idleBytes": 3768,
+      "correctedBytes": 1394232,
+      "visibleControls": 66,
+      "fieldReadOnly": false
+    },
+    {
+      "op": "unlock-and-save",
+      "feedbackMs": 27.1918,
+      "feedbackBytes": 1236336,
+      "rawMs": 841.9736,
+      "idleMs": 813.0566,
+      "correctedMs": 28.91700000000003,
+      "rawBytes": 1397944,
+      "idleBytes": 3768,
+      "correctedBytes": 1394176,
+      "visibleControls": 66,
+      "fieldReadOnly": false
+    },
+    {
+      "op": "unlock-and-save",
+      "feedbackMs": 28.7363,
+      "feedbackBytes": 1236336,
+      "rawMs": 841.7657,
+      "idleMs": 805.6826,
+      "correctedMs": 36.08310000000006,
+      "rawBytes": 1397944,
+      "idleBytes": 3768,
+      "correctedBytes": 1394176,
+      "visibleControls": 66,
+      "fieldReadOnly": false
+    },
+    {
+      "op": "unlock-and-save",
+      "feedbackMs": 24.7198,
+      "feedbackBytes": 1235696,
+      "rawMs": 826.9478,
+      "idleMs": 809.7046,
+      "correctedMs": 17.2432,
+      "rawBytes": 1397304,
+      "idleBytes": 3768,
+      "correctedBytes": 1393536,
+      "visibleControls": 66,
+      "fieldReadOnly": false
+    },
+    {
+      "op": "unlock-and-save",
+      "feedbackMs": 23.6251,
+      "feedbackBytes": 1235440,
+      "rawMs": 826.5073,
+      "idleMs": 808.8945,
+      "correctedMs": 17.612799999999993,
+      "rawBytes": 1397048,
+      "idleBytes": 3768,
+      "correctedBytes": 1393280,
+      "visibleControls": 66,
+      "fieldReadOnly": false
+    },
+    {
+      "op": "unlock-and-save",
+      "feedbackMs": 23.8987,
+      "feedbackBytes": 1235440,
+      "rawMs": 828.8905,
+      "idleMs": 810.6397,
+      "correctedMs": 18.250800000000027,
+      "rawBytes": 1397048,
+      "idleBytes": 3768,
+      "correctedBytes": 1393280,
+      "visibleControls": 66,
+      "fieldReadOnly": false
+    },
+    {
+      "op": "unlock-and-save",
+      "feedbackMs": 26.1589,
+      "feedbackBytes": 1235400,
+      "rawMs": 836.1037,
+      "idleMs": 808.1693,
+      "correctedMs": 27.934399999999982,
+      "rawBytes": 1397008,
+      "idleBytes": 3768,
+      "correctedBytes": 1393240,
+      "visibleControls": 66,
+      "fieldReadOnly": false
+    }
+  ]
+}

@@ -97,6 +97,7 @@ internal static partial class Program
                 if (args.Contains("--ai-forms-only"))
                 {
                     CheckAiFormGrading();
+                    await CheckAiFormUnlockAsync(window, output);
                     await CheckAiFormsAsync(window, output);
                     await CheckAiFormCollisionsAsync(window, output);
                     await CheckAiFormGradingUiAsync(window, output);

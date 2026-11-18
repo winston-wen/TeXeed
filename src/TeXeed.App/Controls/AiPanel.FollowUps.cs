@@ -259,7 +259,7 @@ public partial class AiPanel
 
     private async Task DispatchNextQueuedAsync()
     {
-        if (_queueDispatching || _followUpsClosing || _operation is not null || _modelPreferenceSaving || _disposed || _project is null) return;
+        if (_queueDispatching || _followUpsClosing || _operation is not null || _modelPreferenceSaving || _formUnlockSaving || _disposed || _project is null) return;
         if (BlockPendingFormAttachmentRead(_book.Active)) return;
         _queueDispatching = true;
         _queueDispatchIdle = new(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -13,6 +13,7 @@ internal static class AiForms
     internal const string SubmissionKey = "texeedFormSubmissionV1";
     internal const string SubmissionsKey = "texeedFormSubmissionsV1";
     private const string LockedKey = "texeedFormLockedV1";
+    private const string ManualReopenKey = "texeedFormManualReopenV1";
     internal const string ProtocolKey = "texeedFormProtocolVersion";
     internal static readonly Regex Token = new(@"\{\{(?:(?<text>text|textarea):(?<tid>[A-Za-z0-9-]{1,64})|radio:(?<rid>[A-Za-z0-9-]{1,64}):(?<value>[A-Za-z0-9-]{1,64}):(?<rlabel>[^{}\r\n:|]{1,80})|checkbox:(?<cid>[A-Za-z0-9-]{1,64}):(?<clabel>[^{}\r\n:|]{1,80})|file:(?<fid>[A-Za-z0-9-]{1,64}):(?<flabel>[^{}\r\n:|]{1,80}))\}\}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseCjkFriendlyEmphasis().UseAutoLinks().DisableHtml().Build();
@@ -162,13 +163,51 @@ internal static class AiForms
         var source = conversation.Turns.FirstOrDefault(t => t.Id == submission.TurnId);
         if (source is null) return;
         var data = source.AdditionalData is null ? new Dictionary<string, JsonElement>() : new(source.AdditionalData);
+        data.Remove(ManualReopenKey);
         data[LockedKey] = JsonSerializer.SerializeToElement(submission);
         source.AdditionalData = data;
+    }
+    internal static bool Reopen(AiConversation conversation, string turnId)
+    {
+        var source = conversation.Turns.FirstOrDefault(t => t.Id == turnId);
+        var submission = SubmittedFor(conversation, turnId);
+        if (source is null || submission is null) return false;
+        var latestTurn = conversation.Turns.LastOrDefault(turn => AllFromTurn(turn).Any(item => item.TurnId == turnId));
+        var draft = Draft(source);
+        foreach (var pair in submission.Values) draft.TryAdd(pair.Key, pair.Value);
+        var data = source.AdditionalData is null ? new Dictionary<string, JsonElement>() : new(source.AdditionalData);
+        data[DraftKey] = JsonSerializer.SerializeToElement(draft);
+        data[ManualReopenKey] = JsonSerializer.SerializeToElement(latestTurn?.Id ?? "");
+        source.AdditionalData = data;
+        return true;
+    }
+    internal static void PreserveBeforeRemoving(AiConversation conversation, AiTurn removedTurn)
+    {
+        foreach (var submission in AllFromTurn(removedTurn))
+        {
+            var source = conversation.Turns.FirstOrDefault(turn => turn.Id == submission.TurnId);
+            if (source is null) continue;
+            var latest = conversation.Turns.LastOrDefault(turn => AllFromTurn(turn).Any(item => item.TurnId == submission.TurnId));
+            if (latest?.Id != removedTurn.Id) continue;
+            if (source.AdditionalData?.TryGetValue(ManualReopenKey, out var marker) == true && marker.ValueKind == JsonValueKind.String && marker.GetString() == removedTurn.Id)
+            {
+                var previous = conversation.Turns.LastOrDefault(turn => turn.Id != removedTurn.Id && AllFromTurn(turn).Any(item => item.TurnId == submission.TurnId));
+                var data = new Dictionary<string, JsonElement>(source.AdditionalData);
+                data[ManualReopenKey] = JsonSerializer.SerializeToElement(previous?.Id ?? "");
+                source.AdditionalData = data;
+            }
+            else Lock(conversation, submission);
+        }
     }
     internal static Submission? SubmittedFor(AiConversation conversation, string turnId)
     {
         if (AiFormGrading.IsReopened(conversation, turnId)) return null;
         var source = conversation.Turns.FirstOrDefault(t => t.Id == turnId);
+        if (source?.AdditionalData?.TryGetValue(ManualReopenKey, out var marker) == true && marker.ValueKind == JsonValueKind.String)
+        {
+            var latest = conversation.Turns.LastOrDefault(turn => AllFromTurn(turn).Any(item => item.TurnId == turnId));
+            if ((latest?.Id ?? "") == marker.GetString()) return null;
+        }
         if (source?.AdditionalData?.TryGetValue(LockedKey, out var json) == true)
             try { if (json.Deserialize<Submission>() is { } locked) return locked; } catch (JsonException) { }
         return conversation.Turns.SelectMany(AllFromTurn).LastOrDefault(s => s.TurnId == turnId);

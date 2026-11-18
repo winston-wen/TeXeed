@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Input;
 
 namespace TeXeed.App.Controls;
 
@@ -12,6 +13,8 @@ internal sealed class FormFeedbackHost : Grid
     private readonly Func<FormFieldFeedback?>? _feedback;
     private TextBlock? _mark;
     private readonly string _originalHelp;
+    private Func<bool>? _locked;
+    private Action<Control, bool>? _unlockPrompt;
     internal Control Field { get; }
     internal string FieldType { get; }
     internal string FieldId { get; }
@@ -30,8 +33,23 @@ internal sealed class FormFeedbackHost : Grid
         if (Field is TextBox text) text.Width = double.NaN;
         Width = width;
     }
-    internal void Refresh()
+    internal void ConfigureUnlock(Func<bool> locked, Action<Control, bool>? prompt)
     {
+        if (prompt is null) return;
+        _locked = locked; _unlockPrompt = prompt;
+        PreviewMouseLeftButtonUp += (_, _) => { if (_locked()) _unlockPrompt(Field, false); };
+        GotKeyboardFocus += (_, _) => { if (_locked() && Mouse.LeftButton != MouseButtonState.Pressed) _unlockPrompt(Field, false); };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (!_locked()) return;
+            if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None || e.Key is Key.Enter or Key.Space && Field is not TextBox)
+            { e.Handled = true; _unlockPrompt(Field, true); }
+        };
+        Refresh();
+    }
+    internal void Refresh(bool? lockedState = null)
+    {
+        Focusable = _unlockPrompt is not null && (lockedState ?? _locked?.Invoke()) == true && Field is not TextBox;
         var grade = _feedback?.Invoke();
         if (grade is null)
         {

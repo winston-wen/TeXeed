@@ -90,6 +90,32 @@ internal static partial class Program
         Require(!bounded.CompleteSources.Contains(huge.Id), "不完整源题不得进入可判题白名单");
         multi.Turns.Remove(graded);
         Require(!AiFormGrading.IsReopened(multi, a.Id) && AiFormGrading.GradeFor(multi, a, "text", "a") is null, "删除来源提交后不得保留孤立判定");
+        var manualSource = Source("可手动解锁的旧表单");
+        var manualBook = new AiConversation(); manualBook.Turns.Add(manualSource);
+        var manualSnapshot = AiForms.Snapshot(manualSource)!;
+        manualSnapshot.Attachments = new() { ["old-file"] = ["资料.pdf"] };
+        var manualSent = AiForms.WithSubmissions(new AiTurn("先追问", "解释"), [manualSnapshot]);
+        manualBook.Turns.Add(manualSent); AiForms.Lock(manualBook, manualSnapshot);
+        Require(AiForms.SubmittedFor(manualBook, manualSource.Id) is not null, "旧版空表单仍应锁定，等待用户选择解锁");
+        Require(AiForms.Reopen(manualBook, manualSource.Id) && AiForms.SubmittedFor(manualBook, manualSource.Id) is null, "手动解锁失败");
+        Require(AiForms.AllFromTurn(manualSent).Single().Attachments!["old-file"].Single() == "资料.pdf", "解锁改变了历史提交");
+        var manualReloaded = JsonSerializer.Deserialize<AiConversation>(JsonSerializer.Serialize(manualBook))!;
+        var manualReloadedSource = manualReloaded.Turns.Single(t => t.Id == manualSource.Id);
+        Require(AiForms.SubmittedFor(manualReloaded, manualSource.Id) is null, "重启丢失手动解锁状态");
+        AiForms.SetDraft(manualReloadedSource, "text", "a", "新答案");
+        var manualNext = AiForms.Snapshot(manualReloadedSource)!;
+        var nextTurn = AiForms.WithSubmissions(new AiTurn("提交", ""), [manualNext]);
+        manualReloaded.Turns.Add(nextTurn);
+        Require(AiForms.SubmittedFor(manualReloaded, manualSource.Id) is not null, "崩溃恢复新提交时不能继续解锁");
+        AiForms.Lock(manualReloaded, manualNext);
+        Require(AiForms.SubmittedFor(manualReloaded, manualSource.Id)?.Values["text:a"] == "新答案", "再次提交未重锁最新答案");
+        Require(AiForms.Reopen(manualReloaded, manualSource.Id) && AiForms.Value(AiForms.Draft(manualReloadedSource), "text", "a") == "新答案", "非空提交解锁后未保留答案");
+        Require(AiForms.AllFromTurn(manualReloaded.Turns[1]).Single().Attachments!["old-file"].Single() == "资料.pdf", "再次提交破坏了之前的快照");
+        AiForms.PreserveBeforeRemoving(manualReloaded, manualReloaded.Turns[1]);
+        manualReloaded.Turns.RemoveAt(1);
+        Require(AiForms.SubmittedFor(manualReloaded, manualSource.Id) is null && AiForms.Value(AiForms.Draft(manualReloadedSource), "text", "a") == "新答案", "删除较旧提交不应重新锁定手动开放的表单");
+        AiForms.PreserveBeforeRemoving(manualReloaded, nextTurn); manualReloaded.Turns.Remove(nextTurn);
+        Require(AiForms.SubmittedFor(manualReloaded, manualSource.Id) is null && AiForms.Value(AiForms.Draft(manualReloadedSource), "text", "a") == "新答案", "删除最近提交不应丢失手动开放状态和草稿");
         Console.WriteLine("PASS form grading: validated snapshots, delayed grading, re-edit, crash, deletion and history.");
     }
 }

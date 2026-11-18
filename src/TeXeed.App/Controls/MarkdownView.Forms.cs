@@ -11,7 +11,7 @@ namespace TeXeed.App.Controls;
 internal sealed record AiFormContext(string TurnId, Func<string, string, string> Read, Action<string, string, string> Write, Func<bool> IsLocked,
     Action<string, string, string>? PickAttachment = null, Func<string, AiFormAttachmentState>? AttachmentState = null,
     Action<string, string, Control, string?>? Observe = null, Func<string, string, string?>? Ambiguous = null,
-    Func<string, string, FormFieldFeedback?>? Feedback = null);
+    Func<string, string, FormFieldFeedback?>? Feedback = null, Action<Control, bool>? UnlockPrompt = null);
 
 public sealed partial class MarkdownView
 {
@@ -45,7 +45,7 @@ public sealed partial class MarkdownView
             if (control is TextBox text) { text.IsEnabled = true; text.IsReadOnly = locked; }
             else if (control is FormAttachmentButton file) { file.IsEnabled = !locked; file.Refresh(); }
             else control.IsEnabled = !locked;
-        foreach (var host in _formFeedbackHosts) host.Refresh();
+        foreach (var host in _formFeedbackHosts) host.Refresh(locked);
         foreach (var table in _tableViews) table.View.RefreshFormEnabled();
     }
     internal void RefreshFormFeedback(string type, string id)
@@ -99,6 +99,7 @@ public sealed partial class MarkdownView
                         surface = border;
                     }
                     var host = new FormFeedbackHost(surface, control, true, type, id, () => forms.Feedback?.Invoke(type, id)) { Width = MediaWidth };
+                    host.ConfigureUnlock(forms.IsLocked, forms.UnlockPrompt);
                     control.PreviewKeyDown += FormFieldPreviewKeyDown;
                     _formFeedbackHosts.Add(host); _formBlockWidths.Add(host);
                     _formControls.Add(control);
@@ -133,6 +134,7 @@ public sealed partial class MarkdownView
             control.PreviewKeyDown += FormFieldPreviewKeyDown;
             _formControls.Add(control);
             var inlineHost = new FormFeedbackHost(control, control, false, type, id, () => forms.Feedback?.Invoke(type, id));
+            inlineHost.ConfigureUnlock(forms.IsLocked, forms.UnlockPrompt);
             _formFeedbackHosts.Add(inlineHost);
             if (_standaloneFormLine && _tableOwner is not null && control is TextBox) _formCellCandidates[inlineHost] = match.Value;
             target.Add(new InlineUIContainer(inlineHost) { BaselineAlignment = BaselineAlignment.Center, Tag = match.Value });

@@ -68,7 +68,8 @@ public partial class AiPanel
             () => Submitted() is not null,
             (id, purpose, kind) => SelectFormAttachment(turn.Id, id, purpose, kind),
             id => FormAttachmentState(conversation, turn, id), Observe, Ambiguous,
-            (type, id) => AiFormGrading.GradeFor(conversation, turn, type, id, types) is { } grade ? new FormFieldFeedback(grade.Result, grade.Comment) : null));
+            (type, id) => AiFormGrading.GradeFor(conversation, turn, type, id, types) is { } grade ? new FormFieldFeedback(grade.Result, grade.Comment) : null,
+            (control, focus) => ShowFormUnlock(conversation, turn, control, focus)));
     }
     private void RefreshFormEnabled()
     {

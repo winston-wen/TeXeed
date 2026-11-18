@@ -351,7 +351,7 @@ public partial class AiPanel : UserControl, IDisposable
     internal async Task SubmitAsync(AiTurn? retry = null, AiFollowUpMessage? queued = null)
     {
         if (_project is null || _operation is not null || _queueDispatching && queued is null) return;
-        if (_modelPreferenceSaving) { StatusText.Text = "正在保存本会话模型，请稍候。"; return; }
+        if (_modelPreferenceSaving || _formUnlockSaving) { StatusText.Text = "正在保存，请稍候。"; return; }
         if (BlockPendingFormAttachmentRead(_book.Active)) return;
         if (retry is not null && (_book.Turns.LastOrDefault()?.Id != retry.Id || !retry.IsIncomplete)) return;
         if (Settings.IsBusy) { StatusText.Text = "AI 设置正在连接，请等待完成或在设置中取消。"; return; }

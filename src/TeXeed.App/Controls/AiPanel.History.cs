@@ -48,7 +48,7 @@ public partial class AiPanel
     {
         if (_operation is not null) return;
         if (_book.Turns.FirstOrDefault(t => t.Id == id) is { } removedTurn)
-            foreach (var submission in AiForms.AllFromTurn(removedTurn)) AiForms.Lock(_book.Active, submission);
+            AiForms.PreserveBeforeRemoving(_book.Active, removedTurn);
         if (_book.Turns.RemoveAll(t => t.Id == id) > 0)
             _book.Active.Bookmarks.RemoveAll(b => b.Anchor?.TurnId == id);
         _book.Active.UpdatedAt = DateTimeOffset.UtcNow;

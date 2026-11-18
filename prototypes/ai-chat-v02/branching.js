@@ -254,7 +254,35 @@
   function formState(turn) {
     const turns = current().turns, index = turns.indexOf(turn); let submitted = -1, graded = -1, assessment = null;
     for (let i = index + 1; i < turns.length; i++) { if ((turns[i].formResponses || []).some(item => item.turnId === turn.id)) submitted = i; if (turns[i].formAssessment?.turnId === turn.id) { graded = i; assessment = turns[i].formAssessment; } }
-    return { locked: submitted >= 0 && graded < submitted, assessment };
+    const submissionId = submitted >= 0 ? turns[submitted].id : null;
+    return { locked: submitted >= 0 && graded < submitted && turn.formUnlockedSubmissionId !== submissionId, assessment, submissionId };
+  }
+  function unlockForm(turn) {
+    const form = formState(turn); if (!form.locked) return false;
+    const previous = turn.formUnlockedSubmissionId; turn.formUnlockedSubmissionId = form.submissionId;
+    if (save()) return true;
+    turn.formUnlockedSubmissionId = previous; return false;
+  }
+  let dismissFormUnlock = null;
+  function offerFormUnlock(turn, target) {
+    dismissFormUnlock?.();
+    const popover = document.createElement('button'); popover.type = 'button'; popover.className = 'exercise-unlock-popover'; popover.textContent = '解锁题目';
+    document.body.appendChild(popover);
+    const position = () => { const rect = target.getBoundingClientRect(), area = reader.getBoundingClientRect(), size = popover.getBoundingClientRect(), gap = 5; if (!target.isConnected || rect.bottom < area.top || rect.top > area.bottom) { dismiss(); return; } popover.style.left = Math.max(8, Math.min(rect.left, innerWidth - size.width - 8)) + 'px'; popover.style.top = Math.max(area.top + 4, Math.min(area.bottom - size.height - 4, rect.bottom + gap + size.height <= area.bottom ? rect.bottom + gap : rect.top - gap - size.height)) + 'px'; };
+    const dismiss = () => { popover.remove(); document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', escape, true); document.removeEventListener('scroll', position, true); if (dismissFormUnlock === dismiss) dismissFormUnlock = null; };
+    const outside = event => { if (!popover.contains(event.target)) dismiss(); };
+    const escape = event => { if (event.key === 'Escape') { dismiss(); target.focus({ preventScroll: true }); event.preventDefault(); } };
+    dismissFormUnlock = dismiss; document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', escape, true); document.addEventListener('scroll', position, true); position();
+    popover.addEventListener('click', () => {
+      if (!unlockForm(turn)) return;
+      const root = target.closest('.turn') || target.closest('.exercise');
+      root.querySelectorAll('.exercise').forEach(exercise => {
+        exercise.querySelectorAll('[aria-disabled="true"]').forEach(control => { control.removeAttribute('aria-disabled'); if ('readOnly' in control) control.readOnly = false; });
+        const status = exercise.querySelector('.exercise-locked'); if (status) status.textContent = '已解锁，可修改后再次提交。';
+      });
+      dismiss(); target.focus({ preventScroll: true });
+    });
+    popover.focus({ preventScroll: true });
   }
   function gradeDemo(question, responses) {
     if (!/批改|判题|判对错|对错|评分|检查.*答案/.test(question) && !(question.length === 0 && responses.length)) return null;
@@ -296,6 +324,12 @@
       const choices = document.createElement('span'); choices.className = 'form-attachment-menu'; choices.hidden = true;
       const pick = document.createElement('button'); pick.type = 'button'; pick.textContent = '添加附件'; pick.disabled = locked; pick.setAttribute('aria-expanded', 'false'); pick.addEventListener('click', () => { choices.hidden = !choices.hidden; pick.setAttribute('aria-expanded', String(!choices.hidden)); }); fileGroup.append(pick, choices);
       for (const [title, picker] of [['上传文件', 'form-file-input'], ['引用文件', 'form-path-file-input'], ['引用文件夹', 'form-folder-input']]) { const button = document.createElement('button'); button.type = 'button'; button.textContent = title; button.disabled = locked; button.addEventListener('click', () => { choices.hidden = true; pick.setAttribute('aria-expanded', 'false'); formAttachmentOrigin = { sessionId: current().id, turnId: turn.id, fieldId: 'source-material', purpose: '核对题目的参考资料' }; $(picker).click(); }); choices.appendChild(button); } el.appendChild(fileGroup);
+      if (locked) {
+        el.querySelectorAll('input, textarea, fieldset button').forEach(control => { control.disabled = false; control.setAttribute('aria-disabled', 'true'); if (control.matches('input[type=text], textarea')) control.readOnly = true; });
+        const prompt = event => { const target = event.target.closest('input, textarea, fieldset button'); if (!target || !el.contains(target) || !formState(turn).locked) return; event.preventDefault(); event.stopImmediatePropagation(); offerFormUnlock(turn, target); };
+        el.addEventListener('click', prompt, true);
+        el.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ' || (event.target.matches('input[type=radio]') && event.key.startsWith('Arrow'))) prompt(event); }, true);
+      }
       if (locked) appendText('small', 'exercise-locked', '已随下一条消息提交', el);
       else if (form.assessment) appendText('small', 'exercise-locked', '已根据 AI 判题重新开放，可修改后再次提交。', el);
       for (const target of sameSessionLinks.get(item.id) || []) el.appendChild(turnLink(target));
