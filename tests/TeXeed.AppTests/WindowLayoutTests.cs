@@ -193,8 +193,10 @@ internal static partial class Program
             ((RadioButton)dialog.FindName("PreviewAutoWidth")).IsChecked = true;
             if (!preview.IsAutoWidth) throw new Exception("Preview settings failed to enable auto width");
             ((FrameworkElement)dialog.FindName("PreviewManualZoom")).BringIntoView(); dialog.UpdateLayout();
-            Capture(dialog, Path.Combine(output, "preview-zoom-settings.png")); ClickSettingsButton(dialog, "保存设置");
+            Capture(dialog, Path.Combine(output, "preview-zoom-settings.png")); ClickSettingsButton(dialog, "取消");
         });
+        // The resize check needs an automatic-width baseline; cancel restores the opening settings.
+        preview.FitWidth();
         var originalActualWidth = window.ActualWidth;
         var originalWidth = window.Width;
         try

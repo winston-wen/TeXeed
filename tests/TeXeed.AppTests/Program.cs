@@ -46,7 +46,7 @@ internal static partial class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
         var window = new MainWindow { Width = 1440, Height = 900, WindowStartupLocation = WindowStartupLocation.Manual, Left = 30, Top = 30 };
-        if (args.Contains("--offscreen") || args.Contains("--preview-dock-sim-only") || args.Contains("--multi-main-offscreen") || args.Contains("--ai-follow-up-panel-offscreen") || args.Contains("--pdf-annotation-selection-only") || args.Contains("--source-annotation-modes-only") || args.Contains("--preview-close-restore-only") || args.Contains("--preview-settings-offscreen") || args.Contains("--answer-annotation-offscreen")) { window.Left = -3000; window.Top = -3000; window.ShowActivated = false; }
+        if (args.Contains("--offscreen") || args.Contains("--preview-dock-sim-only") || args.Contains("--multi-main-offscreen") || args.Contains("--ai-follow-up-panel-offscreen") || args.Contains("--pdf-annotation-selection-only") || args.Contains("--source-annotation-modes-only") || args.Contains("--preview-close-restore-only") || args.Contains("--preview-settings-offscreen") || args.Contains("--answer-annotation-offscreen") || args.Contains("--zoom-controls-missing-synctex-only")) { window.Left = -3000; window.Top = -3000; window.ShowActivated = false; }
         app.DispatcherUnhandledException += (_, e) => { Console.Error.WriteLine(e.Exception); e.Handled = true; app.Shutdown(1); };
         window.Loaded += async (_, _) =>
         {
@@ -279,6 +279,11 @@ internal static partial class Program
                 if (editor.CurrentFilePath != main) throw new Exception("Main editor did not open fixture");
                 var project = (TexProject)Field(window, "_project")!;
                 if (project.Files.Count != 2) throw new Exception("Dependent file was not loaded");
+                if (args.Contains("--zoom-controls-missing-synctex-only"))
+                {
+                    await CheckZoomWithMissingSyncAsync(window, output);
+                    await CloseAndObserveAsync(window, "zoom controls with missing SyncTeX"); result = 0; return;
+                }
                 if (args.Contains("--ai-mentions-only"))
                 {
                     await CheckAiMentionsAsync(window, output);
