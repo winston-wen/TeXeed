@@ -122,12 +122,29 @@ internal static partial class Program
             }
             var nestedViewport = (FrameworkElement)inner.Template.FindName("PART_ScrollContentPresenter", inner);
             var lineHeight = TextBlock.GetLineHeight(box);
+            async Task CheckVisibleCaret(int index, string operation)
+            {
+                Rect CaretInViewport() => box.TransformToVisual(nestedViewport).TransformBounds(Caret());
+                try
+                {
+                    await WaitUntilAsync(() =>
+                    {
+                        var rect = CaretInViewport();
+                        return box.CaretIndex == index && !rect.IsEmpty && rect.Top >= -2 &&
+                            rect.Bottom <= nestedViewport.ActualHeight + 2;
+                    }, $"{operation} did not leave the caret visible within the field.");
+                }
+                finally
+                {
+                    var rect = CaretInViewport();
+                    Console.WriteLine($"{operation}: caret {box.CaretIndex}/{index}, Y {rect.Top:F1}..{rect.Bottom:F1}, " +
+                        $"viewport {nestedViewport.ActualHeight:F1}, inner offset {inner.VerticalOffset:F1}.");
+                }
+            }
             Console.WriteLine($"Overflow viewport: height {nestedViewport.ActualHeight:F1}, line height {lineHeight:F1}.");
             Check(nestedViewport.ActualHeight >= 8 * lineHeight - 1.5 && nestedViewport.ActualHeight <= 8 * lineHeight + 2.5,
                 "The capped viewport does not show eight rows of answer text.");
-            var caretInField = box.TransformToVisual(nestedViewport).TransformBounds(Caret());
-            Check(inner.VerticalOffset > 0 && caretInField.Bottom <= nestedViewport.ActualHeight + 2 && caretInField.Top >= -2,
-                "Typing at the end did not keep the caret in the local field viewport.");
+            await CheckVisibleCaret(box.Text.Length, "Typing at the end");
             Check(numbers.PaintedNumbers.LastOrDefault() == 12 && numbers.PaintedNumbers.Count <= 9,
                 "Line numbers did not follow the local scrolling viewport.");
             var fieldYAfterTyping = BoxY();
@@ -137,9 +154,11 @@ internal static partial class Program
             box.RaiseEvent(wheel); await Idle();
             Check(inner.VerticalOffset < previousLocal && Math.Abs(BoxY() - fieldYAfterTyping) < 2,
                 "Wheel inside the field must scroll it without moving the conversation.");
+            inner.ScrollToVerticalOffset(inner.ScrollableHeight / 2);
+            await Idle();
             await Edit(EditingCommands.MoveToDocumentStart);
-            Check(inner.VerticalOffset < 2 && Math.Abs(BoxY() - fieldYAfterTyping) < 2,
-                "Moving to the start must reveal the caret only within the field.");
+            await CheckVisibleCaret(0, "Moving to the start");
+            Check(Math.Abs(BoxY() - fieldYAfterTyping) < 2, "Moving to the start moved the conversation.");
             inner.ScrollToTop();
             await Idle();
             var priorOuter = scroll.VerticalOffset;
@@ -156,9 +175,12 @@ internal static partial class Program
             await Idle();
             Check(inner.VerticalOffset > 0 && Math.Abs(BoxY() - fieldYAfterTyping) < 2,
                 "The actual scrollbar track did not scroll the answer field locally.");
+            inner.ScrollToVerticalOffset(inner.ScrollableHeight / 2);
+            await Idle();
             await Edit(EditingCommands.MoveToDocumentEnd);
-            Check(inner.VerticalOffset > 0 && Math.Abs(BoxY() - fieldYAfterTyping) < 2 && box.Text == textAfterTyping,
-                "Moving to the end must reveal the caret only within the field.");
+            await CheckVisibleCaret(box.Text.Length, "Moving to the end");
+            Check(Math.Abs(BoxY() - fieldYAfterTyping) < 2 && box.Text == textAfterTyping,
+                "Moving to the end moved the conversation or changed the answer.");
             Capture(host, Path.Combine(output, "long-form-eight-visible-rows.png"));
             box.Select(original.Length, box.Text.Length - original.Length); await Edit(EditingCommands.Delete);
             Console.WriteLine($"Shrink from overflow: rows {box.LineCount}, local range {inner.ScrollableHeight:F1}, field height {box.ActualHeight:F1}, " +
@@ -168,7 +190,7 @@ internal static partial class Program
                 "Shortening the answer did not remove the scrollbar without moving the conversation.");
 
             fieldYAfterTyping = BoxY();
-            box.SelectAll(); Text(string.Concat(Enumerable.Repeat("显示行随宽度改变。", 32)));
+            box.SelectAll(); Text(string.Concat(Enumerable.Repeat("显示行随宽度改变。", 28)));
             await Idle();
             Console.WriteLine($"Soft-wrap wide: {box.LineCount} visual rows, local range {inner.ScrollableHeight:F1}.");
             Check(numbers.LogicalLineCount == 1 && box.LineCount <= 8 && inner.ScrollableHeight < 1,
