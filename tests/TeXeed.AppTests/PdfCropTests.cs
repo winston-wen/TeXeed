@@ -72,11 +72,27 @@ internal static partial class Program
             Capture(window, Path.Combine(output, "pdf-auto-crop.png"));
             var scroll = (ScrollViewer)Field(preview, "_scroll")!;
             if (scroll.ScrollableWidth > 1) throw new Exception("Automatic fill introduced horizontal scrolling");
-            var verticalBar = Descendants<ScrollBar>(preview).First(b => b.Orientation == Orientation.Vertical && b.IsVisible);
             var oldY = scroll.VerticalOffset;
-            ScrollBar.PageDownCommand.Execute(null, verticalBar); window.UpdateLayout();
-            if (scroll.VerticalOffset <= oldY) throw new Exception("Overlay scrollbar track did not scroll the PDF");
-            scroll.ScrollToVerticalOffset(oldY); window.UpdateLayout();
+            // Earlier SyncTeX and viewport restore can leave the crop fixture at its end,
+            // especially when a narrow preview displays all three compressed pages at once.
+            scroll.ScrollToTop();
+            window.UpdateLayout();
+            await window.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            var startY = scroll.VerticalOffset;
+            if (startY > 1 || scroll.ScrollableHeight - startY <= 1)
+                throw new Exception($"Crop fixture has no downward track range at its start: offset={startY:F1}, limit={scroll.ScrollableHeight:F1}");
+            var verticalBar = (ScrollBar)scroll.Template.FindName("PART_VerticalScrollBar", scroll);
+            var track = (Track)verticalBar.Template.FindName("PART_Track", verticalBar);
+            var pageDown = track.IncreaseRepeatButton;
+            if (!verticalBar.IsVisible || !pageDown.IsVisible || pageDown.ActualHeight <= 0 ||
+                pageDown.Command != ScrollBar.PageDownCommand || !ScrollBar.PageDownCommand.CanExecute(null, pageDown))
+                throw new Exception("The PDF overlay track has no usable page-down button");
+            ScrollBar.PageDownCommand.Execute(null, pageDown);
+            window.UpdateLayout();
+            await WaitUntilAsync(() => scroll.VerticalOffset > startY + 1,
+                "Overlay scrollbar track did not scroll the PDF from its starting position");
+            scroll.ScrollToVerticalOffset(oldY);
+            window.UpdateLayout();
             Invoke(window, "ApplyPreviewOptions", new PreviewOptions(preview.Zoom, preview.IsAutoWidth, PreviewFollowMode.None, preview.InvertColors, false));
             await WaitForPreviewRenderedAsync(window); AssertPdfPagesCentered(preview); Capture(window, Path.Combine(output, "pdf-full-page.png"));
             if (scroll.ScrollableWidth > 1) throw new Exception("Restoring a full page retained stale horizontal anchor padding");
