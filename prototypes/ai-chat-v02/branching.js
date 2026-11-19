@@ -67,44 +67,17 @@
   function saveDraft() { try { localStorage.setItem(draftKey(state.active), JSON.stringify({ draft: current().draft, attachments: ensureSession(current()).attachments, pending: state.pending?.parentId === state.active ? state.pending : null })); return true; } catch { $('status').textContent = '当前浏览器无法保存示例草稿。'; return false; } }
   function saveReferences() { try { localStorage.setItem(referencesKey(state.active), JSON.stringify(ensureSession(current()).references)); return true; } catch { $('status').textContent = '当前浏览器无法保存引用。'; return false; } }
   function saveForm(turn) { try { localStorage.setItem(formKey(state.active, turn.id), JSON.stringify({ values: turn.formValues, invalidations: turn.formInvalidations || {} })); return true; } catch { $('status').textContent = '无法保存填写内容，请检查浏览器存储。'; return false; } }
-  let pendingAnchor = null;
-  function cancelPendingAnchor() {
-    if (!pendingAnchor) return;
-    const pending = pendingAnchor; pendingAnchor = null;
-    cancelAnimationFrame(pending.frame);
-    pending.cleanup();
+  let readerPositionVersion = 0;
+  function cancelReaderPosition() { ++readerPositionVersion; }
+  function queueReaderPosition(apply) {
+    const version = ++readerPositionVersion;
+    const sessionId = state.active;
+    requestAnimationFrame(() => {
+      if (version === readerPositionVersion && state.active === sessionId) apply();
+    });
   }
   function jumpToAnchor(pos) {
-    cancelPendingAnchor();
-    const pending = { frame: 0, cleanup: () => {} };
-    pendingAnchor = pending;
-    if (pos?.center) {
-      const cancel = () => cancelPendingAnchor();
-      const key = event => {
-        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) return;
-        const target = event.target;
-        if (target instanceof Element && target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
-        cancel();
-      };
-      const hidden = () => { if (document.hidden) cancel(); };
-      reader.addEventListener('wheel', cancel, { passive: true });
-      reader.addEventListener('pointerdown', cancel, { passive: true });
-      reader.addEventListener('touchstart', cancel, { passive: true });
-      document.addEventListener('keydown', key, true);
-      document.addEventListener('visibilitychange', hidden);
-      window.addEventListener('pagehide', cancel);
-      pending.cleanup = () => {
-        reader.removeEventListener('wheel', cancel);
-        reader.removeEventListener('pointerdown', cancel);
-        reader.removeEventListener('touchstart', cancel);
-        document.removeEventListener('keydown', key, true);
-        document.removeEventListener('visibilitychange', hidden);
-        window.removeEventListener('pagehide', cancel);
-      };
-    }
-    pending.frame = requestAnimationFrame(() => {
-      if (pendingAnchor !== pending) return;
-      pendingAnchor = null; pending.cleanup();
+    queueReaderPosition(() => {
       const el = pos && pos.blockId ? transcript.querySelector(`[data-block-id="${CSS.escape(pos.blockId)}"]`) : null;
       if (pos?.successMessage) $('status').textContent = el ? pos.successMessage : '无法定位提问出处。';
       let anchorRect = null;
@@ -547,12 +520,12 @@
   });
   function navigate(id, position) {
     if (!session(id)) return;
-    cancelPendingAnchor();
+    cancelReaderPosition();
     if (id === state.active && !position) { closeMap(); return; }
     setAnswerMarking(false); persistCurrent(); state.active = id; state.selected = id; state.pending = state.pendingBySession?.[id] || null; currentSelection = null;
     const viewport = current().viewport || 0;
     $('selection-tools').hidden = true; closeMap(); renderTranscript(); setComposer();
-    if (position) jumpToAnchor(position); else requestAnimationFrame(() => { reader.scrollTop = viewport; }); save();
+    if (position) jumpToAnchor(position); else queueReaderPosition(() => { reader.scrollTop = viewport; }); save();
   }
   function unfoldFor(target, blockId) {
     if (!target || !blockId) return;
@@ -731,7 +704,7 @@
     mentionUndo.delete(previousSessionId); mentionUndo.delete(previousSessionId + ':branch'); mentionHistoryInput = false;
     if (branching) { try { localStorage.removeItem(draftKey(previousSessionId)); localStorage.removeItem(referencesKey(previousSessionId)); } catch { /* The sent snapshot has already been saved. */ } }
     composer.value = ''; if (branching || hadInitialSource || formResponses.length || formAssessment) renderTranscript(); else { refreshLocalSources(sentReferences); transcript.appendChild(renderTurn(current().turns.at(-1), current().turns.length - 1)); refreshReferenceClips(); } setComposer();
-    requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; });
+    queueReaderPosition(() => { reader.scrollTop = reader.scrollHeight; });
     $('status').textContent = '已保存示例问题和附件；下方是预设答复，未连接 AI。';
   }
   function openBookmark(candidate) {
@@ -822,12 +795,19 @@
   $('form-path-file-input').addEventListener('change', e => { const files = Array.from(e.target.files || []), origin = formAttachmentOrigin; e.target.value = ''; formAttachmentOrigin = null; if (origin?.sessionId !== state.active) { $('status').textContent = '会话已切换，请在原会话重新选择文件。'; return; } if (files.length) addPathReferences(files.map(file => file.name), 'file', origin); });
   $('form-folder-input').addEventListener('change', e => { const files = Array.from(e.target.files || []), origin = formAttachmentOrigin; e.target.value = ''; formAttachmentOrigin = null; if (origin?.sessionId !== state.active) { $('status').textContent = '会话已切换，请在原会话重新选择文件夹。'; return; } if (files.length) addPathReferences([...new Set(files.map(file => file.webkitRelativePath.split('/')[0]))], 'directory', origin); });
   if (!('webkitdirectory' in $('folder-input'))) { $('attach-folder').disabled = true; $('attach-folder').textContent = '引用文件夹（浏览器不支持）'; }
-  $('demo-assets').addEventListener('click', () => { const turn = { id: uid(), question: '图文交互示例', answer: demoAssetBlocks(), demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } transcript.appendChild(renderTurn(turn, current().turns.length - 1)); requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '已添加图文示例；右键公式或图片可操作。'; });
-  $('demo-forms').addEventListener('click', () => { const turn = { id: uid(), question: '给我出几道可以填写的题。', answer: [block('heading', '什么时候进一格？'), block('paragraph', '填写下表，再说明两个相邻输入的输出为什么不同。'), { id: uid(), kind: 'exercise', text: '' }], demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } renderTranscript(); requestAnimationFrame(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '填写示例已添加；发送下一条消息后锁定。'; });
+  $('demo-assets').addEventListener('click', () => { const turn = { id: uid(), question: '图文交互示例', answer: demoAssetBlocks(), demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } transcript.appendChild(renderTurn(turn, current().turns.length - 1)); queueReaderPosition(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '已添加图文示例；右键公式或图片可操作。'; });
+  $('demo-forms').addEventListener('click', () => { const turn = { id: uid(), question: '给我出几道可以填写的题。', answer: [block('heading', '什么时候进一格？'), block('paragraph', '填写下表，再说明两个相邻输入的输出为什么不同。'), { id: uid(), kind: 'exercise', text: '' }], demo: true }; current().turns.push(turn); if (!save()) { current().turns.pop(); return; } renderTranscript(); queueReaderPosition(() => { reader.scrollTop = reader.scrollHeight; }); $('status').textContent = '填写示例已添加；发送下一条消息后锁定。'; });
   reader.addEventListener('pointerup', e => { if (answerMarking && e.button === 0) { const selection = selectionInfo(); if (selection) { currentSelection = {...selection, selected:true}; addReference(currentSelection, true); } return; } showSelection(); }); reader.addEventListener('keyup', showSelection);
   reader.addEventListener('scroll', () => { if (!mapOpen) { current().viewport = reader.scrollTop; try { localStorage.setItem(viewportKey(state.active), String(reader.scrollTop)); } catch { $('status').textContent = '当前浏览器无法保存视口位置。'; } } }, { passive: true });
+  for (const name of ['wheel', 'pointerdown', 'touchstart']) reader.addEventListener(name, cancelReaderPosition, { passive: true });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Tab' || (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key) &&
+        !event.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) cancelReaderPosition();
+  }, true);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) cancelReaderPosition(); });
+  window.addEventListener('pagehide', cancelReaderPosition);
   function toggleHeading(target) { const heading = target.closest('[data-heading-id]'); if (!heading || window.getSelection()?.toString().trim()) return; const section = heading.closest('.turn'), turnIndex = Array.from(transcript.children).indexOf(section); const turn = current().turns[turnIndex]; if (!turn) return; const collapsed = heading.getAttribute('aria-expanded') === 'true'; turn.collapsedSections ||= {}; turn.collapsedSections[heading.dataset.headingId] = collapsed; syncFoldVisibility(section, turn); save(); }
-  transcript.addEventListener('click', e => { const turnId = e.target.closest('[data-open-turn]')?.dataset.openTurn; if (turnId) { const turn = transcript.querySelector('[data-turn-id="' + CSS.escape(turnId) + '"]'); if (turn) turn.scrollIntoView({block:'center'}); else $('status').textContent = '无法定位目标轮次。'; return; } const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const source = e.target.closest('[data-source-session]')?.dataset.sourceSession; if (source) { parentSource(session(source)); return; } const reference = e.target.closest('[data-reference-session]'); if (reference) { const target = session(reference.dataset.referenceSession); if (!target) { $('status').textContent = '无法定位引用出处。'; return; } const blockId = reference.dataset.referenceBlock; unfoldFor(target, blockId); const offset = reference.dataset.referenceOffset; navigate(target.id, { blockId, textOffset: offset === undefined ? undefined : Number(offset), center: true }); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
+  transcript.addEventListener('click', e => { const turnId = e.target.closest('[data-open-turn]')?.dataset.openTurn; if (turnId) { cancelReaderPosition(); const turn = transcript.querySelector('[data-turn-id="' + CSS.escape(turnId) + '"]'); if (turn) turn.scrollIntoView({block:'center'}); else $('status').textContent = '无法定位目标轮次。'; return; } const id = e.target.closest('[data-open-session]')?.dataset.openSession; if (id) { navigate(id); return; } const source = e.target.closest('[data-source-session]')?.dataset.sourceSession; if (source) { parentSource(session(source)); return; } const reference = e.target.closest('[data-reference-session]'); if (reference) { const target = session(reference.dataset.referenceSession); if (!target) { $('status').textContent = '无法定位引用出处。'; return; } const blockId = reference.dataset.referenceBlock; unfoldFor(target, blockId); const offset = reference.dataset.referenceOffset; navigate(target.id, { blockId, textOffset: offset === undefined ? undefined : Number(offset), center: true }); return; } const el = e.target.closest('[data-block-id]'); if (el && !window.getSelection()?.toString().trim()) { transcript.querySelector('.focused-passage')?.classList.remove('focused-passage'); el.classList.add('focused-passage'); focusedBlock = blockContext(el); $('bookmark-paragraph').disabled = false; } toggleHeading(e.target); });
   transcript.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-heading-id]')) { e.preventDefault(); toggleHeading(e.target); } });
   $('composer-context').addEventListener('click', e => { if (e.target.id !== 'cancel-context') return; if (state.pending?.kind === 'branch') state.pending = null; else state.pending = null; setComposer(); save(); });
   composer.addEventListener('beforeinput', e => { mentionHistoryInput = e.inputType === 'historyUndo' || e.inputType === 'historyRedo'; });
@@ -843,11 +823,11 @@
   document.addEventListener('keydown', e => { if (answerMarking && e.key === 'Escape') { setAnswerMarking(false); e.preventDefault(); } });
   window.branchDemo = {
     getState: () => JSON.parse(JSON.stringify(state)),
-    setState: next => { for (const s of state.sessions) localStorage.removeItem(draftKey(s.id)); state = JSON.parse(JSON.stringify(next)); state.bookmarks ||= []; closeMap(); renderTranscript(); setComposer(); reader.scrollTop = 0; save(); },
-    reset: () => { for (const s of state.sessions) localStorage.removeItem(draftKey(s.id)); state = initial(); closeMap(); renderTranscript(); setComposer(); reader.scrollTop = 0; save(); },
+    setState: next => { cancelReaderPosition(); for (const s of state.sessions) localStorage.removeItem(draftKey(s.id)); state = JSON.parse(JSON.stringify(next)); state.bookmarks ||= []; closeMap(); renderTranscript(); setComposer(); reader.scrollTop = 0; save(); },
+    reset: () => { cancelReaderPosition(); for (const s of state.sessions) localStorage.removeItem(draftKey(s.id)); state = initial(); closeMap(); renderTranscript(); setComposer(); reader.scrollTop = 0; save(); },
     makeFixture: (turnCount = 120, branchCount = 60) => { const fixture = initial(); const root = fixture.sessions[0]; root.turns = Array.from({ length: turnCount }, (_, i) => ({ id: 'fixture-turn-' + i, question: '测试问题 ' + i, answer: [ { id: 'fixture-block-' + i, kind: 'paragraph', text: '同一阅读场景的固定测试内容。'.repeat(8) } ], demo: true })); for (let i = 0; i < branchCount; i++) fixture.sessions.push({ id: 'fixture-branch-' + i, title: '追问 ' + i, parent: 'root', source: { blockId: 'fixture-block-' + (i % turnCount), quote: '同一阅读场景' }, draft: '', turns: [] }); return fixture; },
     seedPerf: turns => { const fixture = initial(); fixture.sessions[0].turns = turns.map((t, i) => ({ id: t.id || 'fixture-turn-' + i, question: t.question, answer: Array.isArray(t.answer) ? t.answer : [{ id: 'fixture-block-' + i, kind: 'paragraph', text: String(t.answer || '') }], demo: true })); window.branchDemo.setState(fixture); }
   };
   if (!session(state.active)) state.active = state.sessions[0].id;
-  renderTranscript(); setComposer(); requestAnimationFrame(() => { reader.scrollTop = current().viewport || 0; });
+  renderTranscript(); setComposer(); queueReaderPosition(() => { reader.scrollTop = current().viewport || 0; });
 })();

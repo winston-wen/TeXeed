@@ -18,13 +18,13 @@ catch { console.log('SKIP branch return cancellation browser: Playwright unavail
         const answer = [...Array.from({ length: 15 }, (_, i) => para('before-' + i, '定位前的测试文字。'.repeat(7))), para('source', '这里是用户选择的来源位置。'), ...Array.from({ length: 15 }, (_, i) => para('after-' + i, '定位后的测试文字。'.repeat(7)))];
         f.sessions = [
           { id: 'root', title: '上游', parent: null, source: null, draft: '上游草稿', turns: [{ id: 'root-turn', question: '问题', answer }] },
-          { id: 'child', title: '追问', parent: 'root', source: { blockId: 'source', endBlockId: 'source', textOffset: 3, endTextOffset: 8, quote: '用户选择的' }, draft: '追问草稿', turns: [{ id: 'child-turn', question: '追问', answer: [para('reply', '答复')] }] }
+          { id: 'child', title: '追问', parent: 'root', source: { blockId: 'source', endBlockId: 'source', textOffset: 3, endTextOffset: 8, quote: '用户选择的' }, draft: '追问草稿', turns: [{ id: 'child-turn', question: '追问', answer: answer.map(item => para('child-' + item.id, item.text)) }] }
         ];
         f.active = 'child'; f.selected = 'child'; f.bookmarks = []; branchDemo.setState(f);
       });
     }
-    async function holdAndNavigate() {
-      await page.evaluate(() => {
+    async function holdAndNavigate(toSavedViewport = false) {
+      await page.evaluate(toSavedViewport => {
         const originalRequest = window.requestAnimationFrame, originalCancel = window.cancelAnimationFrame;
         const queued = new Map(); let next = 2000000000;
         const tracked = [];
@@ -42,8 +42,9 @@ catch { console.log('SKIP branch return cancellation browser: Playwright unavail
           window.pendingInputListeners = tracked.reduce((count, entry) => count + [...entry.active.values()].reduce((sum, listeners) => sum + listeners.size, 0), 0);
           for (const entry of tracked) { entry.target.addEventListener = entry.add; entry.target.removeEventListener = entry.remove; }
         };
-        document.querySelector('#back-source').click();
-      });
+        if (toSavedViewport) document.querySelector('#child-sessions').click();
+        else document.querySelector('#back-source').click();
+      }, toSavedViewport);
     }
     for (const action of ['wheel', 'pointerdown', 'touchstart', 'PageDown', 'ArrowUp', 'ArrowRight', ' ']) {
       await fixture(); await holdAndNavigate();
@@ -75,6 +76,26 @@ catch { console.log('SKIP branch return cancellation browser: Playwright unavail
       assert.equal(result.status, '已定位提问出处。');
       assert.equal(result.listeners, 0, 'pending listeners must be removed after completion');
     }
+    await fixture();
+    await page.evaluate(() => { document.querySelector('#reader').scrollTop = 460; });
+    await page.waitForFunction(() => Math.abs(branchDemo.getState().sessions[1].viewport - 460) < 2);
+    await page.evaluate(() => {
+      document.querySelector('#back-source').click();
+    });
+    await page.waitForSelector('.source-flash');
+    await holdAndNavigate(true);
+    const saved = await page.evaluate(() => {
+      const reader = document.querySelector('#reader');
+      const savedViewport = branchDemo.getState().sessions[1].viewport;
+      reader.scrollTop = 0;
+      const before = reader.scrollTop;
+      reader.querySelector('.passage').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+      window.flushTestFrames();
+      return { savedViewport, before, after: reader.scrollTop, active: branchDemo.getState().active };
+    });
+    assert.equal(saved.active, 'child');
+    assert(saved.savedViewport > 400, 'test needs a saved viewport away from the top');
+    assert.equal(saved.after, saved.before, 'click should take precedence over a queued saved viewport');
     await fixture();
     await page.evaluate(() => {
       window.realWheelSeen = false;

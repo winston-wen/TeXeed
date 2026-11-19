@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 
@@ -61,42 +60,24 @@ public partial class AiPanel
         CancelLayoutAnchor();
         var conversation = _book.Active;
         if (_liveBookmarkCheckpointReady && _foldingLiveTurn?.Id == turnId && LiveContainer.Visibility == Visibility.Visible)
-        { _readingRestoreVersion++; _restoringReading = false; RevealLiveTurn(); return true; }
+        { CancelReadingRestore(); RevealLiveTurn(); return true; }
         var turn = conversation.Turns.FirstOrDefault(item => item.Id == turnId);
         var index = turn is null ? -1 : _transcriptItems.IndexOf(turn);
         if (turn is null || index < 0) return false;
-        var userIntervened = false;
-        MouseButtonEventHandler mouse = (_, _) => userIntervened = true;
-        MouseWheelEventHandler wheel = (_, _) => userIntervened = true;
-        EventHandler<TouchEventArgs> touch = (_, _) => userIntervened = true;
-        KeyEventHandler key = (_, e) => { if (e.Key is Key.Up or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End or Key.Space) userIntervened = true; };
-        MessagesScroll.AddHandler(UIElement.PreviewMouseDownEvent, mouse, true);
-        MessagesScroll.AddHandler(UIElement.PreviewMouseWheelEvent, wheel, true);
-        MessagesScroll.AddHandler(UIElement.PreviewTouchDownEvent, touch, true);
-        MessagesScroll.AddHandler(UIElement.PreviewKeyDownEvent, key, true);
-        try
-        {
-            var version = ++_readingRestoreVersion; _restoringReading = false;
-            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-            if (userIntervened || _readingRestoreVersion != version || !IsVisible) return true;
-            VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
-            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-            if (userIntervened || _readingRestoreVersion != version || !IsVisible) return true;
-            if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var view)) return false;
-            if (turn.Collapsed) view.Toggle();
-            History.UpdateLayout(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-            if (userIntervened || _readingRestoreVersion != version || !IsVisible) return true;
-            if (_disposed || _book.Active != conversation || !view.IsLoaded) return false;
-            var top = view.TranslatePoint(new Point(), MessagesScroll).Y;
-            MessagesScroll.ScrollToVerticalOffset(Math.Clamp(MessagesScroll.VerticalOffset + top, 0, MessagesScroll.ScrollableHeight));
-            return true;
-        }
-        finally
-        {
-            MessagesScroll.RemoveHandler(UIElement.PreviewMouseDownEvent, mouse);
-            MessagesScroll.RemoveHandler(UIElement.PreviewMouseWheelEvent, wheel);
-            MessagesScroll.RemoveHandler(UIElement.PreviewTouchDownEvent, touch);
-            MessagesScroll.RemoveHandler(UIElement.PreviewKeyDownEvent, key);
-        }
+        CancelReadingRestore();
+        var version = _readingRestoreVersion;
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (_readingRestoreVersion != version || !IsVisible) return true;
+        VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (_readingRestoreVersion != version || !IsVisible) return true;
+        if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var view)) return false;
+        if (turn.Collapsed) view.Toggle();
+        History.UpdateLayout(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (_readingRestoreVersion != version || !IsVisible) return true;
+        if (_disposed || _book.Active != conversation || !view.IsLoaded) return false;
+        var top = view.TranslatePoint(new Point(), MessagesScroll).Y;
+        MessagesScroll.ScrollToVerticalOffset(Math.Clamp(MessagesScroll.VerticalOffset + top, 0, MessagesScroll.ScrollableHeight));
+        return true;
     }
 }

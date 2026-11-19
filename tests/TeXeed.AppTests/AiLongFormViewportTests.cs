@@ -21,7 +21,17 @@ internal static partial class Program
         var turn = AiForms.WithSubmission(new AiTurn("练习", before + "\n\n{{textarea:long}}\n\n" + after), null);
         AiForms.SetDraft(turn, "textarea", "long", string.Join("\n", Enumerable.Range(0, 80).Select(i => $"第 {i} 行的长答案")));
         book.Turns.Add(turn);
-        var host = new Window { Owner = owner, Width = 900, Height = 680, Content = panel, Topmost = true }; host.Show();
+        var offscreen = Environment.GetCommandLineArgs().Contains("--offscreen");
+        var host = new Window { Owner = owner, Width = 900, Height = 680, Content = panel, Topmost = !offscreen };
+        if (offscreen)
+        {
+            host.WindowStartupLocation = WindowStartupLocation.Manual;
+            host.Left = -12000;
+            host.Top = 20;
+            host.ShowActivated = false;
+            host.ShowInTaskbar = false;
+        }
+        host.Show();
         try
         {
             Invoke(panel, "RefreshTranscript"); host.UpdateLayout();

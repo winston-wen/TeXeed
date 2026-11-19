@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -14,7 +15,8 @@ public partial class AiPanel
     {
         if (modifiers.HasFlag(ModifierKeys.Control) || modifiers.HasFlag(ModifierKeys.Alt)) { CancelLayoutAnchor(); return; }
         var horizontal = modifiers.HasFlag(ModifierKeys.Shift);
-        if (!horizontal) CancelReadingRestore();
+        MessagesScroll.CancelFocusReveal();
+        CancelReadingRestore();
         // Tunnel before RichTextBox/TextBox and horizontal-only formula scrollers
         // consume the wheel. A vertically scrollable activity keeps its own scroll;
         // at its edge the gesture continues through the enclosing conversation.
@@ -35,7 +37,6 @@ public partial class AiPanel
 
     private void CancelReadingRestore()
     {
-        if (!_restoringReading) return;
         _readingRestoreVersion++;
         _restoringReading = false;
     }
@@ -43,23 +44,63 @@ public partial class AiPanel
     private void NavigationMouseDown(object sender, MouseButtonEventArgs e)
     {
         CancelLayoutAnchor();
+        MessagesScroll.CancelFocusReveal();
         for (var item = e.OriginalSource as DependencyObject; item is not null; item = ScrollParent(item))
         {
-            if (item is System.Windows.Controls.Primitives.ScrollBar) { CancelReadingRestore(); break; }
-            if (ReferenceEquals(item, MessagesScroll)) break;
+            if (!ReferenceEquals(item, MessagesScroll)) continue;
+            CancelReadingRestore();
+            break;
         }
     }
 
     private void NavigationKeyDown(object sender, KeyEventArgs e)
     {
         CancelLayoutAnchor();
+        MessagesScroll.CancelFocusReveal();
+        if (e.Key == Key.Tab && (Keyboard.Modifiers & ~ModifierKeys.Shift) == ModifierKeys.None)
+        {
+            CancelReadingRestore();
+            MessagesScroll.QueueFocusReveal();
+            return;
+        }
+        if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End)
+        {
+            for (var item = e.OriginalSource as DependencyObject; item is not null; item = ScrollParent(item))
+            {
+                if (item is not (MarkdownView or TextBox or System.Windows.Controls.Primitives.ToggleButton)) continue;
+                if (!MessagesScroll.IsAncestorOf(item)) break;
+                CancelReadingRestore();
+                MessagesScroll.QueueFocusReveal();
+                return;
+            }
+        }
         if (e.Key is not (Key.Up or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End or Key.Space)) return;
         for (var item = e.OriginalSource as DependencyObject; item is not null; item = ScrollParent(item))
             if (item is System.Windows.Controls.Primitives.TextBoxBase { IsReadOnly: false } or PasswordBox or ComboBox or System.Windows.Controls.Primitives.ButtonBase) return;
         CancelReadingRestore();
     }
 
-    private void NavigationTouchMove(object? sender, TouchEventArgs e) { CancelLayoutAnchor(); CancelReadingRestore(); }
+    private void NavigationTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (Keyboard.FocusedElement is TextBox { IsReadOnly: false } box && MessagesScroll.IsAncestorOf(box))
+            MessagesScroll.QueueFocusReveal(box);
+    }
+
+    private void NavigationCommand(object sender, ExecutedRoutedEventArgs e)
+    {
+        if ((e.Command is RoutedCommand { OwnerType: var owner } && owner == typeof(EditingCommands) ||
+            e.Command == ApplicationCommands.Paste || e.Command == ApplicationCommands.Cut ||
+            e.Command == ApplicationCommands.Undo || e.Command == ApplicationCommands.Redo) &&
+            Keyboard.FocusedElement is TextBox { IsReadOnly: false } box && MessagesScroll.IsAncestorOf(box))
+            MessagesScroll.QueueFocusReveal(box);
+    }
+
+    private void NavigationTouchMove(object? sender, TouchEventArgs e)
+    {
+        MessagesScroll.CancelFocusReveal();
+        CancelLayoutAnchor();
+        CancelReadingRestore();
+    }
     internal static bool ScrollWheel(ScrollViewer scroll, int delta, bool horizontal, Action<double, double>? beforeScroll = null, double? pendingOffset = null)
     {
         var extent = horizontal ? scroll.ScrollableWidth : scroll.ScrollableHeight;

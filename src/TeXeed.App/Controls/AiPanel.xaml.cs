@@ -20,7 +20,7 @@ public partial class AiPanel : UserControl, IDisposable
     private AiWorkspaceStore? _store;
     internal string ConversationId => _book.ActiveConversationId;
     internal AiConversation Conversation => _book.Active;
-    private readonly ScrollViewer MessagesScroll;
+    private readonly ChatScrollViewer MessagesScroll;
     private readonly AutoScrollController _autoScroll;
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private readonly SemaphoreSlim _saveGate = new(1);
@@ -66,11 +66,15 @@ public partial class AiPanel : UserControl, IDisposable
         LiveSentTime.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { ToggleLiveTurn(); e.Handled = true; } };
         LiveSentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) ToggleLiveTurn(); e.Handled = true; } };
         History.ApplyTemplate();
-        MessagesScroll = (ScrollViewer)History.Template.FindName("MessagesScroll", History);
+        MessagesScroll = (ChatScrollViewer)History.Template.FindName("MessagesScroll", History);
+        MessagesScroll.TextNavigationStarting = () => { CancelLayoutAnchor(); CancelReadingRestore(); };
         MessagesScroll.AddHandler(MarkdownView.AsyncLayoutChangingEvent, new RoutedEventHandler(AsyncLayoutChanging));
         AddHandler(PreviewMouseDownEvent, new MouseButtonEventHandler(NavigationMouseDown), true);
         AddHandler(PreviewKeyDownEvent, new KeyEventHandler(NavigationKeyDown), true);
+        AddHandler(PreviewTouchDownEvent, new EventHandler<TouchEventArgs>(NavigationTouchMove), true);
         AddHandler(PreviewTouchMoveEvent, new EventHandler<TouchEventArgs>(NavigationTouchMove), true);
+        MessagesScroll.AddHandler(TextInputEvent, new TextCompositionEventHandler(NavigationTextInput), true);
+        MessagesScroll.AddHandler(CommandManager.ExecutedEvent, new ExecutedRoutedEventHandler(NavigationCommand), true);
         _autoScroll = new AutoScrollController(MessagesScroll);
         RegisterName(nameof(MessagesScroll), MessagesScroll);
         // The ItemsPresenter must be the direct ScrollViewer content so WPF can
@@ -297,7 +301,7 @@ public partial class AiPanel : UserControl, IDisposable
         RefreshBranchOriginPreview();
         LiveContainer.Visibility = Visibility.Collapsed;
         _liveSegments.Clear();
-        MessageSearch_Changed(MessageSearchBox, null!);
+        RefreshMessageMatches();
         RefreshVisibleBranchLinks();
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -414,7 +418,8 @@ public partial class AiPanel : UserControl, IDisposable
             foreach (var submission in submittedForms) batch.Add(new AiEntry { Title = "用户填写的控件", Question = "本次提交消息标识：" + pendingTurn.Id + "\n" + AiForms.Describe(submission) });
             _followUpBuffer = buffer;
             _steering = CreateSteeringController(book, pendingTurn.Id);
-            _readingRestoreVersion++; _restoringReading = false;
+            CancelReadingRestore();
+            var liveRevealVersion = _readingRestoreVersion;
             _liveSegments.Clear();
             LiveQuestion.SnapshotEntries = sentAnnotations;
             LiveQuestion.RevisionSourceOverride = question;
@@ -436,7 +441,10 @@ public partial class AiPanel : UserControl, IDisposable
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
             _liveQueuedId = queued?.Id;
             if (queued is not null) RefreshFollowUps();
-            _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (_foldingLiveTurn == pendingTurn && !_disposed) RevealLiveTurn(); }));
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+            {
+                if (_foldingLiveTurn == pendingTurn && !_disposed && liveRevealVersion == _readingRestoreVersion) RevealLiveTurn();
+            }));
             AiTurnCheckpoint checkpoint;
             _pendingFormSubmissions.Clear();
             foreach (var submission in submittedForms) _pendingFormSubmissions[submission.TurnId] = submission;

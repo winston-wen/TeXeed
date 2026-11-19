@@ -1,13 +1,12 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
 using TeXeed.App.AI;
 
 namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
-    private IReadOnlyList<AiTurn> _messageMatches = [];
+    private AiTurn[] _messageMatches = [];
     private int _messageMatchIndex;
 
     private async Task FinishConversationWorkAsync()
@@ -78,21 +77,31 @@ public partial class AiPanel
     private void MessageSearch_Changed(object sender, TextChangedEventArgs e)
     {
         if (MessageMatchStatus is null) return;
+        _messageMatchIndex = 0;
+        RefreshMessageMatches();
+        ShowMessageMatch();
+    }
+    private void RefreshMessageMatches()
+    {
+        var previous = _messageMatches.Length == 0 ? null : _messageMatches[_messageMatchIndex];
         var text = MessageSearchBox.Text.Trim();
         _messageMatches = text.Length == 0 ? [] : _book.Turns.Where(t => t.Question.Contains(text, StringComparison.OrdinalIgnoreCase) || t.Answer.Contains(text, StringComparison.OrdinalIgnoreCase)).ToArray();
-        _messageMatchIndex = 0;
-        ShowMessageMatch();
+        _messageMatchIndex = previous is null ? 0 : Math.Max(0, Array.IndexOf(_messageMatches, previous));
+        UpdateMessageMatchStatus();
     }
     private void PreviousMatch_Click(object sender, RoutedEventArgs e) { _messageMatchIndex--; ShowMessageMatch(); }
     private void NextMatch_Click(object sender, RoutedEventArgs e) { _messageMatchIndex++; ShowMessageMatch(); }
     private void ShowMessageMatch()
     {
+        if (_messageMatches.Length == 0) return;
         CancelLayoutAnchor();
-        MessageMatchStatus.Text = _messageMatches.Count == 0 ? "0" : $"{(_messageMatchIndex = (_messageMatchIndex % _messageMatches.Count + _messageMatches.Count) % _messageMatches.Count) + 1}/{_messageMatches.Count}";
-        if (_messageMatches.Count == 0) return;
+        CancelReadingRestore();
+        _messageMatchIndex = (_messageMatchIndex % _messageMatches.Length + _messageMatches.Length) % _messageMatches.Length;
+        UpdateMessageMatchStatus();
         var target = _messageMatches[_messageMatchIndex];
         VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(_transcriptItems.IndexOf(target));
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
-        { if (History.ItemContainerGenerator.ContainerFromItem(target) is FrameworkElement item) item.BringIntoView(); }));
     }
+
+    private void UpdateMessageMatchStatus() => MessageMatchStatus.Text =
+        _messageMatches.Length == 0 ? "0" : $"{_messageMatchIndex + 1}/{_messageMatches.Length}";
 }

@@ -1,0 +1,148 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+internal static class ViewportPerf
+{
+    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+
+    private static T Field<T>(object target, string name) =>
+        (T)target.GetType().GetField(name, Private)!.GetValue(target)!;
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is T found) yield return found;
+            foreach (var nested in Descendants<T>(child)) yield return nested;
+        }
+    }
+
+    private static async Task Idle(Window window)
+    {
+        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        window.UpdateLayout();
+    }
+
+    private static async Task Drain(AiPanel panel, Window window)
+    {
+        await Task.Delay(800);
+        var timer = Field<DispatcherTimer>(panel, "_saveTimer");
+        for (var check = 0; timer.IsEnabled && check < 250; check++) await Task.Delay(20);
+        if (timer.IsEnabled) throw new TimeoutException("The reading viewport save did not drain.");
+        var gate = Field<SemaphoreSlim>(panel, "_saveGate");
+        await gate.WaitAsync();
+        gate.Release();
+        await Idle(window);
+    }
+
+    private static int Visible(Window window) => Descendants<Control>(window).Count(control =>
+        control is { IsVisible: true, ActualHeight: > 0, ActualWidth: > 0 } &&
+        control.TransformToAncestor(window).TransformBounds(new Rect(control.RenderSize))
+            .IntersectsWith(new Rect(window.RenderSize)));
+
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]);
+        Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        using var panel = new AiPanel();
+        var window = new Window
+        {
+            Width = 900, Height = 760, Left = -12000, Top = 20, ShowActivated = false,
+            ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Content = panel
+        };
+        var exit = 1;
+        window.Loaded += async (_, _) =>
+        {
+            try
+            {
+                var project = Path.Combine(output, "fixture.tex");
+                var book = new AiNotebook();
+                var text = string.Join("\n\n", Enumerable.Range(1, 4).Select(section =>
+                    string.Join("\n\n", Enumerable.Range(0, 35).Select(i =>
+                        $"合成测试，第 {section} 组第 {i} 段。Reading a long answer.")) +
+                    $"\n\n## Heading {section}\n\n{{{{text:field{section}}}}}\n\n| 项目 | 答案 |\n| --- | --- |\n| 表格 {section} | {{{{text:table{section}}}}} |"));
+                var longTurn = AiForms.WithSubmission(new AiTurn("合成问题", text), null);
+                book.Turns.Add(longTurn);
+                for (var index = 0; index < 30; index++)
+                    book.Turns.Add(new AiTurn($"后续问题 {index}", "合成的后续回答。"));
+                AiStorage.Save(project, book);
+                await panel.SetProjectAsync(project);
+                await Idle(window);
+                var turn = Descendants<AiTurnView>(panel).Single(item => item.Turn.Id == longTurn.Id);
+                var answer = turn.Answers.Single();
+                await answer.RenderTask;
+                await Drain(panel, window);
+                var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
+                var tables = Descendants<ScrollViewer>(answer).Where(item => item.Content is MarkdownView).ToArray();
+                var bodyField = Descendants<TextBox>(answer).Single(item => AutomationProperties.GetName(item) == "field3");
+                var tableField = Descendants<TextBox>((MarkdownView)tables[2].Content).Single();
+                var samples = new List<object>();
+                var checks = new (string Label, FrameworkElement Target, FrameworkElement Marker)[]
+                {
+                    ("first-table-visibility", (MarkdownView)tables[0].Content, tables[0]),
+                    ("third-body-field-visibility", bodyField, tables[2]),
+                    ("third-table-field-visibility", tableField, tables[2])
+                };
+                foreach (var (label, target, marker) in checks)
+                {
+                    for (var run = 0; run < 9; run++)
+                    {
+                        scroll.ScrollToVerticalOffset(scroll.VerticalOffset + marker.TranslatePoint(new Point(), scroll).Y - 260);
+                        await Drain(panel, window);
+                        if (window.IsActive || !target.IsLoaded) throw new InvalidOperationException("The off-screen test host was activated or target unloaded.");
+                        var y = target.TranslatePoint(new Point(), scroll).Y;
+                        if (y < 0 || y + target.ActualHeight > scroll.ViewportHeight)
+                            throw new InvalidOperationException($"Visibility request target is outside the viewport: {y:F1}");
+                        var beforeY = marker.TranslatePoint(new Point(), scroll).Y;
+                        var beforeOffset = scroll.VerticalOffset;
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread();
+                        var idle = Stopwatch.StartNew();
+                        await Drain(panel, window);
+                        idle.Stop();
+                        idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread();
+                        var watch = Stopwatch.StartNew();
+                        target.BringIntoView();
+                        await Idle(window);
+                        var feedback = watch.Elapsed.TotalMilliseconds;
+                        await Drain(panel, window);
+                        watch.Stop();
+                        bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        if (run < 2) continue;
+                        samples.Add(new
+                        {
+                            op = label, feedbackMs = feedback, rawMs = watch.Elapsed.TotalMilliseconds,
+                            idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = watch.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds,
+                            rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = Visible(window),
+                            beforeOffset, afterOffset = scroll.VerticalOffset, beforeY,
+                            afterY = marker.TranslatePoint(new Point(), scroll).Y
+                        });
+                    }
+                }
+                File.WriteAllText(Path.Combine(output, "results.json"),
+                    JsonSerializer.Serialize(new { fixture = "31 WPF turns, first long answer (4 groups of 35 paragraphs); 900x760; 2 warmups and 7 paired 800ms UI-thread samples per WPF visibility request", samples },
+                        new JsonSerializerOptions { WriteIndented = true }));
+                exit = 0;
+            }
+            catch (Exception error) { File.WriteAllText(Path.Combine(output, "error.txt"), error.ToString()); }
+            finally { window.Close(); app.Shutdown(exit); }
+        };
+        window.Show();
+        app.Run();
+        return exit;
+    }
+}

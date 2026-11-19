@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Data;
-using System.Windows.Input;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 
@@ -170,51 +169,30 @@ public partial class AiPanel
         var turn = conversation.Turns.FirstOrDefault(t => t.Id == anchor.TurnId);
         var index = turn is null ? -1 : _transcriptItems.IndexOf(turn);
         if (turn is null || index < 0) return false;
-        var userIntervened = false;
-        MouseButtonEventHandler mouse = (_, _) => userIntervened = true;
-        MouseWheelEventHandler wheel = (_, _) => userIntervened = true;
-        EventHandler<TouchEventArgs> touch = (_, _) => userIntervened = true;
-        KeyEventHandler key = (_, e) =>
-        {
-            if (e.Key is Key.Up or Key.Down or Key.PageUp or Key.PageDown or Key.Home or Key.End or Key.Space) userIntervened = true;
-        };
-        MessagesScroll.AddHandler(UIElement.PreviewMouseDownEvent, mouse, true);
-        MessagesScroll.AddHandler(UIElement.PreviewMouseWheelEvent, wheel, true);
-        MessagesScroll.AddHandler(UIElement.PreviewTouchDownEvent, touch, true);
-        MessagesScroll.AddHandler(UIElement.PreviewKeyDownEvent, key, true);
-        try
-        {
-        var readingVersion = ++_readingRestoreVersion; _restoringReading = false;
+        CancelReadingRestore();
+        var readingVersion = _readingRestoreVersion;
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
+        if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
+        if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var turnView)) return false;
         if (turn.Collapsed) turnView.Toggle();
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
+        if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         var view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment s && s.Id == anchor.SegmentId);
         if (view is null) return false;
         await view.RenderTask;
-        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
+        if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || view.Revision != anchor.Revision) return false;
         var pointer = view.ResolveBranchAnchor(anchor, before, after);
         History.UpdateLayout(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-        if (userIntervened || _readingRestoreVersion != readingVersion || !IsVisible) return true;
+        if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (pointer is null || view.BookmarkPoint(pointer) is not { } point) return false;
         var position = view.TranslatePoint(point, MessagesScroll);
         var centered = MessagesScroll.VerticalOffset + position.Y - MessagesScroll.ViewportHeight / 2;
         MessagesScroll.ScrollToVerticalOffset(Math.Clamp(centered, 0, MessagesScroll.ScrollableHeight));
         return true;
-        }
-        finally
-        {
-            MessagesScroll.RemoveHandler(UIElement.PreviewMouseDownEvent, mouse);
-            MessagesScroll.RemoveHandler(UIElement.PreviewMouseWheelEvent, wheel);
-            MessagesScroll.RemoveHandler(UIElement.PreviewTouchDownEvent, touch);
-            MessagesScroll.RemoveHandler(UIElement.PreviewKeyDownEvent, key);
-        }
     }
 
     private void OpenRelatedConversation(string id)

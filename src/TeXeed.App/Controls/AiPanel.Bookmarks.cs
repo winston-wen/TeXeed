@@ -110,6 +110,8 @@ public partial class AiPanel
     internal async Task<bool> NavigateBookmarkAsync(AiBookmarkTarget bookmark)
     {
         CancelLayoutAnchor();
+        CancelReadingRestore();
+        var version = _readingRestoreVersion;
         var conversation = _book.Active;
         var turn = conversation.Turns.FirstOrDefault(t => t.Id == bookmark.TurnId);
         if (turn is null)
@@ -117,12 +119,14 @@ public partial class AiPanel
             if (StableLiveBookmarkQuestion()?.Id != bookmark.TurnId || bookmark.Kind != AiBookmarkKind.User || bookmark.Anchor is not { } liveAnchor || LiveQuestion.Revision != liveAnchor.Revision) return false;
             VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(_transcriptItems.Count - 1);
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            if (version != _readingRestoreVersion || !IsVisible) return true;
             if (_disposed || _book.Active != conversation) return false;
             if (StableLiveBookmarkQuestion()?.Id != bookmark.TurnId) return await NavigateBookmarkAsync(bookmark);
             var liveSaved = conversation.Bookmarks.FirstOrDefault(item => item.Id == bookmark.Id);
             var livePointer = liveSaved is null ? null : LiveQuestion.ResolveUserBookmark(liveSaved);
             History.UpdateLayout();
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            if (version != _readingRestoreVersion || !IsVisible) return true;
             if (livePointer is null || LiveQuestion.BookmarkPoint(livePointer) is not { } livePoint) return false;
             var livePosition = LiveQuestion.TranslatePoint(livePoint, MessagesScroll);
             MessagesScroll.ScrollToVerticalOffset(Math.Max(0, MessagesScroll.VerticalOffset + livePosition.Y - 24));
@@ -130,12 +134,13 @@ public partial class AiPanel
         }
         var index = _transcriptItems.IndexOf(turn);
         if (index < 0) return false;
-        _readingRestoreVersion++; _restoringReading = false;
         VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (version != _readingRestoreVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var turnView)) return false;
         if (turn.Collapsed) turnView.Toggle();
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (version != _readingRestoreVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation) return false;
         MarkdownView? view;
         if (bookmark.SegmentId.StartsWith(BookmarkQuestionPrefix, StringComparison.Ordinal))
@@ -146,6 +151,7 @@ public partial class AiPanel
         else view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment segment && segment.Id == bookmark.SegmentId);
         if (view is null) return false;
         await view.RenderTask;
+        if (version != _readingRestoreVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation) return false;
         TextPointer? pointer;
         if (bookmark.Kind == AiBookmarkKind.User)
@@ -165,6 +171,7 @@ public partial class AiPanel
         if (pointer is null) return false;
         History.UpdateLayout();
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (version != _readingRestoreVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || view.BookmarkPoint(pointer) is not { } point) return false;
         var position = view.TranslatePoint(point, MessagesScroll);
         MessagesScroll.ScrollToVerticalOffset(Math.Max(0, MessagesScroll.VerticalOffset + position.Y - 24));

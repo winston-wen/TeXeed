@@ -46,7 +46,12 @@ public partial class AiPanel
             }
             _restoringReading = false; ScheduleViewportCapture();
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException) { _restoringReading = false; if (!_disposed) ShowError(ex); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            if (version != _readingRestoreVersion || _disposed) return;
+            _restoringReading = false;
+            ShowError(ex);
+        }
     }
     private void ScheduleViewportCapture()
     {

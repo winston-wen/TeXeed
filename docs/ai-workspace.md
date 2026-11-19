@@ -34,8 +34,6 @@ AI 对话中的书签浮球可左键按住拖动，范围限定在当前对话�
 
 可选中文字添加书签；右键行间公式或图片时先选中该对象，再使用添加书签命令。表格内没有文字选区时，右键选择整张表格；已有选区时保留选区。书签记录来源与文字上下文，内容变化或重复内容无法可靠区分时不会猜测跳转位置。
 
-内置提示词要求新回答需要分节时从一级标题开始，向下逐级衔接，不跳级；无需分节的简短回答可以没有标题。已有回答及其中的标题层级、编号不变。该规则约束模型生成，程序不自动改写或强制校验模型回复。
-
 选中问题或回答中的文字，右键选择「为所选内容添加标签」并填写名称，可在菜单的用户标签区按行文顺序或字典序查找、跳转及删除。标签、排序方式和浮球位置随会话保存。正在生成的回答会在本轮结束后排版，期间为避免锚点错位，添加标签不可用；普通实时提问在恢复记录保存后可以添加，带圈点的实时提问需等本轮结束。已有会话内容不会因生成提示词变更而改写。
 
 ## 项目工具与权限
@@ -50,7 +48,23 @@ AI 可以列出目录、读取和检索源码、替换或创建文件、保存�
 | 执行前询问 | 源码编辑、保存和编译自动执行；Shell 等待批准或匹配会话已有授权 |
 | 只读 | 提供读取工具，拒绝修改和命令执行 |
 
-Shell 默认在项目根目录启动独立非交互进程，可访问当前 Windows 用户权限允许的路径。工作规则集中在 [AiAgentPrompt.cs](../src/TeXeed.App/AI/AiAgentPrompt.cs)，会话权限在请求时附加。
+Shell 默认在项目根目录启动独立非交互进程，可访问当前 Windows 用户权限允许的路径。
+
+## 内置提示词
+
+[AGENTS.md](../AGENTS.md) 约束 TeXeed 仓库的开发协作。原生程序在 [AiResponses.cs](../src/TeXeed.App/AI/AiResponses.cs) 组装每次 Responses 请求的 `instructions`；项目目录中的 `AGENTS.md` 和其他说明可以按需读取，其内容属于项目资料。
+
+| 请求场景 | 发给模型的指令 |
+| --- | --- |
+| 普通会话 | [AiAgentPrompt.cs](../src/TeXeed.App/AI/AiAgentPrompt.cs) 规定如何理解项目、使用工具、精确编辑和验证结果。[AiPermissions.cs](../src/TeXeed.App/AI/AiPermissions.cs) 附加本会话权限说明。有工作区时使用这两部分；无工作区工具接入时使用简短的只读助手指令。两条路径都追加 Markdown、公式、标题和表单控件规则。 |
+| 重试和选区追问 | 重试追加续接已完成工作要求，选区追问追加按当前疑问回答的要求。两种条件同时成立时均追加。 |
+| 生成判题 | 普通答复请求也携带 [AiFormGrading.cs](../src/TeXeed.App/AI/AiFormGrading.cs) 的判题条件和 `texeed-grade` 格式。只在符合条件时由模型输出结构化判题，宿主根据实际提交校验并应用。公式修正请求不附加判题规则。 |
+| 自动修正公式 | 沿用普通回答的排版要求，额外要求根据编译诊断只修正数学排版并返回完整正文；此请求的工具列表为空。 |
+| 历史与工作上下文压缩 | 单独使用 [AiResponses.Context.cs](../src/TeXeed.App/AI/AiResponses.Context.cs) 的摘要指令，只返回精确的工作状态摘要，工具列表为空。 |
+
+需要分节的新回答从一级标题开始，并逐级展开，省去包裹全文的标题及手写标题序号。简短回答可直接写正文。层级编号由显示层添加，已有内容依原文展示。原生程序在本地从首问截取初始会话名。原型答复使用本地回放，标题和回答指令存入模拟请求记录。[原生标题生成](../src/TeXeed.App/AI/AiModels.cs) · [原型提示词](../prototypes/ai-chat-v02/prompts.json)
+
+当前问题和引文、附件、项目目录、历史摘要在请求 `input` 中提供。用户的请求决定任务；文件内容、引文、编译日志和工具结果供分析。宿主在编辑后未尝试编译、只收到阶段说明或公式排版失败时，会另发相应的运行提示。权限同时用于筛选工具和校验调用，由宿主执行。
 
 ## 上下文与保存
 
@@ -105,6 +119,7 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-only --
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-lazy-attachments-only --output artifacts/ai-lazy-attachments
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-history-only --output artifacts/ai-history
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-permissions-only --output artifacts/ai-permissions
+dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-heading-prompt-only --output artifacts/ai-prompt-audit
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-reliability-only --output artifacts/ai-reliability
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-retry-only --output artifacts/ai-retry
 dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-bookmark-only --output artifacts/ai-bookmarks

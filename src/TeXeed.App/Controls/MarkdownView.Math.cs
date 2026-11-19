@@ -13,7 +13,7 @@ public sealed partial class MarkdownView
 {
     private int _columnCount = 1;
     private ChatMath _math = new();
-    private readonly Dictionary<string, FrameworkContentElement> _equations = [];
+    private readonly Dictionary<string, Paragraph> _equations = [];
     private readonly Dictionary<string, TextPointer?> _annotationPointers = [];
     private readonly Dictionary<InlineUIContainer, ChatMath.Token> _clipboardMath = [];
     private readonly List<(FrameworkElement Grid, int Columns)> _formulaWidths = [];
@@ -143,12 +143,26 @@ public sealed partial class MarkdownView
             else
             {
                 var owner = _tableOwner ?? this;
-                if (owner._equations.TryGetValue(label, out var target)) { owner.Reveal(target); target.BringIntoView(); }
+                if (owner._equations.TryGetValue(label, out var target)) owner.NavigateEquation(target);
                 else link.ToolTip = "未找到公式：" + label;
             }
             e.Handled = true;
         };
         return link;
+    }
+
+    private void NavigateEquation(Paragraph target)
+    {
+        Reveal(target);
+        for (var node = VisualTreeHelper.GetParent(this); node is not null; node = VisualTreeHelper.GetParent(node))
+        {
+            if (node is not ChatScrollViewer conversation) continue;
+            var pointer = target.ContentStart;
+            var view = _tableViews.FirstOrDefault(table => pointer.IsInSameDocument(table.View.Document.ContentStart))?.View ?? this;
+            conversation.NavigateText(view, pointer);
+            return;
+        }
+        target.BringIntoView();
     }
     private void AddColumns(BlockCollection target, CustomContainer source, int depth)
     {
