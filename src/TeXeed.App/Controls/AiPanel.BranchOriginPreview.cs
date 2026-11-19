@@ -46,8 +46,6 @@ public partial class AiPanel
             preview.Children.Add(new MarkdownPicture(uri, anchor.PreviewSource ?? "", () => { })
             { HorizontalAlignment = HorizontalAlignment.Left, MaxWidth = 700 });
         }
-        else if (AiReferencePresentation.IsInlineNumberPreview(anchor))
-            preview.Children.Add(new MarkdownView { ChatMode = true, Padding = new Thickness(0), Markdown = "$" + anchor.PreviewSource!.Trim() + "$" });
         else if (anchor.PreviewTableMarkdown is not null || anchor.PreviewKind == "formula" && !string.IsNullOrWhiteSpace(anchor.PreviewSource))
         {
             var markdown = anchor.PreviewTableMarkdown ?? (anchor.PreviewKind == "formula" && !string.IsNullOrWhiteSpace(anchor.PreviewSource)
@@ -68,14 +66,10 @@ public partial class AiPanel
         Typography.SetStylisticSet4(document, true);
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
         var paragraph = new Paragraph { Margin = new Thickness(0) };
-        var parts = AiReferencePresentation.Excerpt(anchor);
+        IReadOnlyList<AiReferencePresentation.ExcerptPart> parts = anchor.PreviewParts is { Count: > 0 }
+            ? AiReferencePresentation.Excerpt(anchor) : [new AiReferencePresentation.ExcerptPart(anchor.Quote)];
         foreach (var part in parts)
         {
-            if (part.IsPlainNumber)
-            {
-                paragraph.Inlines.Add(MarkdownView.NumericExcerptRun(part));
-                continue;
-            }
             if (part.Formula && !string.IsNullOrWhiteSpace(part.Text))
             {
                 paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight;

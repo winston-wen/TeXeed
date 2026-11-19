@@ -119,8 +119,7 @@ internal static partial class Program
                 if (args.Contains("--ai-inline-axis-only"))
                 {
                     await CheckAiInlineTypographyAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-inline-axis"));
-                    await CheckAiPlainNumbersAsync();
-                    await CheckPlainNumberReferencesAsync(window);
+                    await CheckAiNumberMarkupAsync(args.Contains("--real-tex"));
                     await CloseAndObserveAsync(window, "AI inline reading axes"); result = 0; return;
                 }
                 if (args.Contains("--ai-unlock-viewport-only"))
@@ -357,6 +356,11 @@ internal static partial class Program
                 {
                     await CheckLiteralTextAsync(window, output);
                     await CloseAndObserveAsync(window, "Literal text regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-relations-surface-only"))
+                {
+                    await CheckAiRelationsSurfaceAsync(window, output);
+                    result = 0; return;
                 }
                 if (args.Contains("--ai-history-only"))
                 {

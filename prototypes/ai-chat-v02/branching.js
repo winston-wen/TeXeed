@@ -809,8 +809,24 @@
     if (s.parent) { const source = document.createElement('button'); source.type = 'button'; source.dataset.mapSource = s.id; source.textContent = '查看提问出处'; box.appendChild(source); }
   }
   function renderMap() { $('map-tree').replaceChildren(); let root = session(relationAnchor) || current(); const visited = new Set(); while (root.parent && session(root.parent) && !visited.has(root.parent)) { visited.add(root.id); root = session(root.parent); } $('map-tree').appendChild(makeNode(root)); mapDetails(); }
-  function openMap(fresh = true) { persistCurrent(); if (fresh || !relationAnchor) { relationAnchor = state.active; state.selected = state.active; } mapOpen = true; $('relation-tab-wrap').hidden = false; $('conversation-toolbar').hidden = true; $('reader-view').hidden = true; $('composer-pane').hidden = true; $('relation-map').hidden = false; $('map-toggle').setAttribute('aria-expanded', 'true'); $('conversation-tab').classList.remove('active'); $('relation-tab').classList.add('active'); $('selection-tools').hidden = true; renderMap(); save(); }
-  function closeMap() { mapOpen = false; $('conversation-toolbar').hidden = false; $('reader-view').hidden = false; $('composer-pane').hidden = false; $('relation-map').hidden = true; $('map-toggle').setAttribute('aria-expanded', 'false'); $('conversation-tab').classList.add('active'); $('relation-tab').classList.remove('active'); }
+  function showRelations(open) {
+    mapOpen = open;
+    $('conversation-view').hidden = open;
+    $('relation-map').hidden = !open;
+    $('map-toggle').setAttribute('aria-expanded', String(open));
+    $('conversation-tab').classList.toggle('active', !open);
+    $('relation-tab').classList.toggle('active', open);
+  }
+  function openMap(fresh = true) {
+    persistCurrent();
+    if (fresh || !relationAnchor) { relationAnchor = state.active; state.selected = state.active; }
+    $('relation-tab-wrap').hidden = false;
+    $('selection-tools').hidden = true;
+    showRelations(true);
+    renderMap();
+    save();
+  }
+  function closeMap() { showRelations(false); }
   $('map-toggle').addEventListener('click', () => openMap()); $('map-close').addEventListener('click', closeMap);
   $('conversation-tab').addEventListener('click', closeMap); $('relation-tab').addEventListener('click', () => openMap(false));
   $('relation-tab-close').addEventListener('click', () => { closeMap(); relationAnchor = null; $('relation-tab-wrap').hidden = true; });

@@ -110,7 +110,7 @@
        <ToggleButton IsChecked="{Binding IsExpanded, ElementName=LogExpander, Mode=TwoWay}" Click="RightLog_Click" ToolTip="编译输出" Foreground="{DynamicResource Muted}"><ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"><TextBlock Text="{Binding Text, ElementName=StatusText}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></Border></ControlTemplate></ToggleButton.Template></ToggleButton>
       </DockPanel></Border>
      </Grid>
-     <Grid x:Name="PreviewContent" Background="{DynamicResource PreviewBackground}"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
+     <Grid x:Name="PreviewContent" Visibility="Collapsed" Background="{DynamicResource PreviewBackground}"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="28"/></Grid.RowDefinitions>
       <controls:PdfPreview x:Name="InitialPreview"/>
       <Border x:Name="PreviewStatusBar" Grid.Row="1" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><TextBlock x:Name="InitialPdfStatus" Text="等待首次编译" Margin="12,0" Foreground="{DynamicResource Muted}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="右键菜单或 Ctrl+左键返回源码；预览设置在排版菜单中"/></Border>
      </Grid>

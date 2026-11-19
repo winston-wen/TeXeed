@@ -11,20 +11,7 @@ internal static class AiReferencePresentation
     internal static string Markup(IReadOnlyList<AiEntry> entries) => string.Join("\n",
         entries.Select((_, i) => $"{i + 1}. [{PlaceholderPrefix}{i + 1}](#snapshot-{i + 1})"));
 
-    internal sealed record ExcerptPart(string Text, bool Formula = false, bool Display = false, string? CopyTex = null)
-    {
-        internal bool IsPlainNumber => Formula && ChatMath.IsPlainInlineNumber(CopyTex ?? Text, Display);
-    }
-
-    internal static bool IsInlineNumberPreview(AiAnswerAnchor anchor)
-    {
-        if (anchor.PreviewKind != "formula" || anchor.PreviewSource is not { } source) return false;
-        var part = anchor.PreviewParts?.FirstOrDefault(part => part.Kind == "formula");
-        var quote = anchor.Quote.TrimStart();
-        return ChatMath.IsPlainInlineNumber(part?.CopyTex ?? source, part?.Display ?? (anchor.PreviewNumber is not null ||
-            quote.StartsWith("$$", StringComparison.Ordinal) || quote.StartsWith(@"\[", StringComparison.Ordinal) ||
-            quote.StartsWith(@"\begin{", StringComparison.Ordinal)));
-    }
+    internal sealed record ExcerptPart(string Text, bool Formula = false, bool Display = false, string? CopyTex = null);
 
     internal static bool MayContainMath(AiAnswerAnchor anchor) => anchor.PreviewParts is { } parts
         ? parts.Any(part => part.Kind == "formula")

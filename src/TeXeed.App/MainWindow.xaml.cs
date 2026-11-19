@@ -152,6 +152,8 @@ public partial class MainWindow : Window
             SetAiMarking(false);
             DisposeAdditionalPreviews();
             _previewWarning = false; _project = project; _entryPreviews.Clear(); _restoredPreviewEntry = null; _activePreviewEntry = project.MainPath; _changes.Clear(); _tabs.Clear(); _pdfPath = null; _previewProject = null; _previewInputs = null;
+            // The XAML preview already exists even if the restored workspace has no PDF tab.
+            PreviewContainerForKey(TabWorkspace.PreviewKey);
             ResetDirectoryCatalog();
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();

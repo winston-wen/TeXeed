@@ -1,12 +1,10 @@
 'use strict';
 const assert = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm');
 const context = vm.createContext({ katex: require('./vendor/katex/katex.min.js'), addEventListener() {}, document: {} });
-vm.runInContext(fs.readFileSync(__dirname + '/inline-number.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync(__dirname + '/quote-summary.js', 'utf8'), context);
 const full = String.raw`形式化地，对于一个输出 $0$ 或 $1$ 的区分算法 $D$，定义其优势 $$\operatorname{Adv}^{\mathrm{dMLWR}}_D=\left|\Pr[D(\mathsf{real})=1]-\Pr[D(\mathsf{rand})=1]\right|$$`;
 const result = context.renderReferenceSummary(full);
-assert.equal((result.match(/class="quote-math-window"/g) || []).length, 2);
-assert.match(result, /输出 0 或 1/);
+assert.equal((result.match(/class="quote-math-window"/g) || []).length, 4);
 assert.match(result, /operatorname\{Adv\}/);
 assert.doesNotMatch(result, /render-fallback|\$\$\\operatorname/);
 assert.match(context.renderReferenceSummary('代码 `$x$` 与 $y$'), /<code>\$x\$<\/code>[\s\S]*quote-math-window/);

@@ -5,6 +5,8 @@ const index=fs.readFileSync(__dirname+'/index.html','utf8').replace(/\r\n/g,'\n'
 assert.ok(start>='const DATA='.length&&end>start,'Built prototype must contain its generated data');
 assert.deepEqual(JSON.parse(index.slice(start,end)).prompts,prompts,'Built prototype must use current default instructions');
 assert.match(prompts.answer,/克制使用加粗/);
+assert.match(prompts.answer,/纯数字优先直接写作普通文本/);
+assert.ok(prompts.answer.includes('取 512 或 64') && prompts.answer.includes('$x=512$') && prompts.answer.includes('用户明确指定排版'));
 assert.match(prompts.answer,/首个分节标题必须使用 Markdown 一级标题 #/);
 assert.match(prompts.answer,/不得跳过上级/);
 assert.match(prompts.answer,/不要添加包裹全文的统一一级标题/);

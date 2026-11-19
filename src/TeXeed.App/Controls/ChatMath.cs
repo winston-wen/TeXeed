@@ -12,7 +12,6 @@ internal sealed class ChatMath
     internal sealed record Token(string Source, bool Display, string? Label, string? Number, string? Reference = null, bool Parenthesize = false)
     {
         internal string CopyTex { get; init; } = Source;
-        internal bool IsPlainNumber => IsPlainInlineNumber(CopyTex, Display);
         internal int PreparedOffset { get; init; } = -1;
         internal int OriginalOffset { get; init; } = -1;
         internal int OriginalLength { get; init; }
@@ -23,14 +22,6 @@ internal sealed class ChatMath
     internal Dictionary<string, string> Labels { get; } = [];
     internal string Prefix { get; } = "TEXEED" + Guid.NewGuid().ToString("N") + "M";
     internal bool HasUnclosedMath { get; private set; }
-    internal static bool IsPlainInlineNumber(string source, bool display)
-    {
-        var text = source.AsSpan().Trim();
-        if (display || text.IsEmpty) return false;
-        foreach (var digit in text.EnumerateRunes())
-            if (!Rune.IsDigit(digit)) return false;
-        return true;
-    }
     private static readonly Regex Formula = new(@"(?<!\\)(?:\\\[(?<display>[\s\S]*?)\\\]|\\\((?<inline>[\s\S]*?)\\\)|\$\$(?<display>[\s\S]*?)\$\$|\$(?!\s)(?<inline>[^$\r\n]*?\S)\$|\\begin\{(?<env>equation\*?|align\*?)\}(?<environment>[\s\S]*?)\\end\{\k<env>\}|\\(?<ref>eqref|ref)\{(?<key>[^{}\r\n]+)\})", RegexOptions.Compiled, TimeSpan.FromMilliseconds(500));
     private static readonly Regex Metadata = new(@"\\(?<kind>label|tag\*?)\{(?<value>[^{}]+)\}", RegexOptions.Compiled);
     internal string Prepare(string markdown, MarkdownPipeline pipeline)

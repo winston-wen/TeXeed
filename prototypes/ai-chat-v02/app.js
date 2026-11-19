@@ -9,7 +9,12 @@ const KEY='texeed-ai-baseline-v02'+(VISUAL_PREVIEW?'-visual':REVIEW_PREVIEW?'-re
 const clone=x=>JSON.parse(JSON.stringify(x));
 const BUNDLED_TURNS=[...DATA.turns,...DATA.sampleConversations.flatMap(c=>c.turns),...DATA.visualPreview.conversations.flatMap(c=>c.turns)];
 function fresh(){const conversations=VISUAL_PREVIEW?clone(DATA.visualPreview.conversations):[{id:'collected',title:DATA.title,updatedAt:DATA.updatedAt,turns:clone(DATA.turns),entries:clone(DATA.entries),next:DATA.next,draft:DATA.draft,permission:'完全访问'},...clone(DATA.sampleConversations)];return {sampleHistoryVersion:1,visualMediaVersion:1,active:conversations[0].id,conversations,events:[]};}
-let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');}catch{}if(!state?.conversations?.length)state=fresh();
+let state;try{state=JSON.parse(localStorage.getItem(KEY)||'null');}catch{}
+if(state?.conversations?.length){
+ for(const conversation of state.conversations)for(const turn of conversation.turns||[]){
+  if(turn.answer && turn.answerHtml?.includes('<span data-inline-number="'))turn.answerHtml=restoreCachedFormulaMarkup(turn.answerHtml,turn.answer);
+ }
+}else state=fresh();
 if(REVIEW_PREVIEW&&!state.reviewDemoVersion){const prefix='一次修改可以保留 ',old='AI 回答的原文',added='AI 原始回答',suffix='，同时让新的表述更准确。',answer=prefix+old+suffix+'\n\n这份历史修改稿只读；可以选择文字添加评论，并回复已有评论。';const turn={id:'review-demo-turn',question:'如何在 AI 回答中保留我的修改和评论？',answer,sentAt:'2026-11-06T10:00:00+08:00',answeredAt:'2026-11-06T10:00:12+08:00',segments:[],reviewDraft:{blocks:{'review-demo-turn-p0':{original:prefix+old+suffix,runs:[{kind:'ai',text:prefix},{kind:'deleted',text:old},{kind:'user',text:added},{kind:'ai',text:suffix}]}},comments:[{id:'review-demo-comment',turn:'review-demo-turn',block:'review-demo-turn-p0',start:prefix.length,end:prefix.length+added.length,quote:added,text:'这里的说法是否更准确？',replies:['可以，这样更容易看出原件会被保留。'],resolved:false}]}};const c={id:'review-demo',title:'回答与评论示例',turns:[turn],entries:[],next:1,draft:'',permission:'完全访问'};state={sampleHistoryVersion:1,visualMediaVersion:1,reviewDemoVersion:1,active:c.id,conversations:[c],events:[]};}
 // Add sample history once to existing browser storage.
 if(!state.sampleHistoryVersion){for(const c of DATA.sampleConversations)if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.sampleHistoryVersion=1;}
@@ -33,7 +38,7 @@ function status(text){if(answerMarkingStatusTimer!==null){clearTimeout(answerMar
 function time(value,short=false){if(!value)return '';const d=new Date(value);const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d);return short?parts.slice(-8):parts.replace(' ',' (+8) ');}
 function scrollEnd(){$('reader').scrollTop=$('reader').scrollHeight;}
 function svgHtml(turn){
- if(turn.answerHtml){if(turn.answerHeadingVersion!==1){turn.answerHtml=restoreAnswerHeadings(turn.answerHtml,turn.answer);turn.answerHeadingVersion=1;}return readCachedAnswerMarkup(turn);}
+ if(turn.answerHtml){if(turn.answerHeadingVersion!==1){turn.answerHtml=restoreAnswerHeadings(turn.answerHtml,turn.answer);turn.answerHeadingVersion=1;}return turn.answerHtml;}
  const bundled=BUNDLED_TURNS.find(t=>t.id===turn.id&&t.answer===turn.answer);if(bundled)return bundled.answerHtml;
  const source=[DATA.playback,...BUNDLED_TURNS].find(t=>t.answer===turn.answer);
  if(source)return source.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+turn.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+turn.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+turn.id+'-'+id+'"');
@@ -130,7 +135,7 @@ function renderTurns(){
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):current().branchSource?branchOriginHtml(current().branchSource):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
  enhanceAnswers();addSameTurnLinks();window.alignReadingMedia?.($('thread'));alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
 }
-function sourceTextNodes(root){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){const node=walker.currentNode;if(!node.parentElement.closest('.same-turn-link,.heading-marker,.margin-notes,.math,[data-inline-number],svg'))nodes.push(node);}return nodes;}
+function sourceTextNodes(root){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){const node=walker.currentNode;if(!node.parentElement.closest('.same-turn-link,.heading-marker,.margin-notes,.math,svg'))nodes.push(node);}return nodes;}
 function sourceText(root){return sourceTextNodes(root).map(node=>node.nodeValue).join('');}
 function addSameTurnLinks(){
  const turns=current().turns,positions=new Map();
@@ -138,13 +143,10 @@ function addSameTurnLinks(){
   const id=entry.endBlock||entry.block,source=entry.block&&$(entry.block),end=id&&$(id);if(!source||!end||source.closest('.answer')!==end.closest('.answer'))continue;
   const sourceIndex=turns.findIndex(t=>t.id===source.closest('.answer')?.dataset.turn);if(sourceIndex<0||sourceIndex>=index)continue;
   const body=end.querySelector('.passage-body');if(!body)continue;
-  if(Number.isInteger(entry.endMediaIndex)){const media=body.querySelectorAll('.math,[data-inline-number],img,table')[entry.endMediaIndex];if(media){if(!positions.has(id))positions.set(id,[]);positions.get(id).push({media,turn,index});}continue;}
+  if(Number.isInteger(entry.endMediaIndex)){const media=body.querySelectorAll('.math,img,table')[entry.endMediaIndex];if(media){if(!positions.has(id))positions.set(id,[]);positions.get(id).push({media,turn,index});}continue;}
   const text=sourceText(body);let offset=entry.endTextOffset;
   if(!Number.isInteger(offset)){const quote=String(entry.quote||'').trim();if(!quote||source!==end)continue;
-   const matches=[...body.querySelectorAll('.math,[data-inline-number],img,table')].filter(media=>{
-    if(media.hasAttribute('data-inline-number') && quote==='$'+media.dataset.inlineNumber+'$')return true;
-    return (media.matches('img')?media.alt:serialize(media).trim())===quote;
-   });
+   const matches=[...body.querySelectorAll('.math,img,table')].filter(media=>(media.matches('img')?media.alt:serialize(media).trim())===quote);
    if(matches.length===1){if(!positions.has(id))positions.set(id,[]);positions.get(id).push({media:matches[0],turn,index});continue;}
    const at=text.indexOf(quote);if(at<0||text.indexOf(quote,at+1)>=0)continue;offset=at+quote.length;}
   if(offset<0||offset>text.length)continue;if(!positions.has(id))positions.set(id,[]);positions.get(id).push({offset,turn,index});
@@ -253,7 +255,7 @@ function removeEntry(id){const e=current().entries.find(e=>e.id===id);if(!e||pro
 function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number,.heading-marker,.same-turn-link'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h1,h2,h3,h4,h5,h6,blockquote,.equation,.passage'))text+='\n';return text;}
 function targetContext(target,event){
  const p=target.closest('.passage'),answer=target.closest('.answer');if(!p||!answer)return null;
- const sel=window.getSelection(),media=target.closest('.math,[data-inline-number],img,table'),body=p.querySelector('.passage-body');
+ const sel=window.getSelection(),media=target.closest('.math,img,table'),body=p.querySelector('.passage-body');
  let quote='',selected=false,startBlock=p.id,endBlock,endTextOffset,endMediaIndex,endInMedia=false;
  if(sel?.rangeCount&&!sel.isCollapsed){
   const r=sel.getRangeAt(0),start=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement,end=r.endContainer.nodeType===1?r.endContainer:r.endContainer.parentElement;
@@ -262,14 +264,14 @@ function targetContext(target,event){
   else if(start.closest('.answer')===answer&&end.closest('.answer')===answer){
    quote=serialize(r.cloneContents());selected=true;startBlock=start.closest('.passage')?.id||p.id;endInMedia=!!media?.contains(r.endContainer);
    const block=end.closest('.passage'),endBody=block?.querySelector('.passage-body');
-   if(endBody?.contains(r.endContainer)){const prefix=document.createRange();prefix.selectNodeContents(endBody);prefix.setEnd(r.endContainer,r.endOffset);const fragment=prefix.cloneContents();fragment.querySelectorAll('.same-turn-link,.heading-marker,.margin-notes,.math,[data-inline-number],svg').forEach(el=>el.remove());endBlock=block.id;endTextOffset=fragment.textContent.length;}
+   if(endBody?.contains(r.endContainer)){const prefix=document.createRange();prefix.selectNodeContents(endBody);prefix.setEnd(r.endContainer,r.endOffset);const fragment=prefix.cloneContents();fragment.querySelectorAll('.same-turn-link,.heading-marker,.margin-notes,.math,svg').forEach(el=>el.remove());endBlock=block.id;endTextOffset=fragment.textContent.length;}
   }
  }
  const unit=media?.matches('table')?media:target.closest('p,li,blockquote,h1,h2,h3,h4,h5,h6,.equation')||body;
  const cell=target.closest('td,th');let paragraph=cell?(cell.querySelector('input,textarea,select')?.value??serialize(cell).trim()):media?.matches('table')?[...media.rows].map(row=>[...row.cells].map(cell=>cell.querySelector('input,textarea,select')?.value??serialize(cell).trim()).join('\t')).join('\n'):serialize(unit).trim();if(!paragraph&&media?.matches('img'))paragraph=media.alt||'图片';
  if(!selected&&media)quote=media.matches('img')?media.alt||sourceText(p.previousElementSibling||p.nextElementSibling||p).trim().slice(-80)||'图片':serialize(media).trim();
  if(!quote.trim())quote=serialize(body).trim();
- if(media&&body?.contains(media)&&(!selected||endInMedia)){endBlock=p.id;endMediaIndex=[...body.querySelectorAll('.math,[data-inline-number],img,table')].indexOf(media);}
+ if(media&&body?.contains(media)&&(!selected||endInMedia)){endBlock=p.id;endMediaIndex=[...body.querySelectorAll('.math,img,table')].indexOf(media);}
  const preview=media?.matches('.math')?{kind:'formula',tex:media.dataset.tex||'',display:media.dataset.display==='true'}:media?.matches('img')?{kind:'image',alt:media.alt||'',src:media.getAttribute('src')||''}:media?.matches('table')?{kind:'table',rows:[...media.rows].map(row=>[...row.cells].map(cell=>cell.querySelector('input,textarea,select')?.value??cell.textContent))}:null;
  return {block:startBlock,quote,selected:selected||!!media,turn:answer.dataset.turn,endBlock,endTextOffset,endMediaIndex,paragraph,preview};
 }
@@ -515,7 +517,7 @@ function prepareReadingLayout(answer){
  const equations=answer.querySelectorAll('.equation'),bodySize=equations.length?parseFloat(getComputedStyle(answer).fontSize):0;
  for(const eq of equations){const number=eq.querySelector('.equation-number'),n=Number(number.textContent.replace(/\D/g,'')),math=eq.querySelector('.math');eq.id=tid+'-eq-'+n;number.textContent='Eq. '+n;
   const tex=math.dataset.tex,svg=math.querySelector('svg'),width=svg?parseFloat(svg.getAttribute('width'))*bodySize:math.getBoundingClientRect().width*bodySize/parseFloat(getComputedStyle(math).fontSize);
-  if(isReadingNumber(tex)||width>bodySize*5||/=|\\(?:eq|neq|equiv|leq|geq)/.test(tex))continue;
+  if(width>bodySize*5||/=|\\(?:eq|neq|equiv|leq|geq)/.test(tex))continue;
   const passage=eq.closest('.passage'),previous=passage.previousElementSibling,following=passage.nextElementSibling,prevP=previous?.querySelector('.passage-body>p'),nextP=following?.querySelector('.passage-body>p');
   const anchor=eq.id;eq.removeAttribute('id');math.id=anchor;math.dataset.display='false';
   if(prevP&&!previous.dataset.readingHidden){prevP.append(' ',math,' ');passage.dataset.readingHidden='true';passage.dataset.joinedInto=previous.id;if(nextP&&!following.dataset.readingHidden){prevP.append(...nextP.childNodes);following.dataset.readingHidden='true';following.dataset.joinedInto=previous.id;}}

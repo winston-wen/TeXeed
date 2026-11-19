@@ -14,39 +14,49 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
-    private static async Task CheckAiPlainNumbersAsync()
+    private static async Task CheckAiNumberMarkupAsync(bool realTex)
     {
         const string sample = """
-            # 为什么是 $512$ 和 $064$？
+            # 正文数字 512 和 064
 
-            正文 \( ０５１２ \)，行内代码 `$123$`，变量 $x_0$、小数 $0.25$ 与负数 $-1$。
+            行内数学 $512$ 与 \(064\)，正文 0012 和代码 `$123$`。
 
             | 个数 | 备注 |
             | --- | --- |
-            | $10$ | 普通数字 |
-
-            $$512$$
+            | $10$ | 仅此字段含数学 |
             """;
-        var requests = new List<(string, bool)>();
+        var requests = new List<string>();
         var asset = new ChatSvg(new RectangleGeometry(new Rect(0, 0, 10, 10)), new Rect(0, 0, 10, 10), 8, "fixture");
         var view = new MarkdownView
         {
             ChatMode = true,
-            FormulaAsset = (source, display) => { requests.Add((source, display)); return asset; },
+            FormulaAsset = (source, _) => { requests.Add(source); return realTex ? null : asset; },
             Markdown = sample
         };
         await view.RenderTask;
         var text = new TextRange(view.Document.ContentStart, view.Document.ContentEnd).Text;
-        if (!text.Contains("512 和 064") || !text.Contains("０５１２") || !text.Contains("$123$") ||
-            !requests.SequenceEqual([("x_0", false), ("0.25", false), ("-1", false), ("512", true)]))
-            throw new Exception($"Inline text or formula requests changed: {text} / {string.Join(", ", requests)}");
+        if (!text.Contains("512 和 064") || !text.Contains("0012 和代码") || !text.Contains("$123$") ||
+            !requests.SequenceEqual(["512", "064", "10"]))
+            throw new Exception($"Explicit numeric math must enter the renderer and ordinary text must stay literal: {text} / {string.Join(", ", requests)}");
 
-        // A numbers-only reply used to exhaust the 256-formula limit before rendering.
-        var numbersOnly = string.Join(' ', Enumerable.Range(0, 300).Select(i => "$" + i + "$")) + @" \(０５１２\)";
-        var check = await AiMathProofreading.CheckAsync(numbersOnly, CancellationToken.None);
+        var bare = string.Join(' ', Enumerable.Range(0, 300));
+        var check = await AiMathProofreading.CheckAsync(bare, CancellationToken.None);
         if (check.Count != 0 || check.Error is not null)
-            throw new Exception($"Pure inline numbers used the formula budget: {check.Count}, {check.Error}");
-        Console.WriteLine("PASS: plain inline numbers preserve digits, skip TeX and proofreading, and keep display math and expressions.");
+            throw new Exception("Bare numbers entered the proofreading budget.");
+        var delimited = string.Join(' ', Enumerable.Range(0, 300).Select(i => "$" + i + "$"));
+        check = await AiMathProofreading.CheckAsync(delimited, CancellationToken.None);
+        if (check.Count != 300 || check.Error is null) throw new Exception("Explicit numeric math bypassed the formula limit.");
+        if (realTex)
+        {
+            check = await AiMathProofreading.CheckAsync(sample, CancellationToken.None);
+            if (check.Count != 3 || check.Error is not null) throw new Exception("Numeric TeX did not pass proofreading: " + check.Error);
+            foreach (var source in requests)
+            {
+                var svg = await ChatTexRenderer.RenderAsync(source, false);
+                if (svg.Bounds.IsEmpty || !File.Exists(svg.Path)) throw new Exception("Missing rendered numeric SVG: " + source);
+            }
+        }
+        Console.WriteLine("PASS: bare numbers stay text while explicitly delimited numbers render and count toward proofreading.");
     }
 
     private static async Task CheckAiMathProofreadingAsync(MainWindow window, string output)

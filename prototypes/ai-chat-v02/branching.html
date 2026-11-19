@@ -20,7 +20,7 @@
     <span class="top-spacer"></span>
     <span class="demo-label">交互示例 · 未连接 AI</span>
   </header>
-  <main class="workspace">
+  <main class="workspace" id="conversation-view">
     <div class="toolbar" id="conversation-toolbar">
       <span id="session-title" class="session-title"></span>
       <span class="toolbar-spacer"></span>
@@ -56,11 +56,6 @@
         <div id="bookmarks-list" class="bookmarks-list"></div>
       </aside>
     </section>
-    <section id="relation-map" class="relation-map" aria-label="会话关系图" hidden>
-      <div class="map-head"><div><span>会话关系</span><small>连线表示从哪条会话发起追问</small></div><button id="map-close" type="button">返回会话</button></div>
-      <div id="map-scroller" class="map-scroller"><div id="map-tree" class="map-tree"></div></div>
-      <div id="map-detail" class="map-detail" aria-live="polite"></div>
-    </section>
     <div id="demo-running-status" class="status demo-running-status" role="status" hidden>模拟运行中 <span class="demo-running-dot" aria-hidden="true"></span><button id="demo-stop" type="button">模拟中止</button></div>
     <div id="status" class="status" role="status" aria-live="polite"></div>
     <section id="composer-pane" class="composer-pane" aria-label="提问">
@@ -76,6 +71,11 @@
       <div id="attach-menu" class="attach-menu" hidden><button id="attach-files" type="button">上传文件</button><button id="attach-path-file" type="button">引用文件</button><button id="attach-folder" type="button">引用文件夹</button><span class="attach-note">原型只演示引用的外观；浏览器不能持续读取本机路径。</span></div>
       <input id="file-input" type="file" multiple hidden><input id="path-file-input" type="file" multiple hidden><input id="folder-input" type="file" multiple webkitdirectory hidden><input id="form-file-input" type="file" multiple hidden><input id="form-path-file-input" type="file" multiple hidden><input id="form-folder-input" type="file" multiple webkitdirectory hidden>
     </section>
+  </main>
+  <main id="relation-map" class="relation-map" aria-label="会话关系图" hidden>
+    <div class="map-head"><div><span>会话关系</span><small>连线表示从哪条会话发起追问</small></div><button id="map-close" type="button">返回会话</button></div>
+    <div id="map-scroller" class="map-scroller"><div id="map-tree" class="map-tree"></div></div>
+    <div id="map-detail" class="map-detail" aria-live="polite"></div>
   </main>
 </div>
 <dialog id="bookmark-dialog" class="bookmark-dialog" aria-labelledby="bookmark-dialog-title">
@@ -103,7 +103,6 @@
   <input id="reference-file-input" type="file" accept="image/*" multiple hidden>
 </dialog>
 <script src="vendor/katex/katex.min.js"></script>
-<script src="inline-number.js"></script>
 <script src="quote-summary.js"></script>
 <script src="scrollbar-activity.js"></script>
 <script src="branching.js"></script>

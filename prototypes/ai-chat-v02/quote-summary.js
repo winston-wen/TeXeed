@@ -26,10 +26,7 @@
         const close = open === '\\(' ? '\\)' : open === '\\[' ? '\\]' : open;
         const end = endOf(text, close, i + open.length);
         if (end > i + open.length && !(open === '$' && text.slice(i, end).includes('\n'))) {
-          const math = text.slice(i + open.length, end);
-          if ((open === '$' || open === '\\(') && root.isReadingNumber(math)) plain += math.trim();
-          else { flush(); result.push({ math, raw: text.slice(i, end + close.length) }); consumed += Math.min(20, Array.from(math).length); }
-          i = end + close.length; continue;
+          flush(); const math = text.slice(i + open.length, end); result.push({ math, raw: text.slice(i, end + close.length) }); consumed += Math.min(20, Array.from(math).length); i = end + close.length; continue;
         }
         if (open.length > 1) { plain += open; i += open.length; continue; }
       }

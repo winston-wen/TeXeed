@@ -100,13 +100,11 @@ async function inspectMath(page, file, selector, light = false) {
       const mixed = String.raw`双方都知道公共矩阵 $A$ 和公共向量 $r$。接收方自己采样 $b'_{1-x}=r-b'_x$。无论选哪支，它都只发送 $B=b'_0$。`;
       const numbers = String.raw`## 为什么 Help 里看到的是 $512$ 和 $64$？
 
-正文的 $ 064 $、$０５１２$ 和 \(0\)。
+正文的 512 与公式 $512$，另有 \(0\)。
 
 | 取值 |
 |---|
-| $002$ |
-
-$$512$$`;
+| $064$ |`;
       current().turns = [
         { id: 'axis', question: '行内公式与文字基线', answer: '# ' + heading + '\n\n' + paragraph + '\n\n$$x=2$$\n\n' + mixed + '\n\n' + numbers,
           annotations: [{ id: 'ref', title: '来源', question: '', quote: String.raw`正文 $b^{\prime}_{1-x}$ 与 $r$ 的关系。`, sources: [], pdf: [] }], sections: {} },
@@ -120,14 +118,11 @@ $$512$$`;
       window.alignReadingMedia(document.querySelector('#thread'));
       document.querySelector('#reader').scrollTop = 0;
     });
-    const digits = await page.locator('#axis .answer [data-inline-number]').evaluateAll(nodes => nodes.map(n => ({
-      text: n.textContent, inline: getComputedStyle(n).display, font: getComputedStyle(n).fontFamily,
-      adjacentFont: getComputedStyle(n.parentElement).fontFamily, renderer: !!n.querySelector('.katex, svg'),
-      copy: serialize(n)
-    })));
-    assert.deepEqual(digits.map(n => n.text), ['512', '64', '064', '０５１２', '0', '002']);
-    assert.ok(digits.every(n => n.inline === 'inline' && n.font === n.adjacentFont && !n.renderer && n.copy === n.text));
-    assert.equal(await page.locator('#axis .equation .math[data-tex="512"] .katex').count(), 1, 'Display numerals retain their TeX layout');
+    assert.equal(await page.locator('#axis-p4 .heading-label .math .katex').count(), 2);
+    assert.equal(await page.locator('#axis-p5 p').evaluate(p => p.firstChild.textContent), '正文的 512 与公式 ');
+    assert.equal(await page.locator('#axis-p5 .math[data-tex="512"] .katex').count(), 1);
+    assert.equal(await page.locator('#axis-p5 .math[data-tex="0"]').evaluate(el => serialize(el).trim()), '$0$');
+    assert.equal(await page.locator('#axis-p6 td .math[data-tex="064"] .katex').count(), 1);
     const fontSizes = await page.evaluate(() => ({
       inline: getComputedStyle(document.querySelector('#axis-p0 .math .katex')).fontSize,
       display: getComputedStyle(document.querySelector('#axis-p2 .math .katex')).fontSize
@@ -148,19 +143,35 @@ $$512$$`;
     });
     await inspectMath(page, 'reading-axis-light.png', formulas, true);
 
+    const original = '保留普通数字 512 和公式 $512$、$x$。';
+    await page.evaluate(answer => {
+      const c = current();
+      const cached = '<section class="passage" id="old-p0" data-block="old-p0"><div class="passage-body"><p>保留普通数字 512 和公式 <span data-inline-number="512">512</span>、'
+        + '<span class="math" data-tex="x" data-display="false">' + renderRichText('$x$', true) + '</span>。</p></div><div class="margin-notes"></div></section>';
+      c.turns = [{id: 'saved', answer, answerHtml: cached, answerHeadingVersion: 1, sections: {}},
+        {id: 'reply', answer: '答复', request: {annotations: [{block: 'old-p0', endMediaIndex: 1}]}}];
+      c.bookmarks = [{id: 'saved-formula', turn: 'saved', block: 'old-p0', scope: 'media', mediaIndex: 0, name: '数字公式', quote: '$512$'}];
+      c.draft = '保留草稿';
+      persist();
+    }, original);
+    await page.reload();
+    assert.equal(await page.locator('#old-p0 .math[data-tex="512"] .katex').count(), 1);
+    assert.equal(await page.locator('#old-p0 .math[data-tex="x"] + .same-turn-link').count(), 1);
+    assert.equal(await page.evaluate(() => current().turns[0].answer), original);
+    assert.equal(await page.locator('#composer').inputValue(), '保留草稿');
+    await page.locator('#bookmark-ball').click();
+    await page.locator('#bookmark-search').fill('数字公式');
+    assert.equal(await page.locator('.bookmark-target:visible').count(), 1);
     await page.evaluate(() => {
-      const saved = current().turns[0];
-      const template = document.createElement('template');
-      template.innerHTML = saved.answerHtml;
-      const n = template.content.querySelector('[data-inline-number="512"]');
-      n.outerHTML = '<span class="math" data-display="false" data-tex="512" role="math"><svg height="12"></svg></span>';
-      saved.answerHtml = template.innerHTML;
-      const target = current().turns[1].request.annotations;
-      target.push({block: 'axis-p4', endMediaIndex: 1});
-      renderTurns();
+      const scroll = Element.prototype.scrollIntoView;
+      Element.prototype.scrollIntoView = function(options) {
+        if (this.matches('.math')) window.savedFormulaTarget = this.dataset.tex;
+        return scroll.call(this, options);
+      };
     });
-    assert.equal(await page.locator('#axis-p4 [data-inline-number="512"]').textContent(), '512');
-    assert.equal(await page.locator('#axis-p4 [data-inline-number="64"] + .same-turn-link').count(), 1, 'A saved media-index reference still targets the second numeric span');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.savedFormulaTarget === '512');
+
     await page.goto(local('branching.html'));
     await page.evaluate(async () => {
       await document.fonts.ready;

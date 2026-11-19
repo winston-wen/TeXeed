@@ -10,59 +10,6 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
-    private static async Task CheckPlainNumberReferencesAsync(MainWindow owner)
-    {
-        const string source = "开头 $0012$ 后文；末尾。";
-        var view = new MarkdownView { ChatMode = true, Markdown = source };
-        var host = new Window { Owner = owner, Content = view, WindowStartupLocation = WindowStartupLocation.Manual,
-            Left = owner.Left, Top = owner.Top, ShowActivated = false, ShowInTaskbar = false };
-        host.Show();
-        try
-        {
-            await view.RenderTask;
-            var p = (Paragraph)view.Document.Blocks.FirstBlock;
-            var numeric = p.Inlines.OfType<Span>().Single(span => span.Tag is ChatMath.Token);
-            var digits = (Run)numeric.Inlines.FirstInline;
-            var before = p.Inlines.OfType<Run>().First(r => r.Text.Contains("开头"));
-            var after = p.Inlines.OfType<Run>().First(r => r.Text.Contains("后文"));
-            void Check(bool test, string message) { if (!test) throw new Exception(message); }
-            Check(view.CopySource(p.ContentStart, p.ContentEnd) == source &&
-                view.CopySourceLength(p.ContentStart, p.ContentEnd) == source.Length, "The canonical numeric source changed.");
-            view.Selection.Select(digits.ContentStart, digits.ContentEnd);
-            Check(view.GetAnnotationSelection().Quote == "$0012$" && view.SelectedReferenceObject().Kind == "formula" &&
-                view.SelectedReferenceParts().Single().Text == "0012" && view.CopyForClipboard(digits.ContentStart, digits.ContentEnd).Trim() == "$0012$",
-                "Selecting a complete numeric span lost its formula source.");
-            var middle = digits.ContentStart.GetPositionAtOffset(1)!;
-            var middleEnd = digits.ContentStart.GetPositionAtOffset(3)!;
-            view.Selection.Select(middle, middleEnd);
-            var selection = view.GetAnnotationSelection();
-            Check(selection.Quote == "01" && view.SelectedReferenceParts().Single().Kind == "text" &&
-                view.CopyForClipboard(middle, middleEnd) == "01", "A partial numeric selection was expanded.");
-            var legacy = new AiAnswerAnchor("turn", "segment", 0, 2, "后文", view.Revision)
-                { TextOffset = source.IndexOf("后文", StringComparison.Ordinal) };
-            var bookmark = new AiUserBookmark { Anchor = legacy };
-            var found = view.ResolveUserBookmark(bookmark);
-            Check(found is not null && found.GetTextInRun(LogicalDirection.Forward).StartsWith("后文"), "An old bookmark after a numeric formula moved.");
-            var oldSymbolOffset = view.Document.ContentStart.GetOffsetToPosition(numeric.ElementStart) + 3 +
-                numeric.ElementEnd.GetOffsetToPosition(after.ContentStart) + after.Text.IndexOf("后文", StringComparison.Ordinal);
-            found = view.AnnotationPointer("legacy-symbol", legacy with { Offset = oldSymbolOffset, TextOffset = -1 });
-            Check(found is not null && found.GetTextInRun(LogicalDirection.Forward).StartsWith("后文"), "A pre-text-offset annotation moved.");
-            var partialAnchor = legacy with { Quote = "01", TextOffset = selection.TextOffset };
-            Check(view.AddBranchLink("inside", "[1]", partialAnchor, null, null, () => { }) &&
-                view.CopySource(p.ContentStart, p.ContentEnd) == source &&
-                view.CopySourceLength(before.ElementStart, view.BranchLinkInlines["inside"].ElementStart) == source.IndexOf("01", StringComparison.Ordinal) + 2,
-                "A branch inside the digits broke the source coordinates.");
-            Check(view.AddBranchLink("after", "[2]", legacy, null, null, () => { }) &&
-                view.CopySource(p.ContentStart, view.BranchLinkInlines["after"].ElementStart).EndsWith("后文"),
-                "An old branch targeting text after the number moved.");
-            var inline = AiReferencePresentation.NormalizePreview(legacy with { Quote = "$0012$" });
-            var display = AiReferencePresentation.NormalizePreview(legacy with { Quote = "$$0012$$" });
-            Check(AiReferencePresentation.IsInlineNumberPreview(inline) && AiPanel.ReferencePreviewFallback(inline) == "0012" &&
-                !AiReferencePresentation.IsInlineNumberPreview(display), "Historical inline and display number previews were confused.");
-        }
-        finally { host.Close(); }
-    }
-
     private static async Task CheckAiFormulaReferenceAsync(MainWindow owner, string output)
     {
         const string quote = @"$$\operatorname{Round}_{q\to p}(y) = \left\lfloor \frac{[y]_q+4}{8} \right\rfloor\tag{1}$$";
@@ -161,11 +108,10 @@ internal static partial class Program
                 var mixedQuestion = mixedView.Questions.Last();
                 var mixedList = (System.Windows.Documents.List)mixedQuestion.Document.Blocks.FirstBlock;
                 var mixedLink = ((Paragraph)mixedList.ListItems.FirstListItem.Blocks.FirstBlock).Inlines.OfType<Hyperlink>().Single();
-                for (var i = 0; i < 300 && mixedLink.Inlines.OfType<InlineUIContainer>().Count() < 2; i++) await Task.Delay(50);
+                for (var i = 0; i < 300 && mixedLink.Inlines.OfType<InlineUIContainer>().Count() < 4; i++) await Task.Delay(50);
                 mixedHost.UpdateLayout();
                 var embeds = mixedLink.Inlines.OfType<InlineUIContainer>().ToArray();
-                if (!mixedLink.Inlines.OfType<Run>().Any(r => r.Text == "0") || !mixedLink.Inlines.OfType<Run>().Any(r => r.Text == "1") ||
-                    embeds.Length != 2 || embeds.Any(inline => inline.Child is not ChatFormula and not Grid))
+                if (embeds.Length != 4 || embeds.Any(inline => inline.Child is not ChatFormula and not Grid))
                     throw new Exception("Mixed source citation did not render each inline and block formula");
                 var final = embeds[^1];
                 if (final.Child is not Grid { ClipToBounds: true, OpacityMask: LinearGradientBrush } clipped || clipped.Margin.Right != 3 || clipped.Children.OfType<ChatFormula>().Single().Source != longFormula || !mixedLink.Inlines.OfType<Run>().Any(run => run.Text.Contains('…')))
@@ -181,8 +127,20 @@ internal static partial class Program
         }
         Console.WriteLine("Formula reference: mixed current/legacy excerpts preserve text, complete copy, navigation and clipped long formula.");
 
-        await CheckPlainNumberReferencesAsync(owner);
-
+        // A 0.5.20 reader could select only the middle of a formula rendered as digits.
+        // Keep the stored quote when attaching that link beside the restored math object.
+        const string oldAnswer = "开始 $0012$，后文。";
+        var oldReader = new MarkdownView { ChatMode = true, Markdown = oldAnswer };
+        await oldReader.RenderTask;
+        var partial = new AiAnswerAnchor("turn", "segment", 0, 2, "01", oldReader.Revision)
+            { TextOffset = oldAnswer.IndexOf("01", StringComparison.Ordinal) };
+        var after = partial with { Quote = "后文", TextOffset = oldAnswer.IndexOf("后文", StringComparison.Ordinal) };
+        if (!oldReader.AddBranchLink("partial", "部分数字", partial, null, null, () => { }) ||
+            !oldReader.CopySource(oldReader.Document.ContentStart, oldReader.BranchLinkInlines["partial"].ElementStart).EndsWith("$0012$") ||
+            !oldReader.AddBranchLink("after", "后文", after, null, null, () => { }) ||
+            !oldReader.CopySource(oldReader.Document.ContentStart, oldReader.BranchLinkInlines["after"].ElementStart).EndsWith("后文") ||
+            oldReader.ResolveUserBookmark(new AiUserBookmark { Anchor = partial }) is null)
+            throw new Exception("A previous partial numeric bookmark or branch no longer resolves to its formula.");
         var manyParts = Enumerable.Range(0, 100).Select(index => new AiSelectionPart("formula", "x_{" + index + "}")).ToList();
         var manyQuote = string.Join(" ", manyParts.Select(part => "$" + part.Text + "$"));
         var manyEntry = new AiEntry { AnswerAnchor = original with { Quote = manyQuote, PreviewParts = manyParts } };
@@ -229,9 +187,9 @@ internal static partial class Program
             await workers.WaitAsync().WaitAsync(TimeSpan.FromSeconds(30)); acquired++;
             var slow = "x_{" + Guid.NewGuid().ToString("N")[..12] + "}";
             var slowCopy = slow + @"\tag{9}";
-            var pendingQuote = "前 $x$、中 $$" + slowCopy + "$$ 后";
-            var pendingEntry = new AiEntry { AnswerAnchor = original with { Quote = pendingQuote, PreviewParts = [new("text", "前 "), new("formula", "x") { Display = false }, new("text", "、中 "), new("formula", slow) { Display = true, CopyTex = slowCopy }, new("text", " 后")] } };
-            var pending = new MarkdownView { SnapshotEntries = [pendingEntry], FormulaAsset = (tex, _) => tex == "x" ? syntheticSvg : null, Markdown = AiReferencePresentation.Markup([pendingEntry]) };
+            var pendingQuote = "前 $0$、中 $$" + slowCopy + "$$ 后";
+            var pendingEntry = new AiEntry { AnswerAnchor = original with { Quote = pendingQuote, PreviewParts = [new("text", "前 "), new("formula", "0") { Display = false }, new("text", "、中 "), new("formula", slow) { Display = true, CopyTex = slowCopy }, new("text", " 后")] } };
+            var pending = new MarkdownView { SnapshotEntries = [pendingEntry], FormulaAsset = (tex, _) => tex == "0" ? syntheticSvg : null, Markdown = AiReferencePresentation.Markup([pendingEntry]) };
             pendingHost = new Window { Owner = owner, Width = 800, Height = 400, Content = pending }; pendingHost.Show();
             await pending.RenderTask;
             var pendingLink = ((Paragraph)((System.Windows.Documents.List)pending.Document.Blocks.FirstBlock).ListItems.FirstListItem.Blocks.FirstBlock).Inlines.OfType<Hyperlink>().Single();

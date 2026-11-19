@@ -1,0 +1,196 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using TeXeed.App;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+using TeXeed.Core;
+
+internal static class Perf
+{
+    private const BindingFlags Member = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+    private static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Member)!.GetValue(target)!;
+    private static object? Call(object target, string name, params object?[] args) => target.GetType().GetMethod(name, Member)!.Invoke(target, args);
+    private static async Task Idle(Window window)
+    {
+        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        window.UpdateLayout();
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match) yield return match;
+            foreach (var nested in Descendants<T>(child)) yield return nested;
+        }
+    }
+
+    private static bool InViewport(FrameworkElement child, FrameworkElement host) =>
+        child.IsVisible && child.ActualWidth > 0 && child.ActualHeight > 0 &&
+        child.TransformToAncestor(host).TransformBounds(new Rect(child.RenderSize)).IntersectsWith(new Rect(host.RenderSize));
+
+    private static async Task Drain(MainWindow window)
+    {
+        await Idle(window);
+        var preview = (PdfPreview)window.FindName("Preview");
+        var timer = Field<DispatcherTimer>(preview, "_renderTimer");
+        var deadline = Stopwatch.StartNew();
+        while (timer.IsEnabled || Field<bool>(preview, "_rendering") || Field<bool>(preview, "_renderAgain"))
+        {
+            if (deadline.Elapsed > TimeSpan.FromSeconds(10)) throw new TimeoutException("PDF renderer did not settle");
+            await Task.Delay(10);
+            await Idle(window);
+        }
+    }
+
+    private static MainWindow Show(string engine)
+    {
+        var window = new MainWindow { Width = 1200, Height = 760, Left = -12000, Top = 0, ShowActivated = false, ShowInTaskbar = false };
+        var settings = Field<AppSettings>(window, "_settings");
+        window.GetType().GetField("_settings", Member)!.SetValue(window, settings with
+        {
+            LivePreview = false, FollowMode = PreviewFollowMode.None, Engine = TexEngine.Tectonic, EnginePath = engine
+        });
+        window.Show();
+        return window;
+    }
+
+    private static async Task Close(MainWindow window)
+    {
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        window.Closed += (_, _) => closed.TrySetResult();
+        window.Close();
+        await closed.Task.WaitAsync(TimeSpan.FromSeconds(15));
+    }
+
+    private static async Task Run(string output, string engine, bool expectOverlay)
+    {
+        var project = Directory.CreateDirectory(Path.Combine(output, "project")).FullName;
+        var main = Path.Combine(project, "main.tex");
+        var lines = new List<string> { @"\documentclass{article}", @"\pagestyle{empty}", @"\begin{document}" };
+        for (int page = 1; page <= 8; page++)
+        {
+            if (page > 1) lines.Add(@"\newpage");
+            for (int row = 1; row <= 40; row++) lines.Add($@"\noindent Page {page}, row {row:00}. Restore state.\par");
+        }
+        lines.Add(@"\end{document}"); File.WriteAllText(main, string.Join('\n', lines) + "\n");
+        var seed = Show(engine);
+        await (Task)Call(seed, "OpenAsync", main)!;
+        await (Task)Call(seed, "BuildAsync", true, CancellationToken.None, true, null)!;
+        await Drain(seed);
+        if (((PdfPreview)seed.FindName("Preview")).PageCount != 8) throw new Exception("Expected eight compiled pages");
+        var book = Field<AiWorkspaceStore>(seed, "_aiStore").Book;
+        var root = book.Active;
+        root.Turns.Add(new AiTurn("项目", "根会话"));
+        for (int index = 0; index < 60; index++) book.Conversations.Add(new AiConversation
+        {
+            Title = $"追问 {index}", ParentConversationId = root.Id, Turns = [new AiTurn("问题", "回答")]
+        });
+        await (Task)Call(seed, "OpenAiConversationAsync", root.Id)!;
+        Button MapButton(MainWindow w) => Descendants<Button>(Field<AiPanel>(w, "_aiPanel")).Single(b => Equals(b.Content, "会话关系"));
+        MapButton(seed).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Call(seed, "CloseTabs", TabWorkspace.AiConversationKey(root.Id), TabCloseScope.This);
+        await Drain(seed);
+        string graph = TabWorkspace.AiRelationsKey(root.Id);
+        if (Field<TabWorkspace>(seed, "_workspaceTabs").FocusedTab != graph) throw new Exception("Fixture did not save the active graph");
+        await Close(seed);
+
+        var samples = new List<object>();
+        for (int run = 0; run < 9; run++)
+        {
+            var window = Show(engine);
+            async Task Measure(string op, Func<Task> act, bool graphActive, bool pdfVisible)
+            {
+                await Drain(window);
+                var idleStart = GC.GetAllocatedBytesForCurrentThread();
+                var idle = Stopwatch.StartNew();
+                await Drain(window);
+                idle.Stop();
+                var idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleStart;
+                var start = GC.GetAllocatedBytesForCurrentThread();
+                var watch = Stopwatch.StartNew();
+                await act();
+                await Idle(window);
+                var feedbackMs = watch.Elapsed.TotalMilliseconds;
+                await Drain(window);
+                watch.Stop();
+                var bytes = GC.GetAllocatedBytesForCurrentThread() - start;
+                var tabs = Field<TabWorkspace>(window, "_workspaceTabs");
+                var preview = (PdfPreview)window.FindName("Preview");
+                var visibleGraph = Descendants<AiConversationGraph>(window).SingleOrDefault(g => InViewport(g,window));
+                var pdfOnScreen = InViewport(preview, window);
+                var body = (FrameworkElement)window.FindName("RightGroupBody");
+                if (pdfOnScreen && !body.IsAncestorOf(preview) || visibleGraph is not null && !body.IsAncestorOf(visibleGraph))
+                    throw new Exception("Content is visible outside the expected right pane");
+                if (pdfOnScreen && visibleGraph is not null)
+                {
+                    var pdfBounds = preview.TransformToAncestor(body).TransformBounds(new Rect(preview.RenderSize));
+                    var graphBounds = visibleGraph.TransformToAncestor(body).TransformBounds(new Rect(visibleGraph.RenderSize));
+                    if (!pdfBounds.IntersectsWith(graphBounds)) throw new Exception("Visible graph and PDF did not intersect");
+                }
+                var rasters = Descendants<Image>(preview).Count(image => image.Source is BitmapSource &&
+                    InViewport(image, Field<ScrollViewer>(preview, "_scroll")));
+                if (tabs.Active(TabSide.Right) != (graphActive ? graph : TabWorkspace.PreviewKey) ||
+                    (visibleGraph is not null) != graphActive || (visibleGraph is not null && visibleGraph.Layout.Nodes.Count != 61) ||
+                    preview.PageCount != 8 || pdfOnScreen != pdfVisible || pdfOnScreen != (rasters > 0))
+                    throw new Exception($"{op}: active={tabs.Active(TabSide.Right)}, graph={visibleGraph?.Layout.Nodes.Count}, " +
+                        $"pdfVisible={pdfOnScreen}, pdfPages={preview.PageCount}, rasters={rasters}");
+                if (run >= 2) samples.Add(new
+                {
+                    run, op, feedbackMs, rawMs = watch.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds,
+                    correctedMs = watch.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds, rawBytes = bytes, idleBytes,
+                    correctedBytes = bytes - idleBytes, visibleControls = Descendants<Control>(window).Count(c => InViewport(c, window)),
+                    visibleGraph = visibleGraph is not null, pdfVisible = pdfOnScreen, rasters,
+                    isolatedOutput = Field<TexProject>(window, "_project").IsolateEntryOutputs,
+                    pdfRevision = Field<int>(window, "_pdfRevision"), sourceRevision = Field<int>(window, "_revision")
+                });
+            }
+
+            Task Select(string key)
+            {
+                Call(window, "SelectWorkspaceTab", TabSide.Right, key);
+                return Task.CompletedTask;
+            }
+            await Measure("reopen-project-on-graph", () => (Task)Call(window, "OpenAsync", main)!, true, expectOverlay);
+            await Measure("select-preview", () => Select(TabWorkspace.PreviewKey), false, true);
+            await Measure("select-graph", () => Select(graph), true, false);
+            await Measure("close-graph", () =>
+            {
+                Call(window, "CloseTabs", graph, TabCloseScope.This);
+                return Task.CompletedTask;
+            }, false, true);
+            await Measure("open-graph", () =>
+            {
+                Call(window, "OpenAiRelations", root.Id);
+                return Task.CompletedTask;
+            }, true, false);
+            await Close(window);
+        }
+        File.WriteAllLines(Path.Combine(output, "samples.jsonl"), samples.Select(x => JsonSerializer.Serialize(x)));
+    }
+
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        var output = Directory.CreateDirectory(Path.GetFullPath(args[0])).FullName;
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var tools = Path.GetFullPath(Path.Combine(".tools", "tectonic"));
+        Environment.SetEnvironmentVariable("TECTONIC_CACHE_DIR", Path.Combine(tools, "cache"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        app.Startup += async (_, _) =>
+        {
+            try { await Run(output, Path.Combine(tools, "tectonic.exe"), args.Contains("expect-overlay")); app.Shutdown(); }
+            catch (Exception e) { File.WriteAllText(Path.Combine(output, "error.txt"), e.ToString()); app.Shutdown(1); }
+        };
+        return app.Run();
+    }
+}

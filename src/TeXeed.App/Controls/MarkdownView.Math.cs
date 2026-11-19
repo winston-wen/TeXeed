@@ -49,27 +49,19 @@ public sealed partial class MarkdownView
                 if (offset < length) { result = table.View.AnnotationPointer(id, anchor with { TextOffset = offset }); break; }
                 offset -= length; p = table.Block.ElementEnd; continue;
             }
-            var context = p.GetPointerContext(LogicalDirection.Forward);
-            var element = context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
-                ? p.GetAdjacentElement(LogicalDirection.Forward) : null;
-            if (element is Span { Tag: ChatMath.Token })
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             {
-                if (offset == 0) { result = p; break; }
-                offset--; p = p.GetNextContextPosition(LogicalDirection.Forward); continue;
-            }
-            if (context == TextPointerContext.ElementStart && element is InlineUIContainer { Tag: string source } ui)
-            {
-                if (ui.Child is Image image && ReferenceEquals(image.Tag, EmojiSprite.Marker) && offset == source.Length) { result = ui.ElementEnd; break; }
-                if (offset <= source.Length) { result = p; break; }
+                if (offset == source.Length) { result = ui.ElementEnd; break; }
+                if (offset < source.Length) { result = p; break; }
                 offset -= source.Length; p = ui.ElementEnd; continue;
             }
-            if (context == TextPointerContext.Text)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
             {
                 var text = p.GetTextInRun(LogicalDirection.Forward);
                 if (offset < text.Length) { result = p.GetPositionAtOffset(offset); break; }
                 offset -= text.Length; p = p.GetPositionAtOffset(text.Length); continue;
             }
-            if (context == TextPointerContext.ElementEnd && element is Paragraph)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementEnd && p.GetAdjacentElement(LogicalDirection.Forward) is Paragraph)
             { if (offset < Environment.NewLine.Length) { result = p; break; } offset -= Environment.NewLine.Length; }
             p = p.GetNextContextPosition(LogicalDirection.Forward);
         }
@@ -88,8 +80,6 @@ public sealed partial class MarkdownView
                 var number = _math.Labels.GetValueOrDefault(reference, reference + " ?");
                 target.Add(EquationLink(reference, token.Parenthesize ? $"({number})" : number));
             }
-            else if (token.IsPlainNumber)
-                target.Add(new Span(new Run(token.Source)) { Tag = token });
             else target.Add(FormulaInline(token));
             offset = match.Index + match.Length;
         }
@@ -202,19 +192,14 @@ public sealed partial class MarkdownView
             if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
             if (EmbeddedTable(p) is { } table)
             { output.Append(table.Text); p = table.Block.ElementEnd; continue; }
-            var context = p.GetPointerContext(LogicalDirection.Forward);
-            var element = context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
-                ? p.GetAdjacentElement(LogicalDirection.Forward) : null;
-            if (element is Span { Tag: ChatMath.Token })
-            { output.Append('$'); p = p.GetNextContextPosition(LogicalDirection.Forward); continue; }
-            if (context == TextPointerContext.ElementStart && element is InlineUIContainer { Tag: string source } ui)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             { output.Append(source); p = ui.ElementEnd; continue; }
-            if (context == TextPointerContext.Text)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
             {
                 var text = p.GetTextInRun(LogicalDirection.Forward); var length = Math.Min(text.Length, p.GetOffsetToPosition(end));
                 output.Append(text.AsSpan(0, length)); p = p.GetPositionAtOffset(length); continue;
             }
-            if (context == TextPointerContext.ElementEnd && element is Paragraph) output.AppendLine();
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementEnd && p.GetAdjacentElement(LogicalDirection.Forward) is Paragraph) output.AppendLine();
             p = p.GetNextContextPosition(LogicalDirection.Forward);
         }
         return output.ToString();
@@ -228,19 +213,14 @@ public sealed partial class MarkdownView
             if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
             if (EmbeddedTable(p) is { } table)
             { length += table.Text.Length; p = table.Block.ElementEnd; continue; }
-            var context = p.GetPointerContext(LogicalDirection.Forward);
-            var element = context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
-                ? p.GetAdjacentElement(LogicalDirection.Forward) : null;
-            if (element is Span { Tag: ChatMath.Token })
-            { length++; p = p.GetNextContextPosition(LogicalDirection.Forward); continue; }
-            if (context == TextPointerContext.ElementStart && element is InlineUIContainer { Tag: string source } ui)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             { length += source.Length; p = ui.ElementEnd; continue; }
-            if (context == TextPointerContext.Text)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
             {
                 var count = Math.Min(p.GetTextRunLength(LogicalDirection.Forward), p.GetOffsetToPosition(end));
                 length += count; p = p.GetPositionAtOffset(count); continue;
             }
-            if (context == TextPointerContext.ElementEnd && element is Paragraph) length += Environment.NewLine.Length;
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementEnd && p.GetAdjacentElement(LogicalDirection.Forward) is Paragraph) length += Environment.NewLine.Length;
             p = p.GetNextContextPosition(LogicalDirection.Forward);
         }
         return length;

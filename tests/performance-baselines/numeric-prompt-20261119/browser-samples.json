@@ -1,0 +1,638 @@
+{
+  "schema": "texeed-browser-heading-axis-performance-v1",
+  "baselineCommit": "7826358299982c26be44250a8212a764b03d7574",
+  "historyCommit": "12b1077",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.3",
+    "browser": "157.0.8103.79",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "fixture": "tests/performance-baselines/inline-baseline-20261119/browser-numbers-fixture.cjs",
+    "fixtureSha256": "67dd7673d69abf03a9d097b25db851e82a048df1d38d40f288473943d8569128",
+    "rounds": 3,
+    "iterations": 9,
+    "warmups": 2,
+    "frames": 2,
+    "extraWaitMs": 200,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "Frame times depend on frame phase; the extra 200 ms is a fixed wait, not measured work.",
+      "V8 sampled retained heap is an estimate, not total allocations.",
+      "The after side reads the working tree; resource hashes identify the measured bytes.",
+      "All rounds share one browser process."
+    ]
+  },
+  "resources": {
+    "history": {
+      "index.html": "ea73722613e4d9c057c047d755e824e3eac4ba763307a00ae89a0784ba245a2d",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "rich-text.js": "3e682b95268c7920e49db550e5583841505ef1707739bc67a1645cc0e0d4a746",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "2780ff5bbfa7fc9e8873de97004dee1659e2665805a0f9b52405b29224774e93",
+      "reading-fonts.css": "87ab7b2d82c8c79972a10d29d863eacab423c635a9ae190a14519afc563b78f1",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "quote-summary.js": "e73528d515360ec0d44167baaefd09fed12976a16d0129ae17521546e09524d2",
+      "scrollbar-activity.js": "39dbce582f944e80321fbaacc36ea25740f3b5b0084a094d43149780771f8f98",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "c580148df827ccaaeb5956306a0f2cfe8eee3a2d39bc571be87490114b12523a",
+      "review.js": "4c72762e278fa161e3a7e9b80eb30e785a81bd1295a57ecfd335d360ca17fae2",
+      "review-search.js": "15106c15e3bacc288fcb113633ca2cfb2712cd1356cf357d51544440ab3a5385",
+      "reading-font-status.js": "a69adf06078580bd59d5363ec62ae116e8b1b2f4e290584667c04861f950799f",
+      "fonts/IBMPlexSans-Regular.otf": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc",
+      "fonts/local/Hiragino_Sans_GB.ttc": "94800e331a3ddde3bb8c0cc14713fb8f7e6884ad275a850fbb408ac9d129132b",
+      "assets/reading-speech-bubble.png": "74f0d46169d44ad0b4e50da7ac3071fd81b41847897476fad0af2a8e53988c98"
+    },
+    "before": {
+      "index.html": "e0753a3a8d8ad497d872fe3429b5e7c1fa9be8069c87338f10c2a22938d458a3",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "2780ff5bbfa7fc9e8873de97004dee1659e2665805a0f9b52405b29224774e93",
+      "reading-fonts.css": "bb7e00f5098dab9e0a13afa4349dd0b0011bb74f3c561df15755662eb2ca9709",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "inline-number.js": "d6fd24e3f4b8f0a48ec52beb7214740a7ef88cc59172b92a9266ff54ba3a2bc9",
+      "rich-text.js": "3a30477644cb61979709d36cd5b35afa50cf2b3f33f573c95344241b8721ffc6",
+      "quote-summary.js": "b344a375dc08e9956a6b9bc53a731b47020bcb9024b9a547e01e770bc6e1d41b",
+      "scrollbar-activity.js": "39dbce582f944e80321fbaacc36ea25740f3b5b0084a094d43149780771f8f98",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "de0d8de062f4af2364556a69555610d3e0091f6fa91c3918750b2bbf7037c93d",
+      "review.js": "4c72762e278fa161e3a7e9b80eb30e785a81bd1295a57ecfd335d360ca17fae2",
+      "review-search.js": "15106c15e3bacc288fcb113633ca2cfb2712cd1356cf357d51544440ab3a5385",
+      "reading-font-status.js": "f9e385a695d41a029968035375c300d0c5173c3eb75529aa725ffee6179fd3ec",
+      "fonts/IBMPlexSans-Regular.otf": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc",
+      "fonts/local/Hiragino_Sans_GB.ttc": "94800e331a3ddde3bb8c0cc14713fb8f7e6884ad275a850fbb408ac9d129132b",
+      "assets/reading-speech-bubble.png": "74f0d46169d44ad0b4e50da7ac3071fd81b41847897476fad0af2a8e53988c98"
+    },
+    "after": {
+      "index.html": "52b269187c1fc63254eb266327479914a35234756a0835c13c688ddc5d52d71e",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "2780ff5bbfa7fc9e8873de97004dee1659e2665805a0f9b52405b29224774e93",
+      "reading-fonts.css": "edc276e581fcda5864ee4c36079f2ee3094418d039db6a4f31edcd63d069a382",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "ecded769878e8f92ad661478d8cc417807b395e99c4908fa09ceb0edae5bc48b",
+      "quote-summary.js": "02f93e7b6ebd0b86adc8841887b4563762a04e0692e31a027c9f88820509d5ff",
+      "scrollbar-activity.js": "39dbce582f944e80321fbaacc36ea25740f3b5b0084a094d43149780771f8f98",
+      "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+      "bookmarks.js": "c580148df827ccaaeb5956306a0f2cfe8eee3a2d39bc571be87490114b12523a",
+      "review.js": "4c72762e278fa161e3a7e9b80eb30e785a81bd1295a57ecfd335d360ca17fae2",
+      "review-search.js": "15106c15e3bacc288fcb113633ca2cfb2712cd1356cf357d51544440ab3a5385",
+      "reading-font-status.js": "8de62618ffe763df61bd15c1e7e5a5743ff7d38f531529ecf048e11d31a21108",
+      "fonts/IBMPlexSans-Regular.otf": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "fonts/local/Hiragino_Sans_GB.ttc": "94800e331a3ddde3bb8c0cc14713fb8f7e6884ad275a850fbb408ac9d129132b",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc",
+      "assets/reading-speech-bubble.png": "74f0d46169d44ad0b4e50da7ac3071fd81b41847897476fad0af2a8e53988c98"
+    }
+  },
+  "measurements": {
+    "history": [
+      {
+        "firstRender": {
+          "sync": 180.7000000178814,
+          "frame": 204.5
+        },
+        "samples": [
+          {
+            "sync": 128.5,
+            "frame": 146.5,
+            "complete": 348
+          },
+          {
+            "sync": 141.40000000596046,
+            "frame": 161.2999999821186,
+            "complete": 364.2999999821186
+          },
+          {
+            "sync": 168.5,
+            "frame": 191.2000000178814,
+            "complete": 395.09999999403954
+          },
+          {
+            "sync": 146.5,
+            "frame": 170.30000001192093,
+            "complete": 378.40000000596046
+          },
+          {
+            "sync": 191.59999999403954,
+            "frame": 213.89999997615814,
+            "complete": 426.39999997615814
+          },
+          {
+            "sync": 136.59999999403954,
+            "frame": 160.90000000596046,
+            "complete": 363.2999999821186
+          },
+          {
+            "sync": 209.89999997615814,
+            "frame": 234.5,
+            "complete": 441.2999999821186
+          }
+        ],
+        "medianSync": 146.5,
+        "medianFrame": 170.30000001192093,
+        "medianComplete": 378.40000000596046,
+        "sampledRetainedJsBytes": 276084,
+        "idleComplete": 210.09999999403954,
+        "counts": {
+          "elements": 19443,
+          "controls": 441,
+          "visible": 27,
+          "headings": 300,
+          "formulas": 1200,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 181.80000001192093,
+          "frame": 204.90000000596046
+        },
+        "samples": [
+          {
+            "sync": 147.2000000178814,
+            "frame": 170.5,
+            "complete": 380.2000000178814
+          },
+          {
+            "sync": 138.7000000178814,
+            "frame": 161.80000001192093,
+            "complete": 365
+          },
+          {
+            "sync": 144.90000000596046,
+            "frame": 165.80000001192093,
+            "complete": 377.80000001192093
+          },
+          {
+            "sync": 179.59999999403954,
+            "frame": 213.7999999821186,
+            "complete": 424.59999999403954
+          },
+          {
+            "sync": 182.19999998807907,
+            "frame": 220.80000001192093,
+            "complete": 425.59999999403954
+          },
+          {
+            "sync": 203.2999999821186,
+            "frame": 235.69999998807907,
+            "complete": 439.40000000596046
+          },
+          {
+            "sync": 145.90000000596046,
+            "frame": 169.09999999403954,
+            "complete": 380
+          }
+        ],
+        "medianSync": 147.2000000178814,
+        "medianFrame": 170.5,
+        "medianComplete": 380.2000000178814,
+        "sampledRetainedJsBytes": 289780,
+        "idleComplete": 213.80000001192093,
+        "counts": {
+          "elements": 19443,
+          "controls": 441,
+          "visible": 27,
+          "headings": 300,
+          "formulas": 1200,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 213,
+          "frame": 241.19999998807907
+        },
+        "samples": [
+          {
+            "sync": 160.09999999403954,
+            "frame": 184.69999998807907,
+            "complete": 395.7999999821186
+          },
+          {
+            "sync": 144.5,
+            "frame": 170.5,
+            "complete": 380.69999998807907
+          },
+          {
+            "sync": 182.59999999403954,
+            "frame": 216.19999998807907,
+            "complete": 423.5
+          },
+          {
+            "sync": 234.69999998807907,
+            "frame": 267.7999999821186,
+            "complete": 469.69999998807907
+          },
+          {
+            "sync": 226.7000000178814,
+            "frame": 267.09999999403954,
+            "complete": 472.30000001192093
+          },
+          {
+            "sync": 180.7999999821186,
+            "frame": 212.7999999821186,
+            "complete": 424.5
+          },
+          {
+            "sync": 228.2999999821186,
+            "frame": 262.5,
+            "complete": 475.2999999821186
+          }
+        ],
+        "medianSync": 182.59999999403954,
+        "medianFrame": 216.19999998807907,
+        "medianComplete": 424.5,
+        "sampledRetainedJsBytes": 269492,
+        "idleComplete": 226.7000000178814,
+        "counts": {
+          "elements": 19443,
+          "controls": 441,
+          "visible": 27,
+          "headings": 300,
+          "formulas": 1200,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ],
+    "before": [
+      {
+        "firstRender": {
+          "sync": 114.5,
+          "frame": 127.19999998807907
+        },
+        "samples": [
+          {
+            "sync": 77.40000000596046,
+            "frame": 90.90000000596046,
+            "complete": 303.80000001192093
+          },
+          {
+            "sync": 86,
+            "frame": 98.59999999403954,
+            "complete": 300.59999999403954
+          },
+          {
+            "sync": 141.90000000596046,
+            "frame": 159.60000002384186,
+            "complete": 361.5
+          },
+          {
+            "sync": 123.69999998807907,
+            "frame": 142.09999999403954,
+            "complete": 346.5
+          },
+          {
+            "sync": 97.90000000596046,
+            "frame": 112.7000000178814,
+            "complete": 317
+          },
+          {
+            "sync": 105.90000000596046,
+            "frame": 118.19999998807907,
+            "complete": 333.69999998807907
+          },
+          {
+            "sync": 97.5,
+            "frame": 113.19999998807907,
+            "complete": 315.69999998807907
+          }
+        ],
+        "medianSync": 97.90000000596046,
+        "medianFrame": 113.19999998807907,
+        "medianComplete": 317,
+        "sampledRetainedJsBytes": 23904,
+        "idleComplete": 213,
+        "counts": {
+          "elements": 9544,
+          "controls": 441,
+          "visible": 28,
+          "headings": 300,
+          "formulas": 300,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 119.69999998807907,
+          "frame": 131.5
+        },
+        "samples": [
+          {
+            "sync": 86.7999999821186,
+            "frame": 99,
+            "complete": 305
+          },
+          {
+            "sync": 75.59999999403954,
+            "frame": 86.69999998807907,
+            "complete": 287.80000001192093
+          },
+          {
+            "sync": 75.09999999403954,
+            "frame": 85.7999999821186,
+            "complete": 287
+          },
+          {
+            "sync": 80.2000000178814,
+            "frame": 91.59999999403954,
+            "complete": 303.90000000596046
+          },
+          {
+            "sync": 87.40000000596046,
+            "frame": 98.90000000596046,
+            "complete": 305.7000000178814
+          },
+          {
+            "sync": 81.90000000596046,
+            "frame": 97,
+            "complete": 302
+          },
+          {
+            "sync": 84,
+            "frame": 96.59999999403954,
+            "complete": 303.09999999403954
+          }
+        ],
+        "medianSync": 81.90000000596046,
+        "medianFrame": 96.59999999403954,
+        "medianComplete": 303.09999999403954,
+        "sampledRetainedJsBytes": 226920,
+        "idleComplete": 213.59999999403954,
+        "counts": {
+          "elements": 9544,
+          "controls": 441,
+          "visible": 28,
+          "headings": 300,
+          "formulas": 300,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 127.69999998807907,
+          "frame": 142.19999998807907
+        },
+        "samples": [
+          {
+            "sync": 101.5,
+            "frame": 116.5,
+            "complete": 321.2000000178814
+          },
+          {
+            "sync": 74,
+            "frame": 86.30000001192093,
+            "complete": 288.2000000178814
+          },
+          {
+            "sync": 90.5,
+            "frame": 103.69999998807907,
+            "complete": 319.39999997615814
+          },
+          {
+            "sync": 83.40000000596046,
+            "frame": 96.09999999403954,
+            "complete": 304.5
+          },
+          {
+            "sync": 155.09999999403954,
+            "frame": 174.2999999821186,
+            "complete": 379.09999999403954
+          },
+          {
+            "sync": 112.09999999403954,
+            "frame": 126.7999999821186,
+            "complete": 333.5
+          },
+          {
+            "sync": 113.09999999403954,
+            "frame": 135.80000001192093,
+            "complete": 350
+          }
+        ],
+        "medianSync": 101.5,
+        "medianFrame": 116.5,
+        "medianComplete": 321.2000000178814,
+        "sampledRetainedJsBytes": 229344,
+        "idleComplete": 228.40000000596046,
+        "counts": {
+          "elements": 9544,
+          "controls": 441,
+          "visible": 28,
+          "headings": 300,
+          "formulas": 300,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ],
+    "after": [
+      {
+        "firstRender": {
+          "sync": 191.5,
+          "frame": 217.40000000596046
+        },
+        "samples": [
+          {
+            "sync": 153.40000000596046,
+            "frame": 174.40000000596046,
+            "complete": 378.80000001192093
+          },
+          {
+            "sync": 137.40000000596046,
+            "frame": 159.90000000596046,
+            "complete": 364.40000000596046
+          },
+          {
+            "sync": 150.09999999403954,
+            "frame": 178.59999999403954,
+            "complete": 382.40000000596046
+          },
+          {
+            "sync": 214.30000001192093,
+            "frame": 250.09999999403954,
+            "complete": 457.40000000596046
+          },
+          {
+            "sync": 179.5,
+            "frame": 208.59999999403954,
+            "complete": 409.2999999821186
+          },
+          {
+            "sync": 173.19999998807907,
+            "frame": 198.09999999403954,
+            "complete": 411.69999998807907
+          },
+          {
+            "sync": 221.5,
+            "frame": 259.39999997615814,
+            "complete": 472.5
+          }
+        ],
+        "medianSync": 173.19999998807907,
+        "medianFrame": 198.09999999403954,
+        "medianComplete": 409.2999999821186,
+        "sampledRetainedJsBytes": 249848,
+        "idleComplete": 212.7999999821186,
+        "counts": {
+          "elements": 19443,
+          "controls": 441,
+          "visible": 28,
+          "headings": 300,
+          "formulas": 1200,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 192.5,
+          "frame": 216.09999999403954
+        },
+        "samples": [
+          {
+            "sync": 162.2000000178814,
+            "frame": 185.30000001192093,
+            "complete": 395.59999999403954
+          },
+          {
+            "sync": 202.80000001192093,
+            "frame": 239.80000001192093,
+            "complete": 453.2000000178814
+          },
+          {
+            "sync": 171.5,
+            "frame": 195.59999999403954,
+            "complete": 405.90000000596046
+          },
+          {
+            "sync": 152.90000000596046,
+            "frame": 174.80000001192093,
+            "complete": 379.5
+          },
+          {
+            "sync": 162.40000000596046,
+            "frame": 199.59999999403954,
+            "complete": 412.7999999821186
+          },
+          {
+            "sync": 179.2999999821186,
+            "frame": 203.89999997615814,
+            "complete": 412.89999997615814
+          },
+          {
+            "sync": 175.69999998807907,
+            "frame": 211.59999999403954,
+            "complete": 425.5
+          }
+        ],
+        "medianSync": 171.5,
+        "medianFrame": 199.59999999403954,
+        "medianComplete": 412.7999999821186,
+        "sampledRetainedJsBytes": 236764,
+        "idleComplete": 213.7999999821186,
+        "counts": {
+          "elements": 19443,
+          "controls": 441,
+          "visible": 28,
+          "headings": 300,
+          "formulas": 1200,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 195.2000000178814,
+          "frame": 221.30000001192093
+        },
+        "samples": [
+          {
+            "sync": 175.7999999821186,
+            "frame": 203.89999997615814,
+            "complete": 409
+          },
+          {
+            "sync": 129.40000000596046,
+            "frame": 152.90000000596046,
+            "complete": 366
+          },
+          {
+            "sync": 131.90000000596046,
+            "frame": 152.90000000596046,
+            "complete": 364.69999998807907
+          },
+          {
+            "sync": 190.5,
+            "frame": 218.80000001192093,
+            "complete": 424.5
+          },
+          {
+            "sync": 187.40000000596046,
+            "frame": 213.09999999403954,
+            "complete": 425.5
+          },
+          {
+            "sync": 205.09999999403954,
+            "frame": 233.09999999403954,
+            "complete": 441.80000001192093
+          },
+          {
+            "sync": 258.90000000596046,
+            "frame": 292.7000000178814,
+            "complete": 502
+          }
+        ],
+        "medianSync": 187.40000000596046,
+        "medianFrame": 213.09999999403954,
+        "medianComplete": 424.5,
+        "sampledRetainedJsBytes": 267204,
+        "idleComplete": 212.60000002384186,
+        "counts": {
+          "elements": 19443,
+          "controls": 441,
+          "visible": 28,
+          "headings": 300,
+          "formulas": 1200,
+          "links": 49,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ]
+  }
+}

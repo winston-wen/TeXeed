@@ -20,19 +20,38 @@ catch { console.log('SKIP relationship tabs browser: Playwright unavailable'); p
       branchDemo.setState(fixture);
     });
     await page.locator('#composer').fill('主会话草稿');
+    await page.locator('#demo-running').click();
+    await page.locator('#demo-assets').click();
+    const chat = page.locator('#conversation-toolbar, #reader-view, #composer-pane, #demo-running-status, #status');
+    const map = page.locator('#relation-map');
+    async function checkView(showMap) {
+      assert.equal(await map.isVisible(), showMap);
+      for (const element of await chat.all()) assert.equal(await element.isVisible(), !showMap, await element.getAttribute('id'));
+      const pane = showMap ? map : page.locator('#reader');
+      assert.equal(await pane.evaluate(el => {
+        const r = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+      }), true, 'The active view receives pointer input in the workspace');
+    }
+    await checkView(false);
     await page.locator('#map-toggle').click();
+    await checkView(true);
     assert.equal(await page.locator('#relation-tab-wrap').isVisible(), true);
     assert.equal(await page.locator('#conversation-toolbar').isHidden(), true);
     assert.equal(await page.locator('[data-node-id]').count(), 3, 'only the current family appears');
     assert.equal(await page.locator('[data-node-id="other"]').count(), 0);
     await page.screenshot({ path: path.join(__dirname, '../../artifacts/branch-relationship-tab.png') });
     await page.locator('#conversation-tab').click();
+    await checkView(false);
     assert.equal(await page.locator('#composer').inputValue(), '主会话草稿');
     await page.setViewportSize({ width: 390, height: 800 });
     await page.screenshot({ path: path.join(__dirname, '../../artifacts/branch-navigation-narrow.png') });
     await page.setViewportSize({ width: 1000, height: 800 });
     await page.locator('#relation-tab').click();
+    await checkView(true);
     await page.locator('[data-node-id="child"]').dblclick();
+    assert.equal(await map.isHidden(), true);
+    assert.equal(await page.locator('#reader-view').isVisible(), true);
     assert.equal(await page.locator('#composer').inputValue(), '追问草稿');
     assert.equal(await page.locator('#relation-tab-wrap').isVisible(), true, 'tab stays available');
     await page.locator('#back-source').click();

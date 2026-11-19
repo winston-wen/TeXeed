@@ -56,8 +56,7 @@ public sealed partial class MarkdownView
 
     internal (string Before, string After) BookmarkSelectionContext()
     {
-        var view = SelectionView();
-        var selection = view.NumberSelectionBounds(view.Selection.Start, view.Selection.End);
+        var selection = SelectionView().Selection;
         var before = SelectionView().CopySource(SelectionView().Document.ContentStart, selection.Start);
         var after = SelectionView().CopySource(selection.End, SelectionView().Document.ContentEnd);
         var selected = SelectionView().CopySource(selection.Start, selection.End);
@@ -113,7 +112,11 @@ public sealed partial class MarkdownView
 
     // Reconstruct the text of detached fold bodies without opening them in the reader.
     internal TextPointer? ResolveBranchAnchor(AiAnswerAnchor anchor, string? before, string? after, bool reveal = true)
+        => ResolveBranchAnchor(anchor, before, after, reveal, out _);
+
+    private TextPointer? ResolveBranchAnchor(AiAnswerAnchor anchor, string? before, string? after, bool reveal, out int offset)
     {
+        offset = -1;
         if (anchor.Revision != Revision || string.IsNullOrWhiteSpace(anchor.Quote)) return null;
         if (_branchFullText is null || _branchTextBlocks is null) BuildBranchText();
         var source = _branchFullText!;
@@ -142,7 +145,7 @@ public sealed partial class MarkdownView
         if (reveal) RevealBookmarkFolds(target.FoldKeys);
         else if (target.FoldKeys.Any(key => _folds?.GetValueOrDefault(key) == true)) return null;
         if (!target.Block.ElementStart.IsInSameDocument(Document.ContentStart)) return null;
-        var offset = CopySourceLength(Document.ContentStart, target.Block.ElementStart) + match - target.Start;
+        offset = CopySourceLength(Document.ContentStart, target.Block.ElementStart) + match - target.Start;
         return AnnotationPointer("branch-source:" + anchor.TurnId + ":" + anchor.SegmentId + ":" + offset,
             anchor with { TextOffset = offset });
     }

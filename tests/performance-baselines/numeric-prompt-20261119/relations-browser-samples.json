@@ -1,0 +1,288 @@
+{
+  "0.5.20": {
+    "schema": "branch-ops-v1",
+    "fixtureHash": "0e29ff89318a83cb4f2f0e2623efccd274a15955b9d73d9bef36688295c280e3",
+    "resources": {
+      "branching.html": "4f9f93e053f0eb9dece885bacd15e21fe8a83a1be9b7ca899ec981266a245938",
+      "branching.css": "1d9e494399b41cd4f64e9985815aff7350f718420c0123053baf95bff8602408",
+      "branching.js": "d8d02bb85169a8d319859f449af5a8799d287fed5eb143b1719567aa6dfa9014"
+    },
+    "environment": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+      "node": "v24.22.3",
+      "browser": "157.0.8103.79",
+      "viewport": {
+        "width": 1000,
+        "height": 820
+      }
+    },
+    "method": {
+      "rounds": 1,
+      "warmups": 2,
+      "samples": 7,
+      "turns": 120,
+      "branches": 60,
+      "frames": 2,
+      "waitMs": 220,
+      "allocation": "CDP V8 sampling at 1024 bytes. Each action sampled separately with paired empty action. Sample allocations are estimates and include browser dispatch and queue costs."
+    },
+    "measurements": [
+      {
+        "round": 0,
+        "operation": "map",
+        "pairs": [
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 241.09999999403954,
+              "bytes": 11964
+            },
+            "work": {
+              "sync": 1.199999988079071,
+              "elapsed": 241.39999997615814,
+              "bytes": 218036
+            },
+            "correctedElapsed": 0.29999998211860657,
+            "correctedBytes": 206072
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 228.40000000596046,
+              "bytes": 8736
+            },
+            "work": {
+              "sync": 1.5,
+              "elapsed": 242.5,
+              "bytes": 224088
+            },
+            "correctedElapsed": 14.099999994039536,
+            "correctedBytes": 215352
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 240.30000001192093,
+              "bytes": 10524
+            },
+            "work": {
+              "sync": 1,
+              "elapsed": 228,
+              "bytes": 220932
+            },
+            "correctedElapsed": -12.300000011920929,
+            "correctedBytes": 210408
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 244.59999999403954,
+              "bytes": 3452
+            },
+            "work": {
+              "sync": 1.199999988079071,
+              "elapsed": 243.90000000596046,
+              "bytes": 222392
+            },
+            "correctedElapsed": -0.699999988079071,
+            "correctedBytes": 218940
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 229.09999999403954,
+              "bytes": 8712
+            },
+            "work": {
+              "sync": 1.2999999821186066,
+              "elapsed": 242.40000000596046,
+              "bytes": 219792
+            },
+            "correctedElapsed": 13.300000011920929,
+            "correctedBytes": 211080
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 228.59999999403954,
+              "bytes": 6360
+            },
+            "work": {
+              "sync": 1.4000000059604645,
+              "elapsed": 236.59999999403954,
+              "bytes": 232604
+            },
+            "correctedElapsed": 8,
+            "correctedBytes": 226244
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 242.69999998807907,
+              "bytes": 7356
+            },
+            "work": {
+              "sync": 1.2999999821186066,
+              "elapsed": 241.69999998807907,
+              "bytes": 229276
+            },
+            "correctedElapsed": -1,
+            "correctedBytes": 221920
+          }
+        ],
+        "medianSync": 1.2999999821186066,
+        "medianCorrected": 0.29999998211860657,
+        "medianBytes": 215352,
+        "counts": {
+          "nodes": 1777,
+          "visibleControls": 16
+        }
+      }
+    ]
+  },
+  "0.5.21": {
+    "schema": "branch-ops-v1",
+    "fixtureHash": "0e29ff89318a83cb4f2f0e2623efccd274a15955b9d73d9bef36688295c280e3",
+    "resources": {
+      "branching.html": "8418dcd2fd0fc83d3db317fb9dc0421f28ad270fa04c1963d3a340d4717c5198",
+      "branching.css": "88cf5a6837fd68c232f4e6878b4aa422ce70e77d542ad5051650dc7c768bed30",
+      "branching.js": "b55c7f053978ad1519318084d57397f67cd44a388f8a5a9a978c8821f429c066"
+    },
+    "environment": {
+      "platform": "win32",
+      "release": "10.0.26300",
+      "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+      "node": "v24.22.3",
+      "browser": "157.0.8103.79",
+      "viewport": {
+        "width": 1000,
+        "height": 820
+      }
+    },
+    "method": {
+      "rounds": 1,
+      "warmups": 2,
+      "samples": 7,
+      "turns": 120,
+      "branches": 60,
+      "frames": 2,
+      "waitMs": 220,
+      "allocation": "CDP V8 sampling at 1024 bytes. Each action sampled separately with paired empty action. Sample allocations are estimates and include browser dispatch and queue costs."
+    },
+    "measurements": [
+      {
+        "round": 0,
+        "operation": "map",
+        "pairs": [
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 241.09999999403954,
+              "bytes": 10772
+            },
+            "work": {
+              "sync": 1,
+              "elapsed": 240.5,
+              "bytes": 225844
+            },
+            "correctedElapsed": -0.5999999940395355,
+            "correctedBytes": 215072
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 243,
+              "bytes": 4152
+            },
+            "work": {
+              "sync": 1.300000011920929,
+              "elapsed": 243,
+              "bytes": 216992
+            },
+            "correctedElapsed": 0,
+            "correctedBytes": 212840
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 240.7999999821186,
+              "bytes": 6420
+            },
+            "work": {
+              "sync": 1.0999999940395355,
+              "elapsed": 242.69999998807907,
+              "bytes": 218080
+            },
+            "correctedElapsed": 1.9000000059604645,
+            "correctedBytes": 211660
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 227.30000001192093,
+              "bytes": 2444
+            },
+            "work": {
+              "sync": 1,
+              "elapsed": 241.60000002384186,
+              "bytes": 213864
+            },
+            "correctedElapsed": 14.300000011920929,
+            "correctedBytes": 211420
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 240.09999999403954,
+              "bytes": 9696
+            },
+            "work": {
+              "sync": 1.0999999940395355,
+              "elapsed": 243.2999999821186,
+              "bytes": 227744
+            },
+            "correctedElapsed": 3.199999988079071,
+            "correctedBytes": 218048
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 227.40000000596046,
+              "bytes": 7376
+            },
+            "work": {
+              "sync": 1.4000000059604645,
+              "elapsed": 242,
+              "bytes": 222988
+            },
+            "correctedElapsed": 14.599999994039536,
+            "correctedBytes": 215612
+          },
+          {
+            "empty": {
+              "sync": 0,
+              "elapsed": 243.59999999403954,
+              "bytes": 6260
+            },
+            "work": {
+              "sync": 0.800000011920929,
+              "elapsed": 228.80000001192093,
+              "bytes": 213776
+            },
+            "correctedElapsed": -14.799999982118607,
+            "correctedBytes": 207516
+          }
+        ],
+        "medianSync": 1.0999999940395355,
+        "medianCorrected": 1.9000000059604645,
+        "medianBytes": 212840,
+        "counts": {
+          "nodes": 1776,
+          "visibleControls": 16
+        }
+      }
+    ]
+  }
+}

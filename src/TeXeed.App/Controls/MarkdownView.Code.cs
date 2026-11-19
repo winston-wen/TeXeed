@@ -105,14 +105,6 @@ public sealed partial class MarkdownView
                 pointer = table.Block.ElementEnd; continue;
             }
             var context = pointer.GetPointerContext(LogicalDirection.Forward);
-            if (context == TextPointerContext.ElementStart && pointer.GetAdjacentElement(LogicalDirection.Forward) is Span { Tag: ChatMath.Token } digits)
-            {
-                // Historical InlineUIContainer had one opening, one embedded and one closing symbol.
-                yield return (digits.ElementStart, 1);
-                yield return (digits.ContentStart, 1);
-                yield return (digits.ContentEnd, 1);
-                pointer = digits.ElementEnd; continue;
-            }
             if (context == TextPointerContext.ElementStart && pointer.GetAdjacentElement(LogicalDirection.Forward) is Span emojiSpan
                 && ReferenceEquals(emojiSpan.Tag, EmojiSprite.Marker))
             {

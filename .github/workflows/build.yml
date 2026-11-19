@@ -34,8 +34,20 @@ jobs:
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-control-viewport-offscreen --output artifacts/ci-ai-control-viewport-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-long-form-viewport-only --offscreen --output artifacts/ci-ai-long-form-viewport-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-inline-axis-only --offscreen --output artifacts/ci-ai-inline-axis-check
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-heading-prompt-only --offscreen --output artifacts/ci-ai-writing-prompt-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-async-layout-only --output artifacts/ci-ai-layout-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-branches-only --output artifacts/ci-ai-branches-check
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-relations-surface-only --offscreen --output artifacts/ci-ai-relations-check
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --workspace-restore-only --offscreen --output artifacts/ci-workspace-restore-check
+      - name: Upload workspace tab diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: TeXeed-workspace-tab-diagnostics
+          path: |
+            artifacts/ci-ai-relations-check/*.png
+            artifacts/ci-workspace-restore-check/*.png
+          if-no-files-found: ignore
       - run: ./scripts/publish.ps1 -SkipShortcuts -NoRestore
       - name: Package release
         id: package

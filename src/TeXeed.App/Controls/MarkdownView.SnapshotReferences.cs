@@ -42,12 +42,11 @@ public partial class MarkdownView
             return true;
         }
         var summary = anchor is { PreviewKind: "formula" or "image" } ? AiPanel.ReferencePreviewFallback(anchor) : AiTurnView.AnnotationSummary(entry);
-        var renderFormula = formula && !AiReferencePresentation.IsInlineNumberPreview(anchor!);
-        if (renderFormula && (string.IsNullOrWhiteSpace(summary) || summary == anchor!.Quote)) summary = "公式";
+        if (formula && (string.IsNullOrWhiteSpace(summary) || summary == anchor!.Quote)) summary = "公式";
         var text = new Run(summary) { Tag = formula ? new SnapshotFormulaCopy(anchor!.Quote) : null }; link.Inlines.Add(text);
         if (anchor is { PreviewKind: "formula" or "image" } && !string.IsNullOrWhiteSpace(entry.Question))
             link.Inlines.Add(new Run(" · " + AiTurnView.AnnotationSummary(entry)));
-        if (renderFormula)
+        if (formula)
         {
             var visual = new ChatFormula(anchor!.PreviewSource!, true, asset: FormulaAsset?.Invoke(anchor.PreviewSource!, true));
             visual.SetValue(TextElement.FontSizeProperty, FontSize);
@@ -63,12 +62,12 @@ public partial class MarkdownView
     {
         var remaining = 120;
         var lastFormulaIndex = -1;
-        for (var i = parts.Count - 1; i >= 0; i--) if (parts[i].Formula && !parts[i].IsPlainNumber) { lastFormulaIndex = i; break; }
+        for (var i = parts.Count - 1; i >= 0; i--) if (parts[i].Formula) { lastFormulaIndex = i; break; }
         var shownFormulas = 0; var omittedFormula = false;
         for (var index = 0; index < parts.Count; index++)
         {
             var part = parts[index];
-            if (part.Formula && !part.IsPlainNumber)
+            if (part.Formula)
             {
                 if (shownFormulas >= 3 && index != lastFormulaIndex)
                 {
@@ -87,24 +86,17 @@ public partial class MarkdownView
                 _ = CompleteSnapshotFormulaAsync(link, fallback, visual, original, _renderVersion);
                 continue;
             }
-            var text = part.IsPlainNumber ? part.Text.Trim() : Regex.Replace(part.Text, @"\s+", " ");
+            var text = Regex.Replace(part.Text, @"\s+", " ");
             var runes = text.EnumerateRunes().ToArray();
-            if (runes.Length <= remaining)
-            {
-                link.Inlines.Add(part.IsPlainNumber ? NumericExcerptRun(part) : new Run(text));
-                remaining -= runes.Length; continue;
-            }
+            if (runes.Length <= remaining) { link.Inlines.Add(new Run(text)); remaining -= runes.Length; continue; }
             if (remaining > 0) link.Inlines.Add(new Run(string.Concat(runes.Take(remaining))));
             link.Inlines.Add(new Run("…"));
             // Retain a final formula even when the preceding prose is long.
-            var finalFormula = parts.Skip(index + 1).LastOrDefault(item => item.Formula && !item.IsPlainNumber);
+            var finalFormula = parts.Skip(index + 1).LastOrDefault(item => item.Formula);
             if (finalFormula is not null && shownFormulas < 4) AddSnapshotExcerpt(link, key, [finalFormula]);
             break;
         }
     }
-
-    internal static Run NumericExcerptRun(AiReferencePresentation.ExcerptPart part) =>
-        new(part.Text.Trim()) { Tag = new SnapshotFormulaCopy("$" + (part.CopyTex ?? part.Text) + "$") };
 
     private async Task CompleteSnapshotFormulaAsync(Hyperlink link, Run fallback, ChatFormula formula, string original, int version)
     {

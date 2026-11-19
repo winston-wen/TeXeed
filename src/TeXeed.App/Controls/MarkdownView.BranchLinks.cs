@@ -23,25 +23,27 @@ public sealed partial class MarkdownView
             if (existing.Parent is not null && existing.Child is Button button) { SetBranchTitle(button, title); return true; }
             _branchLinkBlocks.Remove(id);
         }
-        var start = ResolveBranchAnchor(anchor, before, after, reveal: false);
+        var start = ResolveBranchAnchor(anchor, before, after, reveal: false, out var offset);
         if (start is null) return false;
-        int startOffset;
-        if (start.IsInSameDocument(Document.ContentStart)) startOffset = CopySourceLength(Document.ContentStart, start);
-        else
+        var quote = anchor.Quote.Trim();
+        var end = BranchTextPointer(offset + quote.Length);
+        if (end?.Paragraph is null || !start.IsInSameDocument(end)) return false;
+        var table = start.IsInSameDocument(Document.ContentStart) ? null :
+            _tableViews.FirstOrDefault(item => start.IsInSameDocument(item.View.Document.ContentStart));
+        var owner = table?.View ?? this;
+        var selected = owner.CopySource(start, end);
+        if (selected.Trim() != quote)
         {
-            var table = _tableViews.FirstOrDefault(t => start.IsInSameDocument(t.View.Document.ContentStart));
-            if (table is null) return false;
-            startOffset = CopySourceLength(Document.ContentStart, table.Block.ElementStart) + table.View.CopySourceLength(table.View.Document.ContentStart, start);
+            // A historical selection can begin or end inside a now-atomic formula.
+            // Place the link at its edge, retaining the exact saved excerpt and context.
+            var prefix = owner.CopySourceLength(owner.Document.ContentStart, start);
+            if (table is not null) prefix += CopySourceLength(Document.ContentStart, table.Block.ElementStart);
+            var skip = offset - prefix;
+            if (skip < 0 || skip > selected.Length - quote.Length || !selected.AsSpan(skip, quote.Length).SequenceEqual(quote)) return false;
         }
-        var end = BranchTextPointer(startOffset + anchor.Quote.Trim().Length);
-        if (end?.Paragraph is null) return false;
-        if (!start.IsInSameDocument(end)) return false;
-        var selectionView = start.IsInSameDocument(Document.ContentStart) ? this : _tableViews.FirstOrDefault(table => start.IsInSameDocument(table.View.Document.ContentStart))?.View;
-        if (selectionView is null || selectionView.CopySource(start, end).Trim() != anchor.Quote.Trim()) return false;
         // Repeated references to the same text are kept in their original order.
         foreach (var inline in _branchLinkBlocks.Values.Where(link => link.Parent is not null && link.ElementStart.IsInSameDocument(end) && link.ElementStart.Paragraph == end.Paragraph).OrderBy(link => link.ElementStart, TextPointerComparer.Instance))
             if (end.CompareTo(inline.ElementStart) <= 0 && CopySourceLength(end, inline.ElementStart) == 0) end = inline.ElementEnd;
-        var owner = end.IsInSameDocument(Document.ContentStart) ? this : _tableViews.FirstOrDefault(table => end.IsInSameDocument(table.View.Document.ContentStart))?.View ?? this;
         var linkButton = new Button
         {
             FontSize = FontSize, FontFamily = FontFamily, FontWeight = FontWeights.Normal,
@@ -115,16 +117,10 @@ public sealed partial class MarkdownView
                 offset -= table.Text.Length; p = table.Block.ElementEnd; continue;
             }
             var context = p.GetPointerContext(LogicalDirection.Forward);
-            var element = context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
-                ? p.GetAdjacentElement(LogicalDirection.Forward) : null;
-            if (element is Span { Tag: ChatMath.Token })
+            if (context == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
             {
-                if (offset == 0) return p;
-                offset--; p = p.GetNextContextPosition(LogicalDirection.Forward); continue;
-            }
-            if (context == TextPointerContext.ElementStart && element is InlineUIContainer { Tag: string source } ui)
-            {
-                if (offset < source.Length) return null;
+                if (offset == 0) return ui.ElementStart;
+                if (offset < source.Length) return ui.ElementEnd;
                 offset -= source.Length;
                 if (offset == 0) return ui.ElementEnd;
                 p = ui.ElementEnd; continue;
@@ -135,7 +131,7 @@ public sealed partial class MarkdownView
                 if (offset <= text.Length) return p.GetPositionAtOffset(offset);
                 offset -= text.Length; p = p.GetPositionAtOffset(text.Length); continue;
             }
-            if (context == TextPointerContext.ElementEnd && element is Paragraph)
+            if (context == TextPointerContext.ElementEnd && p.GetAdjacentElement(LogicalDirection.Forward) is Paragraph)
             { if (offset < Environment.NewLine.Length) return p; offset -= Environment.NewLine.Length; }
             p = p.GetNextContextPosition(LogicalDirection.Forward);
         }

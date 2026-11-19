@@ -4,7 +4,6 @@
  const escape=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const code=(source,display)=>display?'<pre class="render-fallback"><code>'+escape(source)+'</code></pre>':'<code class="render-fallback">'+escape(source)+'</code>';
  function math(tex,display,raw,closed=true){
-  if(closed && !display && root.isReadingNumber(tex))return tex.trim();
   try{
    if(!closed)throw new Error('Unclosed math delimiter');
    return root.katex.renderToString(tex,{displayMode:display,throwOnError:true,trust:false,strict:'ignore',maxExpand:1000,maxSize:20,macros:{}});
@@ -116,38 +115,22 @@
    const level=heading[1].length;return prefix+'<h'+level+attributes+'>'+body+'</h'+level+'>';
   });
  };
- // Older saved answers can contain entire SVG or KaTeX trees for plain digits.
- const checkedAnswers = new WeakMap();
- root.readCachedAnswerMarkup = function(turn){
-  if(checkedAnswers.get(turn) === turn.answerHtml)return turn.answerHtml;
-  if(/\bdata-tex=["']\s*\p{Decimal_Number}+\s*["']/u.test(turn.answerHtml)){
-   const template = document.createElement('template');
-   template.innerHTML = turn.answerHtml;
-   let changed = false;
-   for(const formula of template.content.querySelectorAll('.math[data-display=false][data-tex]')){
-    const tex = formula.dataset.tex.trim();
-    if(!root.isReadingNumber(tex))continue;
-    const number = document.createElement('span');
-    number.dataset.inlineNumber = tex;
-    number.textContent = tex;
-    formula.replaceWith(number);
-    changed = true;
-   }
-   if(changed)turn.answerHtml = template.innerHTML;
-  }
-  checkedAnswers.set(turn,turn.answerHtml);
-  return turn.answerHtml;
+ function answerTokenHtml(token){
+  return token.tex!==undefined?'<span class="math" data-tex="'+escape(token.tex)+'" data-display="'+token.display+'" role="math" aria-label="'+escape(token.tex)+'">'+root.renderRichText(token.raw,true)+'</span>':root.renderRichText(token.raw,!token.block);
+ }
+ // Rebuild only the obsolete 0.5.20 placeholders from the original Markdown.
+ // Patching the saved passage in place preserves anchors in older sessions.
+ root.restoreCachedFormulaMarkup=function(markup,source){
+  const inline=new Map(answerParts(source).tokens.filter(token=>token.tex!==undefined&&!token.display).map(token=>[token.tex,token]));
+  return markup.replace(/<span data-inline-number="([^"]*)">[^<]*<\/span>/g,(saved,tex)=>{
+   const token=inline.get(tex);
+   return token?answerTokenHtml(token):saved;
+  });
  };
  // Keep saved passage IDs stable when a bundled sample has been replaced.
  root.renderSavedAnswer=function(source,prefix){
   const {blocks,tokens,singleToken,allTokens}=answerParts(source);
-  for(const token of tokens){
-   if(token.tex!==undefined && !token.display && root.isReadingNumber(token.tex)){
-    token.html='<span data-inline-number="'+token.tex+'">'+token.tex+'</span>';
-    continue;
-   }
-   token.html=token.tex!==undefined?'<span class="math" data-tex="'+escape(token.tex)+'" data-display="'+token.display+'" role="math" aria-label="'+escape(token.tex)+'">'+root.renderRichText(token.raw,true)+'</span>':root.renderRichText(token.raw,!token.block);
-  }
+  for(const token of tokens)token.html=answerTokenHtml(token);
   let equation=0;
   return blocks.map((chunk,index)=>{
    const token=singleToken.exec(chunk.trim());let content;

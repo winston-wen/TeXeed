@@ -93,11 +93,17 @@ internal static partial class Program
         Invoke(reopened, "CancelPendingNavigation");
         reopenedPreview.ShowLocation(point, highlight: false, viewportFraction: .5);
         await WaitForPreviewRenderedAsync(reopened);
-        await CallAsync(reopened, "OpenAsync", other);
-        File.Delete(pdf);
-        await CallAsync(reopened, "OpenAsync", main);
-        if (reopenedPreview.PageCount != 0 || Field(reopened, "_pendingPreviewPosition") is null)
-            throw new Exception("Missing cached PDF did not retain a pending position");
+        async Task ReopenWithoutCachedPdf()
+        {
+            await CallAsync(reopened, "OpenAsync", other);
+            // This fixture can publish main.pdf in both the shared and the per-entry preview directory.
+            var cache = Path.Combine(directory, ".texeed", "preview");
+            foreach (var cached in Directory.EnumerateFiles(cache, "main.pdf", SearchOption.AllDirectories)) File.Delete(cached);
+            await CallAsync(reopened, "OpenAsync", main);
+            if (reopenedPreview.PageCount != 0 || Field(reopened, "_pendingPreviewPosition") is null)
+                throw new Exception("Missing cached PDF did not retain a pending position");
+        }
+        await ReopenWithoutCachedPdf();
         Invoke(reopened, "SetManualZoom", 1.6);
         await CallAsync(reopened, "BuildAsync");
         await WaitUntilAsync(() => reopenedPreview.PageCount == 5 && Field(reopened, "_pendingPreviewPosition") is null, "First build did not restore pending preview position");
@@ -118,10 +124,7 @@ internal static partial class Program
         Invoke(reopened, "CancelPendingNavigation");
         reopenedPreview.ShowLocation(point, highlight: false, viewportFraction: .5);
         await WaitForPreviewRenderedAsync(reopened);
-        await CallAsync(reopened, "OpenAsync", other);
-        File.Delete(pdf);
-        await CallAsync(reopened, "OpenAsync", main);
-        if (Field(reopened, "_pendingPreviewPosition") is null) throw new Exception("User interaction fixture has no deferred PDF position");
+        await ReopenWithoutCachedPdf();
         reopenedEditor = (LatexEditor)reopened.FindName("RightEditor");
         reopenedEditor.TextArea.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent });
         reopenedEditor.CaretOffset = reopenedEditor.Document.GetLineByNumber(5).Offset;
@@ -134,9 +137,7 @@ internal static partial class Program
         Invoke(reopened, "CancelPendingNavigation");
         reopenedPreview.ShowLocation(point, highlight: false, viewportFraction: .5);
         await WaitForPreviewRenderedAsync(reopened);
-        await CallAsync(reopened, "OpenAsync", other);
-        File.Delete(pdf);
-        await CallAsync(reopened, "OpenAsync", main);
+        await ReopenWithoutCachedPdf();
         Invoke(reopened, "Outline_NavigateRequested", reopened, new SourceLocation(main, 5));
         await reopened.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
         if (Field(reopened, "_pendingPreviewPosition") is not null || (bool)Field(reopened, "_followAwaitingSourceInteraction")!)
@@ -147,9 +148,7 @@ internal static partial class Program
         Invoke(reopened, "CancelPendingNavigation");
         reopenedPreview.ShowLocation(point, highlight: false, viewportFraction: .5);
         await WaitForPreviewRenderedAsync(reopened);
-        await CallAsync(reopened, "OpenAsync", other);
-        File.Delete(pdf);
-        await CallAsync(reopened, "OpenAsync", main);
+        await ReopenWithoutCachedPdf();
         await CallAsync(reopened, "ForwardAsync", true);
         if (Field(reopened, "_pendingPreviewPosition") is not null || (bool)Field(reopened, "_followAwaitingSourceInteraction")!)
             throw new Exception("Explicit forward navigation did not cancel deferred PDF position");

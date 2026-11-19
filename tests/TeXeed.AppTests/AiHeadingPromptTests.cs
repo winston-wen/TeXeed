@@ -11,9 +11,9 @@ internal static partial class Program
     private static async Task CheckAiHeadingPromptAsync()
     {
         new AiCredentials { UseApiKey = true, ApiKey = "isolated-heading-test-not-a-real-key" }.Save();
-        const string previous = "## 1. 已有标题（历史缺少一级）\n\n已有正文。\n\n#### 1.1 已编号小节（历史跳级）\n\n原有内容。";
+        const string previous = "## 1. 已有标题（历史缺少一级）\n\n已有正文中的 $512$ 和 64。\n\n#### 1.1 已编号小节（历史跳级）\n\n原有内容。";
         var history = new[] { new AiTurn("先前的问题", previous) };
-        foreach (var mode in new[] { "read", "workspace", "resume", "repair" })
+        foreach (var mode in new[] { "read", "workspace", "resume", "branch", "repair" })
         {
             using var handler = new HeadingPromptHandler(previous);
             using var connection = new AiConnection(handler);
@@ -23,11 +23,14 @@ internal static partial class Program
             Func<string, CancellationToken, Task<AiMathCheck>>? proofread = mode == "repair"
                 ? (_, _) => Task.FromResult(++checks == 1 ? new AiMathCheck(1, "测试公式诊断", true) : new AiMathCheck(1)) : null;
             await new AiResponses(connection).RunAsync("test-model", [], history, [], _ => { }, _ => { }, CancellationToken.None,
-                toolRunner: tools, activity: output.Add, proofread: proofread, resuming: mode == "resume");
+                toolRunner: tools, activity: output.Add, proofread: proofread, resuming: mode == "resume", isBranch: mode == "branch");
             if (handler.Payloads.Count != (mode == "repair" ? 2 : 1)) throw new Exception($"Unexpected request count for {mode}");
             foreach (var payload in handler.Payloads)
             {
                 var instruction = payload["instructions"]!.GetValue<string>();
+                if (!instruction.Contains("纯数字优先直接写作普通文本") || !instruction.Contains("取 512 或 64") ||
+                    !instruction.Contains("$x=512$") || !instruction.Contains("用户明确指定排版"))
+                    throw new Exception($"The number-writing preference or its exceptions are missing from the {mode} system instructions.");
                 if (!instruction.Contains("不要添加一个包裹全文的统一一级标题") || !instruction.Contains("保留原有标题结构"))
                     throw new Exception($"Heading policy missing from {mode} request");
                 if (!instruction.Contains("新生成的分节标题只写标题文字") ||
@@ -44,7 +47,7 @@ internal static partial class Program
                     !instruction.Contains("主题相关的一级分节可以并列"))
                     throw new Exception($"New-answer heading hierarchy policy missing from {mode} request");
                 var input = payload["input"]!.ToJsonString(new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
-                if (!input.Contains("1. 已有标题") || !input.Contains("1.1 已编号小节") || !input.Contains("已有正文"))
+                if (!input.Contains("1. 已有标题") || !input.Contains("1.1 已编号小节") || !input.Contains("已有正文中的 $512$ 和 64。"))
                     throw new Exception($"Existing numbered answer changed in {mode} request");
             }
             if (output.Snapshot().Where(s => s.Kind == "final").Single().Text != previous)
@@ -61,7 +64,7 @@ internal static partial class Program
             var instruction = handler.Payloads.Single()["instructions"]!.GetValue<string>();
             if (instruction != "内部会话压缩") throw new Exception("User-facing heading policy leaked into internal session compaction");
         }
-        Console.WriteLine("AI heading prompt: read, workspace, resume, math repair and internal compaction passed; existing answer preserved.");
+        Console.WriteLine("PASS: outbound read, workspace, resume, branch and repair instructions prefer prose numbers; compaction and existing math are preserved.");
     }
 
     private sealed class HeadingPromptHandler(string answer) : HttpMessageHandler
