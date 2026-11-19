@@ -128,7 +128,7 @@ function turnHtml(t,index=0,turns=[t]){
 function renderTurns(){
  const pos=$('reader').scrollTop;
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):current().branchSource?branchOriginHtml(current().branchSource):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
- enhanceAnswers();addSameTurnLinks();alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
+ enhanceAnswers();addSameTurnLinks();window.alignReadingMedia?.($('thread'));alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
 }
 function sourceTextNodes(root){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){const node=walker.currentNode;if(!node.parentElement.closest('.same-turn-link,.heading-marker,.margin-notes,.math,svg'))nodes.push(node);}return nodes;}
 function sourceText(root){return sourceTextNodes(root).map(node=>node.nodeValue).join('');}
@@ -148,7 +148,8 @@ function addSameTurnLinks(){
  }
  for(const [id,links] of positions){const body=$(id)?.querySelector('.passage-body');if(!body)continue;links.sort((a,b)=>(b.offset??-1)-(a.offset??-1)||b.index-a.index);
   for(const item of links){const nodes=sourceTextNodes(body);let n=item.offset,target=null;if(!item.media){for(const node of nodes){if(n<=node.length){target=node;break;}n-=node.length;}if(!target)continue;}
-   const link=document.createElement('button');link.type='button';link.className='same-turn-link';link.dataset.openTurn=item.turn.id;link.title='跳转到第 '+(item.index+1)+' 轮';link.textContent='🗨️ ['+(item.index+1)+']';
+   const link=document.createElement('button');link.type='button';link.className='same-turn-link';link.dataset.openTurn=item.turn.id;link.title='跳转到第 '+(item.index+1)+' 轮';
+   const icon=document.createElement('span');icon.className='reading-bubble';icon.textContent='🗨️';link.append(icon,' ['+(item.index+1)+']');
    if(item.media)item.media.after(link);else{const tail=target.splitText(n);tail.parentNode.insertBefore(link,tail);}
   }
  }
@@ -508,9 +509,9 @@ function migrateReadingDesign(){if(state.readingDesignVersion===4)return;for(con
 function readingAnchor(id){let node=$(id);const seen=new Set();while(node?.dataset.joinedInto&&!seen.has(node.id)){seen.add(node.id);node=$(node.dataset.joinedInto);}return node;}
 function prepareReadingLayout(answer){
  const tid=answer.dataset.turn;
- const bodySize=parseFloat(getComputedStyle(answer).fontSize);
- for(const eq of [...answer.querySelectorAll('.equation')]){const number=eq.querySelector('.equation-number'),n=Number(number.textContent.replace(/\D/g,'')),math=eq.querySelector('.math');eq.id=tid+'-eq-'+n;number.textContent='Eq. '+n;
-  const tex=math.dataset.tex,svg=math.querySelector('svg'),width=svg?parseFloat(svg.getAttribute('width'))*18.25:math.getBoundingClientRect().width;
+ const equations=answer.querySelectorAll('.equation'),bodySize=equations.length?parseFloat(getComputedStyle(answer).fontSize):0;
+ for(const eq of equations){const number=eq.querySelector('.equation-number'),n=Number(number.textContent.replace(/\D/g,'')),math=eq.querySelector('.math');eq.id=tid+'-eq-'+n;number.textContent='Eq. '+n;
+  const tex=math.dataset.tex,svg=math.querySelector('svg'),width=svg?parseFloat(svg.getAttribute('width'))*bodySize:math.getBoundingClientRect().width*bodySize/parseFloat(getComputedStyle(math).fontSize);
   if(width>bodySize*5||/=|\\(?:eq|neq|equiv|leq|geq)/.test(tex))continue;
   const passage=eq.closest('.passage'),previous=passage.previousElementSibling,following=passage.nextElementSibling,prevP=previous?.querySelector('.passage-body>p'),nextP=following?.querySelector('.passage-body>p');
   const anchor=eq.id;eq.removeAttribute('id');math.id=anchor;math.dataset.display='false';

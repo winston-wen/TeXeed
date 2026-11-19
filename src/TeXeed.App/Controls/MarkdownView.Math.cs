@@ -17,8 +17,8 @@ public sealed partial class MarkdownView
     private readonly Dictionary<string, TextPointer?> _annotationPointers = [];
     private readonly Dictionary<InlineUIContainer, ChatMath.Token> _clipboardMath = [];
     private readonly List<(FrameworkElement Grid, int Columns)> _formulaWidths = [];
+    private Dictionary<string, double>? _readingInkAxes;
     private double _measuredWidth = double.NaN;
-    private double FormulaFontSize => FontSize == AiChatTypography.FontSize ? AiChatTypography.FormulaFontSize : FontSize;
     private static double FormulaAvailableWidth(double width, int columns) => Math.Max(80, (width - 34) / columns - (columns > 1 ? 64 : 32));
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -112,7 +112,7 @@ public sealed partial class MarkdownView
     private Inline FormulaInline(ChatMath.Token token)
     {
         var formula = new ChatFormula(token.Source, token.Display, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, token.Display));
-        formula.SetValue(TextElement.FontSizeProperty, FormulaFontSize);
+        formula.SetValue(TextElement.FontSizeProperty, FontSize);
         var inline = new InlineUIContainer(formula)
             { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
         _clipboardMath.Add(inline, token);
@@ -123,7 +123,7 @@ public sealed partial class MarkdownView
         var paragraph = new Paragraph { Margin = ChatMode ? new Thickness(0, 0, 0, ChatParagraphSpacing) : new Thickness(0, 12, 0, 18),
             Padding = ChatMode ? new Thickness(0) : new Thickness(8), LineHeight = double.NaN };
         var formula = new ChatFormula(token.Source, true, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, true));
-        formula.SetValue(TextElement.FontSizeProperty, FormulaFontSize);
+        formula.SetValue(TextElement.FontSizeProperty, FontSize);
         var grid = new ChatFormulaRow(formula, token.Number, ChatMode ? Math.Max(0, 4 * FontSize - paragraph.Padding.Left) : 0, ChatMode);
         _formulaWidths.Add((grid, _columnCount));
         grid.Width = FormulaAvailableWidth(double.IsFinite(_measuredWidth) ? _measuredWidth : 0, _columnCount);
@@ -136,6 +136,62 @@ public sealed partial class MarkdownView
         _bookmarkFormulas.TryAdd(token.PreparedOffset, paragraph);
         return paragraph;
     }
+
+    internal void AlignInlineFormulas(Paragraph paragraph)
+    {
+        string sample = "";
+        double? axis = null;
+        var hasFormula = false;
+        List<ChatFormula>? leading = null;
+        foreach (var inline in ReadingInlines(paragraph.Inlines))
+        {
+            if (inline is Run run)
+            {
+                var word = FirstTitleWord(run.Text);
+                if (word.Length == 0) continue;
+                sample = word; axis = null;
+                if (leading is null) continue;
+                axis = ReadingInkAxis(sample);
+                foreach (var item in leading) item.TextInkAxis = axis.Value;
+                leading = null;
+            }
+            else if (inline is InlineUIContainer { Child: ChatFormula formula })
+            {
+                hasFormula = true;
+                if (sample.Length == 0) (leading ??= []).Add(formula);
+                else formula.TextInkAxis = axis ??= ReadingInkAxis(sample);
+            }
+        }
+        if (leading is not null)
+        {
+            var defaultAxis = ReadingInkAxis("");
+            foreach (var item in leading) item.TextInkAxis = defaultAxis;
+        }
+        // Fractions and other tall inline formulas can require more than the ordinary line frame.
+        if (hasFormula) paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight;
+    }
+
+    private static IEnumerable<Inline> ReadingInlines(InlineCollection inlines)
+    {
+        foreach (var inline in inlines)
+            if (inline is Span span)
+            {
+                if (ReferenceEquals(span.Tag, CodeSpanMarker)) continue;
+                foreach (var child in ReadingInlines(span.Inlines)) yield return child;
+            }
+            else yield return inline;
+    }
+
+    private double ReadingInkAxis(string sample)
+    {
+        if (sample.Length == 0) sample = "中文";
+        var axes = _readingInkAxes ??= new(StringComparer.Ordinal);
+        if (axes.TryGetValue(sample, out var axis)) return axis;
+        axis = InkAxis(sample, FontFamily, FontWeights.Normal, FontStyles.Normal, FontSize);
+        if (axes.Count < 64) axes.Add(sample, axis);
+        return axis;
+    }
+
     private Hyperlink EquationLink(string label, string? text)
     {
         var link = new Hyperlink { ToolTip = "跳转到公式 " + label };

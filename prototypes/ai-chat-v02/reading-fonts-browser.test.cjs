@@ -36,6 +36,7 @@ catch { console.log('SKIP reading fonts: Playwright unavailable'); process.exit(
         const container = document.querySelector('.answer') || document.querySelector('.transcript');
         const probe = document.createElement('p');
         probe.id = 'font-probe';
+        probe.className = 'passage';
         probe.innerHTML = '<span id="probe-cn">中文阅读样本</span> <span id="probe-latin">Il1 O0</span> <span id="probe-math"></span>';
         container.prepend(probe);
         window.katex.render('x+1', document.getElementById('probe-math'));
@@ -48,7 +49,7 @@ catch { console.log('SKIP reading fonts: Playwright unavailable'); process.exit(
           feature: latin.fontFeatureSettings, mathFeature: math.fontFeatureSettings,
           bodySize: latin.fontSize, bodyWeight: latin.fontWeight, ordinalSize: ordinal.fontSize,
           ordinalWeight: ordinal.fontWeight, headingWeight: heading.fontWeight,
-          mathFamily: mathGlyph.fontFamily, editor: getComputedStyle(document.querySelector('textarea')).fontFamily };
+          mathSize: math.fontSize, mathFamily: mathGlyph.fontFamily, editor: getComputedStyle(document.querySelector('textarea')).fontFamily };
       });
       assert.equal(result.loaded[0], 1, pageName + ' IBM font could not be loaded');
       if (hasLocalHiragino) assert.equal(result.loaded[1], 1, pageName + ' local Hiragino font could not be loaded');
@@ -65,8 +66,9 @@ catch { console.log('SKIP reading fonts: Playwright unavailable'); process.exit(
       assert.equal(result.bodySize, '18px');
       assert.equal(result.bodyWeight, '400');
       assert.equal(result.ordinalSize, result.bodySize);
-      assert.equal(result.ordinalWeight, '600');
-      assert.equal(result.headingWeight, '600');
+      assert.equal(result.ordinalWeight, result.bodyWeight);
+      assert.equal(result.headingWeight, result.bodyWeight);
+      assert.equal(result.mathSize, result.bodySize);
       assert.equal(result.mathFeature, 'normal', 'math must not inherit the prose feature');
       assert.match(result.mathFamily, /KaTeX/, 'math must continue to use TeX fonts');
       assert.doesNotMatch(result.editor, /TeXeed Plex Sans|TeXeed Hiragino W3/, 'editor should retain its own typography');
@@ -80,7 +82,7 @@ catch { console.log('SKIP reading fonts: Playwright unavailable'); process.exit(
         console.log(pageName, selector, JSON.stringify(fonts));
         assert.ok(fonts.some(font => pattern.test(font.familyName) && font.glyphCount > 0), selector + ' used a fallback font');
         if (selector === '#probe-cn') assert.ok(fonts.some(font => font.postScriptName === 'HiraginoSansGB-W3' && font.glyphCount > 0), 'Chinese did not use the W3 face');
-        if (selector === '.turn-number') assert.ok(fonts.some(font => font.postScriptName === 'IBMPlexSans-SmBld' && font.glyphCount > 0), 'Turn ordinal did not use the real SemiBold face');
+        if (selector === '.turn-number') assert.ok(fonts.some(font => font.postScriptName === 'IBMPlexSans' && font.glyphCount > 0), 'Turn ordinal did not use the regular face');
       }
       await page.locator('#probe-latin').evaluate(el => { el.textContent = '0000'; el.style.fontSize = '80px'; el.style.fontFeatureSettings = 'normal'; });
       const plainZero = await page.locator('#probe-latin').screenshot();

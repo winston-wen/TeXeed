@@ -1,0 +1,152 @@
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+using TeXeed.App.Services;
+
+internal static class ChatReadingAxisPerf
+{
+    private static async Task Idle(Window window)
+    {
+        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        window.UpdateLayout();
+    }
+    private static async Task Drain(Window window)
+    {
+        await Idle(window);
+        await Task.Delay(800);
+        await Idle(window);
+    }
+    private static IEnumerable<T> Children<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var descendant in Children<T>(child)) yield return descendant;
+        }
+    }
+    private static int Visible(Window window)
+    {
+        var bounds = new Rect(0, 0, window.ActualWidth, window.ActualHeight);
+        return Children<Control>(window).Count(control =>
+        {
+            if (!control.IsVisible || control.ActualWidth <= 0 || control.ActualHeight <= 0) return false;
+            try { return control.TransformToAncestor(window).TransformBounds(new Rect(0, 0, control.ActualWidth, control.ActualHeight)).IntersectsWith(bounds); }
+            catch (InvalidOperationException) { return false; }
+        });
+    }
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]);
+        var seeds = Path.GetFullPath(args[1]);
+        var home = Path.Combine(output, "profile");
+        var cache = Path.Combine(home, "ai", "math-svg");
+        Directory.CreateDirectory(cache);
+        foreach (var file in Directory.EnumerateFiles(seeds, "*.svg")) File.Copy(file, Path.Combine(cache, Path.GetFileName(file)), true);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", home);
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        ThemeManager.Apply("ristretto");
+        const string equation = @"\operatorname{Adv}^{\mathrm{dMLWR}}_{D} = \left|\Pr[D(A,s)=1]-\Pr[D(A,u)=1]\right|+\Pr[D(A,t)=0]";
+        var paragraph = string.Join("\n\n", Enumerable.Range(0, 30).Select(i => (i % 6 == 0 ? "# " : "") +
+            $"第 {i} 段。接收方核对 Il1 O0 Key 1024；输出 $0$ 或 $1$，由算法 $D$ 检查。"));
+        var text = paragraph + "\n\n$$" + equation + "$$";
+        var view = new MarkdownView { ChatMode = true };
+        var host = new Window
+        {
+            Width = 900, Height = 760, Left = -12000, Top = 20, ShowActivated = false, ShowInTaskbar = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Content = view
+        };
+        var result = 1;
+        app.DispatcherUnhandledException += (_, e) => { File.WriteAllText(Path.Combine(output, "error.txt"), e.Exception.ToString()); e.Handled = true; app.Shutdown(1); };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                view.Markdown = text;
+                async Task Settle()
+                {
+                    await view.RenderTask;
+                    await Idle(host);
+                    var formulas = Children<ChatFormula>(view).Select(formula => formula.RenderTask).ToArray();
+                    await Task.WhenAll(formulas).WaitAsync(TimeSpan.FromSeconds(30));
+                    await Drain(host);
+                }
+                await Settle();
+                var samples = new List<object>();
+                var references = new[] { "第 0 段", "第 1 段", "第 2 段", "第 3 段" };
+                void AddLink(string quote)
+                {
+                    var source = view.CopySource(view.Document.ContentStart, view.Document.ContentEnd);
+                    var offset = source.IndexOf(quote, StringComparison.Ordinal);
+                    var anchor = new AiAnswerAnchor("turn", "answer", 0, quote.Length, quote, view.Revision) { TextOffset = offset };
+                    if (offset < 0 || !view.AddBranchLink(quote, "补充解释", anchor, null, null, () => { }))
+                        throw new InvalidOperationException("Could not attach the follow-up bubble to " + quote);
+                }
+                async Task Measure(string operation, Action<int> action)
+                {
+                    for (var i = 0; i < 9; i++)
+                    {
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread();
+                        var idle = Stopwatch.StartNew();
+                        await Drain(host);
+                        idle.Stop();
+                        idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread();
+                        var timer = Stopwatch.StartNew();
+                        action(i);
+                        await Idle(host);
+                        var feedback = timer.Elapsed.TotalMilliseconds;
+                        var feedbackBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        await Settle();
+                        timer.Stop();
+                        bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        var controls = Visible(host);
+                        var formulas = Children<ChatFormula>(view).ToArray();
+                        if (!host.IsVisible || host.IsActive || controls == 0 || formulas.Length < 90 ||
+                            formulas.Any(formula => formula.Error is not null || formula.SvgPath is null))
+                            throw new InvalidOperationException("Typography fixture lost its non-activating window or a cached formula.");
+                        if (i >= 2) samples.Add(new
+                        {
+                            op = operation, feedbackMs = feedback, feedbackBytes, rawMs = timer.Elapsed.TotalMilliseconds,
+                            idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = timer.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds,
+                            rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = controls,
+                            formulaVisuals = formulas.Length, width = host.Width
+                        });
+                    }
+                }
+                await Measure("mixed-render", i => view.Markdown = text + (i % 2 == 0 ? "\n\n末句甲。" : "\n\n末句乙。"));
+                foreach (var quote in references) AddLink(quote);
+                await Settle();
+                await Measure("mixed-resize", i => host.Width = i % 2 == 0 ? 620 : 900);
+                host.Width = 900;
+                await Settle();
+                await Measure("change-branch", i =>
+                {
+                    var quote = references[i % references.Length];
+                    if (!view.RemoveBranchLink(quote)) throw new InvalidOperationException("Missing follow-up to replace");
+                    AddLink(quote);
+                });
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new
+                {
+                    fixture = "30 mixed-script blocks, five headings, 90 inline formulas, one display formula, four follow-up bubbles " +
+                        "for resize and link replacement, cached SVG, 900/620 x 760 offscreen WPF; two warmups, seven pairs with 800ms idle",
+                    samples
+                }, new JsonSerializerOptions { WriteIndented = true }));
+                result = 0;
+            }
+            catch (Exception ex) { File.WriteAllText(Path.Combine(output, "error.txt"), ex.ToString()); }
+            finally { host.Close(); app.Shutdown(result); }
+        };
+        host.Show();
+        app.Run();
+        return result;
+    }
+}

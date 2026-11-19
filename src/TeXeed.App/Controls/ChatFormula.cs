@@ -6,7 +6,7 @@ using System.Windows.Media;
 
 namespace TeXeed.App.Controls;
 
-/// <summary>Embeds actual LaTeX-generated SVG paths at the TeX baseline, without bitmap rasterization.</summary>
+/// <summary>Embeds LaTeX-generated SVG paths without rasterization.</summary>
 internal sealed class ChatFormula : FrameworkElement
 {
     private ChatSvg? _svg;
@@ -16,6 +16,7 @@ internal sealed class ChatFormula : FrameworkElement
     internal string? Error { get; private set; }
     internal string? SvgPath => _svg?.Path;
     internal Task RenderTask { get; }
+    internal double TextInkAxis { get; set; } = double.NaN;
     static ChatFormula()
     {
         TextElement.ForegroundProperty.OverrideMetadata(typeof(ChatFormula),
@@ -47,7 +48,8 @@ internal sealed class ChatFormula : FrameworkElement
         _layoutChanged?.Invoke(); InvalidateMeasure(); InvalidateVisual();
     }
     private double FontSize => (double)GetValue(TextElement.FontSizeProperty);
-    private double Scale => FontSize * (_display ? 1.15 : 1) / (10 * 72d / 72.27);
+    private double Em => FontSize * (_display ? 1.15 : 1);
+    private double Scale => Em / (10 * 72d / 72.27);
     private FormattedText Fallback() => new(Error is null ? "⋯" : (_display ? "$$\n" + Source + "\n$$" : "$" + Source + "$"), CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
         new Typeface("Consolas"), FontSize, (Brush)GetValue(TextElement.ForegroundProperty), VisualTreeHelper.GetDpi(this).PixelsPerDip);
     // WPF's default drawing hit test walks every glyph outline in the SVG. Pointer
@@ -58,8 +60,11 @@ internal sealed class ChatFormula : FrameworkElement
     {
         if (_svg is { } svg)
         {
-            TextBlock.SetBaselineOffset(this, svg.Baseline * Scale + 1);
-            return new(Math.Max(1, svg.Bounds.Width * Scale) + 2, Math.Max(1, svg.Bounds.Height * Scale) + 2);
+            var baseline = svg.Baseline * Scale + 1;
+            // Both TeX math fonts used by the renderer have a quarter-em math axis.
+            if (!double.IsNaN(TextInkAxis)) baseline -= Em * .25 + TextInkAxis;
+            TextBlock.SetBaselineOffset(this, baseline);
+            return new(Math.Max(1, svg.Bounds.Width * Scale) + 2, Math.Max(Math.Max(1, svg.Bounds.Height * Scale) + 2, baseline + 1));
         }
         var text = Fallback();
         TextBlock.SetBaselineOffset(this, text.Baseline + 1);

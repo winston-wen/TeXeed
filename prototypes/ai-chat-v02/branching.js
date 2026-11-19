@@ -186,7 +186,7 @@
     const last = pieces.at(-1), leading = text.length - text.trimStart().length;
     return text.slice(leading).startsWith(last) ? leading + last.length : null;
   }
-  function branchLink(child) { const link = document.createElement('button'); link.type = 'button'; link.className = 'associated'; const icon = document.createElement('span'); icon.className = 'branch-emoji'; icon.textContent = '🗨️'; link.append(icon, document.createTextNode(' ' + child.title)); link.title = child.title; link.dataset.openSession = child.id; return link; }
+  function branchLink(child) { const link = document.createElement('button'); link.type = 'button'; link.className = 'associated'; const icon = document.createElement('span'); icon.className = 'reading-bubble'; icon.textContent = '🗨️'; link.append(icon, document.createTextNode(' ' + child.title)); link.title = child.title; link.dataset.openSession = child.id; return link; }
   let sameSessionLinks = new Map();
   function indexSameSessionLinks() {
     const owners = new Map(), sourceTurns = new Map(), here = current();
@@ -207,7 +207,7 @@
   }
   function turnLink(target) {
     const link = document.createElement('button'); link.type = 'button'; link.className = 'associated';
-    const icon = document.createElement('span'); icon.className = 'branch-emoji'; icon.textContent = '🗨️';
+    const icon = document.createElement('span'); icon.className = 'reading-bubble'; icon.textContent = '🗨️';
     link.append(icon, document.createTextNode(' [' + target.number + ']')); link.title = '跳转到第 ' + target.number + ' 轮'; link.dataset.openTurn = target.turnId; return link;
   }
   function refreshLocalSources(references) {
@@ -224,7 +224,7 @@
       if (old.hasAttribute('aria-expanded')) replacement.setAttribute('aria-expanded', old.getAttribute('aria-expanded'));
       if (temp.children[1]?.dataset.linkFor === id) temp.children[1].hidden = old.hidden;
       const oldExtra = old.nextElementSibling?.dataset.linkFor === id ? old.nextElementSibling : null;
-      old.replaceWith(...temp.childNodes); oldExtra?.remove();
+      old.replaceWith(...temp.childNodes); oldExtra?.remove(); window.alignReadingMedia?.(replacement);
     }
   }
   function formState(turn) {
@@ -467,6 +467,7 @@
     const s = current();
     if (!s.turns.length && s.source) renderInitialSource(s);
     s.turns.forEach((turn, i) => transcript.appendChild(renderTurn(turn, i)));
+    window.alignReadingMedia?.(transcript);
     $('session-title').textContent = s.title;
     $('back-source').disabled = !s.parent;
     $('child-sessions').disabled = !state.sessions.some(child => child.parent === s.id);

@@ -69,8 +69,8 @@ internal static partial class Program
                 var formula = headingFormulas[i]; var box = formula.TransformToAncestor(view).TransformBounds(new Rect(formula.RenderSize));
                 titleResults.Add(new { level = i + 1, center = ink[i].Bounds.Top + ink[i].Bounds.Height / 2, ink[i].Baseline, ink[i].Weight, ink[i].Face,
                     formulaY = box.Y, formulaWidth = box.Width, formulaHeight = box.Height });
-                if (enforce && ink[i].Weight <= bodyInk[i].Weight && (!ink[i].BoldSimulation || bodyInk[i].BoldSimulation))
-                    throw new Exception($"Heading rendered at the same or lighter weight than body: {ink[i].Face}/{ink[i].Weight} vs {bodyInk[i].Face}/{bodyInk[i].Weight}");
+                if (enforce && (ink[i].Weight != bodyInk[i].Weight || ink[i].BoldSimulation != bodyInk[i].BoldSimulation))
+                    throw new Exception($"Heading weight differs from body: {ink[i].Face}/{ink[i].Weight} vs {bodyInk[i].Face}/{bodyInk[i].Weight}");
             }
             var display = Descendants<ChatFormula>(view).Single(f => f.Source == shortFormula);
             var rows = Descendants<ChatFormulaRow>(view).ToArray();

@@ -96,6 +96,7 @@ public sealed partial class MarkdownView : RichTextBox
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        if (e.Property == FontSizeProperty || e.Property == FontFamilyProperty) _readingInkAxes?.Clear();
         if (e.Property == FontSizeProperty && !_updatingChatTypography && UsesChatTypography && !string.IsNullOrEmpty(Markdown)) Render();
     }
 
@@ -308,7 +309,9 @@ public sealed partial class MarkdownView : RichTextBox
         var paragraph = new Paragraph { Margin = new Thickness(0, 0, 0, ChatParagraphSpacing) };
         if (ChatMode) paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         var formCount = _formControls.Count;
+        var formulaCount = _clipboardMath.Count;
         if (inline is not null) AddInlines(paragraph.Inlines, inline, depth + 1);
+        if (UsesChatTypography && _clipboardMath.Count != formulaCount) AlignInlineFormulas(paragraph);
         if (_formControls.Count != formCount) { paragraph.LineHeight = double.NaN; paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight; }
         return paragraph;
     }

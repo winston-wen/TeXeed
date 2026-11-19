@@ -103,7 +103,7 @@ public sealed class AiActivityView : Expander
 internal static class AiChatTypography
 {
     internal const double FontSize = 18, LineHeight = 28.125, FoldHintFontSize = 12.8;
-    internal const double FormulaFontSize = 16, FormLineHeight = 25;
+    internal const double FormLineHeight = 25;
     internal const double MetadataFontSize = 13, MetadataLineHeight = 20, TextLeft = 36;
     internal const double ExpandedLineHeight = MetadataLineHeight + MetadataFontSize / 2;
     // Align the RichTextBox viewport with the surrounding text.

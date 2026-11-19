@@ -19,7 +19,7 @@ public sealed partial class MarkdownView
     {
         if (_branchLinkBlocks.TryGetValue(id, out var existing))
         {
-            if (existing.Parent is not null && existing.Child is Button button) { button.Content = "🗨️ " + title; button.ToolTip = title; System.Windows.Automation.AutomationProperties.SetName(button, "追问：" + title); return true; }
+            if (existing.Parent is not null && existing.Child is Button button) { SetBranchTitle(button, title); return true; }
             _branchLinkBlocks.Remove(id);
         }
         var start = ResolveBranchAnchor(anchor, before, after, reveal: false);
@@ -40,26 +40,27 @@ public sealed partial class MarkdownView
         // Repeated references to the same text are kept in their original order.
         foreach (var inline in _branchLinkBlocks.Values.Where(link => link.Parent is not null && link.ElementStart.IsInSameDocument(end) && link.ElementStart.Paragraph == end.Paragraph).OrderBy(link => link.ElementStart, TextPointerComparer.Instance))
             if (end.CompareTo(inline.ElementStart) <= 0 && CopySourceLength(end, inline.ElementStart) == 0) end = inline.ElementEnd;
+        var owner = end.IsInSameDocument(Document.ContentStart) ? this : _tableViews.FirstOrDefault(table => end.IsInSameDocument(table.View.Document.ContentStart))?.View ?? this;
         var linkButton = new Button
         {
-            Content = "🗨️ " + title, ToolTip = title, FontSize = FontSize, FontFamily = FontFamily, FontWeight = FontWeights.Normal,
+            FontSize = FontSize, FontFamily = FontFamily, FontWeight = FontWeights.Normal,
             FontStyle = FontStyles.Normal, Padding = new Thickness(0), Margin = new Thickness(3, 0, 3, 0), BorderThickness = new Thickness(0), Background = Brushes.Transparent,
-            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, ContentTemplate = BranchLinkTemplate
+            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, ContentTemplate = BranchLinkTemplate,
+            Tag = owner.ReadingInkAxis(InkWordAt(end))
         };
         Typography.SetStylisticSet4(linkButton, true);
-        System.Windows.Automation.AutomationProperties.SetName(linkButton, "追问：" + title);
-        var owner = end.IsInSameDocument(Document.ContentStart) ? this : _tableViews.FirstOrDefault(table => end.IsInSameDocument(table.View.Document.ContentStart))?.View ?? this;
+        SetBranchTitle(linkButton, title);
         linkButton.SetBinding(MaxWidthProperty, new Binding(nameof(ActualWidth)) { Source = owner, Converter = BranchLinkWidthConverter.Instance });
         linkButton.SetResourceReference(Control.ForegroundProperty, "ChatFocus");
         linkButton.Click += (_, _) => open();
         InlineUIContainer container;
         NotifyAsyncLayoutChanging();
-        try { container = new InlineUIContainer(linkButton, end) { BaselineAlignment = BaselineAlignment.TextBottom }; }
+        try { container = new InlineUIContainer(linkButton, end) { BaselineAlignment = BaselineAlignment.Baseline }; }
         catch (ArgumentException) { return false; }
         linkButton.SizeChanged += (_, _) =>
         {
             if (container.Parent is null || container.ElementStart.Paragraph is not { } paragraph) return;
-            container.BaselineAlignment = linkButton.ActualHeight > linkButton.FontSize * 1.5 ? BaselineAlignment.Top : BaselineAlignment.TextBottom;
+            container.BaselineAlignment = linkButton.ActualHeight > linkButton.FontSize * 1.5 ? BaselineAlignment.Top : BaselineAlignment.Baseline;
             UpdateBranchLineMode(paragraph);
         };
         _branchLinkBlocks[id] = container;
@@ -144,10 +145,38 @@ public sealed partial class MarkdownView
     {
         var text = new FrameworkElementFactory(typeof(EmojiTextBlock));
         text.SetBinding(EmojiTextBlock.SourceTextProperty, new Binding());
+        text.SetBinding(EmojiTextBlock.BubbleInkAxisProperty, new Binding(nameof(Tag))
+            { RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(Button), 1) });
         text.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
         text.SetValue(TextBlock.LineHeightProperty, double.NaN);
         text.SetValue(TextBlock.LineStackingStrategyProperty, LineStackingStrategy.MaxHeight);
         return new DataTemplate { VisualTree = text };
+    }
+    private static string InkWordAt(TextPointer position)
+    {
+        if (position.Paragraph is not { } paragraph) return "";
+        var preceding = "";
+        foreach (var inline in ReadingInlines(paragraph.Inlines))
+        {
+            if (inline is not Run run || ReferenceEquals(run.Tag, HeadingNumberMarker)) continue;
+            var sample = FirstTitleWord(run.Text);
+            if (sample.Length == 0) continue;
+            if (run.ContentStart.CompareTo(position) > 0) return preceding.Length > 0 ? preceding : sample;
+            preceding = sample;
+        }
+        return preceding;
+    }
+    private static void SetBranchTitle(Button button, string title)
+    {
+        if (Equals(button.ToolTip, title)) return;
+        var label = new FormattedText(title, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(button.FontFamily, button.FontStyle, button.FontWeight, button.FontStretch), button.FontSize, Brushes.Black, 1);
+        // Set the inline baseline before WPF lays out the owning paragraph.
+        var iconBaseline = button.FontSize / 2 - (double)button.Tag;
+        TextBlock.SetBaselineOffset(button, Math.Max(label.Baseline, iconBaseline));
+        button.Content = "🗨️ " + title;
+        button.ToolTip = title;
+        System.Windows.Automation.AutomationProperties.SetName(button, "追问：" + title);
     }
     private sealed class BranchLinkWidthConverter : IValueConverter
     {

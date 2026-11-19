@@ -33,7 +33,7 @@ public sealed class AiTurnView : StackPanel
     internal List<MarkdownView> Questions { get; } = [];
     private readonly StackPanel _body = new(), _preview = new();
     private readonly TextBlock _number = new() { FontFamily = ChatReadingTypography.Family, FontSize = AiChatTypography.FontSize,
-        FontWeight = FontWeights.SemiBold, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
+        FontWeight = FontWeights.Normal, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
     private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
     private AiReplyStatus? _footer;
     private string? _previewId;

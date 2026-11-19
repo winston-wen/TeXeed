@@ -73,6 +73,7 @@ public partial class AiPanel
             if (part.Formula && !string.IsNullOrWhiteSpace(part.Text))
             {
                 var formula = new ChatFormula(part.Text, part.Display);
+                formula.SetValue(TextElement.FontSizeProperty, view.FontSize);
                 var tex = part.CopyTex ?? part.Text;
                 paragraph.Inlines.Add(new InlineUIContainer(formula) { Tag = part.Display ? "$$" + tex + "$$" : "$" + tex + "$", BaselineAlignment = BaselineAlignment.Baseline });
                 continue;
@@ -80,10 +81,16 @@ public partial class AiPanel
             var lines = part.Text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             for (var i = 0; i < lines.Length; i++)
             {
-                if (i > 0) { document.Blocks.Add(paragraph); paragraph = new Paragraph { Margin = new Thickness(0) }; }
+                if (i > 0)
+                {
+                    view.AlignInlineFormulas(paragraph);
+                    document.Blocks.Add(paragraph);
+                    paragraph = new Paragraph { Margin = new Thickness(0) };
+                }
                 paragraph.Inlines.Add(new Run(lines[i]));
             }
         }
+        view.AlignInlineFormulas(paragraph);
         document.Blocks.Add(paragraph); view.Document = document;
         return view;
     }

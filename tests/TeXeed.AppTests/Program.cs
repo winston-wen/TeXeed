@@ -116,6 +116,11 @@ internal static partial class Program
                     await CheckAiChatReadingFontAsync(window, output);
                     await CloseAndObserveAsync(window, "AI chat reading typography"); result = 0; return;
                 }
+                if (args.Contains("--ai-inline-axis-only"))
+                {
+                    await CheckAiInlineTypographyAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-inline-axis"));
+                    await CloseAndObserveAsync(window, "AI inline reading axes"); result = 0; return;
+                }
                 if (args.Contains("--ai-unlock-viewport-only"))
                 {
                     await CheckAiFormUnlockViewportAsync(window, output);

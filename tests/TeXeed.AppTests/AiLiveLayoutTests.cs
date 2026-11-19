@@ -82,9 +82,9 @@ internal static partial class Program
                 Console.WriteLine(JsonSerializer.Serialize(data));
                 if (enforce)
                 {
-                    if (number.FontFamily.Source != question.FontFamily.Source || number.FontSize != 18 || number.FontWeight != FontWeights.SemiBold ||
-                        ordinalInk.Weight <= latin.Weight && (!ordinalInk.BoldSimulation || latin.BoldSimulation))
-                        throw new Exception("Live ordinal did not render in the question's family at 18 DIP semibold");
+                    if (number.FontFamily.Source != question.FontFamily.Source || number.FontSize != 18 || number.FontWeight != FontWeights.Normal ||
+                        ordinalInk.Weight != latin.Weight || ordinalInk.BoldSimulation != latin.BoldSimulation)
+                        throw new Exception("Live ordinal did not render in the question's family at 18 DIP regular");
                     if (Math.Abs(numberDelta) > .5) throw new Exception("Live ordinal and first question line have different ink axes: " + numberDelta);
                     if (readingMetrics.Any(body => body.Size != 18 || Math.Abs(body.Height - 28.125) > .01) ||
                         processMetrics.Any(process => process.Size != 13 || Math.Abs(process.Height - 26.5) > .01))
@@ -118,7 +118,7 @@ internal static partial class Program
             if (enforce && (bounds.Count != 3 || bounds.Any(b => Math.Abs(b.Height - 28.125) > .1)))
                 throw new Exception("Linked inline code background does not match the 28.125-DIP reading line");
             if (enforce && Math.Abs(bounds[1].Y - bounds[2].Y) > .1) throw new Exception("Linked and ordinary code backgrounds have different vertical alignment");
-            Console.WriteLine(enforce ? "PASS: live semibold ordinal and ink alignment, distinct body and metadata sizes, process/body rhythm, and inline code surfaces." : "Recorded live typography, status cost and inline code surfaces.");
+            Console.WriteLine(enforce ? "PASS: live regular ordinal and ink alignment, distinct body and metadata sizes, process/body rhythm, and inline code surfaces." : "Recorded live typography, status cost and inline code surfaces.");
         }
         finally { host.Close(); }
     }

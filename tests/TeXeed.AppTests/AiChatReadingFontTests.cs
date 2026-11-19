@@ -32,8 +32,7 @@ internal static partial class Program
         static void Require(bool value, string message) { if (!value) throw new Exception(message); }
         var fontPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts", "IBMPlexSans-Regular.otf");
         Require(File.Exists(fontPath) && File.Exists(Path.Combine(Path.GetDirectoryName(fontPath)!, "LICENSE-IBM-Plex.txt")), "Plex font or license missing from application output");
-        const string semiboldFace = "IBMPlexSans-SemiBold.otf";
-        Require(File.Exists(Path.Combine(Path.GetDirectoryName(fontPath)!, semiboldFace)), "Plex semibold font missing from application output");
+        const string regularFace = "IBMPlexSans-Regular.otf";
         var ordinary = DrawReadingGlyphs("Il1 O0 中文", false);
         var dotted = DrawReadingGlyphs("Il1 O0 中文", true);
         var latin = dotted.FirstOrDefault(run => run.GlyphTypeface.FontUri.LocalPath.EndsWith("IBMPlexSans-Regular.otf", StringComparison.OrdinalIgnoreCase));
@@ -61,9 +60,9 @@ internal static partial class Program
         Require(text.FontSize == 18 && text.FontWeight == FontWeights.Normal && streaming.Document.Blocks.FirstBlock!.FontSize == 18 &&
             Math.Abs(finished.Document.LineHeight - 28.125) < .01 && Math.Abs(streaming.Document.LineHeight - 28.125) < .01,
             "Finished and streaming body text must use 18 DIP at normal weight");
-        Require(heading.FontSize == 18 && heading.FontWeight == FontWeights.SemiBold &&
-            heading.Inlines.OfType<Run>().First().FontWeight == FontWeights.SemiBold,
-            "Heading and hierarchy marker must use 18 DIP at semibold weight");
+        Require(heading.FontSize == 18 && heading.FontWeight == FontWeights.Normal &&
+            heading.Inlines.OfType<Run>().First().FontWeight == FontWeights.Normal,
+            "Heading and hierarchy marker must use 18 DIP at regular weight");
         Require(text.Inlines.OfType<Span>().Single().FontSize == 14, "Body sizing changed the dedicated code size");
         var nonChat = new MarkdownView { Markdown = "示例" };
         Require(nonChat.FontSize == 16 && !ReferenceEquals(nonChat.FontFamily, ChatReadingTypography.Family) &&
@@ -93,9 +92,9 @@ internal static partial class Program
             var liveQuestion = (MarkdownView)panel.FindName("LiveQuestion");
             Require(number.FontFamily == ChatReadingTypography.Family && liveNumber.FontFamily == ChatReadingTypography.Family && liveQuestion.FontFamily == ChatReadingTypography.Family, "Turn numbers or live question use another family");
             Require(Typography.GetStylisticSet4(number) && Typography.GetStylisticSet4(liveNumber), "Turn numbers do not inherit ss04");
-            Require(number.FontSize == 18 && liveNumber.FontSize == 18 && number.FontWeight == FontWeights.SemiBold &&
-                liveNumber.FontWeight == FontWeights.SemiBold && liveQuestion.FontSize == 18 && turn.Questions.Single().FontSize == 18,
-                "Live and finished turn numbers must both use 18 DIP semibold and match question size");
+            Require(number.FontSize == 18 && liveNumber.FontSize == 18 && number.FontWeight == FontWeights.Normal &&
+                liveNumber.FontWeight == FontWeights.Normal && liveQuestion.FontSize == 18 && turn.Questions.Single().FontSize == 18,
+                "Live and finished turn numbers must both use 18 DIP regular and match question size");
             Require(((TextBox)panel.FindName("Composer")).FontSize == 15 && ((TextBlock)panel.FindName("LiveSentTime")).FontSize == 13 &&
                 ((TextBlock)Field(turn, "_sentTime")!).FontSize == 13, "Body sizing changed the editor or timestamp size");
             var notice = (TextBlock)panel.FindName("FontFallbackNotice");
@@ -108,8 +107,8 @@ internal static partial class Program
             var formulas = Descendants<ChatFormula>(turn).ToArray();
             Require(formulas.Length > 0, "Rendered TeX formula is missing");
             await Task.WhenAll(formulas.Select(formula => formula.RenderTask)).WaitAsync(TimeSpan.FromSeconds(60));
-            Require(formulas.All(formula => formula.Error is null && TextElement.GetFontSize(formula) == 16),
-                "TeX formula could not be rendered at its dedicated size");
+            Require(formulas.All(formula => formula.Error is null && TextElement.GetFontSize(formula) == 18),
+                "TeX formula could not be rendered at the 18-DIP reading scale");
             var mainSection = (Section)turn.Answers.Single().Document.Blocks.FirstBlock!;
             var bodySection = mainSection.Blocks.OfType<Section>().Single();
             var foldedSection = bodySection.Blocks.OfType<Section>().First();
@@ -127,10 +126,10 @@ internal static partial class Program
             var numberGlyph = GlyphInk(number, turn).First(glyph => glyph.Text.Contains("[1]"));
             Require(headingGlyph.EmSize == 18 && bodyGlyph.EmSize == 18 && markerGlyph.EmSize == 18 && numberGlyph.EmSize == 18,
                 "WPF did not paint the body, heading and numbers at 18 DIP");
-            Require(headingGlyph.Weight > bodyGlyph.Weight || headingGlyph.BoldSimulation && !bodyGlyph.BoldSimulation,
-                "WPF did not paint the heading at a heavier weight than body");
-            Require(new[] { markerGlyph, numberGlyph }.All(glyph => glyph.Weight == 600 && !glyph.BoldSimulation &&
-                glyph.Face.Equals(semiboldFace, StringComparison.OrdinalIgnoreCase)), "WPF did not paint the numbers with bundled Plex semibold");
+            Require(headingGlyph.Weight == bodyGlyph.Weight && headingGlyph.BoldSimulation == bodyGlyph.BoldSimulation,
+                "WPF did not paint the heading at the same weight as the body");
+            Require(new[] { markerGlyph, numberGlyph }.All(glyph => glyph.Weight == 400 && !glyph.BoldSimulation &&
+                glyph.Face.Equals(regularFace, StringComparison.OrdinalIgnoreCase)), "WPF did not paint the numbers with bundled Plex Regular");
             Console.WriteLine($"Reading faces: body {bodyGlyph.Face}/{bodyGlyph.Weight}, heading {headingGlyph.Face}/{headingGlyph.Weight}, marker {markerGlyph.Face}/{markerGlyph.Weight}, ordinal {numberGlyph.Face}/{numberGlyph.Weight}");
             var originalTheme = ThemeManager.Current.Id;
             try
@@ -166,6 +165,6 @@ internal static partial class Program
             finally { ThemeManager.Apply(originalTheme); }
         }
         finally { handler.Release.TrySetResult(); host.Close(); }
-        Console.WriteLine("PASS chat reading fonts and hierarchy: 18-DIP body, semibold headings and ordinals, stable labels, editor and code sizes, actual IBM glyphs and ss04.");
+        Console.WriteLine("PASS chat reading fonts and hierarchy: 18-DIP reading text and TeX scale, regular headings and ordinals, stable labels, editor and code sizes, actual IBM glyphs and ss04.");
     }
 }

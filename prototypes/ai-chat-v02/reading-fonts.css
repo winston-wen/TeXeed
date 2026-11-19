@@ -6,30 +6,18 @@
 }
 
 @font-face {
-  font-family: 'TeXeed Plex Sans';
-  src: url('fonts/IBMPlexSans-SemiBold.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 600;
-}
-
-@font-face {
   font-family: 'TeXeed Hiragino W3';
   src: local('Hiragino Sans GB W3'), url('fonts/local/Hiragino_Sans_GB.ttc') format('truetype');
   font-style: normal;
   font-weight: 400;
 }
 
-@font-face {
-  font-family: 'TeXeed Hiragino W3';
-  src: local('Hiragino Sans GB W6'), local('HiraginoSansGB-W6');
-  font-style: normal;
-  font-weight: 600;
-}
-
 :root {
   --reading-face: 'TeXeed Plex Sans', 'TeXeed Hiragino W3', 'Microsoft YaHei', sans-serif;
   --reading-font: 18px;
   --reading-line: 28.125px;
+  --reading-math-display: calc(1.15 * var(--reading-font));
+  --reading-ink-axis: calc(.42 * var(--reading-font));
 }
 
 .thread, .transcript { --ordinal-gutter: 36px; }
@@ -47,15 +35,33 @@
 }
 
 .turn-number, .answer :is(h1, h2, h3, h4, h5, h6), .transcript .passage-heading {
-  font-weight: 600;
-  font-synthesis: weight;
-}
-
-.heading-label .math, .heading-label .same-turn-link, .passage-heading .associated {
   font-weight: 400;
 }
 
-/* Math uses its existing TeX fonts and figures rather than the prose feature. */
+/* The TeX axis is .25em above its own baseline. */
+.math[data-display=false],
+:is(.answer, .question, .snapshot-scroll, .branch-origin-view, .streaming-answer, .transcript .passage, .initial-source)
+  .katex:not(.katex-display > .katex, .math > .katex) {
+  font-size: var(--reading-font);
+  vertical-align: calc(var(--reading-ink-axis) - .25em);
+}
+
+.math > .katex { font-size: inherit; }
+.math[data-display=true],
+:is(.answer, .question, .snapshot-scroll, .branch-origin-view, .streaming-answer, .transcript .passage, .initial-source)
+  .katex-display > .katex { font-size: var(--reading-math-display); }
+
+/* The shared sprite's visible balloon is centered .545em above its bottom edge. */
+.reading-bubble {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: calc(var(--reading-ink-axis) - .545em);
+  color: transparent;
+  background: url('assets/reading-speech-bubble.png') center / contain no-repeat;
+}
+
 .katex, .katex * { font-feature-settings: normal; }
 
 .reading-shell :is(input, textarea, pre, code),

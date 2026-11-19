@@ -19,7 +19,7 @@ public sealed partial class MarkdownView
     {
         paragraph.FontSize = FontSize;
         paragraph.FontFamily = FontFamily;
-        paragraph.FontWeight = FontWeights.SemiBold;
+        paragraph.FontWeight = FontWeights.Normal;
         if (double.IsNaN(paragraph.LineHeight)) paragraph.LineHeight = ChatLineHeight;
         var number = _headingNumbers.Next(level);
         var marker = new Run($"[{TurnNumber}:{number}]\u2002")

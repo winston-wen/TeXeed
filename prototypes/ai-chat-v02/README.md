@@ -4,6 +4,8 @@
 
 阅读区使用随原型提供的 IBM Plex Sans。冬青黑体简体中文 W3 不随项目分发；可将自行取得的 `Hiragino_Sans_GB.ttc` 放在 `fonts/local/`，或使用系统已安装的对应字体。未提供时浏览器使用后备字体。`fonts/local/` 由 Git 忽略，不会随源码提交。
 
+行内追问气泡取自项目的 [Noto Emoji 图集](../../src/TeXeed.App/Assets/Emoji/ATTRIBUTION.txt)，按 [Apache 2.0 许可证](../../src/TeXeed.App/Assets/Emoji/LICENSE-APACHE-2.0.txt) 使用。
+
 在项目根目录重建：
 
 ```powershell

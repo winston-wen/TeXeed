@@ -42,9 +42,9 @@ internal static partial class Program
         Check(Math.Abs(xs[0] - 36) < 1, "Reading text does not use the 36px inset");
         var number = Descendants<TextBlock>(view).Single(t => t.Text == "[1]");
         Check(number.FontFamily.Source == rich[0].FontFamily.Source, "Hanging ordinal does not use the body font");
-        Check(number.FontSize == 18 && number.FontWeight == FontWeights.SemiBold &&
+        Check(number.FontSize == 18 && number.FontWeight == FontWeights.Normal &&
             Math.Abs(xs[0] - number.TranslatePoint(new Point(number.ActualWidth, 0), view).X - 10) < 1,
-            "Turn number is not 18 DIP semibold, hanging 10 DIP left of the question");
+            "Turn number is not 18 DIP regular, hanging 10 DIP left of the question");
         var questionInk = GlyphInk(rich[0], view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
         var numberInk = GlyphInk(number, view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
         Check(Math.Abs(questionInk.Top + questionInk.Height / 2 - numberInk.Top - numberInk.Height / 2) < .5, "Turn number ink axis differs from the question");
