@@ -32,6 +32,8 @@ internal static partial class Program
         static void Require(bool value, string message) { if (!value) throw new Exception(message); }
         var fontPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts", "IBMPlexSans-Regular.otf");
         Require(File.Exists(fontPath) && File.Exists(Path.Combine(Path.GetDirectoryName(fontPath)!, "LICENSE-IBM-Plex.txt")), "Plex font or license missing from application output");
+        const string semiboldFace = "IBMPlexSans-SemiBold.otf";
+        Require(File.Exists(Path.Combine(Path.GetDirectoryName(fontPath)!, semiboldFace)), "Plex semibold font missing from application output");
         var ordinary = DrawReadingGlyphs("Il1 O0 中文", false);
         var dotted = DrawReadingGlyphs("Il1 O0 中文", true);
         var latin = dotted.FirstOrDefault(run => run.GlyphTypeface.FontUri.LocalPath.EndsWith("IBMPlexSans-Regular.otf", StringComparison.OrdinalIgnoreCase));
@@ -55,14 +57,29 @@ internal static partial class Program
         Require(Typography.GetStylisticSet4(finished.Document) && Typography.GetStylisticSet4(streaming.Document), "ss04 is missing from a finished or streaming answer");
         var heading = finished.Document.Blocks.OfType<Paragraph>().First();
         Require(Typography.GetStylisticSet4(heading) && heading.FontFamily == finished.FontFamily, "Heading font or ss04 differs from body");
+        var text = finished.Document.Blocks.OfType<Paragraph>().Skip(1).First();
+        Require(text.FontSize == 18 && text.FontWeight == FontWeights.Normal && streaming.Document.Blocks.FirstBlock!.FontSize == 18 &&
+            Math.Abs(finished.Document.LineHeight - 28.125) < .01 && Math.Abs(streaming.Document.LineHeight - 28.125) < .01,
+            "Finished and streaming body text must use 18 DIP at normal weight");
+        Require(heading.FontSize == 18 && heading.FontWeight == FontWeights.SemiBold &&
+            heading.Inlines.OfType<Run>().First().FontWeight == FontWeights.SemiBold,
+            "Heading and hierarchy marker must use 18 DIP at semibold weight");
+        Require(text.Inlines.OfType<Span>().Single().FontSize == 14, "Body sizing changed the dedicated code size");
         var nonChat = new MarkdownView { Markdown = "示例" };
-        Require(!ReferenceEquals(nonChat.FontFamily, ChatReadingTypography.Family) && !Typography.GetStylisticSet4(nonChat.Document), "Non-chat Markdown inherited chat typography");
+        Require(nonChat.FontSize == 16 && !ReferenceEquals(nonChat.FontFamily, ChatReadingTypography.Family) &&
+            !Typography.GetStylisticSet4(nonChat.Document), "Non-chat Markdown inherited chat typography");
+        var streamingTemplateOrder = new MarkdownView { IsStreaming = true, Markdown = "实时文字 👩🏽‍💻", ChatMode = true };
+        streamingTemplateOrder.Markdown += " 继续显示";
+        Require(streamingTemplateOrder.CopySource(streamingTemplateOrder.Document.ContentStart, streamingTemplateOrder.Document.ContentEnd).Trim() ==
+            "实时文字 👩🏽‍💻 继续显示", "Applying chat typography to a live document lost streamed text");
 
         using var handler = new FormHandler(); using var panel = new AiPanel(new AiConnection(handler));
         await panel.SetProjectAsync(Path.Combine(output, "chat-reading-font.tex"));
         var book = (AiNotebook)Field(panel, "_book")!;
-        book.Turns.Add(new AiTurn("中文 Il1 O0？", "# 中文标题 O0\n\n正文 IBM Il1 O0。\n\n$$x^2 + 1$$"));
-        var host = new Window { Owner = owner, Width = 900, Height = 700, Left = -3000, Top = -3000, ShowActivated = false, ShowInTaskbar = false, Content = panel };
+        book.Turns.Clear();
+        book.Turns.Add(new AiTurn("正文与轮次示例 Il1 O0", "# 阅读区的标题 O0\n\n正文从 16 调整到 18，观察混排 IBM Il1 O0、公式与 `code` 的可读性。\n\n## 保留折叠状态\n\n折叠内容。\n\n## 公式 $x^2$ 与文字混排\n\n$$x^2 + 1$$"));
+        var host = new Window { Owner = owner, Width = 900, Height = 700, Left = -3000, Top = -3000,
+            WindowStartupLocation = WindowStartupLocation.Manual, ShowActivated = false, ShowInTaskbar = false, Content = panel };
         host.Show();
         try
         {
@@ -76,6 +93,11 @@ internal static partial class Program
             var liveQuestion = (MarkdownView)panel.FindName("LiveQuestion");
             Require(number.FontFamily == ChatReadingTypography.Family && liveNumber.FontFamily == ChatReadingTypography.Family && liveQuestion.FontFamily == ChatReadingTypography.Family, "Turn numbers or live question use another family");
             Require(Typography.GetStylisticSet4(number) && Typography.GetStylisticSet4(liveNumber), "Turn numbers do not inherit ss04");
+            Require(number.FontSize == 18 && liveNumber.FontSize == 18 && number.FontWeight == FontWeights.SemiBold &&
+                liveNumber.FontWeight == FontWeights.SemiBold && liveQuestion.FontSize == 18 && turn.Questions.Single().FontSize == 18,
+                "Live and finished turn numbers must both use 18 DIP semibold and match question size");
+            Require(((TextBox)panel.FindName("Composer")).FontSize == 15 && ((TextBlock)panel.FindName("LiveSentTime")).FontSize == 13 &&
+                ((TextBlock)Field(turn, "_sentTime")!).FontSize == 13, "Body sizing changed the editor or timestamp size");
             var notice = (TextBlock)panel.FindName("FontFallbackNotice");
             Require(notice.Visibility == (ChatReadingTypography.HasHiragino && ChatReadingTypography.HasPlex ? Visibility.Collapsed : Visibility.Visible), "Font fallback notice does not reflect the actual font availability");
             if (notice.Visibility == Visibility.Visible)
@@ -86,7 +108,30 @@ internal static partial class Program
             var formulas = Descendants<ChatFormula>(turn).ToArray();
             Require(formulas.Length > 0, "Rendered TeX formula is missing");
             await Task.WhenAll(formulas.Select(formula => formula.RenderTask)).WaitAsync(TimeSpan.FromSeconds(60));
-            Require(formulas.All(formula => formula.Error is null), "TeX formula could not be rendered");
+            Require(formulas.All(formula => formula.Error is null && TextElement.GetFontSize(formula) == 16),
+                "TeX formula could not be rendered at its dedicated size");
+            var mainSection = (Section)turn.Answers.Single().Document.Blocks.FirstBlock!;
+            var bodySection = mainSection.Blocks.OfType<Section>().Single();
+            var foldedSection = bodySection.Blocks.OfType<Section>().First();
+            var foldedHeading = (Hyperlink)((Paragraph)foldedSection.Blocks.FirstBlock!).Inlines.FirstInline!;
+            foldedHeading.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+            var hint = (Run)foldedHeading.Inlines.LastInline!;
+            Require(hint.Text == "（已折叠）" && Math.Abs(hint.FontSize - 12.8) < .01 && hint.FontWeight == FontWeights.Normal,
+                "The folded label must retain its dedicated size and weight");
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            host.UpdateLayout();
+            var answerGlyphs = GlyphInk(turn.Answers.Single(), turn);
+            var headingGlyph = answerGlyphs.First(glyph => glyph.Text.Contains("阅读区的标题"));
+            var bodyGlyph = answerGlyphs.First(glyph => glyph.Text.Contains("正文从"));
+            var markerGlyph = answerGlyphs.First(glyph => glyph.Text.Contains("[1:1]"));
+            var numberGlyph = GlyphInk(number, turn).First(glyph => glyph.Text.Contains("[1]"));
+            Require(headingGlyph.EmSize == 18 && bodyGlyph.EmSize == 18 && markerGlyph.EmSize == 18 && numberGlyph.EmSize == 18,
+                "WPF did not paint the body, heading and numbers at 18 DIP");
+            Require(headingGlyph.Weight > bodyGlyph.Weight || headingGlyph.BoldSimulation && !bodyGlyph.BoldSimulation,
+                "WPF did not paint the heading at a heavier weight than body");
+            Require(new[] { markerGlyph, numberGlyph }.All(glyph => glyph.Weight == 600 && !glyph.BoldSimulation &&
+                glyph.Face.Equals(semiboldFace, StringComparison.OrdinalIgnoreCase)), "WPF did not paint the numbers with bundled Plex semibold");
+            Console.WriteLine($"Reading faces: body {bodyGlyph.Face}/{bodyGlyph.Weight}, heading {headingGlyph.Face}/{headingGlyph.Weight}, marker {markerGlyph.Face}/{markerGlyph.Weight}, ordinal {numberGlyph.Face}/{numberGlyph.Weight}");
             var originalTheme = ThemeManager.Current.Id;
             try
             {
@@ -96,10 +141,31 @@ internal static partial class Program
                     Require(turn.Answers.All(answer => ReferenceEquals(answer.FontFamily, ChatReadingTypography.Family)), "Reading font changed with theme");
                     Capture(host, Path.Combine(output, "chat-reading-font-" + theme + ".png"));
                 }
+                host.Width = 420; host.UpdateLayout();
+                await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                Capture(host, Path.Combine(output, "chat-reading-font-narrow.png"));
+                var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
+                var viewport = (ScrollContentPresenter)scroll.Template.FindName("PART_ScrollContentPresenter", scroll);
+                var clipped = new List<int>();
+                foreach (var ordinal in new[] { 108, 1024 })
+                {
+                    book.Turns.AddRange(Enumerable.Range(book.Turns.Count + 1, ordinal - book.Turns.Count)
+                        .Select(i => new AiTurn($"第 {i} 轮问题 Il1 O0", "测试宽度。")));
+                    Invoke(panel, "RefreshTranscript");
+                    scroll.ScrollToEnd(); host.UpdateLayout();
+                    await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                    var last = views[book.Turns[^1].Id];
+                    var ordinalBlock = (TextBlock)Field(last, "_number")!;
+                    var ink = GlyphInk(ordinalBlock, viewport).Single(glyph => glyph.Text.Contains($"[{ordinal}]"));
+                    Console.WriteLine($"Narrow ordinal {ordinal}: rendered horizontal bounds {ink.Bounds.Left:F3}–{ink.Bounds.Right:F3} DIP in a {viewport.ActualWidth:F3}-DIP viewport");
+                    Capture(host, Path.Combine(output, $"chat-reading-font-ordinal-{ordinal}.png"));
+                    if (ink.Bounds.Left < 0 || ink.Bounds.Right > viewport.ActualWidth) clipped.Add(ordinal);
+                }
+                Require(clipped.Count == 0, "Narrow ordinals clipped: " + string.Join(", ", clipped));
             }
             finally { ThemeManager.Apply(originalTheme); }
         }
         finally { handler.Release.TrySetResult(); host.Close(); }
-        Console.WriteLine("PASS chat reading fonts: actual IBM glyphs and ss04, Hiragino W3 when available, streaming, headings and turn numbers.");
+        Console.WriteLine("PASS chat reading fonts and hierarchy: 18-DIP body, semibold headings and ordinals, stable labels, editor and code sizes, actual IBM glyphs and ss04.");
     }
 }

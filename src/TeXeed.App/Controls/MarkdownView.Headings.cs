@@ -18,25 +18,22 @@ public sealed partial class MarkdownView
     private void AddHeadingNumber(Paragraph paragraph, int level)
     {
         paragraph.FontSize = FontSize;
-        var text = HeadingRuns(paragraph.Inlines).Select(run => (Run: run, Weight: run.FontWeight)).ToArray();
         paragraph.FontFamily = FontFamily;
+        paragraph.FontWeight = FontWeights.SemiBold;
         if (double.IsNaN(paragraph.LineHeight)) paragraph.LineHeight = ChatLineHeight;
         var number = _headingNumbers.Next(level);
         var marker = new Run($"[{TurnNumber}:{number}]\u2002")
         {
-            Tag = HeadingNumberMarker, FontFamily = FontFamily
+            Tag = HeadingNumberMarker, FontFamily = FontFamily, FontWeight = paragraph.FontWeight
         };
         marker.SetResourceReference(TextElement.ForegroundProperty, "ChatHeading");
-        var sample = text.Select(item => (item.Run, item.Weight, Sample: FirstTitleWord(item.Run.Text)))
-            .FirstOrDefault(item => item.Sample.Length > 0);
-        if (sample.Run is null)
-        {
-            var fallback = text.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Run.Text));
-            sample = (fallback.Run, fallback.Weight, fallback.Run?.Text ?? "");
-        }
-        if (sample.Run is not null)
-            OffsetInk(marker, InkAxis(sample.Sample, FontFamily, sample.Weight, sample.Run.FontStyle, FontSize)
-                - InkAxis(marker.Text, FontFamily, marker.FontWeight, FontStyles.Normal, FontSize) + FontSize * .04);
+        var runs = HeadingRuns(paragraph.Inlines);
+        var sample = runs.Select(run => (Run: run, Word: FirstTitleWord(run.Text)))
+            .FirstOrDefault(item => item.Word.Length > 0);
+        var titleRun = sample.Run ?? runs.FirstOrDefault();
+        if (titleRun is not null)
+            OffsetInk(marker, InkAxis(sample.Word ?? titleRun.Text, FontFamily, titleRun.FontWeight, titleRun.FontStyle, FontSize)
+                - InkAxis(marker.Text, FontFamily, marker.FontWeight, FontStyles.Normal, FontSize) + FontSize * .035);
         if (paragraph.Inlines.FirstInline is { } first) paragraph.Inlines.InsertBefore(first, marker);
         else paragraph.Inlines.Add(marker);
         _headingMarkers.Add((marker, number));

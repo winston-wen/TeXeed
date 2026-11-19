@@ -11,7 +11,7 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
-    private sealed record InkSample(Rect Bounds, double Baseline, string Text, int Weight, string Face);
+    private sealed record InkSample(Rect Bounds, double Baseline, string Text, int Weight, string Face, bool BoldSimulation, double EmSize);
     private static List<InkSample> GlyphInk(FrameworkElement element, Visual relative)
     {
         var result = new List<InkSample>();
@@ -30,7 +30,9 @@ internal static partial class Program
                     bounds.Offset((Vector)run.BaselineOrigin);
                     var parent = visual.TransformToAncestor(relative);
                     result.Add(new(parent.TransformBounds(new MatrixTransform(transform).TransformBounds(bounds)), parent.Transform(transform.Transform(run.BaselineOrigin)).Y,
-                        run.Characters is { } characters ? new string(characters.ToArray()) : "", run.GlyphTypeface.Weight.ToOpenTypeWeight(), Path.GetFileName(run.GlyphTypeface.FontUri.LocalPath)));
+                        run.Characters is { } characters ? new string(characters.ToArray()) : "", run.GlyphTypeface.Weight.ToOpenTypeWeight(),
+                        Path.GetFileName(run.GlyphTypeface.FontUri.LocalPath), (run.GlyphTypeface.StyleSimulations & StyleSimulations.BoldSimulation) != 0,
+                        run.FontRenderingEmSize));
                 }
             }
             if (VisualTreeHelper.GetDrawing(visual) is { } drawing) Visit(drawing, Matrix.Identity);
@@ -46,6 +48,11 @@ internal static partial class Program
         var longFormula = string.Join("+", Enumerable.Range(0, 70).Select(i => "a_{" + i + "}"));
         view.Markdown = source + "\n\n$$" + shortFormula + "$$\n\n$$" + longFormula + "$$";
         var host = new Window { Owner = owner, Content = new ScrollViewer { Content = view }, Width = 800, Height = 900, Title = "标题字形与公式布局 · 合成资料" };
+        if (!owner.ShowActivated)
+        {
+            host.ShowActivated = false; host.ShowInTaskbar = false; host.WindowStartupLocation = WindowStartupLocation.Manual;
+            host.Left = owner.Left; host.Top = owner.Top;
+        }
         var titleResults = new List<object>(); var numberResults = new List<object>();
         host.Show();
         try
@@ -62,8 +69,8 @@ internal static partial class Program
                 var formula = headingFormulas[i]; var box = formula.TransformToAncestor(view).TransformBounds(new Rect(formula.RenderSize));
                 titleResults.Add(new { level = i + 1, center = ink[i].Bounds.Top + ink[i].Bounds.Height / 2, ink[i].Baseline, ink[i].Weight, ink[i].Face,
                     formulaY = box.Y, formulaWidth = box.Width, formulaHeight = box.Height });
-                if (enforce && (ink[i].Face != bodyInk[i].Face || ink[i].Weight != bodyInk[i].Weight))
-                    throw new Exception($"Heading did not use the body's rendered face and weight: {ink[i].Face}/{ink[i].Weight} vs {bodyInk[i].Face}/{bodyInk[i].Weight}");
+                if (enforce && ink[i].Weight <= bodyInk[i].Weight && (!ink[i].BoldSimulation || bodyInk[i].BoldSimulation))
+                    throw new Exception($"Heading rendered at the same or lighter weight than body: {ink[i].Face}/{ink[i].Weight} vs {bodyInk[i].Face}/{bodyInk[i].Weight}");
             }
             var display = Descendants<ChatFormula>(view).Single(f => f.Source == shortFormula);
             var rows = Descendants<ChatFormulaRow>(view).ToArray();

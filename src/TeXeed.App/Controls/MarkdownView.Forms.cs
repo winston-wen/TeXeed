@@ -82,7 +82,7 @@ public sealed partial class MarkdownView
                     FrameworkElement surface = box;
                     if (multiline)
                     {
-                        var lineHeight = ChatLineHeight;
+                        const double lineHeight = AiChatTypography.FormLineHeight;
                         TextBlock.SetLineHeight(box, lineHeight);
                         TextBlock.SetLineStackingStrategy(box, LineStackingStrategy.BlockLineHeight);
                         box.MinLines = 3; box.MinHeight = 3 * lineHeight + 6; box.Padding = new Thickness(4, 1, 4, 1);

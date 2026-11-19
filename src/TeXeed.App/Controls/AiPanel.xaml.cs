@@ -42,6 +42,7 @@ public partial class AiPanel : UserControl, IDisposable
     private AiStreamBuffer? _followUpBuffer;
     private AiTurn? _foldingLiveTurn;
     private readonly ChatOrdinalAlignment _liveOrdinalAlignment;
+    private int _ordinalGutter;
     public Func<IReadOnlyList<ProjectFile>>? ProjectFiles { get; set; }
     public AiPanel() : this(new AiConnection()) { }
     internal AiPanel(AiConnection connection, AiSettingsPanel? sharedSettings = null)
@@ -59,9 +60,8 @@ public partial class AiPanel : UserControl, IDisposable
         LiveQuestion.Loaded += (_, _) => BookmarkQuestionLoaded(LiveQuestion);
         LiveQuestion.Unloaded += (_, _) => BookmarkQuestionUnloaded(LiveQuestion);
         LiveTurnNumber.FontFamily = LiveQuestion.FontFamily;
-        LiveTurnNumber.FontWeight = FontWeights.Normal;
+        LiveTurnNumber.FontSize = AiChatTypography.FontSize;
         LiveSentTime.Focusable = true; LiveSentTime.Cursor = Cursors.Hand;
-        LiveTurnNumber.Margin = new Thickness(-40, 8 + (LiveQuestion.FontFamily.Baseline - LiveTurnNumber.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
         _liveOrdinalAlignment = new ChatOrdinalAlignment(LiveQuestion, LiveTurnNumber);
         LiveSentTime.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { ToggleLiveTurn(); e.Handled = true; } };
         LiveSentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) ToggleLiveTurn(); e.Handled = true; } };
@@ -292,6 +292,7 @@ public partial class AiPanel : UserControl, IDisposable
     private void RefreshTranscript()
     {
         InvalidateSameConversationLinks();
+        UpdateOrdinalGutter(_book.Turns.Count);
         // Keep existing document visuals when appending a follow-up. Never bind the mutable
         // notebook List directly: WPF's item generator needs collection notifications.
         if (_visibleTurns.Count > _book.Turns.Count || !_visibleTurns.SequenceEqual(_book.Turns.Take(_visibleTurns.Count)))
@@ -303,6 +304,22 @@ public partial class AiPanel : UserControl, IDisposable
         _liveSegments.Clear();
         RefreshMessageMatches();
         RefreshVisibleBranchLinks();
+    }
+    private void UpdateOrdinalGutter(int turnCount)
+    {
+        // Each additional Plex numeral at the reading size needs about 11 DIP.
+        var gutter = Math.Max(0, turnCount.ToString(System.Globalization.CultureInfo.InvariantCulture).Length - 2) * 11;
+        if (gutter == _ordinalGutter) return;
+        _ordinalGutter = gutter;
+        SetOrdinalGutter(LiveContainer);
+        foreach (var turn in _turnViews.Values) SetOrdinalGutter(turn);
+    }
+
+    private void SetOrdinalGutter(FrameworkElement item)
+    {
+        var margin = item.Margin;
+        var left = 12 + _ordinalGutter;
+        if (margin.Left != left) item.Margin = new Thickness(left, margin.Top, margin.Right, margin.Bottom);
     }
     private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
     private void Composer_Changed(object sender, TextChangedEventArgs e) { if (!_updating) _book.Draft = Composer.Text; Dirty(); }
@@ -433,6 +450,7 @@ public partial class AiPanel : UserControl, IDisposable
             LiveQuestion.Markdown = sentAnnotations.Count == 0 ? question : (string.IsNullOrWhiteSpace(prompt) ? "" : prompt + "\n\n") + liveReferences;
             if (string.IsNullOrWhiteSpace(prompt) && LiveQuestion.Document.Blocks.FirstBlock is System.Windows.Documents.List liveList)
             { liveList.Padding = new Thickness(0); liveList.Margin = new Thickness(0); }
+            UpdateOrdinalGutter(book.Turns.Count + 1);
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
             _liveOrdinalAlignment.Schedule();
             _liveBookmarkCheckpointReady = false; _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;

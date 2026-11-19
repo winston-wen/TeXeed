@@ -32,7 +32,8 @@ public sealed class AiTurnView : StackPanel
     internal List<MarkdownView> Answers { get; } = [];
     internal List<MarkdownView> Questions { get; } = [];
     private readonly StackPanel _body = new(), _preview = new();
-    private readonly TextBlock _number = new() { FontFamily = new FontFamily("Segoe UI, Microsoft YaHei"), FontSize = AiChatTypography.FontSize, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
+    private readonly TextBlock _number = new() { FontFamily = ChatReadingTypography.Family, FontSize = AiChatTypography.FontSize,
+        FontWeight = FontWeights.SemiBold, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
     private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
     private AiReplyStatus? _footer;
     private string? _previewId;
@@ -92,8 +93,6 @@ public sealed class AiTurnView : StackPanel
             content.LocalLink = OpenSnapshot;
             if (content.Document.Blocks.FirstBlock is System.Windows.Documents.List list) { list.Padding = new Thickness(0); list.Margin = new Thickness(0); }
         }
-        _number.FontFamily = content.FontFamily;
-        _number.Margin = new Thickness(-40, 8 + (content.FontFamily.Baseline - _number.FontFamily.Baseline) * AiChatTypography.FontSize, 10, 0);
         questionRow.Children.Add(_number); questionRow.Children.Add(content); Children.Add(questionRow);
         _ordinalAlignment = new ChatOrdinalAlignment(content, _number);
         if (entries.Count > 0 && !annotationsOnly)

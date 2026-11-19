@@ -1,0 +1,169 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+internal static class ChatFontSizePerformance
+{
+    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+
+    private static T Field<T>(object target, string name) =>
+        (T)target.GetType().GetField(name, Private)!.GetValue(target)!;
+
+    private static IEnumerable<T> Visuals<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var descendant in Visuals<T>(child)) yield return descendant;
+        }
+    }
+
+    private static int VisibleControls(Window host) =>
+        Visuals<Control>(host).Count(control => control.IsVisible &&
+            control.ActualWidth > 0 && control.ActualHeight > 0 &&
+            control.TransformToAncestor(host).TransformBounds(new Rect(control.RenderSize))
+                .IntersectsWith(new Rect(host.RenderSize)));
+
+    private static async Task Idle(Window host)
+    {
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+    }
+
+    private static async Task Drain(AiPanel panel, Window host)
+    {
+        await Task.Delay(800);
+        var timer = Field<DispatcherTimer>(panel, "_saveTimer");
+        for (var i = 0; timer.IsEnabled && i < 250; i++) await Task.Delay(20);
+        if (timer.IsEnabled) throw new TimeoutException("The draft save timer did not drain.");
+        var gate = Field<SemaphoreSlim>(panel, "_saveGate");
+        await gate.WaitAsync();
+        gate.Release();
+        await Idle(host);
+    }
+
+    [STAThread] private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]);
+        Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative)
+        });
+        var panel = new AiPanel();
+        var host = new Window
+        {
+            Width = 900, Height = 760, Left = -12000, Top = 20,
+            ShowActivated = false, ShowInTaskbar = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Content = panel
+        };
+        var result = 1;
+        app.DispatcherUnhandledException += (_, e) =>
+        {
+            File.WriteAllText(Path.Combine(output, "error.txt"), e.Exception.ToString());
+            e.Handled = true;
+            app.Shutdown(1);
+        };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await panel.SetProjectAsync(Path.Combine(output, "fixture.tex"));
+                var body = string.Join("\n\n", Enumerable.Range(1, 4).SelectMany(group =>
+                    Enumerable.Range(1, 6).Select(level =>
+                        new string('#', level) + $" 中文标题 Heading {group}.{level}\n\n" +
+                        string.Concat(Enumerable.Repeat(
+                            $"第 {group} 组第 {level} 段提供中英文和数字 Il1 O0、1024 的混排样本。", 6)))));
+                var book = Field<AiNotebook>(panel, "_book");
+                book.Turns.Add(new AiTurn("如何阅读这份混排回答？", body) { SentAt = DateTimeOffset.UnixEpoch });
+                typeof(AiPanel).GetMethod("RefreshTranscript", Private)!.Invoke(panel, null);
+                await Idle(host);
+                var answer = Visuals<MarkdownView>(panel).Single(view => view.Markdown == body);
+                await answer.RenderTask;
+                var initialSize = answer.FontSize;
+                if (args.Length > 1)
+                {
+                    answer.FontSize = double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
+                    await answer.RenderTask;
+                }
+                await Drain(panel, host);
+                var section = (Section)answer.Document.Blocks.FirstBlock!;
+                var title = (Paragraph)section.Blocks.FirstBlock!;
+                var heading = title.Inlines.OfType<Hyperlink>().Single();
+                var expandedHeight = answer.ActualHeight;
+                if (expandedHeight < 1200 || !host.IsVisible || host.IsActive || VisibleControls(host) == 0)
+                    throw new InvalidOperationException("The non-activating heading fixture did not render its long answer.");
+                var samples = new List<object>();
+                async Task Measure(string op, Func<int, Task> action)
+                {
+                    for (var i = 0; i < 9; i++)
+                    {
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread();
+                        var idle = Stopwatch.StartNew();
+                        await Drain(panel, host);
+                        idle.Stop();
+                        idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread();
+                        var work = Stopwatch.StartNew();
+                        await action(i);
+                        await Idle(host);
+                        var feedback = work.Elapsed.TotalMilliseconds;
+                        var feedbackBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        await Drain(panel, host);
+                        work.Stop();
+                        bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        var controls = VisibleControls(host);
+                        if (!host.IsVisible || host.IsActive || controls == 0)
+                            throw new InvalidOperationException("The heading fixture lost its window.");
+                        if (i >= 2) samples.Add(new
+                        {
+                            op, feedbackMs = feedback, feedbackBytes,
+                            rawMs = work.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds,
+                            correctedMs = work.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds,
+                            rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes,
+                            visibleControls = controls, answerHeight = answer.ActualHeight
+                        });
+                    }
+                }
+
+                await Measure("fold-unfold", async _ =>
+                {
+                    heading.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+                    await Idle(host);
+                    if (section.Blocks.Count != 1) throw new InvalidOperationException("Heading was not folded.");
+                    heading.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+                    await Idle(host);
+                    if (section.Blocks.Count != 2) throw new InvalidOperationException("Heading was not unfolded.");
+                });
+                await Measure("dense-resize", i =>
+                {
+                    host.Width = i % 2 == 0 ? 620 : 900;
+                    return Task.CompletedTask;
+                });
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new
+                {
+                    fixture = "One long answer with 24 headings across six levels and 24 mixed-script paragraphs; 900/620 x760 WPF; two warmups and seven samples; paired 800ms queue and save gate",
+                    initialSize, bodySize = answer.FontSize, titleSize = title.FontSize,
+                    titleWeight = title.FontWeight.ToOpenTypeWeight(), expandedHeight, samples
+                }, new JsonSerializerOptions { WriteIndented = true }));
+                result = 0;
+            }
+            catch (Exception ex) { File.WriteAllText(Path.Combine(output, "error.txt"), ex.ToString()); }
+            finally { panel.Dispose(); host.Close(); app.Shutdown(result); }
+        };
+        host.Show();
+        app.Run();
+        return result;
+    }
+}

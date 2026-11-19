@@ -1,0 +1,603 @@
+{
+  "schema": "texeed-browser-heading-axis-performance-v1",
+  "baselineCommit": "c1cf4ee31d5e914cabbde08d661873dbe5ddd241",
+  "historyCommit": "8f3e434",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 5700X 8-Core Processor             ",
+    "node": "v24.22.1",
+    "browser": "157.0.8103.79",
+    "viewport": {
+      "width": 1000,
+      "height": 820
+    }
+  },
+  "method": {
+    "fixture": "tests/performance-fixtures/browser-heading-axis-v1.cjs",
+    "fixtureSha256": "86ace2243f80240a4980dcf9ada9e85ff4d58b28dcbdc0f5a9f615a0db0c4c12",
+    "rounds": 3,
+    "iterations": 9,
+    "warmups": 2,
+    "frames": 2,
+    "extraWaitMs": 200,
+    "heapSamplingInterval": 1024,
+    "limitations": [
+      "Frame times depend on frame phase; the extra 200 ms is a fixed wait, not measured work.",
+      "V8 sampled retained heap is an estimate, not total allocations.",
+      "The after side reads the working tree; resource hashes identify the measured bytes.",
+      "All rounds share one browser process."
+    ]
+  },
+  "resources": {
+    "history": {
+      "index.html": "266de6a424474c27f1e99d0c9179e151a7f14aae18ac050dbe88dac4625a9e0d",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "d46cbd759b4309fe50cabfcd68e406fec4859b0dd29f5242be8ac0f5c751727d",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "a2a1297f3bd25cfbcbfa03c2e86698ce409ca889c8a95173510c1e2d8e865ad4"
+    },
+    "before": {
+      "index.html": "d7d5ec14794162aefa850eb0a7c1e2a4942dbe993177256430b6d0c1093c4fab",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "2780ff5bbfa7fc9e8873de97004dee1659e2665805a0f9b52405b29224774e93",
+      "reading-fonts.css": "57f8e61de9cf382ca3080a87cae487b291f15756946542c2843728babae4c8f2",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "3e682b95268c7920e49db550e5583841505ef1707739bc67a1645cc0e0d4a746",
+      "quote-summary.js": "e73528d515360ec0d44167baaefd09fed12976a16d0129ae17521546e09524d2",
+      "scrollbar-activity.js": "39dbce582f944e80321fbaacc36ea25740f3b5b0084a094d43149780771f8f98",
+      "history.js": "d6708a44fa3e5b360e4f9d8a37f3cd3ffaa735cf52517a44c7076dae7875c7b0",
+      "bookmarks.js": "c580148df827ccaaeb5956306a0f2cfe8eee3a2d39bc571be87490114b12523a",
+      "review.js": "4c72762e278fa161e3a7e9b80eb30e785a81bd1295a57ecfd335d360ca17fae2",
+      "review-search.js": "15106c15e3bacc288fcb113633ca2cfb2712cd1356cf357d51544440ab3a5385",
+      "reading-font-status.js": "a5732555004231f591ce9f1c7e0dbbe1e1b8146c1a4fc06663e147b1eb80ef1d",
+      "fonts/IBMPlexSans-Regular.otf": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc",
+      "fonts/local/Hiragino_Sans_GB.ttc": "94800e331a3ddde3bb8c0cc14713fb8f7e6884ad275a850fbb408ac9d129132b"
+    },
+    "after": {
+      "index.html": "c496f93d44eb95b386dee8dfeee7862b08e52c8bd65ee861998623ec1651bef3",
+      "vendor/katex/katex.min.css": "0c8126645bb983a788b167b1b97abe2505a962ad45e049001463c46012012a9b",
+      "review.css": "e9d885c732805375d1505a1a72f0caee19fd76394f056ae94d93f271c0d8643e",
+      "review-search.css": "2780ff5bbfa7fc9e8873de97004dee1659e2665805a0f9b52405b29224774e93",
+      "reading-fonts.css": "122562dc7eb3b7bb8a2f232d38bc210da1427e70ab3536e66b6a9bd3df1d790d",
+      "vendor/markdown-it/markdown-it.min.js": "38c70a1e7ca91ab40e2d9e6e60129851a717ed1c7d4acbbdd41bf9503791cf68",
+      "vendor/katex/katex.min.js": "76d534cf1167067008fca12c4e903fc44cf8cfda8c5279c318d1f78cd90b086e",
+      "rich-text.js": "3e682b95268c7920e49db550e5583841505ef1707739bc67a1645cc0e0d4a746",
+      "quote-summary.js": "e73528d515360ec0d44167baaefd09fed12976a16d0129ae17521546e09524d2",
+      "scrollbar-activity.js": "39dbce582f944e80321fbaacc36ea25740f3b5b0084a094d43149780771f8f98",
+      "history.js": "15c210efb17d2e2fd692f848733b94dbc04def7088be09b1130bcbab792c9566",
+      "bookmarks.js": "c580148df827ccaaeb5956306a0f2cfe8eee3a2d39bc571be87490114b12523a",
+      "review.js": "4c72762e278fa161e3a7e9b80eb30e785a81bd1295a57ecfd335d360ca17fae2",
+      "review-search.js": "15106c15e3bacc288fcb113633ca2cfb2712cd1356cf357d51544440ab3a5385",
+      "reading-font-status.js": "a5732555004231f591ce9f1c7e0dbbe1e1b8146c1a4fc06663e147b1eb80ef1d",
+      "fonts/IBMPlexSans-SemiBold.woff2": "f78048030eab62e860efa39a0df79e2e5581bf122eb95b9bc42c0b8a4988d205",
+      "fonts/IBMPlexSans-Regular.otf": "6b17a35a31ded2e81b3ed19e5eb532d22b9a0b5a76833b0d757a5c71ab5e0f6c",
+      "vendor/katex/fonts/KaTeX_Math-Italic.woff2": "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264",
+      "vendor/katex/fonts/KaTeX_Main-Regular.woff2": "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866",
+      "fonts/review/LXGWWenKaiGB-Regular.ttf": "5561d48097d92e5ab99fe7b1459d381bbcdff533bfc479207b089c6860c3990e",
+      "fonts/review/PatrickHand-Regular.ttf": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc",
+      "fonts/local/Hiragino_Sans_GB.ttc": "94800e331a3ddde3bb8c0cc14713fb8f7e6884ad275a850fbb408ac9d129132b"
+    }
+  },
+  "measurements": {
+    "history": [
+      {
+        "firstRender": {
+          "sync": 40,
+          "frame": 45.30000001192093
+        },
+        "samples": [
+          {
+            "sync": 30.80000001192093,
+            "frame": 35,
+            "complete": 243.80000001192093
+          },
+          {
+            "sync": 31.30000001192093,
+            "frame": 35,
+            "complete": 243.10000002384186
+          },
+          {
+            "sync": 31,
+            "frame": 34.5,
+            "complete": 242.40000000596046
+          },
+          {
+            "sync": 31.600000023841858,
+            "frame": 35.900000005960464,
+            "complete": 243.40000000596046
+          },
+          {
+            "sync": 27.900000005960464,
+            "frame": 31.30000001192093,
+            "complete": 252.40000000596046
+          },
+          {
+            "sync": 34.69999998807907,
+            "frame": 41.29999998211861,
+            "complete": 249.2999999821186
+          },
+          {
+            "sync": 32.19999998807907,
+            "frame": 36.30000001192093,
+            "complete": 242.19999998807907
+          }
+        ],
+        "medianSync": 31.30000001192093,
+        "medianFrame": 35,
+        "medianComplete": 243.40000000596046,
+        "sampledRetainedJsBytes": 110492,
+        "idleComplete": 226.90000000596046,
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 37.69999998807907,
+          "frame": 44.30000001192093
+        },
+        "samples": [
+          {
+            "sync": 32.10000002384186,
+            "frame": 36.70000001788139,
+            "complete": 243
+          },
+          {
+            "sync": 33.900000005960464,
+            "frame": 38.400000005960464,
+            "complete": 242.60000002384186
+          },
+          {
+            "sync": 33.20000001788139,
+            "frame": 37.80000001192093,
+            "complete": 242.2000000178814
+          },
+          {
+            "sync": 36.5,
+            "frame": 41.599999994039536,
+            "complete": 256.59999999403954
+          },
+          {
+            "sync": 28.200000017881393,
+            "frame": 32,
+            "complete": 243.5
+          },
+          {
+            "sync": 32.900000005960464,
+            "frame": 37.30000001192093,
+            "complete": 242.30000001192093
+          },
+          {
+            "sync": 30.19999998807907,
+            "frame": 35.400000005960464,
+            "complete": 245.30000001192093
+          }
+        ],
+        "medianSync": 32.900000005960464,
+        "medianFrame": 37.30000001192093,
+        "medianComplete": 243,
+        "sampledRetainedJsBytes": 105356,
+        "idleComplete": 212.2999999821186,
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 42.80000001192093,
+          "frame": 48.10000002384186
+        },
+        "samples": [
+          {
+            "sync": 32.099999994039536,
+            "frame": 36.400000005960464,
+            "complete": 241.80000001192093
+          },
+          {
+            "sync": 32.5,
+            "frame": 36.29999998211861,
+            "complete": 240.7999999821186
+          },
+          {
+            "sync": 34.099999994039536,
+            "frame": 38.5,
+            "complete": 243.5
+          },
+          {
+            "sync": 37,
+            "frame": 41.80000001192093,
+            "complete": 243
+          },
+          {
+            "sync": 27.200000017881393,
+            "frame": 30.599999994039536,
+            "complete": 243
+          },
+          {
+            "sync": 33.29999998211861,
+            "frame": 38,
+            "complete": 242.59999999403954
+          },
+          {
+            "sync": 31.30000001192093,
+            "frame": 35.400000005960464,
+            "complete": 242.7000000178814
+          }
+        ],
+        "medianSync": 32.5,
+        "medianFrame": 36.400000005960464,
+        "medianComplete": 242.7000000178814,
+        "sampledRetainedJsBytes": 88320,
+        "idleComplete": 227.19999998807907,
+        "counts": {
+          "elements": 4293,
+          "controls": 376,
+          "visible": 21,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ],
+    "before": [
+      {
+        "firstRender": {
+          "sync": 57.69999998807907,
+          "frame": 63.69999998807907
+        },
+        "samples": [
+          {
+            "sync": 56.5,
+            "frame": 61.30000001192093,
+            "complete": 272.40000000596046
+          },
+          {
+            "sync": 65.40000000596046,
+            "frame": 71.2000000178814,
+            "complete": 286.2000000178814
+          },
+          {
+            "sync": 73.30000001192093,
+            "frame": 83.19999998807907,
+            "complete": 287
+          },
+          {
+            "sync": 51.69999998807907,
+            "frame": 56.69999998807907,
+            "complete": 258.19999998807907
+          },
+          {
+            "sync": 62.20000001788139,
+            "frame": 68.5,
+            "complete": 274.60000002384186
+          },
+          {
+            "sync": 51.19999998807907,
+            "frame": 56.5,
+            "complete": 259.5
+          },
+          {
+            "sync": 56.70000001788139,
+            "frame": 61.400000005960464,
+            "complete": 275
+          }
+        ],
+        "medianSync": 56.70000001788139,
+        "medianFrame": 61.400000005960464,
+        "medianComplete": 274.60000002384186,
+        "sampledRetainedJsBytes": 20452,
+        "idleComplete": 213.7999999821186,
+        "counts": {
+          "elements": 4345,
+          "controls": 392,
+          "visible": 28,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 67,
+          "frame": 74.59999999403954
+        },
+        "samples": [
+          {
+            "sync": 66.90000000596046,
+            "frame": 71.40000000596046,
+            "complete": 273.80000001192093
+          },
+          {
+            "sync": 112.59999999403954,
+            "frame": 123,
+            "complete": 335.90000000596046
+          },
+          {
+            "sync": 122.90000000596046,
+            "frame": 133.19999998807907,
+            "complete": 345
+          },
+          {
+            "sync": 74.5,
+            "frame": 90.5,
+            "complete": 304.7000000178814
+          },
+          {
+            "sync": 61.19999998807907,
+            "frame": 71.5,
+            "complete": 274
+          },
+          {
+            "sync": 99.59999999403954,
+            "frame": 111.39999997615814,
+            "complete": 318.2999999821186
+          },
+          {
+            "sync": 86.30000001192093,
+            "frame": 95.09999999403954,
+            "complete": 301.5
+          }
+        ],
+        "medianSync": 86.30000001192093,
+        "medianFrame": 95.09999999403954,
+        "medianComplete": 304.7000000178814,
+        "sampledRetainedJsBytes": 145868,
+        "idleComplete": 211.5,
+        "counts": {
+          "elements": 4345,
+          "controls": 392,
+          "visible": 28,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 67.2000000178814,
+          "frame": 77.30000001192093
+        },
+        "samples": [
+          {
+            "sync": 55.29999998211861,
+            "frame": 59.900000005960464,
+            "complete": 272.90000000596046
+          },
+          {
+            "sync": 60.79999998211861,
+            "frame": 65.90000000596046,
+            "complete": 275.19999998807907
+          },
+          {
+            "sync": 81,
+            "frame": 91.69999998807907,
+            "complete": 303.40000000596046
+          },
+          {
+            "sync": 56.099999994039536,
+            "frame": 61,
+            "complete": 275.09999999403954
+          },
+          {
+            "sync": 44.89999997615814,
+            "frame": 49.5,
+            "complete": 256.89999997615814
+          },
+          {
+            "sync": 52.19999998807907,
+            "frame": 56.900000005960464,
+            "complete": 258.19999998807907
+          },
+          {
+            "sync": 72.10000002384186,
+            "frame": 78.60000002384186,
+            "complete": 287.80000001192093
+          }
+        ],
+        "medianSync": 56.099999994039536,
+        "medianFrame": 61,
+        "medianComplete": 275.09999999403954,
+        "sampledRetainedJsBytes": 14848,
+        "idleComplete": 224.80000001192093,
+        "counts": {
+          "elements": 4345,
+          "controls": 392,
+          "visible": 28,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ],
+    "after": [
+      {
+        "firstRender": {
+          "sync": 62.099999994039536,
+          "frame": 69.39999997615814
+        },
+        "samples": [
+          {
+            "sync": 51.29999998211861,
+            "frame": 55,
+            "complete": 255.59999999403954
+          },
+          {
+            "sync": 57.20000001788139,
+            "frame": 61.20000001788139,
+            "complete": 261.7000000178814
+          },
+          {
+            "sync": 68.59999999403954,
+            "frame": 77.19999998807907,
+            "complete": 288
+          },
+          {
+            "sync": 45.70000001788139,
+            "frame": 50.900000005960464,
+            "complete": 258.30000001192093
+          },
+          {
+            "sync": 46.19999998807907,
+            "frame": 50.69999998807907,
+            "complete": 260.39999997615814
+          },
+          {
+            "sync": 52.19999998807907,
+            "frame": 56.89999997615814,
+            "complete": 259.5
+          },
+          {
+            "sync": 55.5,
+            "frame": 60.39999997615814,
+            "complete": 275.09999999403954
+          }
+        ],
+        "medianSync": 52.19999998807907,
+        "medianFrame": 56.89999997615814,
+        "medianComplete": 260.39999997615814,
+        "sampledRetainedJsBytes": 18196,
+        "idleComplete": 214,
+        "counts": {
+          "elements": 4345,
+          "controls": 392,
+          "visible": 27,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 66.7999999821186,
+          "frame": 76.7999999821186
+        },
+        "samples": [
+          {
+            "sync": 54.70000001788139,
+            "frame": 59.5,
+            "complete": 273.30000001192093
+          },
+          {
+            "sync": 57.70000001788139,
+            "frame": 62.60000002384186,
+            "complete": 273.7000000178814
+          },
+          {
+            "sync": 72,
+            "frame": 80.40000000596046,
+            "complete": 288.40000000596046
+          },
+          {
+            "sync": 51.80000001192093,
+            "frame": 59.30000001192093,
+            "complete": 274.90000000596046
+          },
+          {
+            "sync": 108.90000000596046,
+            "frame": 119.09999999403954,
+            "complete": 320.59999999403954
+          },
+          {
+            "sync": 131.30000001192093,
+            "frame": 142.40000000596046,
+            "complete": 342.90000000596046
+          },
+          {
+            "sync": 118.09999999403954,
+            "frame": 130.80000001192093,
+            "complete": 330.90000000596046
+          }
+        ],
+        "medianSync": 72,
+        "medianFrame": 80.40000000596046,
+        "medianComplete": 288.40000000596046,
+        "sampledRetainedJsBytes": 19864,
+        "idleComplete": 212.90000000596046,
+        "counts": {
+          "elements": 4345,
+          "controls": 392,
+          "visible": 27,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      },
+      {
+        "firstRender": {
+          "sync": 64.90000000596046,
+          "frame": 72.40000000596046
+        },
+        "samples": [
+          {
+            "sync": 54.400000005960464,
+            "frame": 59.80000001192093,
+            "complete": 274.10000002384186
+          },
+          {
+            "sync": 55.5,
+            "frame": 60.5,
+            "complete": 273.5
+          },
+          {
+            "sync": 66.7000000178814,
+            "frame": 75.40000000596046,
+            "complete": 289.10000002384186
+          },
+          {
+            "sync": 46.80000001192093,
+            "frame": 53.80000001192093,
+            "complete": 257.90000000596046
+          },
+          {
+            "sync": 49.70000001788139,
+            "frame": 54.70000001788139,
+            "complete": 256.5
+          },
+          {
+            "sync": 54.900000005960464,
+            "frame": 59.900000005960464,
+            "complete": 272.2999999821186
+          },
+          {
+            "sync": 60.400000005960464,
+            "frame": 66.40000000596046,
+            "complete": 271.7000000178814
+          }
+        ],
+        "medianSync": 54.900000005960464,
+        "medianFrame": 59.900000005960464,
+        "medianComplete": 272.2999999821186,
+        "sampledRetainedJsBytes": 20088,
+        "idleComplete": 212.7999999821186,
+        "counts": {
+          "elements": 4345,
+          "controls": 392,
+          "visible": 27,
+          "headings": 300,
+          "draft": "保留测试草稿"
+        },
+        "errors": []
+      }
+    ]
+  }
+}

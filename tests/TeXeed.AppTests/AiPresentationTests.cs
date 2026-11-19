@@ -29,7 +29,7 @@ internal static partial class Program
         var row = Descendants<AiActivityView>(view).Single(); var header = (TextBlock)row.Header;
         var rich = Descendants<MarkdownView>(view).Where(v => v.IsVisible).ToArray();
         var reply = Descendants<AiReplyStatus>(view).Single(); var stamp = Descendants<TextBlock>(reply).Single();
-        Check(sent.FontSize == 13 && header.FontSize == 13 && stamp.FontSize == 13 && rich.All(r => r.FontSize == 16), "Chat reading/metadata sizes diverge");
+        Check(sent.FontSize == 13 && header.FontSize == 13 && stamp.FontSize == 13 && rich.All(r => r.FontSize == 18), "Chat reading/metadata sizes diverge");
         var answer = rich.Single(r => r.ChatMode);
         var answerParent = (StackPanel)answer.Parent;
         var separator = answerParent.Children[answerParent.Children.IndexOf(answer) - 1] as Border ?? throw new Exception("Expanded final answer has no top separator");
@@ -42,7 +42,9 @@ internal static partial class Program
         Check(Math.Abs(xs[0] - 36) < 1, "Reading text does not use the 36px inset");
         var number = Descendants<TextBlock>(view).Single(t => t.Text == "[1]");
         Check(number.FontFamily.Source == rich[0].FontFamily.Source, "Hanging ordinal does not use the body font");
-        Check(number.FontSize == 16 && Math.Abs(xs[0] - number.TranslatePoint(new Point(number.ActualWidth, 0), view).X - 10) < 1, "Turn number is not hanging 10px left of the question");
+        Check(number.FontSize == 18 && number.FontWeight == FontWeights.SemiBold &&
+            Math.Abs(xs[0] - number.TranslatePoint(new Point(number.ActualWidth, 0), view).X - 10) < 1,
+            "Turn number is not 18 DIP semibold, hanging 10 DIP left of the question");
         var questionInk = GlyphInk(rich[0], view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
         var numberInk = GlyphInk(number, view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
         Check(Math.Abs(questionInk.Top + questionInk.Height / 2 - numberInk.Top - numberInk.Height / 2) < .5, "Turn number ink axis differs from the question");

@@ -57,8 +57,7 @@ public sealed partial class MarkdownView
         var text = new Run(source);
         var span = new Span { FontFamily = CodeFont, FontSize = 14, FontWeight = FontWeights.Normal, FontStyle = FontStyles.Normal, Tag = CodeSpanMarker };
         Typography.SetStylisticSet4(span, false);
-        // An en-space is half an em. Equal padding fills the existing 25-DIP line
-        // without turning code into an embedded control or changing copied text.
+        // An en-space is half an em and keeps horizontal padding in the text flow.
         Run PaddingRun() => new("\u2002") { FontFamily = new FontFamily("Arial"), FontSize = CodePadding * 2, Tag = CodePaddingMarker };
         if (SourceLink is not null && System.Text.RegularExpressions.Regex.IsMatch(source, @"^[\w./\\ -]+\.(?:tex|md)(?::\d+(?:[–—-]\d+)?)?$"))
         {
@@ -138,6 +137,7 @@ public sealed partial class MarkdownView
     private void UpdateCodeSurfaces()
     {
         _inlineCodeBounds.Clear();
+        var lineHeight = UsesChatTypography ? ChatLineHeight : 25;
         foreach (var (span, content) in _inlineCodeSurfaces)
         {
             if (!InCurrentDocument(span) || !content.ContentStart.HasValidLayout) continue;
@@ -152,7 +152,8 @@ public sealed partial class MarkdownView
                 if (!first.IsEmpty && !last.IsEmpty)
                 {
                     var left = Math.Min(first.X, last.X); var right = Math.Max(first.Right, last.Right);
-                    _inlineCodeBounds.Add(new Rect(left - CodePadding, first.Y + (first.Height - 25) / 2, right - left + 2 * CodePadding, 25));
+                    _inlineCodeBounds.Add(new Rect(left - CodePadding, first.Y + (first.Height - lineHeight) / 2,
+                        right - left + 2 * CodePadding, lineHeight));
                 }
                 if (next is null || next.CompareTo(cursor) <= 0 || next.CompareTo(end) >= 0) break;
                 cursor = next;

@@ -11,7 +11,7 @@
  color-scheme:dark; --bg:#292322; --sidebar:#211c1b; --question:#302927; --panel:#38302d;
  --hover:#423733; --ink:#eee6de; --muted:#b3a79f; --quiet:#958780; --line:#443a36;
  --guide:#5b4b45; --accent:#d8b876; --answer-emphasis:#55c7ee; --focus:#cf8fa0; --focus-soft:#cf8fa017;
- --font:15px; --reading-font:16px; --meta-font:13px; --reading-line:25px; --expanded-line:26.5px;
+ --font:15px; --meta-font:13px; --expanded-line:26.5px;
  --sans:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
  --serif:"Source Han Serif SC","思源宋体","Noto Serif CJK SC","Songti SC","SimSun",serif;
  --editor-font:"Cascadia Code",Consolas,"Microsoft YaHei",monospace;
@@ -84,7 +84,7 @@ details[open]>summary:before { transform:rotate(90deg) }
 .autoscroll-indicator { position:fixed; z-index:1000; left:0; top:0; width:48px; height:48px; transform:translate(-50%,-50%); border:1px solid #3338; border-radius:50%; background:#dbdbdbeb; pointer-events:none; }
 .autoscroll-indicator svg { display:block; width:100%; height:100%; fill:#333; stroke:#333; stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round }
 .autoscroll-indicator path { fill:none }
-.thread { margin:0; padding:20px 46px 22px calc(var(--text-inset) + 12px) }
+.thread { margin:0; padding:20px 46px 22px max(calc(var(--text-inset) + 12px), var(--ordinal-gutter)) }
 .turn { margin:0 0 24px }
 .turn:last-child { margin-bottom:0 }
 .question,.answer,.snapshot-scroll { font:var(--reading-font)/var(--reading-line) var(--serif); font-weight:400; font-synthesis:none }
@@ -148,7 +148,7 @@ h1,h2,h3,h4,h5,h6 { font-family:var(--sans) }
 .rich-text p { margin:0 0 10px }
 .rich-text>:last-child { margin-bottom:0 }
 .passage code,.rich-text code,.sent-summary code { font:14px/normal var(--code-font); background:var(--panel); padding:var(--inline-code-padding); border-radius:3px; box-decoration-break:clone; -webkit-box-decoration-break:clone; overflow-wrap:anywhere; white-space:break-spaces }
-.passage pre,.rich-text pre { font:var(--reading-font)/var(--reading-line) var(--code-font); white-space:pre-wrap; overflow-wrap:anywhere; overflow:auto; background:var(--question); padding:12px 14px; margin:10px 0 16px; border-radius:5px }
+.passage pre,.rich-text pre { font:16px/25px var(--code-font); white-space:pre-wrap; overflow-wrap:anywhere; overflow:auto; background:var(--question); padding:12px 14px; margin:10px 0 16px; border-radius:5px }
 .passage pre code,.rich-text pre code { font:inherit; white-space:inherit; background:none; padding:0; border-radius:0; box-decoration-break:slice; -webkit-box-decoration-break:slice }
 .passage code .file-link { font:inherit; background:none; padding:0; border:0 }
 .table-wrap { max-width:100%; overflow-x:auto; margin:12px 0 18px }
@@ -167,7 +167,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .answer .equation { margin:0; padding-top:0; padding-bottom:0 }
 .answer .equation .katex-display { margin:0 }
 .equation-number { flex-shrink:0; font:13px/1.5 var(--sans); color:var(--muted); margin-left:auto; padding:1px 0 1px 16px; white-space:nowrap }
-.equation-ref { color:var(--accent); font-family:"Times New Roman",serif; padding:0 2px; text-decoration:none; white-space:nowrap; font-size:.9em }
+.equation-ref { color:var(--accent); font-family:"Times New Roman",serif; padding:0 2px; text-decoration:none; white-space:nowrap; font-size:14.4px }
 .equation-target { animation:eq-flash 1.4s ease-out }
 @keyframes eq-flash { from{background:#d8b87633} to{background:transparent} }
 .rich-equation { overflow:auto; margin:10px 0 }
@@ -176,7 +176,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .heading-toggle { font:inherit; text-align:left; padding:0; border:0; display:block; width:100% }
 .heading-toggle:hover { background:none; color:var(--accent) }
 .heading-toggle:before { display:none }
-.heading-collapsed { color:var(--muted); font-size:.8em; font-weight:400; white-space:nowrap }
+.heading-collapsed { color:var(--muted); font-size:12.8px; font-weight:400; white-space:nowrap }
 .heading-label { line-height:inherit; min-width:0; text-align:left }
 .file-link,.rich-text a { color:var(--accent) }
 .file-link { font:inherit; padding:0; text-decoration:underline; text-underline-offset:3px }

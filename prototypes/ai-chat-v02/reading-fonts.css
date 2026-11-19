@@ -6,15 +6,36 @@
 }
 
 @font-face {
+  font-family: 'TeXeed Plex Sans';
+  src: url('fonts/IBMPlexSans-SemiBold.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 600;
+}
+
+@font-face {
   font-family: 'TeXeed Hiragino W3';
   src: local('Hiragino Sans GB W3'), url('fonts/local/Hiragino_Sans_GB.ttc') format('truetype');
   font-style: normal;
   font-weight: 400;
 }
 
+@font-face {
+  font-family: 'TeXeed Hiragino W3';
+  src: local('Hiragino Sans GB W6'), local('HiraginoSansGB-W6');
+  font-style: normal;
+  font-weight: 600;
+}
+
 :root {
   --reading-face: 'TeXeed Plex Sans', 'TeXeed Hiragino W3', 'Microsoft YaHei', sans-serif;
+  --reading-font: 18px;
+  --reading-line: 28.125px;
 }
+
+.thread, .transcript { --ordinal-gutter: 36px; }
+:is(.thread, .transcript):has(> .turn:nth-child(10)) { --ordinal-gutter: 47px; }
+:is(.thread, .transcript):has(> .turn:nth-child(100)) { --ordinal-gutter: 58px; }
+:is(.thread, .transcript):has(> .turn:nth-child(1000)) { --ordinal-gutter: 69px; }
 
 .question, .answer, .snapshot-scroll, .turn-number, .branch-origin-view,
 .sent-summary, .streaming-answer, .turn-time, .process-log,
@@ -23,6 +44,15 @@
   font-family: var(--reading-face);
   font-feature-settings: 'ss04' 1;
   font-synthesis: none;
+}
+
+.turn-number, .answer :is(h1, h2, h3, h4, h5, h6), .transcript .passage-heading {
+  font-weight: 600;
+  font-synthesis: weight;
+}
+
+.heading-label .math, .heading-label .same-turn-link, .passage-heading .associated {
+  font-weight: 400;
 }
 
 /* Math uses its existing TeX fonts and figures rather than the prose feature. */

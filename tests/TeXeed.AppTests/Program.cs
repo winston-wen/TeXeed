@@ -1244,15 +1244,19 @@ internal static partial class Program
             Console.WriteLine("PASS: one outline click centers same-screen source targets and same-page PDF positions; repeated clicks resync, while None mode stays still");
 
             editor.CaretOffset = editor.Document.GetLineByNumber(5).Offset;
-            await ScrollSourceAsync(1);
-            await Task.Delay(600);
-            var initialOffset = pdfScroll.VerticalOffset;
+            var initialAnchor = await ScrollSourceAsync(10);
+            var initialPoint = await MapAsync(initialAnchor);
+            await AwaitAnchorAsync(initialAnchor);
+            var initialPage = preview.VisiblePage;
             var originalCaret = editor.CaretOffset;
             var anchor = await ScrollSourceAsync(95);
             if (editor.CaretOffset != originalCaret) throw new Exception("Scrolling the source fixture unexpectedly moved the caret");
+            var targetPoint = await MapAsync(anchor);
+            if (targetPoint.Page == initialPoint.Page)
+                throw new Exception($"Viewport fixture did not cross pages: source {initialAnchor.Line} and {anchor.Line} both map to page {initialPoint.Page}");
             await AwaitAnchorAsync(anchor);
-            if (Math.Abs(pdfScroll.VerticalOffset - initialOffset) < pdfScroll.ViewportHeight)
-                throw new Exception("Scrolling with a stationary caret did not move the PDF to a different page");
+            if (preview.VisiblePage != targetPoint.Page || preview.VisiblePage == initialPage)
+                throw new Exception($"Scrolling with a stationary caret should change the visible PDF page from {initialPage} to {targetPoint.Page}; found {preview.VisiblePage}");
             await WaitForPreviewRenderedAsync(window);
             Capture(window, Path.Combine(output, "viewport-following.png"));
             Console.WriteLine("PASS: source scrolling moves the real PDF to the visible source center while the caret stays fixed; no automatic highlight");
@@ -1307,16 +1311,20 @@ internal static partial class Program
             Console.WriteLine("PASS: native overscroll brings final source row near the top and keeps final PDF page visible, with/without cropping");
 
             SelectMode(PreviewFollowMode.Cursor);
-            await AwaitLocationAsync(editor.CurrentLocation!, .5, centerBounds: true);
+            var initialCaretLocation = editor.CurrentLocation!;
+            await AwaitLocationAsync(initialCaretLocation, .5, centerBounds: true);
+            var initialCaretPage = preview.VisiblePage;
             pdfOffset = pdfScroll.VerticalOffset;
             originalCaret = editor.CaretOffset;
             await ScrollSourceAsync(155);
             if (editor.CaretOffset != originalCaret) throw new Exception("Cursor-mode source scrolling moved the fixture caret");
             await AssertPdfOffsetStableAsync(pdfScroll, pdfOffset, "Cursor mode incorrectly followed source scrolling while the caret stayed fixed");
             editor.CaretOffset = editor.Document.GetLineByNumber(260).Offset;
-            await AwaitLocationAsync(editor.CurrentLocation!, .5, centerBounds: true);
-            if (Math.Abs(pdfScroll.VerticalOffset - pdfOffset) < pdfScroll.ViewportHeight)
-                throw new Exception("Cursor mode did not move the PDF after moving the caret to a different page");
+            var targetCaretLocation = editor.CurrentLocation!;
+            var targetCaretPage = (await MapAsync(targetCaretLocation)).Page;
+            await AwaitLocationAsync(targetCaretLocation, .5, centerBounds: true);
+            if (preview.VisiblePage != targetCaretPage || preview.VisiblePage == initialCaretPage)
+                throw new Exception($"Moving the caret in Cursor mode should change the visible PDF page from {initialCaretPage} to {targetCaretPage}; found {preview.VisiblePage}");
             Console.WriteLine("PASS: toolbar cursor mode follows caret movement without following source scroll or flashing highlights");
 
             // Changing the caret queues automatic cursor synchronization synchronously. Switching

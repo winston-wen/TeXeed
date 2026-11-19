@@ -40,6 +40,11 @@ internal static partial class Program
         var view = new MarkdownView { ChatMode = true, TurnNumber = 7, Padding = new Thickness(0) };
         view.ConfigureFolding(new(), "axis", () => { });
         var host = new Window { Owner = owner, Content = new ScrollViewer { Content = view }, Width = 500, Height = 260, Title = "标题标记中轴" };
+        if (!owner.ShowActivated)
+        {
+            host.ShowActivated = false; host.ShowInTaskbar = false; host.WindowStartupLocation = WindowStartupLocation.Manual;
+            host.Left = owner.Left; host.Top = owner.Top;
+        }
         var results = new List<object>();
         var deltas = new List<double>();
         host.Show();
@@ -85,7 +90,7 @@ internal static partial class Program
                 ("8. 最后一层：附带 $x_i^2$ 公式", "最后一层"),
                 ("8. 最后一层：" + string.Concat(Enumerable.Repeat("较长标题自动换行", 5)), "最后一层")
             };
-            foreach (var size in new[] { 16d, 24d })
+            foreach (var size in new[] { 18d, 24d })
             foreach (var turn in new[] { 1, 7, 11, 108 })
             foreach (var level in Enumerable.Range(1, 6))
             foreach (var (text, reference) in cases)

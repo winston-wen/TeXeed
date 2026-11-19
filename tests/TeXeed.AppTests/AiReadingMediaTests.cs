@@ -28,6 +28,11 @@ internal static partial class Program
         var folds = new Dictionary<string, bool>();
         view.ConfigureFolding(folds, "segment", () => { }); view.Markdown = source;
         var host = new Window { Owner = owner, Content = new ScrollViewer { Content = view }, Width = 650, Height = 760, Title = "AI reading and media · synthetic" };
+        if (!owner.ShowActivated)
+        {
+            host.ShowActivated = false; host.ShowInTaskbar = false; host.WindowStartupLocation = WindowStartupLocation.Manual;
+            host.Left = owner.Left; host.Top = owner.Top;
+        }
         host.Show();
         try
         {
@@ -37,14 +42,16 @@ internal static partial class Program
             for (var i = 0; i < headings.Length; i++)
             {
                 Check(new TextRange(headings[i].ContentStart, headings[i].ContentEnd).Text.StartsWith($"[3:{string.Join('.', Enumerable.Repeat(1, i + 1))}]"), "Heading marker has the wrong level or turn.");
-                Check(headings[i].FontSize == view.FontSize && headings[i].FontWeight == view.FontWeight && Equals(headings[i].FontFamily, view.FontFamily) && headings[i].LineHeight == 25,
-                    "Answer heading changed body typography.");
+                Check(headings[i].FontSize == view.FontSize && headings[i].FontWeight == FontWeights.SemiBold &&
+                    Equals(headings[i].FontFamily, view.FontFamily) && Math.Abs(headings[i].LineHeight - view.Document.LineHeight) < .01,
+                    "Answer heading lost its semibold weight, body family, size or line height.");
                 var toggle = (Hyperlink)headings[i].Inlines.FirstInline!;
                 var marker = toggle.Inlines.OfType<Run>().First();
-                Check(Equals(marker.FontFamily, view.FontFamily) && marker.FontWeight == view.FontWeight, "Heading marker did not use the body font.");
+                Check(Equals(marker.FontFamily, view.FontFamily) && marker.FontWeight == FontWeights.SemiBold, "Heading marker lost its semibold reading type.");
                 toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
                 var hint = toggle.Inlines.OfType<Run>().Single(r => r.Text == "（已折叠）");
-                Check(Equals(hint.FontFamily, view.FontFamily) && hint.FontWeight == view.FontWeight && Math.Abs(hint.FontSize - view.FontSize * .8) < .01, "Folded hint did not use the body font and its existing size.");
+                Check(Equals(hint.FontFamily, view.FontFamily) && hint.FontWeight == FontWeights.Normal &&
+                    Math.Abs(hint.FontSize - 12.8) < .01, "Folded hint lost its dedicated size or normal weight.");
                 toggle.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
             }
             Check(plain.Document.Blocks.OfType<Paragraph>().First().FontSize > plain.FontSize, "Question/tutorial heading style changed.");

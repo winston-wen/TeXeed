@@ -22,7 +22,10 @@ public sealed partial class MarkdownView : RichTextBox
         "AsyncLayoutChanging", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(MarkdownView));
     private void NotifyAsyncLayoutChanging() => (_tableOwner ?? this).RaiseEvent(new RoutedEventArgs(AsyncLayoutChangingEvent));
     private const double ChatParagraphSpacing = 10;
-    private double ChatLineHeight => Math.Max(25, FontSize * 25 / 16);
+    private const double DefaultFontSize = 16;
+    private double ChatLineHeight => Math.Max(25, FontSize * AiChatTypography.LineHeight / AiChatTypography.FontSize);
+    private bool UsesChatTypography => ChatMode || UseChatEmphasis ||
+        _tableOwner is { } owner && (owner.ChatMode || owner.UseChatEmphasis);
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseCjkFriendlyEmphasis().UseAutoLinks().DisableHtml().Build();
     public static readonly DependencyProperty MarkdownProperty = DependencyProperty.Register(
@@ -65,7 +68,7 @@ public sealed partial class MarkdownView : RichTextBox
         IsReadOnly = true; IsReadOnlyCaretVisible = false; IsDocumentEnabled = true; IsUndoEnabled = false;
         BorderThickness = new Thickness(0); Background = Brushes.Transparent; Padding = new Thickness(0, 0, 34, 0);
         VerticalScrollBarVisibility = ScrollBarVisibility.Disabled; HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        FontSize = 16; FontFamily = new FontFamily("Times New Roman, Source Han Serif SC, FangSong");
+        FontSize = DefaultFontSize; FontFamily = new FontFamily("Times New Roman, Source Han Serif SC, FangSong");
         SetResourceReference(ForegroundProperty, "Ink");
         SetResourceReference(SelectionBrushProperty, "TextSelectionBackground");
         SetResourceReference(SelectionTextBrushProperty, "TextSelectionForeground");
@@ -93,20 +96,26 @@ public sealed partial class MarkdownView : RichTextBox
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.Property == FontSizeProperty && (ChatMode || UseChatEmphasis) && !string.IsNullOrEmpty(Markdown)) Render();
+        if (e.Property == FontSizeProperty && !_updatingChatTypography && UsesChatTypography && !string.IsNullOrEmpty(Markdown)) Render();
     }
 
     internal string Revision { get; private set; } = "";
     internal int LayoutVersion { get; private set; }
     internal Task RenderTask { get; private set; } = Task.CompletedTask;
     private int _renderVersion;
-    private bool _renderPending, _renderPaused;
+    private bool _renderPending, _renderPaused, _updatingChatTypography;
     private double _estimatedHeight;
     private const int BackgroundRenderThreshold = 4000, UiRenderSliceMilliseconds = 6;
     private void UpdateChatTypography()
     {
-        if (ChatMode || UseChatEmphasis) FontFamily = ChatReadingTypography.Family;
-        Typography.SetStylisticSet4(this, ChatMode || UseChatEmphasis);
+        var chat = ChatMode || UseChatEmphasis;
+        if (chat) FontFamily = ChatReadingTypography.Family;
+        _updatingChatTypography = true;
+        if (chat && FontSize == DefaultFontSize) SetCurrentValue(FontSizeProperty, AiChatTypography.FontSize);
+        else if (!chat && FontSize == AiChatTypography.FontSize) SetCurrentValue(FontSizeProperty, DefaultFontSize);
+        _updatingChatTypography = false;
+        Typography.SetStylisticSet4(this, chat);
+        if (IsStreaming) _streamParagraph = null;
         Render();
     }
     private void Render()
@@ -121,10 +130,12 @@ public sealed partial class MarkdownView : RichTextBox
             if (_streamParagraph is null)
             {
                 ClearRichState();
+                _streamText = "";
+                ResetStreamEmoji();
                 _streamParagraph = new Paragraph();
-                Document = new FlowDocument(_streamParagraph) { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity, FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseChatEmphasis ? ChatLineHeight : 25 };
-                Typography.SetStylisticSet4(Document, ChatMode || UseChatEmphasis);
-                Document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
+                var document = NewDocument();
+                document.Blocks.Add(_streamParagraph);
+                Document = document;
             }
             if (ChatMode && _streamParagraph is { } streamParagraph)
             {
@@ -159,7 +170,7 @@ public sealed partial class MarkdownView : RichTextBox
     {
         var document = new FlowDocument { PagePadding = new Thickness(0), ColumnWidth = double.PositiveInfinity,
             FontSize = FontSize, FontFamily = FontFamily, LineHeight = ChatMode || UseChatEmphasis ? ChatLineHeight : 25 };
-        Typography.SetStylisticSet4(document, ChatMode || UseChatEmphasis || _tableOwner?.ChatMode == true || _tableOwner?.UseChatEmphasis == true);
+        Typography.SetStylisticSet4(document, UsesChatTypography);
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
@@ -322,7 +333,7 @@ public sealed partial class MarkdownView : RichTextBox
                     if (emphasis.DelimiterChar == '~') span.TextDecorations = TextDecorations.Strikethrough;
                     else if (emphasis.DelimiterCount >= 2)
                     {
-                        if (ChatMode || UseChatEmphasis || _tableOwner is { } owner && (owner.ChatMode || owner.UseChatEmphasis)) ApplyChatEmphasis(span);
+                        if (UsesChatTypography) ApplyChatEmphasis(span);
                         else span.FontWeight = FontWeights.Bold;
                     }
                     else span.FontStyle = FontStyles.Italic;

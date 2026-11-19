@@ -49,7 +49,7 @@ public partial class MarkdownView
         if (formula)
         {
             var visual = new ChatFormula(anchor!.PreviewSource!, true, asset: FormulaAsset?.Invoke(anchor.PreviewSource!, true));
-            visual.SetValue(TextElement.FontSizeProperty, FontSize);
+            visual.SetValue(TextElement.FontSizeProperty, FormulaFontSize);
             visual.SetResourceReference(TextElement.ForegroundProperty, "Accent");
             visual.Cursor = Cursors.Hand;
             visual.MouseLeftButtonUp += (_, e) => { LocalLink?.Invoke(key); e.Handled = true; };
@@ -79,7 +79,7 @@ public partial class MarkdownView
                 var original = part.Display ? "$$" + tex + "$$" : "$" + tex + "$";
                 var fallback = new Run("公式") { Tag = new SnapshotFormulaCopy(original) }; link.Inlines.Add(fallback);
                 var visual = new ChatFormula(part.Text, part.Display, asset: FormulaAsset?.Invoke(part.Text, part.Display));
-                visual.SetValue(TextElement.FontSizeProperty, FontSize);
+                visual.SetValue(TextElement.FontSizeProperty, FormulaFontSize);
                 visual.SetResourceReference(TextElement.ForegroundProperty, "Accent");
                 visual.Cursor = Cursors.Hand;
                 visual.MouseLeftButtonUp += (_, e) => { LocalLink?.Invoke(key); e.Handled = true; };

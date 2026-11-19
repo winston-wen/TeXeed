@@ -101,6 +101,7 @@ public partial class AiPanel
     {
         if (sender is not AiTurnView view) return;
         view.TurnNumber = _book.Turns.IndexOf(view.Turn) + 1;
+        SetOrdinalGutter(view);
         view.ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project);
         _turnViews[view.Turn.Id] = view;
         view.Unloaded -= Turn_Unloaded; view.Unloaded += Turn_Unloaded;

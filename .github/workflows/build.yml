@@ -46,6 +46,7 @@ jobs:
 
   full-ui-regression:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
@@ -61,11 +62,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Tectonic failed to start.' }
       - run: dotnet restore TeXeed.slnx -r win-x64 --locked-mode -m:1
       - run: dotnet build tests/TeXeed.AppTests/TeXeed.AppTests.csproj -c Release --no-restore -m:1
-      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --output artifacts/ci-ui-check
+      - name: Run full WPF integration suite
+        run: |
+          New-Item -ItemType Directory -Force artifacts/ci-ui-check | Out-Null
+          dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --output artifacts/ci-ui-check 2>&1 |
+            Tee-Object -FilePath artifacts/ci-ui-check/regression.log
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: TeXeed-full-ui-diagnostics
+          path: |
+            artifacts/ci-ui-check/*.log
+            artifacts/ci-ui-check/*.png
+          if-no-files-found: ignore
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: [build, full-ui-regression]
     runs-on: windows-latest
     concurrency:
       group: release-${{ needs.build.outputs.version }}

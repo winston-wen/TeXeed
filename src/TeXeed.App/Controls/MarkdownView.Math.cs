@@ -18,6 +18,7 @@ public sealed partial class MarkdownView
     private readonly Dictionary<InlineUIContainer, ChatMath.Token> _clipboardMath = [];
     private readonly List<(FrameworkElement Grid, int Columns)> _formulaWidths = [];
     private double _measuredWidth = double.NaN;
+    private double FormulaFontSize => FontSize == AiChatTypography.FontSize ? AiChatTypography.FormulaFontSize : FontSize;
     private static double FormulaAvailableWidth(double width, int columns) => Math.Max(80, (width - 34) / columns - (columns > 1 ? 64 : 32));
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -110,7 +111,9 @@ public sealed partial class MarkdownView
     }
     private Inline FormulaInline(ChatMath.Token token)
     {
-        var inline = new InlineUIContainer(new ChatFormula(token.Source, token.Display, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, token.Display)))
+        var formula = new ChatFormula(token.Source, token.Display, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, token.Display));
+        formula.SetValue(TextElement.FontSizeProperty, FormulaFontSize);
+        var inline = new InlineUIContainer(formula)
             { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
         _clipboardMath.Add(inline, token);
         return inline;
@@ -120,6 +123,7 @@ public sealed partial class MarkdownView
         var paragraph = new Paragraph { Margin = ChatMode ? new Thickness(0, 0, 0, ChatParagraphSpacing) : new Thickness(0, 12, 0, 18),
             Padding = ChatMode ? new Thickness(0) : new Thickness(8), LineHeight = double.NaN };
         var formula = new ChatFormula(token.Source, true, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, true));
+        formula.SetValue(TextElement.FontSizeProperty, FormulaFontSize);
         var grid = new ChatFormulaRow(formula, token.Number, ChatMode ? Math.Max(0, 4 * FontSize - paragraph.Padding.Left) : 0, ChatMode);
         _formulaWidths.Add((grid, _columnCount));
         grid.Width = FormulaAvailableWidth(double.IsFinite(_measuredWidth) ? _measuredWidth : 0, _columnCount);
