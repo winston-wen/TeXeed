@@ -104,7 +104,8 @@ public sealed partial class MarkdownView
         var view = SelectionView();
         var start = view.Selection.Start; var end = view.Selection.End;
         if (view.Selection.IsEmpty && start.Paragraph is { } paragraph) { start = paragraph.ContentStart; end = paragraph.ContentEnd; }
-        var textOffset = view.CopySource(view.Document.ContentStart, start).Length;
+        (start, end) = view.NumberSelectionBounds(start, end);
+        var textOffset = view.CopySourceLength(view.Document.ContentStart, start);
         var offset = view.Document.ContentStart.GetOffsetToPosition(start);
         if (!ReferenceEquals(view, this))
         {

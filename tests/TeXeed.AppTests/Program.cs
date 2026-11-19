@@ -119,6 +119,8 @@ internal static partial class Program
                 if (args.Contains("--ai-inline-axis-only"))
                 {
                     await CheckAiInlineTypographyAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-inline-axis"));
+                    await CheckAiPlainNumbersAsync();
+                    await CheckPlainNumberReferencesAsync(window);
                     await CloseAndObserveAsync(window, "AI inline reading axes"); result = 0; return;
                 }
                 if (args.Contains("--ai-unlock-viewport-only"))
@@ -1548,12 +1550,13 @@ internal static partial class Program
             foreach (var descendant in Descendants<T>(child)) yield return descendant;
         }
     }
-    private static void Capture(Window window, string path)
+    private static void Capture(Window window, string path, double scale = 1)
     {
         window.UpdateLayout(); var visual = (FrameworkElement)window.Content;
         var width = (int)Math.Ceiling(visual.ActualWidth + visual.Margin.Left + visual.Margin.Right);
         var height = (int)Math.Ceiling(visual.ActualHeight + visual.Margin.Top + visual.Margin.Bottom);
-        var target = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        var target = new RenderTargetBitmap((int)Math.Ceiling(width * scale), (int)Math.Ceiling(height * scale),
+            96 * scale, 96 * scale, PixelFormats.Pbgra32);
         var background = new DrawingVisual(); using (var drawing = background.RenderOpen()) drawing.DrawRectangle(window.Background ?? Brushes.White, null, new Rect(0, 0, width, height));
         target.Render(background);
         target.Render(visual); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(target));

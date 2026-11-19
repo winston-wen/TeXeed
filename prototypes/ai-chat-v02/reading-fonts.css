@@ -38,15 +38,17 @@
   font-weight: 400;
 }
 
-/* The TeX axis is .25em above its own baseline. */
+/* KaTeX and the depth on each TeX SVG supply the math baseline. */
 .math[data-display=false],
 :is(.answer, .question, .snapshot-scroll, .branch-origin-view, .streaming-answer, .transcript .passage, .initial-source)
   .katex:not(.katex-display > .katex, .math > .katex) {
   font-size: var(--reading-font);
-  vertical-align: calc(var(--reading-ink-axis) - .25em);
+  vertical-align: baseline;
 }
 
 .math > .katex { font-size: inherit; }
+/* Let unclipped reference formulas paint their italic overhangs. */
+.quote-math-window:has(+ .quote-math-more[hidden]) { overflow: visible; }
 .math[data-display=true],
 :is(.answer, .question, .snapshot-scroll, .branch-origin-view, .streaming-answer, .transcript .passage, .initial-source)
   .katex-display > .katex { font-size: var(--reading-math-display); }

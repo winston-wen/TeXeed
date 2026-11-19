@@ -1,0 +1,48 @@
+--- a/fixture.cs.txt
++++ b/fixture.cs.txt
+@@ -3,6 +3,7 @@ using System.IO;
+ using System.Text.Json;
+ using System.Windows;
+ using System.Windows.Controls;
++using System.Windows.Documents;
+ using System.Windows.Media;
+ using System.Windows.Threading;
+ using TeXeed.App.AI;
+@@ -46,6 +47,7 @@ internal static class ChatReadingAxisPerf
+     {
+         var output = Path.GetFullPath(args[0]);
+         var seeds = Path.GetFullPath(args[1]);
++        var plainDigits = args.Length > 2 && args[2] == "decimal-text";
+         var home = Path.Combine(output, "profile");
+         var cache = Path.Combine(home, "ai", "math-svg");
+         Directory.CreateDirectory(cache);
+@@ -110,7 +112,10 @@ internal static class ChatReadingAxisPerf
+                         bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                         var controls = Visible(host);
+                         var formulas = Children<ChatFormula>(view).ToArray();
+-                        if (!host.IsVisible || host.IsActive || controls == 0 || formulas.Length < 90 ||
++                        var visibleText = new TextRange(view.Document.ContentStart, view.Document.ContentEnd).Text;
++                        var digitPairs = System.Text.RegularExpressions.Regex.Matches(visibleText, "输出 0 或 1").Count;
++                        if (!host.IsVisible || host.IsActive || controls == 0 || formulas.Length != (plainDigits ? 31 : 91) ||
++                            digitPairs != (plainDigits ? 30 : 0) ||
+                             formulas.Any(formula => formula.Error is not null || formula.SvgPath is null))
+                             throw new InvalidOperationException("Typography fixture lost its non-activating window or a cached formula.");
+                         if (i >= 2) samples.Add(new
+@@ -118,7 +123,7 @@ internal static class ChatReadingAxisPerf
+                             op = operation, feedbackMs = feedback, feedbackBytes, rawMs = timer.Elapsed.TotalMilliseconds,
+                             idleMs = idle.Elapsed.TotalMilliseconds, correctedMs = timer.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds,
+                             rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes, visibleControls = controls,
+-                            formulaVisuals = formulas.Length, width = host.Width
++                            formulaVisuals = formulas.Length, digitPairs, width = host.Width
+                         });
+                     }
+                 }
+@@ -136,7 +141,7 @@ internal static class ChatReadingAxisPerf
+                 });
+                 File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new
+                 {
+-                    fixture = "30 mixed-script blocks, five headings, 90 inline formulas, one display formula, four follow-up bubbles " +
++                    fixture = "30 mixed-script blocks, five headings, 60 numeric inline spans, 30 single-symbol inline formulas, one display formula, four follow-up bubbles " +
+                         "for resize and link replacement, cached SVG, 900/620 x 760 offscreen WPF; two warmups, seven pairs with 800ms idle",
+                     samples
+                 }, new JsonSerializerOptions { WriteIndented = true }));

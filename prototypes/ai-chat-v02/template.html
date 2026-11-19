@@ -187,7 +187,7 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .sent-summaries li:last-child { margin-bottom:0 }
 .sent-summary { display:block; width:fit-content; max-width:100%; padding:0; text-indent:0; background:none; border-radius:0; font:var(--reading-font)/var(--reading-line) var(--serif); color:var(--accent); text-decoration:none }
 .sent-summary:hover,.sent-summary[aria-expanded=true] { color:var(--ink) }
-.quote-math-window { display:inline-block; max-width:min(13em,45vw); overflow:hidden; white-space:nowrap; text-indent:0; vertical-align:-.22em }
+.quote-math-window { display:inline-block; max-width:min(13em,45vw); overflow:clip; white-space:nowrap; text-indent:0; vertical-align:baseline }
 .quote-math-more { display:inline; white-space:nowrap }
 .quote-math-more[hidden] { display:none }
 .margin-notes { position:absolute; right:-36px; top:0; display:flex; gap:2px }
@@ -446,6 +446,7 @@ dialog textarea { width:100%; height:220px }
 <dialog id="rename-dialog" aria-label="重命名 AI 对话"><form id="rename-form"><label for="rename-title">AI 对话标题</label><input id="rename-title" maxlength="200" autocomplete="off"><div class="row"><button type="button" id="rename-cancel">取消</button><button type="submit" id="rename-save">确定</button></div></form></dialog>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
 <script src="vendor/katex/katex.min.js"></script>
+<script src="inline-number.js"></script>
 <script src="rich-text.js"></script>
 <script src="quote-summary.js"></script>
 <script src="scrollbar-activity.js"></script>

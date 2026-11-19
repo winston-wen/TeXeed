@@ -14,6 +14,7 @@ public partial class AiPanel
             var before = item.PreviewBefore?.Trim(); var after = item.PreviewAfter?.Trim();
             return string.Join(" … ", new[] { before, after }.Where(s => !string.IsNullOrWhiteSpace(s)));
         }
+        if (AiReferencePresentation.IsInlineNumberPreview(anchor)) return anchor.PreviewSource!.Trim();
         var fallback = anchor.PreviewKind switch
         {
             "formula" when !string.IsNullOrWhiteSpace(anchor.PreviewNumber) => "公式 (" + anchor.PreviewNumber + ")",
@@ -30,7 +31,8 @@ public partial class AiPanel
         var fallback = ReferencePreviewFallback(anchor);
         var text = new TextBlock { Text = fallback, TextWrapping = TextWrapping.Wrap, MaxHeight = 140 };
         target.Content = text;
-        if (anchor.PreviewKind != "formula" || string.IsNullOrWhiteSpace(anchor.PreviewSource)) return;
+        if (anchor.PreviewKind != "formula" || string.IsNullOrWhiteSpace(anchor.PreviewSource) ||
+            AiReferencePresentation.IsInlineNumberPreview(anchor)) return;
         var formula = new ChatFormula(anchor.PreviewSource, true);
         formula.SetValue(TextElement.FontSizeProperty, 15d);
         await formula.RenderTask;

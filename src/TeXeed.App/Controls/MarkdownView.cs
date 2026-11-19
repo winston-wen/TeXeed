@@ -311,7 +311,7 @@ public sealed partial class MarkdownView : RichTextBox
         var formCount = _formControls.Count;
         var formulaCount = _clipboardMath.Count;
         if (inline is not null) AddInlines(paragraph.Inlines, inline, depth + 1);
-        if (UsesChatTypography && _clipboardMath.Count != formulaCount) AlignInlineFormulas(paragraph);
+        if (UsesChatTypography && _clipboardMath.Count != formulaCount) paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight;
         if (_formControls.Count != formCount) { paragraph.LineHeight = double.NaN; paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight; }
         return paragraph;
     }

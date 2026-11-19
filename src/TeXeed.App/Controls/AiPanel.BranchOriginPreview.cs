@@ -46,6 +46,8 @@ public partial class AiPanel
             preview.Children.Add(new MarkdownPicture(uri, anchor.PreviewSource ?? "", () => { })
             { HorizontalAlignment = HorizontalAlignment.Left, MaxWidth = 700 });
         }
+        else if (AiReferencePresentation.IsInlineNumberPreview(anchor))
+            preview.Children.Add(new MarkdownView { ChatMode = true, Padding = new Thickness(0), Markdown = "$" + anchor.PreviewSource!.Trim() + "$" });
         else if (anchor.PreviewTableMarkdown is not null || anchor.PreviewKind == "formula" && !string.IsNullOrWhiteSpace(anchor.PreviewSource))
         {
             var markdown = anchor.PreviewTableMarkdown ?? (anchor.PreviewKind == "formula" && !string.IsNullOrWhiteSpace(anchor.PreviewSource)
@@ -66,12 +68,17 @@ public partial class AiPanel
         Typography.SetStylisticSet4(document, true);
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
         var paragraph = new Paragraph { Margin = new Thickness(0) };
-        IReadOnlyList<AiReferencePresentation.ExcerptPart> parts = anchor.PreviewParts is { Count: > 0 }
-            ? AiReferencePresentation.Excerpt(anchor) : [new AiReferencePresentation.ExcerptPart(anchor.Quote)];
+        var parts = AiReferencePresentation.Excerpt(anchor);
         foreach (var part in parts)
         {
+            if (part.IsPlainNumber)
+            {
+                paragraph.Inlines.Add(MarkdownView.NumericExcerptRun(part));
+                continue;
+            }
             if (part.Formula && !string.IsNullOrWhiteSpace(part.Text))
             {
+                paragraph.LineStackingStrategy = LineStackingStrategy.MaxHeight;
                 var formula = new ChatFormula(part.Text, part.Display);
                 formula.SetValue(TextElement.FontSizeProperty, view.FontSize);
                 var tex = part.CopyTex ?? part.Text;
@@ -83,14 +90,12 @@ public partial class AiPanel
             {
                 if (i > 0)
                 {
-                    view.AlignInlineFormulas(paragraph);
                     document.Blocks.Add(paragraph);
                     paragraph = new Paragraph { Margin = new Thickness(0) };
                 }
                 paragraph.Inlines.Add(new Run(lines[i]));
             }
         }
-        view.AlignInlineFormulas(paragraph);
         document.Blocks.Add(paragraph); view.Document = document;
         return view;
     }

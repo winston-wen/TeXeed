@@ -12,6 +12,7 @@ public sealed partial class MarkdownView
 {
     private readonly Dictionary<string, InlineUIContainer> _branchLinkBlocks = [];
     private readonly Dictionary<Paragraph, object> _branchLineModes = [];
+    private Dictionary<string, double>? _readingInkAxes;
     internal Dictionary<string, InlineUIContainer> BranchLinkBlocks => _branchLinkBlocks;
     internal IReadOnlyDictionary<string, InlineUIContainer> BranchLinkInlines => _branchLinkBlocks;
 
@@ -114,7 +115,14 @@ public sealed partial class MarkdownView
                 offset -= table.Text.Length; p = table.Block.ElementEnd; continue;
             }
             var context = p.GetPointerContext(LogicalDirection.Forward);
-            if (context == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
+            var element = context is TextPointerContext.ElementStart or TextPointerContext.ElementEnd
+                ? p.GetAdjacentElement(LogicalDirection.Forward) : null;
+            if (element is Span { Tag: ChatMath.Token })
+            {
+                if (offset == 0) return p;
+                offset--; p = p.GetNextContextPosition(LogicalDirection.Forward); continue;
+            }
+            if (context == TextPointerContext.ElementStart && element is InlineUIContainer { Tag: string source } ui)
             {
                 if (offset < source.Length) return null;
                 offset -= source.Length;
@@ -127,7 +135,7 @@ public sealed partial class MarkdownView
                 if (offset <= text.Length) return p.GetPositionAtOffset(offset);
                 offset -= text.Length; p = p.GetPositionAtOffset(text.Length); continue;
             }
-            if (context == TextPointerContext.ElementEnd && p.GetAdjacentElement(LogicalDirection.Forward) is Paragraph)
+            if (context == TextPointerContext.ElementEnd && element is Paragraph)
             { if (offset < Environment.NewLine.Length) return p; offset -= Environment.NewLine.Length; }
             p = p.GetNextContextPosition(LogicalDirection.Forward);
         }
@@ -152,6 +160,27 @@ public sealed partial class MarkdownView
         text.SetValue(TextBlock.LineStackingStrategyProperty, LineStackingStrategy.MaxHeight);
         return new DataTemplate { VisualTree = text };
     }
+    private static IEnumerable<Inline> ReadingInlines(InlineCollection inlines)
+    {
+        foreach (var inline in inlines)
+            if (inline is Span span)
+            {
+                if (ReferenceEquals(span.Tag, CodeSpanMarker)) continue;
+                foreach (var child in ReadingInlines(span.Inlines)) yield return child;
+            }
+            else yield return inline;
+    }
+
+    private double ReadingInkAxis(string sample)
+    {
+        if (sample.Length == 0) sample = "中文";
+        var axes = _readingInkAxes ??= new(StringComparer.Ordinal);
+        if (axes.TryGetValue(sample, out var axis)) return axis;
+        axis = InkAxis(sample, FontFamily, FontWeights.Normal, FontStyles.Normal, FontSize);
+        if (axes.Count < 64) axes.Add(sample, axis);
+        return axis;
+    }
+
     private static string InkWordAt(TextPointer position)
     {
         if (position.Paragraph is not { } paragraph) return "";

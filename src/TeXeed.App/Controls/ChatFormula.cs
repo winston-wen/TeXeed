@@ -16,7 +16,6 @@ internal sealed class ChatFormula : FrameworkElement
     internal string? Error { get; private set; }
     internal string? SvgPath => _svg?.Path;
     internal Task RenderTask { get; }
-    internal double TextInkAxis { get; set; } = double.NaN;
     static ChatFormula()
     {
         TextElement.ForegroundProperty.OverrideMetadata(typeof(ChatFormula),
@@ -60,9 +59,8 @@ internal sealed class ChatFormula : FrameworkElement
     {
         if (_svg is { } svg)
         {
+            // Align the TeX box baseline with the text line, including the drawing's one-DIP inset.
             var baseline = svg.Baseline * Scale + 1;
-            // Both TeX math fonts used by the renderer have a quarter-em math axis.
-            if (!double.IsNaN(TextInkAxis)) baseline -= Em * .25 + TextInkAxis;
             TextBlock.SetBaselineOffset(this, baseline);
             return new(Math.Max(1, svg.Bounds.Width * Scale) + 2, Math.Max(Math.Max(1, svg.Bounds.Height * Scale) + 2, baseline + 1));
         }

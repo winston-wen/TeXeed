@@ -60,6 +60,7 @@ public sealed partial class MarkdownView
     // Clipboard whitespace is independent of the canonical text offsets stored in existing annotations.
     internal string CopyForClipboard(TextPointer start, TextPointer end)
     {
+        (start, end) = NumberSelectionBounds(start, end);
         var output = new StringBuilder();
         var afterInline = false;
         void Text(string text)
@@ -95,7 +96,13 @@ public sealed partial class MarkdownView
             { Text(formula.Text); p = run.ElementEnd.CompareTo(end) <= 0 ? run.ElementEnd : end; continue; }
             var inline = context == TextPointerContext.ElementStart
                 ? p.GetAdjacentElement(LogicalDirection.Forward) as InlineUIContainer : p.Parent as InlineUIContainer;
-            if (inline is not null && _clipboardMath.TryGetValue(inline, out var token))
+            ChatMath.Token? token = null;
+            TextPointer? formulaEnd = null;
+            if (context == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is Span { Tag: ChatMath.Token number } digits &&
+                digits.ElementEnd.CompareTo(end) <= 0)
+            { token = number; formulaEnd = digits.ElementEnd; }
+            else if (inline is not null && _clipboardMath.TryGetValue(inline, out token)) formulaEnd = inline.ElementEnd;
+            if (token is not null)
             {
                 var tex = token.CopyTex.ReplaceLineEndings("\n").Trim();
                 TrimSpaces();
@@ -110,7 +117,7 @@ public sealed partial class MarkdownView
                     output.Append(" $").Append(tex).Append("$ ");
                     afterInline = true;
                 }
-                p = inline.ElementEnd; continue;
+                p = formulaEnd; continue;
             }
             if (inline is { Tag: string source }) { Text(source); p = inline.ElementEnd; continue; }
             if (context == TextPointerContext.Text)

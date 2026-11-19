@@ -26,7 +26,10 @@
         const close = open === '\\(' ? '\\)' : open === '\\[' ? '\\]' : open;
         const end = endOf(text, close, i + open.length);
         if (end > i + open.length && !(open === '$' && text.slice(i, end).includes('\n'))) {
-          flush(); const math = text.slice(i + open.length, end); result.push({ math, raw: text.slice(i, end + close.length) }); consumed += Math.min(20, Array.from(math).length); i = end + close.length; continue;
+          const math = text.slice(i + open.length, end);
+          if ((open === '$' || open === '\\(') && root.isReadingNumber(math)) plain += math.trim();
+          else { flush(); result.push({ math, raw: text.slice(i, end + close.length) }); consumed += Math.min(20, Array.from(math).length); }
+          i = end + close.length; continue;
         }
         if (open.length > 1) { plain += open; i += open.length; continue; }
       }
@@ -70,7 +73,10 @@
       pending = false;
       for (const box of document.querySelectorAll('.quote-math-window')) {
         const marker = box.nextElementSibling;
-        if (marker?.classList.contains('quote-math-more')) marker.hidden = box.scrollWidth <= box.clientWidth + 1;
+        if (!marker?.classList.contains('quote-math-more')) continue;
+        // KaTeX's scripts can overhang the typeset advance even when the whole formula fits.
+        const width = box.querySelector('.katex')?.offsetWidth ?? box.scrollWidth;
+        marker.hidden = width <= box.clientWidth + 1;
       }
     });
   };

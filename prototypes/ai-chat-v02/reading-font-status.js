@@ -1,5 +1,4 @@
 (function () {
-  const media = '.math[data-display=false], .reading-bubble, .answer .katex:not(.katex-display > .katex, .math > .katex), .question .katex:not(.katex-display > .katex, .math > .katex), .branch-origin-view .katex:not(.katex-display > .katex, .math > .katex), .streaming-answer .katex:not(.katex-display > .katex, .math > .katex)';
   const skip = '.math, .katex, .katex-display, .heading-marker, .heading-number, .same-turn-link, .associated';
   const measurements = new Map();
   let context;
@@ -17,7 +16,7 @@
   }
 
   window.alignReadingMedia = function (root) {
-    const nodes = root.querySelectorAll(media);
+    const nodes = root.querySelectorAll('.reading-bubble');
     if (!nodes.length) return;
     if (!context) {
       const style = getComputedStyle(document.documentElement);
@@ -25,8 +24,7 @@
       context.font = `${style.getPropertyValue('--reading-font')} ${style.getPropertyValue('--reading-face')}`;
     }
     for (const element of nodes) {
-      const anchor = element.matches('.reading-bubble') ? element.parentElement : element;
-      const text = textNear(anchor) || '中文';
+      const text = textNear(element.parentElement) || '中文';
       let axis = measurements.get(text);
       if (axis === undefined) {
         const ink = context.measureText(text);

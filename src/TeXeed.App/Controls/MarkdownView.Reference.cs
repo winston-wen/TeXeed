@@ -6,9 +6,26 @@ namespace TeXeed.App.Controls;
 
 public sealed partial class MarkdownView
 {
+    // A text span supplies the two delimiter positions formerly occupied by a
+    // formula object. Digits remain selectable, including after a branch splits a Run.
+    private static Span? EnclosingNumber(TextPointer p)
+    {
+        for (var element = p.Parent as TextElement; element is not null; element = element.Parent as TextElement)
+            if (element is Span { Tag: ChatMath.Token } span) return span;
+        return null;
+    }
+
+    private (TextPointer Start, TextPointer End) NumberSelectionBounds(TextPointer start, TextPointer end)
+    {
+        if (start.CompareTo(end) >= 0) return (start, end);
+        if (EnclosingNumber(start) is { } left && CoversElement(left, start, end)) start = left.ElementStart;
+        if (EnclosingNumber(end) is { } right && CoversElement(right, start, end)) end = right.ElementEnd;
+        return (start, end);
+    }
+
     internal List<AiSelectionPart> SelectedReferenceParts()
     {
-        var view = SelectionView(); var selection = view.Selection;
+        var view = SelectionView(); var selection = view.NumberSelectionBounds(view.Selection.Start, view.Selection.End);
         var parts = new List<AiSelectionPart>();
         var textBuffer = new StringBuilder();
         void Text(string value) => textBuffer.Append(value);
@@ -19,6 +36,13 @@ public sealed partial class MarkdownView
             if (view.EmbeddedTable(p) is { } table) { Text(table.Text); p = table.Block.ElementEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart)
             {
+                if (p.GetAdjacentElement(LogicalDirection.Forward) is Span { Tag: ChatMath.Token number } digits &&
+                    digits.ElementEnd.CompareTo(selection.End) <= 0)
+                {
+                    Flush(); parts.Add(new AiSelectionPart("formula", number.Source) { Display = false,
+                        CopyTex = number.CopyTex == number.Source ? null : number.CopyTex });
+                    p = digits.ElementEnd; continue;
+                }
                 if (p.GetAdjacentElement(LogicalDirection.Forward) is LineBreak line)
                 { Text("\n"); p = line.ElementEnd; continue; }
                 if (p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } inline)
@@ -68,10 +92,14 @@ public sealed partial class MarkdownView
     internal (string? Kind, string? Source, string? Number) SelectedReferenceObject()
     {
         var view = SelectionView();
-        var selection = view.Selection;
-        if (selection.IsEmpty) return default;
+        if (view.Selection.IsEmpty) return default;
+        var selection = view.NumberSelectionBounds(view.Selection.Start, view.Selection.End);
         for (var pointer = selection.Start; pointer is not null && pointer.CompareTo(selection.End) < 0; pointer = pointer.GetNextContextPosition(LogicalDirection.Forward))
         {
+            if (pointer.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart &&
+                pointer.GetAdjacentElement(LogicalDirection.Forward) is Span { Tag: ChatMath.Token number } &&
+                view.CopySource(selection.Start, selection.End).Trim() == "$" + number.Source + "$")
+                return ("formula", number.Source, null);
             if (pointer.GetPointerContext(LogicalDirection.Forward) != TextPointerContext.ElementStart ||
                 pointer.GetAdjacentElement(LogicalDirection.Forward) is not InlineUIContainer element ||
                 element.Tag is not string tag || view.CopySource(selection.Start, selection.End).Trim() != tag.Trim()) continue;

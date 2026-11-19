@@ -9,7 +9,6 @@ import xml.etree.ElementTree as ET
 
 HERE = pathlib.Path(__file__).resolve().parent
 WORK = HERE.parents[1] / 'artifacts' / 'chat-prototype-v02-math'
-WORK.mkdir(parents=True, exist_ok=True)
 vendor = HERE / 'vendor'
 for package in json.loads((vendor / 'vendor-lock.json').read_text(encoding='utf-8')).values():
     for filename, checksum in package['files'].items():
@@ -18,39 +17,50 @@ for package in json.loads((vendor / 'vendor-lock.json').read_text(encoding='utf-
 data = json.loads((HERE / 'transcripts.json').read_text(encoding='utf-8'))
 data['visualPreview'] = json.loads((HERE / 'visual-preview.json').read_text(encoding='utf-8'))
 data['prompts'] = json.loads((HERE / 'prompts.json').read_text(encoding='utf-8'))
-pattern = re.compile(r'\\\[(.*?)\\\]|\\\((.*?)\\\)|\$\$(.*?)\$\$|\$([^$\n]+)\$', re.S)
+pattern = re.compile(
+    r'\\\[(.*?)\\\]|\\\((.*?)\\\)|\$\$(.*?)\$\$|\$([^$\n]+)\$'
+    r'|(?P<code>^ {0,3}(?P<fence>`{3,}|~{3,})[^\n]*\n.*?(?:^ {0,3}(?P=fence)[`~]*[ \t]*$|\Z)'
+    r'|(?P<ticks>`+)(?!`).*?(?<!`)(?P=ticks)(?!`))', re.S | re.M)
 formulas = {}
 all_turns = data['turns'] + [turn for conversation in data['sampleConversations'] + data['visualPreview']['conversations'] for turn in conversation['turns']]
 for scenario in all_turns + [dict(question='', answer=data['playback']['answer'])]:
     for source in [scenario['question'], scenario['answer']]:
         for m in pattern.finditer(source):
+            if m.group('code') is not None:
+                continue
             tex = next(g for g in m.groups() if g is not None).strip()
             key = (tex, m.group(1) is not None or m.group(3) is not None)
+            if not key[1] and tex.isdecimal():
+                continue
             if key not in formulas:
                 formulas[key] = len(formulas) + 1
 
-document = [r'\documentclass{article}', r'\usepackage{amsmath,amssymb,xeCJK}',
-            r'\setCJKmainfont{Microsoft YaHei}', r'\tracinglostchars=2', r'\begin{document}']
-for (tex, display), i in formulas.items():
-    style = r'\displaystyle' if display else r'\textstyle'
-    document += [r'\begingroup', r'\setbox0=\hbox{$' + style + '\n' + tex + '\n$}',
-                 r'\typeout{METRIC-' + str(i) + r': \the\wd0,\the\ht0,\the\dp0}',
-                 r'\shipout\box0', r'\endgroup']
-document += [r'\end{document}']
-(WORK / 'formula.tex').write_text('\n'.join(document), encoding='utf-8')
-result = subprocess.run(['xelatex', '-no-pdf', '-no-shell-escape', '-interaction=nonstopmode',
-                         '-halt-on-error', 'formula.tex'], cwd=WORK, capture_output=True, timeout=90)
-log = result.stdout.decode('utf-8', errors='replace')
-if result.returncode or 'Missing character:' in log:
-    raise RuntimeError(log[-6000:])
-metrics = {int(m[0]): tuple(float(x) for x in m[1:]) for m in re.findall(
-    r'METRIC-(\d+):\s*([\d.]+)pt,\s*([\d.]+)pt,\s*([\d.]+)pt', log)}
-subprocess.run(['dvisvgm', '--no-fonts', '--no-specials', '--exact-bbox', '--bbox=min',
-                '--page=1-', '--cache=none', '--output=formula-%1p.svg', 'formula.xdv'],
-               cwd=WORK, check=True, capture_output=True, timeout=90)
+if formulas:
+    WORK.mkdir(parents=True, exist_ok=True)
+    document = [r'\documentclass{article}', r'\usepackage{amsmath,amssymb,xeCJK}',
+                r'\setCJKmainfont{Microsoft YaHei}', r'\tracinglostchars=2', r'\begin{document}']
+    for (tex, display), i in formulas.items():
+        style = r'\displaystyle' if display else r'\textstyle'
+        document += [r'\begingroup', r'\setbox0=\hbox{$' + style + '\n' + tex + '\n$}',
+                     r'\typeout{METRIC-' + str(i) + r': \the\wd0,\the\ht0,\the\dp0}',
+                     r'\shipout\box0', r'\endgroup']
+    document += [r'\end{document}']
+    (WORK / 'formula.tex').write_text('\n'.join(document), encoding='utf-8')
+    result = subprocess.run(['xelatex', '-no-pdf', '-no-shell-escape', '-interaction=nonstopmode',
+                             '-halt-on-error', 'formula.tex'], cwd=WORK, capture_output=True, timeout=90)
+    log = result.stdout.decode('utf-8', errors='replace')
+    if result.returncode or 'Missing character:' in log:
+        raise RuntimeError(log[-6000:])
+    metrics = {int(m[0]): tuple(float(x) for x in m[1:]) for m in re.findall(
+        r'METRIC-(\d+):\s*([\d.]+)pt,\s*([\d.]+)pt,\s*([\d.]+)pt', log)}
+    subprocess.run(['dvisvgm', '--no-fonts', '--no-specials', '--exact-bbox', '--bbox=min',
+                    '--page=1-', '--cache=none', '--output=formula-%1p.svg', 'formula.xdv'],
+                   cwd=WORK, check=True, capture_output=True, timeout=90)
 serial = 0
 def math_markup(tex, display):
     global serial
+    if not display and tex.isdecimal():
+        return f'<span data-inline-number="{tex}">{tex}</span>'
     serial += 1
     i = formulas[(tex, display)]
     root = ET.parse(WORK / f'formula-{i}.svg').getroot()
@@ -70,6 +80,8 @@ def math_markup(tex, display):
 def render(source, prefix):
     tokens = []
     def take(m):
+        if m.group('code') is not None:
+            return m[0]
         tex = next(g for g in m.groups() if g is not None).strip()
         display = m.group(1) is not None or m.group(3) is not None
         tokens.append((math_markup(tex, display), display))
@@ -98,6 +110,8 @@ def render(source, prefix):
     blocks = []
     equation = 0
     for chunk in re.split(r'\n\s*\n', source.strip()):
+        if not chunk:
+            continue
         lines = chunk.splitlines()
         mt = re.fullmatch(r'@@M(\d+)@@', chunk.strip())
         if mt and tokens[int(mt[1])][1]:

@@ -15,7 +15,7 @@ internal static class AiMathProofreading
         token.ThrowIfCancellationRequested();
         var math = new ChatMath();
         math.Prepare(answer, Pipeline);
-        var formulas = math.Tokens.Values.Where(t => t.Reference is null)
+        var formulas = math.Tokens.Values.Where(t => t.Reference is null && !t.IsPlainNumber)
             .DistinctBy(t => (t.Source, t.Display)).ToArray();
         if (formulas.Length > 256) return new(formulas.Length, "单次回答超过 256 个不同公式，请精简重复推导并保留完整结论。");
         var failures = await Task.WhenAll(formulas.Select(async formula =>

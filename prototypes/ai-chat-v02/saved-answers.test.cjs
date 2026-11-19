@@ -4,6 +4,7 @@ const context=vm.createContext({
  markdownit:require('./vendor/markdown-it/markdown-it.min.js'),
  katex:require('./vendor/katex/katex.min.js'),BUNDLED_TURNS:[],DATA:{playback:{answer:'Bundled playback'}}
 });
+vm.runInContext(fs.readFileSync(__dirname + '/inline-number.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync(__dirname+'/rich-text.js','utf8'),context);
 const app=fs.readFileSync(__dirname+'/app.js','utf8');
 vm.runInContext(app.slice(app.indexOf('function svgHtml('),app.indexOf('function activity(')),context);

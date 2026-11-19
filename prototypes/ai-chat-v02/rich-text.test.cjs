@@ -5,6 +5,7 @@ const context = vm.createContext({
   markdownit: require('./vendor/markdown-it/markdown-it.min.js'),
   katex: require('./vendor/katex/katex.min.js'),
 });
+vm.runInContext(fs.readFileSync(__dirname + '/inline-number.js', 'utf8'), context);
 const source = fs.readFileSync(__dirname + '/rich-text.js', 'utf8');
 vm.runInContext(source, context);
 const render = context.renderRichText;
@@ -60,4 +61,17 @@ const broken = vm.createContext({markdownit: () => {throw Error('missing');}});
 vm.runInContext(source, broken);
 assert.match(broken.renderRichText('**source**'), /<pre class="render-fallback"><code>\*\*source\*\*/);
 assert.match(broken.renderRichText('$x$', true), /<code class="render-fallback">\$x\$/);
+const numericContext = vm.createContext({
+  markdownit: context.markdownit,
+  katex: {renderToString(){throw new Error('Numeric prose invoked KaTeX');}}
+});
+vm.runInContext(fs.readFileSync(__dirname + '/inline-number.js', 'utf8'), numericContext);
+vm.runInContext(source, numericContext);
+assert.equal(numericContext.renderRichText(String.raw`数 $ 064 $、\(０５１２\)、$𝟘𝟛$。`, true), '数 064、０５１２、𝟘𝟛。');
+const numericAnswer=numericContext.renderSavedAnswer('## $512$\n\n|数|\n|---|\n|$064$|','num');
+assert.match(numericAnswer, /<h2><span data-inline-number="512">512<\/span>/);
+assert.match(numericAnswer, /<td><span data-inline-number="064">064<\/span>/);
+assert.doesNotMatch(numericAnswer, /render-fallback|class="katex"/);
+assert.match(render('`$064$`', true), /<code>\$064\$<\/code>/);
+for (const expression of ['$-2$','$+2$','$2.5$','$2x$',String.raw`$\mathrm{3}$`, '$$42$$']) assert.match(render(expression), /class="katex"/);
 console.log('Rich text: Markdown, TeX, code isolation, safe images, scrollable tables and rendering fallback passed.');
