@@ -166,6 +166,8 @@ public sealed class AiEntry : System.ComponentModel.INotifyPropertyChanged, IJso
 }
 public sealed record AiTurn(string Question, string Answer)
 {
+    // WPF keys its virtualized size cache by item. Draft and fold changes must preserve that key.
+    public override int GetHashCode() => Id?.GetHashCode(StringComparison.Ordinal) ?? 0;
     [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; set; }
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;

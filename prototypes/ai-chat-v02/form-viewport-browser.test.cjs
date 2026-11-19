@@ -4,6 +4,85 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright');
 
+async function checkFirstTurnEditing(page) {
+  await page.setViewportSize({ width: 900, height: 840 });
+  await page.evaluate(async () => {
+    const state = branchDemo.getState();
+    const session = state.sessions.find(s => s.id === state.active);
+    session.viewport = 0;
+    session.turns = Array.from({ length: 5 }, (_, i) => ({
+      id: 'mixed-turn-' + i, question: '第 ' + (i + 1) + ' 轮练习',
+      answer: Array.from({ length: i ? 2 : 5 }, (_, j) => {
+        const prefix = `mixed-${i}-${j}-`;
+        return [
+          { id: prefix + 'heading', kind: 'heading', text: '练习 ' + (j + 1) },
+          { id: prefix + 'intro', kind: 'paragraph', text: '请先计算两组输入对应的输出，再说明二者的差别。'.repeat(4) },
+          { id: prefix + 'math', kind: 'math', text: 'y = a x + b', number: '(' + (j + 1) + ')' },
+          { id: prefix + 'form', kind: 'exercise', text: '' }
+        ];
+      }).flat()
+    }));
+    branchDemo.setState(state);
+    await document.fonts.ready;
+  });
+  const note = page.locator('[data-block-id="mixed-0-3-form"] textarea');
+  const frame = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+  await frame();
+  await note.evaluate(el => {
+    const reader = document.getElementById('reader');
+    reader.scrollTop += el.getBoundingClientRect().top - reader.getBoundingClientRect().bottom + 225;
+  });
+  await note.click();
+  await page.keyboard.insertText('发送方计算结果');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await frame();
+  await note.evaluate(el => {
+    const reader = document.getElementById('reader'), turns = [...reader.querySelectorAll('.turn')];
+    const field = el.getBoundingClientRect(), viewport = reader.getBoundingClientRect();
+    if (reader.scrollTop < reader.clientHeight || field.top <= viewport.top || field.bottom >= viewport.bottom)
+      throw new Error('预期首轮第四个练习在已下滚的视口内');
+    const x = field.left + 10;
+    const sample = () => {
+      const boxes = turns.map(turn => turn.getBoundingClientRect());
+      const top = el.getBoundingClientRect().top;
+      const readTurn = y => document.elementFromPoint(x, y)?.closest('.turn')?.dataset.turnId;
+      return {
+        shift: top - field.top,
+        rows: (el.clientHeight - 6) / 24,
+        visibleTurn: readTurn(viewport.top + 20),
+        hitsField: document.elementFromPoint(x, field.top + 12) === el,
+        overlap: boxes.some((box, i) => i > 0 && box.top < boxes[i - 1].bottom - 1)
+      };
+    };
+    const samples = [sample()];
+    let id;
+    const next = () => { samples.push(sample()); id = requestAnimationFrame(next); };
+    id = requestAnimationFrame(next);
+    window.finishEditFrames = () => { cancelAnimationFrame(id); samples.push(sample()); return samples; };
+  });
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press('Enter');
+    await frame();
+    if (i === 0 && process.env.TEXEED_LONG_FORM_VIEWPORT_SCREENSHOT)
+      await page.screenshot({ path: process.env.TEXEED_LONG_FORM_VIEWPORT_SCREENSHOT.replace(/\.png$/i, '-four-rows.png') });
+    await page.keyboard.press('Backspace');
+    await frame();
+  }
+  for (let i = 0; i < 9; i++) await page.keyboard.press('Enter');
+  await frame();
+  if (process.env.TEXEED_LONG_FORM_VIEWPORT_SCREENSHOT)
+    await page.screenshot({ path: process.env.TEXEED_LONG_FORM_VIEWPORT_SCREENSHOT.replace(/\.png$/i, '-multi-turn.png') });
+  for (let i = 0; i < 9; i++) await page.keyboard.press('Backspace');
+  await frame();
+  const samples = await page.evaluate(() => window.finishEditFrames());
+  assert.ok([3, 4, 8].every(n => samples.some(s => s.rows === n)), '逐帧采样必须覆盖增高、缩短和八行上限');
+  const displaced = samples.find(s => Math.abs(s.shift) >= 1.5 || s.visibleTurn !== 'mixed-turn-0' || !s.hitsField || s.overlap);
+  assert.ok(!displaced, '编辑时视口跳转、控件被遮住或轮次重叠：' + JSON.stringify(displaced));
+  assert.equal(await note.inputValue(), '发送方计算结果\n\n');
+  assert.equal(await page.locator('#composer').inputValue(), '保留未发送草稿');
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ['--hide-scrollbars'],
     ...(process.env.TEXEED_BROWSER_PATH ? { executablePath: process.env.TEXEED_BROWSER_PATH } : {}) });
@@ -118,8 +197,9 @@ const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright')
       return el.scrollHeight <= el.clientHeight + 1;
     });
     assert.equal(await note.inputValue(), wrappedText, '窗口改变只影响折行，保留完整草稿');
-    assert.deepEqual(errors, []);
     if (process.env.TEXEED_FORM_VIEWPORT_SCREENSHOT) await page.screenshot({ path: process.env.TEXEED_FORM_VIEWPORT_SCREENSHOT });
-    console.log('PASS: interactive table focus and long-answer growth, local scrolling, shrinkage and draft persistence retain the reading viewport.');
+    await checkFirstTurnEditing(page);
+    assert.deepEqual(errors, []);
+    console.log('PASS: interactive form focus, long-answer editing, frame-by-frame multi-turn layout, local scrolling and draft persistence.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

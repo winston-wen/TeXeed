@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 using TeXeed.App.Controls;
@@ -20,9 +22,12 @@ internal static partial class Program
         var book = (AiNotebook)Field(panel, "_book")!;
         var before = string.Join("\n\n", Enumerable.Range(0, 80).Select(i => $"前文第 {i} 段：保留原来的阅读位置。"));
         var after = string.Join("\n\n", Enumerable.Range(0, 30).Select(i => $"后文第 {i} 段：保留原来的阅读位置。"));
-        var turn = AiForms.WithSubmission(new AiTurn("练习", before + "\n\n{{textarea:long}}\n\n" + after), null);
+        var turn = AiForms.WithSubmission(new AiTurn("练习", "{{textarea:previous}}\n\n" + before + "\n\n{{textarea:long}}\n\n" + after + "\n\n{{textarea:next}}"), null);
+        var indexed = new HashSet<AiTurn> { turn };
         AiForms.SetDraft(turn, "textarea", "long", string.Join("\r\n", Enumerable.Range(1, 3).Select(i => $"第 {i} 行")));
         book.Turns.Add(turn);
+        for (var i = 2; i <= 5; i++)
+            book.Turns.Add(new AiTurn($"后续提问 {i}", after));
         var offscreen = Environment.GetCommandLineArgs().Contains("--offscreen");
         var host = new Window { Owner = owner, Width = 900, Height = 680, Content = panel, Topmost = !offscreen };
         if (offscreen)
@@ -43,7 +48,7 @@ internal static partial class Program
             var box = Descendants<TextBox>(answer).Single(item => AutomationProperties.GetName(item) == "long");
             var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
             var inner = (ScrollViewer)box.Template.FindName("PART_ContentHost", box);
-            var numbers = Descendants<TextBoxLineNumbers>(answer).Single();
+            var numbers = ((Grid)VisualTreeHelper.GetParent(box)).Children.OfType<TextBoxLineNumbers>().Single();
             var anchorText = answer.Document.Blocks.OfType<Paragraph>().Last(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains("前文第 79 段")).ContentStart;
             double AnchorY() => answer.TranslatePoint(anchorText.GetCharacterRect(LogicalDirection.Forward).TopLeft, scroll).Y;
             double BoxY() => box.TranslatePoint(new Point(), scroll).Y;
@@ -77,30 +82,64 @@ internal static partial class Program
             Rect Caret() => box.GetRectFromCharacterIndex(box.CaretIndex);
             var original = box.Text;
             var initialHeight = box.ActualHeight;
+            var windowHandle = new WindowInteropHelper(host).Handle;
+            void PostKey(Key key)
+            {
+                var vk = KeyInterop.VirtualKeyFromKey(key);
+                Check(PostMessage(windowHandle, 0x0100, vk, 1) && PostMessage(windowHandle, 0x0101, vk, unchecked((int)0xc0000001)),
+                    $"Could not post {key} to the test window.");
+            }
             foreach (var y in new[] { 120, scroll.ViewportHeight - initialHeight - 10, scroll.ViewportHeight - 43 })
             {
-                box.Select(0, 0);
+                box.Select(box.Text.Length, 0);
                 await Idle();
                 await PlaceBox(y);
                 var anchorY = AnchorY();
                 var fieldY = BoxY();
                 var beforeOffset = scroll.VerticalOffset;
-                await Edit(EditingCommands.EnterParagraphBreak);
-                var grown = box.ActualHeight;
-                var growthShift = AnchorY() - anchorY;
-                var growthBoxShift = BoxY() - fieldY;
-                var afterEnterOffset = scroll.VerticalOffset;
-                await Edit(EditingCommands.Backspace);
-                var shrinkShift = AnchorY() - anchorY;
-                var shrinkBoxShift = BoxY() - fieldY;
-                Console.WriteLine($"Enter/Backspace: field Y {fieldY:F1}, height {initialHeight:F1} -> {grown:F1} -> {box.ActualHeight:F1}, " +
-                    $"anchor shift {growthShift:F1}/{shrinkShift:F1}, field shift {growthBoxShift:F1}/{shrinkBoxShift:F1}, " +
-                    $"outer offsets {beforeOffset:F1} -> {afterEnterOffset:F1} -> {scroll.VerticalOffset:F1} / {scroll.ScrollableHeight:F1}.");
-                Check(grown > initialHeight + 15 && Math.Abs(box.ActualHeight - initialHeight) < 2 && box.Text == original,
-                    "Editing commands did not grow and shrink the actual multiline field.");
-                Check(Math.Max(Math.Abs(growthShift), Math.Abs(shrinkShift)) < 2 &&
-                    Math.Max(Math.Abs(growthBoxShift), Math.Abs(shrinkBoxShift)) < 2,
-                    "Adding or removing a line moved visible conversation content despite a visible caret.");
+                var maxShift = 0d;
+                var frames = 0;
+                string? overlap = null;
+                void Observe(object? sender, EventArgs args)
+                {
+                    frames++;
+                    maxShift = box.IsLoaded ? Math.Max(maxShift, Math.Abs(BoxY() - fieldY)) : double.PositiveInfinity;
+                    var previousBottom = 0d;
+                    foreach (var view in views.Values.Where(v => v.IsLoaded && v.IsVisible).OrderBy(v => v.TurnNumber))
+                    {
+                        var top = view.TranslatePoint(new Point(), scroll).Y;
+                        var bottom = top + view.ActualHeight;
+                        if (bottom <= 0 || top >= scroll.ViewportHeight) continue;
+                        if (Math.Max(0, top) < previousBottom - 2)
+                            overlap ??= $"Turn {view.TurnNumber} at {top:F1} overlaps the preceding turn ending at {previousBottom:F1}.";
+                        previousBottom = Math.Min(scroll.ViewportHeight, bottom);
+                    }
+                }
+                CompositionTarget.Rendering += Observe;
+                try
+                {
+                    PostKey(Key.Enter);
+                    await WaitUntilAsync(() => box.ActualHeight > initialHeight + 15 && frames > 0, "Enter did not grow the field.");
+                    var grown = box.ActualHeight;
+                    var growthShift = AnchorY() - anchorY;
+                    PostKey(Key.Back);
+                    await WaitUntilAsync(() => box.Text == original && Math.Abs(box.ActualHeight - initialHeight) < 2, "Backspace did not shrink the field.");
+                    for (var press = 0; press < 6; press++) PostKey(Key.Enter);
+                    await WaitUntilAsync(() => box.LineCount == 9, "Repeated Enter did not cross the scrollbar threshold.");
+                    for (var press = 0; press < 6; press++) PostKey(Key.Back);
+                    await WaitUntilAsync(() => box.Text == original && box.LineCount == 3, "Repeated Backspace did not restore the draft.");
+                    await Idle();
+                    var finalFrame = frames;
+                    await WaitUntilAsync(() => frames > finalFrame, "No rendered frame after layout settled.");
+                    var shrinkShift = AnchorY() - anchorY;
+                    Console.WriteLine($"Enter/Backspace: Y {fieldY:F1}, height {initialHeight:F1} -> {grown:F1} -> {box.ActualHeight:F1}, " +
+                        $"anchor shift {growthShift:F1}/{shrinkShift:F1}, maximum field shift in {frames} frames {maxShift:F1}, " +
+                        $"outer offsets {beforeOffset:F1} -> {scroll.VerticalOffset:F1} / {scroll.ScrollableHeight:F1}.");
+                    Check(overlap is null, overlap ?? "");
+                    Check(Math.Max(Math.Abs(growthShift), Math.Abs(shrinkShift)) < 2 && maxShift < 2,
+                        "Adding or removing lines moved the conversation during editing.");
+                }
+                finally { CompositionTarget.Rendering -= Observe; }
             }
 
             await PlaceBox(100);
@@ -215,6 +254,13 @@ internal static partial class Program
             var saved = AiStorage.Load(project).Active.Turns.Single(item => item.Id == turn.Id);
             Check(AiForms.Value(AiForms.Draft(saved), "textarea", "long") == wrapped,
                 "Saving a clipped field lost part of its content.");
+            Check(indexed.Contains(turn), "Draft edits lost the indexed turn.");
+            turn.Collapsed = true;
+            Check(indexed.Contains(turn), "Folding changed the indexed turn.");
+            AiForms.Lock(book.Active, AiForms.Snapshot(turn));
+            Check(indexed.Contains(turn), "Locking changed the indexed turn.");
+            Check(AiForms.Reopen(book.Active, turn.Id) && indexed.Contains(turn), "Reopening lost the indexed turn.");
+            Check(!indexed.Contains(turn with { Answer = "替换的答复" }), "A replacement with the same ID must retain its distinct record value.");
             Console.WriteLine("PASS: multiline growth and shrink keep body positions; eight visible rows cap both explicit and wrapped lines; local caret and wheel work.");
         }
         finally { host.Close(); }

@@ -73,11 +73,7 @@ public sealed partial class MarkdownView
                 box.SetResourceReference(Control.FontWeightProperty, "EditorInputFontWeight");
                 Typography.SetStylisticSet4(box, false);
                 System.Windows.Automation.AutomationProperties.SetName(box, id);
-                box.TextChanged += (_, _) =>
-                {
-                    if (multiline) box.RaiseEvent(new RoutedEventArgs(AsyncLayoutChangingEvent));
-                    if (!forms.IsLocked()) forms.Write(type, id, box.Text);
-                };
+                box.TextChanged += (_, _) => { if (!forms.IsLocked()) forms.Write(type, id, box.Text); };
                 if (forms.Ambiguous?.Invoke(type, id) is { } oldText) box.ToolTip = "旧记录的同名不同类型字段有冲突，无法判断旧值归属；请核对。\n保留的旧值：\n" + oldText;
                 forms.Observe?.Invoke(type, id, box, null);
                 control = box;
