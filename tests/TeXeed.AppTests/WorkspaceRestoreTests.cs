@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using TeXeed.App;
 using TeXeed.App.Controls;
+using TeXeed.App.Services;
 using TeXeed.Core;
 
 internal static partial class Program
@@ -27,7 +28,17 @@ internal static partial class Program
         Environment.SetEnvironmentVariable("TECTONIC_CACHE_DIR", Path.Combine(root, ".tools", "tectonic", "cache"));
         var settings = new AppSettings { LivePreview = false, Engine = TexEngine.Tectonic, EnginePath = engine, SynctexPath = Path.Combine(directory, "missing.exe") };
         window.GetType().GetField("_settings", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(window, settings);
-        await CallAsync(window, "OpenAsync", main); await CallAsync(window, "BuildAsync");
+        await CallAsync(window, "OpenAsync", main);
+        var workArea = SystemParameters.WorkArea;
+        var width = Math.Max(window.MinWidth, Math.Min(1160, workArea.Width - 32));
+        var height = Math.Max(window.MinHeight, Math.Min(760, workArea.Height - 32));
+        var expectedBounds = new Rect(workArea.Left + Math.Min(40, Math.Max(0, workArea.Width - width) / 2),
+            workArea.Top + Math.Min(40, Math.Max(0, workArea.Height - height) / 2), width, height);
+        window.WindowState = WindowState.Normal;
+        window.Width = width; window.Height = height; window.Left = expectedBounds.Left; window.Top = expectedBounds.Top;
+        if ((bool)Field(window, "_workspaceExpanded")!) Invoke(window, "ToggleWorkspace");
+        window.UpdateLayout();
+        await CallAsync(window, "BuildAsync");
         var preview = (PdfPreview)window.FindName("Preview");
         if (preview.PageCount != 5) throw new Exception("Reading history fixture requires five PDF pages");
         Invoke(window, "OpenExplorerFile", extra);
@@ -52,15 +63,28 @@ internal static partial class Program
         var point = await new SyncTexService().ForwardViewportAsync(project, pdf, new SourceLocation(main, 145), settings) ?? throw new Exception("Missing preview anchor");
         preview.SetZoom(1.25); preview.ShowLocation(point, highlight: false, viewportFraction: .5);
         await WaitForPreviewRenderedAsync(window); var page = preview.VisiblePage;
-        Invoke(window, "ToggleWorkspace");
-        window.Width = 1160; window.Height = 760; window.Left = 40; window.Top = 40; window.UpdateLayout();
-        await CallAsync(window, "OpenAsync", other); await CallAsync(window, "OpenAsync", main);
+        await CallAsync(window, "OpenAsync", other);
+        var saved = ProjectReadingStore.Load(main) ?? throw new Exception("The first project did not save its reading state");
+        var savedBounds = new Rect(saved.WindowLeft, saved.WindowTop, saved.WindowWidth, saved.WindowHeight);
+        window.Width = Math.Max(window.MinWidth, width - 96); window.Height = Math.Max(window.MinHeight, height - 64);
+        if (!(bool)Field(window, "_workspaceExpanded")!) Invoke(window, "ToggleWorkspace");
+        window.UpdateLayout();
+        await CallAsync(window, "OpenAsync", main);
         await WaitUntilAsync(() => preview.PageCount == 5 && Field(window, "_pendingPreviewPosition") is null, "Cached preview position was not restored");
         await Task.Delay(400);
         if (model.Owner(TabWorkspace.PreviewKey) != TabSide.Left || model.Owner(main) != TabSide.Right || model.Owner(extra) != TabSide.Right || model.Active(TabSide.Right) != main)
             throw new Exception("Project switch did not restore tab groups and selected source");
-        if ((bool)Field(window, "_workspaceExpanded")! || Math.Abs(window.Width - 1160) > 2 || Math.Abs(window.Height - 760) > 2)
-            throw new Exception("Project switch did not restore sidebar or window layout");
+        var actualBounds = new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight);
+        static bool Near(Rect a, Rect b) => Math.Abs(a.X - b.X) <= 2 && Math.Abs(a.Y - b.Y) <= 2 &&
+            Math.Abs(a.Width - b.Width) <= 2 && Math.Abs(a.Height - b.Height) <= 2;
+        var expanded = (bool)Field(window, "_workspaceExpanded")!;
+        var layout = $"requested={expectedBounds}, saved={savedBounds}, rendered={actualBounds}, work area={workArea}, " +
+            $"minimum={window.MinWidth}x{window.MinHeight}, saved maximized={saved.Maximized}, saved fullscreen={saved.Fullscreen}, " +
+            $"state={window.WindowState}, saved sidebar expanded={saved.SidebarExpanded}, actual sidebar expanded={expanded}";
+        if (!Near(expectedBounds, savedBounds) || !Near(savedBounds, actualBounds) || saved.Maximized || saved.Fullscreen ||
+            window.WindowState != WindowState.Normal || saved.SidebarExpanded || expanded)
+            throw new Exception("Project switch did not restore sidebar or window layout: " + layout);
+        Console.WriteLine("Restored workspace geometry: " + layout);
         if (right.CaretOffset != mainCaret || Math.Abs(right.VerticalOffset - mainScroll) > 3 || preview.VisiblePage != page || Math.Abs(preview.Zoom - 1.25) > .01)
             throw new Exception($"Project switch lost main or preview position: caret {right.CaretOffset}/{mainCaret}, scroll {right.VerticalOffset:F1}/{mainScroll:F1}, page {preview.VisiblePage}/{page}, zoom {preview.Zoom:F2}");
         Invoke(window, "SelectWorkspaceTab", TabSide.Right, extra);
