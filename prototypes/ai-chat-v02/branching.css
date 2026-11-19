@@ -48,7 +48,18 @@
 @media(max-width:650px){.followup-actions{right:15px}}
 .branch-emoji{display:inline-block;width:1em;height:1em;vertical-align:-.12em;color:transparent;background-image:url('../../src/TeXeed.App/Assets/Emoji/noto.png');background-repeat:no-repeat;background-size:65.875em 65.875em;background-position:-34.03125em -40.40625em}
 .exercise{overflow-x:auto}.exercise table{width:100%;border-collapse:collapse;min-width:520px}.exercise th,.exercise td{text-align:left;padding:10px;border-bottom:1px solid var(--guide,#59494a)}.exercise th{background:#393132}.exercise th:nth-child(-n+2),.exercise td:nth-child(-n+2){width:70px;white-space:nowrap}.exercise input[type=text],.exercise textarea{box-sizing:border-box;width:100%;min-width:60px;border:1px solid #80696a;border-radius:3px;background:#302829;color:inherit;font:inherit;font-size:16px;line-height:25px;padding:3px 7px}.exercise input:disabled,.exercise textarea:disabled{opacity:.7}.exercise-label{display:block;margin:18px 0}.exercise-label textarea{display:block;margin-top:5px}.exercise fieldset{display:flex;flex-wrap:wrap;gap:8px 20px;border:0;padding:0;margin:12px 0}.exercise legend{padding:0}.exercise fieldset label{display:inline-flex;align-items:center;gap:6px}.exercise-locked{color:#aa9999;font:13px var(--sans)}
-.exercise .exercise-single-full{display:block;margin-top:5px}.exercise-multiline{position:relative;display:flex;width:100%;margin-top:5px;align-items:stretch}.exercise-line-numbers{box-sizing:border-box;flex:0 0 35.2px;border:1px solid #80696a;border-right:0;padding:4px 5px;text-align:right;color:#a79595;font:inherit;font-size:16px;line-height:1.5;user-select:none}.exercise-line-numbers>span,.exercise-line-mirror>span{display:block}.exercise .exercise-multiline textarea{flex:1;min-width:0;margin:0;resize:none;overflow:hidden;line-height:1.5}.exercise-line-mirror{position:absolute;left:42.2px;right:7px;top:4px;visibility:hidden;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:16px;line-height:1.5;pointer-events:none}
+.exercise .exercise-single-full{display:block;margin-top:5px}
+.exercise-multiline{position:relative;display:flex;width:100%;margin-top:5px;align-items:stretch;overflow-anchor:none}
+.exercise-line-numbers{position:relative;flex:0 0 35.2px;border:1px solid #80696a;border-right:0;overflow:hidden;text-align:right;color:#a79595;user-select:none}
+.exercise-line-numbers>span{position:absolute;top:3px;right:5px;left:5px}
+.exercise-line-numbers>span>span,.exercise-line-mirror>span{display:block}
+.exercise .exercise-multiline textarea{display:block;flex:1;min-width:0;margin:0;resize:none;field-sizing:content;min-height:calc(3lh + 8px);max-height:calc(8lh + 8px);overflow-x:hidden;overflow-y:auto}
+.exercise .exercise-multiline textarea{scrollbar-color:var(--quiet) transparent}
+.exercise .exercise-multiline textarea.scroll-active{scrollbar-color:#d4b6a5c9 transparent}
+.exercise-multiline:focus-within{outline:2px solid var(--focus);outline-offset:-1px}
+.exercise .exercise-multiline textarea:focus-visible{outline:none}
+.exercise .exercise-multiline textarea,.exercise-line-numbers,.exercise-line-mirror{font-size:16px;line-height:24px;tab-size:8}
+.exercise-line-mirror{position:absolute;top:4px;visibility:hidden;white-space:pre-wrap;overflow-wrap:break-word;pointer-events:none}
 .exercise fieldset button{border:1px solid #80696a;border-radius:3px;padding:4px 9px;color:inherit;font:inherit}.exercise fieldset button:disabled{opacity:.55}.attachment-purpose{color:#a79595;font-size:12px}
 .exercise [aria-disabled=true]{opacity:.7}.exercise-unlock-popover{position:fixed;z-index:40;border:1px solid var(--guide);background:var(--panel);color:var(--ink);font:13px var(--sans);padding:6px 10px;box-shadow:0 4px 16px #0007;white-space:nowrap}.exercise-unlock-popover span:not([hidden]){margin-right:8px}
 .form-attachment-menu{display:inline-flex;gap:5px}.form-attachment-menu[hidden]{display:none}

@@ -20,7 +20,9 @@ internal static partial class Program
             await view.RenderTask; host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
             var fields = Descendants<TextBox>(view).Where(t => !string.IsNullOrEmpty(System.Windows.Automation.AutomationProperties.GetName(t))).ToDictionary(t => System.Windows.Automation.AutomationProperties.GetName(t));
             if (fields.Count != 8) throw new Exception("A line-based form field was lost");
-            if (fields["soft"].ActualWidth < 300 || fields["hard"].ActualWidth < 300 || fields["softmulti"].ActualWidth < 300 || !fields["softmulti"].AcceptsReturn || fields["softmulti"].MinLines != 3)
+            var multiline = fields["softmulti"];
+            if (fields["soft"].ActualWidth < 300 || fields["hard"].ActualWidth < 300 || multiline.ActualWidth < 300 ||
+                !multiline.AcceptsReturn || multiline.ActualHeight < 3 * TextBlock.GetLineHeight(multiline))
                 throw new Exception("A form field alone on a soft or hard Markdown line did not fill its line");
             foreach (var id in new[] { "withbefore", "withafter", "withstrong" })
                 if (fields[id].ActualWidth > 150 || fields[id].AcceptsReturn) throw new Exception("A field with same-line content incorrectly filled the line");

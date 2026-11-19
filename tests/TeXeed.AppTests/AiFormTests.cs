@@ -66,9 +66,10 @@ internal static partial class Program
             var reason = fields.Single(t => System.Windows.Automation.AutomationProperties.GetName(t) == "reason");
             var full = fields.Single(t => System.Windows.Automation.AutomationProperties.GetName(t) == "full");
             var inline = fields.Single(t => System.Windows.Automation.AutomationProperties.GetName(t) == "inline");
-            if (inline.AcceptsReturn || a.AcceptsReturn || !reason.AcceptsReturn || reason.MinLines != 3 || reason.VerticalContentAlignment != VerticalAlignment.Top ||
-                reason.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled || reason.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled || full.ActualWidth < 300)
-                throw new Exception("Form input mode, full width, three-line defaults, top alignment or no-scroll layout is wrong");
+            var reasonScroll = (ScrollViewer)reason.Template.FindName("PART_ContentHost", reason);
+            if (inline.AcceptsReturn || a.AcceptsReturn || !reason.AcceptsReturn || reason.VerticalContentAlignment != VerticalAlignment.Top ||
+                reasonScroll.ScrollableHeight > 1 || reason.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled || full.ActualWidth < 300)
+                throw new Exception("Form input mode, full width, three-line defaults, top alignment or empty scroll range is wrong");
             var numbers = Descendants<TextBoxLineNumbers>(answer).Single();
             if (numbers.MinimumLineCount != 3) throw new Exception("Multiline field did not reserve three line numbers");
             reason.BringIntoView(); host.UpdateLayout();
@@ -94,13 +95,15 @@ internal static partial class Program
             reason.BringIntoView(); host.UpdateLayout(); Capture(host, Path.Combine(output, "ai-forms-expanded.png"));
             var longText = new string('长', 5000); reason.Text = longText; host.UpdateLayout();
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            if (reason.Text.Length != longText.Length || reason.MaxLength != 0) throw new Exception("Long input was silently truncated");
+            if (reason.Text.Length != longText.Length || reason.MaxLength != 0 || reasonScroll.ScrollableHeight <= 1)
+                throw new Exception("Long input was truncated or failed to gain a local scroll range");
             reason.Text = new string('长', 120) + "\n第二行"; host.UpdateLayout();
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
             var wideHeight = reason.ActualHeight;
             host.Width = 360; host.UpdateLayout(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-            if (reason.ActualHeight <= wideHeight || reason.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled || reason.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled)
-                throw new Exception("Wrapped text did not expand when the window narrowed, or introduced a scrollbar");
+            if (reason.ActualHeight <= wideHeight || reason.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled ||
+                (reasonScroll.ScrollableHeight > 1) != (reason.LineCount > 8))
+                throw new Exception("Wrapped text did not grow up to the limit or scroll vertically when it exceeded eight visible rows");
             host.Width = 900; host.UpdateLayout();
             reason.Text = "跨越边界";
             var radios = Descendants<RadioButton>(answer).ToArray(); var yes = radios.Single(r => Equals(r.Content, "是")); var no = radios.Single(r => Equals(r.Content, "否"));

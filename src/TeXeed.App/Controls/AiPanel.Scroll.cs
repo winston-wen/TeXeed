@@ -70,7 +70,7 @@ public partial class AiPanel
                 if (item is not (MarkdownView or TextBox or System.Windows.Controls.Primitives.ToggleButton)) continue;
                 if (!MessagesScroll.IsAncestorOf(item)) break;
                 CancelReadingRestore();
-                MessagesScroll.QueueFocusReveal();
+                if (item is not TextBox { AcceptsReturn: true }) MessagesScroll.QueueFocusReveal();
                 return;
             }
         }
@@ -82,7 +82,7 @@ public partial class AiPanel
 
     private void NavigationTextInput(object sender, TextCompositionEventArgs e)
     {
-        if (Keyboard.FocusedElement is TextBox { IsReadOnly: false } box && MessagesScroll.IsAncestorOf(box))
+        if (Keyboard.FocusedElement is TextBox { IsReadOnly: false, AcceptsReturn: false } box && MessagesScroll.IsAncestorOf(box))
             MessagesScroll.QueueFocusReveal(box);
     }
 
@@ -91,7 +91,7 @@ public partial class AiPanel
         if ((e.Command is RoutedCommand { OwnerType: var owner } && owner == typeof(EditingCommands) ||
             e.Command == ApplicationCommands.Paste || e.Command == ApplicationCommands.Cut ||
             e.Command == ApplicationCommands.Undo || e.Command == ApplicationCommands.Redo) &&
-            Keyboard.FocusedElement is TextBox { IsReadOnly: false } box && MessagesScroll.IsAncestorOf(box))
+            Keyboard.FocusedElement is TextBox { IsReadOnly: false, AcceptsReturn: false } box && MessagesScroll.IsAncestorOf(box))
             MessagesScroll.QueueFocusReveal(box);
     }
 

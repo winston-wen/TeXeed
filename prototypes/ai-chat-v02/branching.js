@@ -4,7 +4,10 @@
   const draftKey = id => KEY + '/draft/' + id, viewportKey = id => KEY + '/viewport/' + id, referencesKey = id => KEY + '/references/' + id, formKey = (sessionId, turnId) => KEY + '/form/' + sessionId + '/' + turnId;
   const $ = id => document.getElementById(id);
   const reader = $('reader'), transcript = $('transcript'), composer = $('composer');
-  const formResizeObserver = globalThis.ResizeObserver ? new ResizeObserver(entries => { for (const entry of entries) { const note = entry.target; if (!note.isConnected) { formResizeObserver.unobserve(note); continue; } const width = entry.contentRect.width; if (width !== note.formMeasuredWidth) { note.formMeasuredWidth = width; note.resizeForm?.(); } } }) : null;
+  const nativeFieldSizing = CSS.supports('field-sizing', 'content');
+  const formResizeObserver = new ResizeObserver(entries => {
+    for (const { target } of entries) target.updateFormLines();
+  });
   const uid = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
   const block = (kind, text) => ({ id: uid(), kind, text });
   const longMath = Array.from({ length: 16 }, (_, i) => `A_{${i + 1}}`).join('+');
@@ -278,6 +281,61 @@
     for (const [id, answer] of Object.entries(expected)) { const value = latest.values[id] || ''; if (value.trim()) fields[id] = { value, correct: value.trim() === answer }; }
     return Object.keys(fields).length ? { id: uid(), turnId: latest.turnId, fields } : null;
   }
+  function mountMultilineAnswer(note, numbers, mirror) {
+    const numberTrack = document.createElement('span');
+    numbers.append(numberTrack);
+    let gutterOffset = 0;
+    const syncScroll = () => {
+      if (note.scrollTop === gutterOffset) return;
+      gutterOffset = note.scrollTop;
+      numberTrack.style.transform = `translateY(${-gutterOffset}px)`;
+    };
+    let lastWidth = 0, lastText = null;
+    const updateLines = () => {
+      if (!note.isConnected) { formResizeObserver.unobserve(note); return; }
+      const width = note.clientWidth, text = note.value;
+      if (!width || width === lastWidth && text === lastText) return;
+      const style = getComputedStyle(note);
+      if (!nativeFieldSizing) {
+        const scrollTop = note.scrollTop;
+        const frameHeight = note.offsetHeight - note.clientHeight;
+        note.style.minHeight = '0';
+        note.style.height = '0px';
+        note.style.height = `${note.scrollHeight + frameHeight}px`;
+        note.style.minHeight = '';
+        note.scrollTop = scrollTop;
+      }
+      lastWidth = note.clientWidth;
+      lastText = text;
+      mirror.style.width = `${lastWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)}px`;
+      const lines = text.split('\n');
+      const lineHeight = parseFloat(style.lineHeight);
+      const existing = numberTrack.children.length;
+      // Measure the last line only when it can affect the three-row minimum.
+      const overMinimum = note.clientHeight >= lineHeight * 4;
+      const measuredCount = lines.length < 3 && !overMinimum ? lines.length : lines.length - 1;
+      while (mirror.children.length < measuredCount) appendText('span', '', '', mirror);
+      while (mirror.children.length > measuredCount) mirror.lastElementChild.remove();
+      for (let index = 0; index < measuredCount; index++) {
+        const row = mirror.children[index], text = lines[index] + '\u200b';
+        if (row.textContent !== text) row.textContent = text;
+      }
+      const heights = Array.from(mirror.children, line => line.getBoundingClientRect().height);
+      const visibleRows = lines.length < 3 && !overMinimum ? Math.round(heights.reduce((sum, height) => sum + height, 0) / lineHeight) : 3;
+      const numberCount = lines.length + Math.max(0, 3 - visibleRows);
+      for (let index = existing; index < numberCount; index++) appendText('span', '', String(index + 1), numberTrack);
+      while (numberTrack.children.length > numberCount) numberTrack.lastElementChild.remove();
+      for (let index = 0; index < numberCount; index++) {
+        const row = numberTrack.children[index], height = `${heights[index] ?? lineHeight}px`;
+        if (row.style.height !== height) row.style.height = height;
+      }
+      syncScroll();
+    };
+    note.addEventListener('scroll', syncScroll, { passive: true });
+    note.updateFormLines = updateLines;
+    formResizeObserver.observe(note);
+    return updateLines;
+  }
   function renderBlock(parent, item, number, heading) {
     let el, markerLength = 0;
     if (item.kind === 'exercise') {
@@ -300,8 +358,8 @@
       const numbers = document.createElement('span'); numbers.className = 'exercise-line-numbers'; numbers.setAttribute('aria-hidden', 'true');
       const note = document.createElement('textarea'); note.rows = 3; note.value = values.explain || ''; note.disabled = locked;
       const mirror = document.createElement('span'); mirror.className = 'exercise-line-mirror'; mirror.setAttribute('aria-hidden', 'true'); multiline.append(numbers, note, mirror); label.appendChild(multiline);
-      const sizeNote = () => { note.style.height = 'auto'; note.style.height = Math.max(note.scrollHeight + note.offsetHeight - note.clientHeight, parseFloat(getComputedStyle(note).lineHeight) * 3 + 10) + 'px'; numbers.replaceChildren(); mirror.replaceChildren(); const lines = note.value.split('\n'); while (lines.length < 3) lines.push(''); for (const [index, line] of lines.entries()) { const measured = document.createElement('span'); measured.textContent = line || '\u200b'; mirror.appendChild(measured); const n = document.createElement('span'); n.textContent = String(index + 1); numbers.appendChild(n); } requestAnimationFrame(() => { for (let i = 0; i < numbers.children.length; i++) numbers.children[i].style.height = mirror.children[i].getBoundingClientRect().height + 'px'; }); };
-      note.addEventListener('input', () => { values.explain = note.value; saveForm(turn); sizeNote(); }); note.resizeForm = sizeNote; formResizeObserver?.observe(note); requestAnimationFrame(sizeNote);
+      const updateLines = mountMultilineAnswer(note, numbers, mirror);
+      note.addEventListener('input', () => { values.explain = note.value; saveForm(turn); updateLines(); });
       for (const [type, id, title, options] of [['radio', 'choice', '哪一种情况发生了？', ['进一格', '没有进一格']], ['checkbox', 'check', '适用的操作：', ['先取模', '再取整']]]) {
         const group = document.createElement('fieldset'); const legend = document.createElement('legend'); legend.textContent = title; group.appendChild(legend);
         for (const option of options) { const choice = document.createElement('label'), control = document.createElement('input'); control.type = type; control.name = `${turn.id}-${id}`; control.disabled = locked; control.checked = type === 'radio' ? values[id] === option : Boolean(values[id]?.includes(option)); control.addEventListener('change', () => { if (type === 'radio') values[id] = option; else { const checked = new Set(values[id] || []); control.checked ? checked.add(option) : checked.delete(option); values[id] = [...checked]; } saveForm(turn); }); choice.append(control, document.createTextNode(option)); group.appendChild(choice); }

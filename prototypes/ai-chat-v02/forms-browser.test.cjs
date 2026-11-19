@@ -65,17 +65,19 @@ const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright')
     await page.locator('#demo-forms').click();
     await page.getByLabel('A 的 a').fill('83');
     assert.equal(await page.locator('.exercise textarea').getAttribute('rows'), '3');
-    await page.waitForFunction(() => document.querySelectorAll('.exercise-line-numbers > span').length === 3);
+    await page.waitForFunction(() => document.querySelectorAll('.exercise-line-numbers > span > span').length === 3);
     const initialHeight = await page.locator('.exercise textarea').evaluate(el => el.getBoundingClientRect().height);
     await page.locator('.exercise textarea').fill(Array.from({ length: 12 }, (_, i) => '第 ' + (i + 1) + ' 行').join('\n'));
-    const tall = await page.locator('.exercise textarea').evaluate(el => ({ height: el.getBoundingClientRect().height, overflow: getComputedStyle(el).overflowY }));
-    assert.ok(tall.height > initialHeight * 2 && tall.overflow === 'hidden', '多行框按内容撑开、不设滚动条');
-    assert.equal(await page.locator('.exercise-line-numbers > span').count(), 12, '多行框显示行号');
+    const tall = await page.locator('.exercise textarea').evaluate(el => ({ height: el.getBoundingClientRect().height, client: el.clientHeight, scroll: el.scrollHeight, line: parseFloat(getComputedStyle(el).lineHeight), overflow: getComputedStyle(el).overflowY }));
+    assert.ok(Math.abs(tall.height - initialHeight - tall.line * 5) < 1 && tall.overflow === 'auto' && tall.scroll > tall.client,
+      '多行框最多显示八行，超出后可滚动：' + JSON.stringify(tall));
+    assert.equal(await page.locator('.exercise-line-numbers > span > span').count(), 12, '多行框保留全部逻辑行号');
     await page.setViewportSize({ width: 390, height: 800 });
     await page.locator('.exercise textarea').fill('需要自动换行的长句子。'.repeat(25));
     await page.waitForTimeout(100);
     const wrapped = await page.locator('.exercise textarea').evaluate(el => ({ client: el.clientHeight, scroll: el.scrollHeight }));
-    assert.ok(wrapped.scroll <= wrapped.client + 1, '窄窗口自动换行时完整显示，不裁掉内容：' + JSON.stringify(wrapped));
+    assert.ok(wrapped.scroll > wrapped.client + 1, '窄窗口自动折行超过八行后可滚动：' + JSON.stringify(wrapped));
+    assert.deepEqual(await page.locator('.exercise-line-numbers > span > span').allTextContents(), ['1'], '折行沿用首行的逻辑行号');
     await page.setViewportSize({ width: 1000, height: 800 });
     const full = await page.locator('.exercise-single-full').evaluate(el => [el.getBoundingClientRect().width, el.parentElement.getBoundingClientRect().width]);
     assert.ok(Math.abs(full[0] - full[1]) < 2, '独占一行的单行框铺满宽度');

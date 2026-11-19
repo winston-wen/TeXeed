@@ -1,0 +1,215 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
+using TeXeed.App.AI;
+using TeXeed.App.Controls;
+
+internal static class MultilineFormPerformance
+{
+    private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    private static T Field<T>(object target, string name) =>
+        (T)target.GetType().GetField(name, Private)!.GetValue(target)!;
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var descendant in Descendants<T>(child)) yield return descendant;
+        }
+    }
+
+    private static int VisibleControls(Window host) =>
+        Descendants<Control>(host).Count(control => control.IsVisible &&
+            control.ActualWidth > 0 && control.ActualHeight > 0 &&
+            control.TransformToAncestor(host).TransformBounds(new Rect(control.RenderSize))
+                .IntersectsWith(new Rect(host.RenderSize)));
+
+    private static async Task Idle(Window host)
+    {
+        host.UpdateLayout();
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+    }
+
+    private static async Task Drain(AiPanel panel, Window host)
+    {
+        await Task.Delay(800);
+        var timer = Field<DispatcherTimer>(panel, "_saveTimer");
+        for (var i = 0; timer.IsEnabled && i < 250; i++) await Task.Delay(20);
+        if (timer.IsEnabled) throw new TimeoutException("The draft save timer did not drain.");
+        var gate = Field<SemaphoreSlim>(panel, "_saveGate");
+        await gate.WaitAsync();
+        gate.Release();
+        await Idle(host);
+    }
+
+    [STAThread] private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]);
+        Directory.CreateDirectory(output);
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative)
+        });
+        using var panel = new AiPanel();
+        var host = new Window
+        {
+            Width = 900, Height = 760, Left = -12000, Top = 20, ShowActivated = false,
+            ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Content = panel
+        };
+        var result = 1;
+        app.DispatcherUnhandledException += (_, e) =>
+        {
+            File.WriteAllText(Path.Combine(output, "error.txt"), e.Exception.ToString());
+            e.Handled = true;
+            app.Shutdown(1);
+        };
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                await panel.SetProjectAsync(Path.Combine(output, "fixture.tex"));
+                var book = Field<AiNotebook>(panel, "_book");
+                var prefix = string.Join("\n\n", Enumerable.Range(1, 25).Select(i => $"前段 {i}：这是正在阅读的说明。"));
+                var suffix = string.Join("\n\n", Enumerable.Range(1, 38).Select(i => $"后段 {i}：这里仍是同一回答的内容。"));
+                var body = prefix + "\n\n{{textarea:reason}}\n\n" + suffix;
+                const int turnCount = 120, exerciseIndex = 60;
+                var exercise = AiForms.WithSubmission(new AiTurn("填写一个多行答案", body) { SentAt = DateTimeOffset.UnixEpoch }, null);
+                for (var i = 0; i < turnCount; i++)
+                    book.Turns.Add(i == exerciseIndex ? exercise : new AiTurn("检查结果 " + i, "样例回答：说明步骤和依据。") { SentAt = DateTimeOffset.UnixEpoch });
+                typeof(AiPanel).GetMethod("RefreshTranscript", Private)!.Invoke(panel, null);
+                var history = (ItemsControl)panel.FindName("History");
+                var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
+                await Idle(host);
+                var historyPanel = Descendants<ChatVirtualizingPanel>(history).Single();
+                historyPanel.Reveal(exerciseIndex + 1);
+                await Idle(host);
+                var answer = Descendants<MarkdownView>(panel).Single(view => view.Markdown == body);
+                await answer.RenderTask;
+                await Idle(host);
+                var box = Descendants<TextBox>(answer).Single(field => AutomationProperties.GetName(field) == "reason");
+                var inner = (ScrollViewer)box.Template.FindName("PART_ContentHost", box);
+                var variant = args.Length > 1 ? args[1] : "normal";
+                if (variant == "disable-bar")
+                    box.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                else if (variant == "disable-anchor")
+                {
+                    var layoutEvent = (RoutedEvent)typeof(MarkdownView).GetField("FormLayoutChangingEvent", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+                    var handler = typeof(AiPanel).GetMethod("FormLayoutChanging", Private)!.CreateDelegate<RoutedEventHandler>(panel);
+                    scroll.RemoveHandler(layoutEvent, handler);
+                }
+                var sentinel = ((Paragraph)answer.Document.Blocks.OfType<Paragraph>().ElementAt(23)).ContentStart;
+                var samples = new List<object>();
+                double FieldY() => box.TranslatePoint(new Point(), scroll).Y;
+                double SentinelY() => answer.TranslatePoint(sentinel.GetCharacterRect(LogicalDirection.Forward).TopLeft, scroll).Y;
+                string Lines(int count) => string.Join("\n", Enumerable.Range(1, count).Select(i => $"第 {i} 行是长答框的输入。"));
+                var shortValue = Lines(6);
+                var longValue = Lines(12);
+                var wrappedValue = string.Concat(Enumerable.Repeat("需要折行的混排文本和答案。", 24));
+
+                async Task Reset(double width, string value)
+                {
+                    host.Width = width;
+                    box.Text = value;
+                    box.ScrollToHome();
+                    await Idle(host);
+                    for (var pass = 0; pass < 4 && Math.Abs(FieldY() - 180) > 2; pass++)
+                    {
+                        scroll.ScrollToVerticalOffset(scroll.VerticalOffset + FieldY() - 180);
+                        await Idle(host);
+                    }
+                    if (Math.Abs(FieldY() - 180) > 2 || !box.IsLoaded || box.IsReadOnly ||
+                        SentinelY() < 0 || SentinelY() >= scroll.ViewportHeight)
+                        throw new InvalidOperationException($"The editable answer was not positioned: field Y {FieldY()}, prior text Y {SentinelY()}.");
+                }
+
+                async Task Measure(string op, double startWidth, string startText, Action action)
+                {
+                    for (var i = 0; i < 9; i++)
+                    {
+                        await Reset(startWidth, startText);
+                        await Drain(panel, host);
+                        var idleBytes = GC.GetAllocatedBytesForCurrentThread();
+                        var idle = Stopwatch.StartNew();
+                        await Drain(panel, host);
+                        idle.Stop();
+                        idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var fieldYBefore = FieldY();
+                        var sentinelYBefore = SentinelY();
+                        var outerBefore = scroll.VerticalOffset;
+                        var innerBefore = inner.VerticalOffset;
+                        var heightBefore = box.ActualHeight;
+                        var widthBefore = box.ActualWidth;
+                        var windowWidthBefore = host.ActualWidth;
+                        var linesBefore = box.LineCount;
+                        var bytes = GC.GetAllocatedBytesForCurrentThread();
+                        var work = Stopwatch.StartNew();
+                        action();
+                        await Idle(host);
+                        var feedback = work.Elapsed.TotalMilliseconds;
+                        var feedbackBytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        await Drain(panel, host);
+                        work.Stop();
+                        bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+                        var controls = VisibleControls(host);
+                        if (!host.IsVisible || host.IsActive || controls == 0 || !box.IsLoaded)
+                            throw new InvalidOperationException("The multiline fixture lost its non-activating window or field.");
+                        if (i >= 2) samples.Add(new
+                        {
+                            op, feedbackMs = feedback, feedbackBytes,
+                            rawMs = work.Elapsed.TotalMilliseconds, idleMs = idle.Elapsed.TotalMilliseconds,
+                            correctedMs = work.Elapsed.TotalMilliseconds - idle.Elapsed.TotalMilliseconds,
+                            rawBytes = bytes, idleBytes, correctedBytes = bytes - idleBytes,
+                            visibleControls = controls, fieldYBefore, fieldYAfter = FieldY(),
+                            sentinelYBefore, sentinelYAfter = SentinelY(), outerBefore, outerAfter = scroll.VerticalOffset,
+                            innerBefore, innerAfter = inner.VerticalOffset, innerRange = inner.ScrollableHeight,
+                            heightBefore, heightAfter = box.ActualHeight, widthBefore, widthAfter = box.ActualWidth,
+                            windowWidthBefore, windowWidthAfter = host.ActualWidth, linesBefore, linesAfter = box.LineCount
+                        });
+                    }
+                }
+
+                if (variant == "normal")
+                    await Measure("grow", 900, shortValue, () => box.AppendText(longValue[shortValue.Length..]));
+                await Measure("shrink", 900, longValue, () =>
+                {
+                    box.Select(shortValue.Length, longValue.Length - shortValue.Length);
+                    box.SelectedText = "";
+                });
+                // One logical line gains visual rows through editing at a fixed width.
+                await Measure("wrap", 900, "短答案", () => box.AppendText(wrappedValue));
+                if (variant == "normal")
+                    await Measure("field-wheel", 900, longValue, () =>
+                    {
+                        box.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+                        {
+                            RoutedEvent = Mouse.PreviewMouseWheelEvent
+                        });
+                    });
+                File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(new
+                {
+                    fixture = "120 turns, turn 61 with 25 paragraphs before open multiline field and 38 after; 900x760 WPF; hard-break edits, one-line text append that wraps, and routed wheel, unfocused; two warmups and seven samples paired 800ms plus save and ApplicationIdle",
+                    wheelLines = SystemParameters.WheelScrollLines, variant, samples
+                }, new JsonSerializerOptions { WriteIndented = true }));
+                result = 0;
+            }
+            catch (Exception ex) { File.WriteAllText(Path.Combine(output, "error.txt"), ex.ToString()); }
+            finally { host.Close(); app.Shutdown(result); }
+        };
+        host.Show();
+        app.Run();
+        return result;
+    }
+}

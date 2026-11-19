@@ -43,13 +43,13 @@ internal static partial class Program
             host.UpdateLayout(); await Task.Delay(80); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
             var box = Descendants<TextBox>(view).Single(t => System.Windows.Automation.AutomationProperties.GetName(t) == "long");
             var numbers = Descendants<TextBoxLineNumbers>(view).Single();
-            var scroll = (ScrollViewer)Field(panel, "MessagesScroll")!;
+            var scroll = (ScrollViewer)box.Template.FindName("PART_ContentHost", box);
             scroll.ApplyTemplate(); var viewport = (FrameworkElement)scroll.Template.FindName("PART_ScrollContentPresenter", scroll);
             async Task CheckVisible(string name)
             {
                 host.UpdateLayout(); await Task.Delay(80); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout();
                 var painted = numbers.PaintedNumbers.ToArray();
-                if (painted.Length is < 1 or > 50) throw new Exception(name + " drew a nonvisible or empty set of lines: " + painted.Length);
+                if (painted.Length is < 1 or > 9) throw new Exception(name + " drew a nonvisible or empty set of lines: " + painted.Length);
                 foreach (var number in painted)
                 {
                     var textRect = box.GetRectFromCharacterIndex(numbers.LineStarts[number - 1]);

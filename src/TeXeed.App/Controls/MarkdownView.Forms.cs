@@ -73,7 +73,11 @@ public sealed partial class MarkdownView
                 box.SetResourceReference(Control.FontWeightProperty, "EditorInputFontWeight");
                 Typography.SetStylisticSet4(box, false);
                 System.Windows.Automation.AutomationProperties.SetName(box, id);
-                box.TextChanged += (_, _) => { if (!forms.IsLocked()) forms.Write(type, id, box.Text); };
+                box.TextChanged += (_, _) =>
+                {
+                    if (multiline) box.RaiseEvent(new RoutedEventArgs(AsyncLayoutChangingEvent));
+                    if (!forms.IsLocked()) forms.Write(type, id, box.Text);
+                };
                 if (forms.Ambiguous?.Invoke(type, id) is { } oldText) box.ToolTip = "旧记录的同名不同类型字段有冲突，无法判断旧值归属；请核对。\n保留的旧值：\n" + oldText;
                 forms.Observe?.Invoke(type, id, box, null);
                 control = box;
@@ -85,8 +89,12 @@ public sealed partial class MarkdownView
                         const double lineHeight = AiChatTypography.FormLineHeight;
                         TextBlock.SetLineHeight(box, lineHeight);
                         TextBlock.SetLineStackingStrategy(box, LineStackingStrategy.BlockLineHeight);
-                        box.MinLines = 3; box.MinHeight = 3 * lineHeight + 6; box.Padding = new Thickness(4, 1, 4, 1);
-                        box.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                        box.MinHeight = 3 * lineHeight + 6;
+                        box.Padding = new Thickness(4, 1, 4, 1);
+                        // The text view wraps at its actual width. Cap its space using the same
+                        // explicit line height instead of TextBox.MaxLines' font metric.
+                        box.MaxHeight = 8 * lineHeight + box.Padding.Top + box.Padding.Bottom;
+                        box.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
                         box.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
                         box.BorderThickness = new Thickness(0);
                         var grid = new Grid(); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); grid.ColumnDefinitions.Add(new ColumnDefinition());

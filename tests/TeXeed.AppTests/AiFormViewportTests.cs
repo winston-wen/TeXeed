@@ -128,8 +128,10 @@ internal static partial class Program
             var longBox = Descendants<TextBox>(answer).Single(box => AutomationProperties.GetName(box) == "reason");
             longBox.Text = string.Join("\n", Enumerable.Range(0, 80).Select(i => $"第 {i} 行的长答案"));
             host.UpdateLayout(); await Idle();
-            Check(longBox.ActualHeight > scroll.ViewportHeight, "Long multiline fixture did not exceed the viewport");
+            var localScroll = (ScrollViewer)longBox.Template.FindName("PART_ContentHost", longBox);
+            Check(longBox.LineCount == 80 && localScroll.ScrollableHeight > 0, "Long multiline fixture did not exceed the field viewport");
             await Position(longBox); await Click(longBox);
+            var longBoxY = longBox.TranslatePoint(new Point(), scroll).Y;
             async Task ControlKey(byte key)
             {
                 keybd_event(0x11, 0, 0, UIntPtr.Zero); keybd_event(key, 0, 0, UIntPtr.Zero); keybd_event(key, 0, 2, UIntPtr.Zero); keybd_event(0x11, 0, 2, UIntPtr.Zero); await Idle();
@@ -145,12 +147,16 @@ internal static partial class Program
             await ControlKey(0x23); await Key(0x32);
             var bottomCaret = CaretY();
             Check(bottomCaret >= 0 && bottomCaret < scroll.ViewportHeight && longBox.Text.EndsWith("2", StringComparison.Ordinal), "Editing at the end of a long field moved the caret out of view");
-            var longWheel = scroll.PointToScreen(new Point(scroll.ViewportWidth / 2, scroll.ViewportHeight / 2));
+            Check(Math.Abs(longBox.TranslatePoint(new Point(), scroll).Y - longBoxY) < 3 && localScroll.VerticalOffset > 0,
+                "Keyboard navigation must reveal the end locally without moving the reading position");
+            var longWheel = longBox.PointToScreen(new Point(longBox.ActualWidth / 2, longBox.ActualHeight / 2));
             Check(SetCursorPos((int)longWheel.X, (int)longWheel.Y), "Cannot position pointer for long-field wheel"); await Task.Delay(100);
-            var longBefore = scroll.VerticalOffset; mouse_event(0x0800, 0, 0, 120, UIntPtr.Zero); await Idle();
-            Check(scroll.VerticalOffset < longBefore, "Wheel did not scroll while a long multiline field was focused");
+            var longBefore = localScroll.VerticalOffset; mouse_event(0x0800, 0, 0, 120, UIntPtr.Zero); await Idle();
+            Check(localScroll.VerticalOffset < longBefore && Math.Abs(longBox.TranslatePoint(new Point(), scroll).Y - longBoxY) < 3,
+                "Wheel inside a long multiline field did not scroll locally");
             await ControlKey(0x24);
-            Check(CaretY() >= 0 && CaretY() < scroll.ViewportHeight, "Returning to the first caret did not bring it into view");
+            Check(localScroll.VerticalOffset < 2 && CaretY() >= 0 && CaretY() < scroll.ViewportHeight,
+                "Returning to the first caret did not bring it into view inside the field");
             Console.WriteLine("PASS: physical form focus and typing preserve visible answer position and saved values.");
         }
         finally { host.Close(); }
