@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using TeXeed.App;
 using TeXeed.App.Controls;
@@ -22,6 +22,7 @@ internal static partial class Program
         var originalSettings = (AppSettings)settingsField.GetValue(window)!;
         var timer = (DispatcherTimer)Field(window, "_liveTimer")!;
         var editor = (LatexEditor)window.FindName("Editor");
+        var saveGate = (SemaphoreSlim)Field(window, "_saveGate")!;
         var compiler = (CompileService)Field(window, "_compiler")!;
         var compileGate = (SemaphoreSlim)compiler.GetType().GetField("gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(compiler)!;
         void Configure(bool live, int debounce = 400)
@@ -32,6 +33,14 @@ internal static partial class Program
         }
         Task Until(Func<bool> ready, string message) => WaitUntilAsync(ready, message);
         Task Started() => Until(() => Field(window, "_compileTask") is Task, "Scheduled build did not reach the real compiler");
+        long LiveDeadline() => (long)Field(window, "_liveBuildDueAt")!;
+        void CheckImmediateTimer()
+        {
+            // _compileTask appears only after the next build saves, reads dependencies and
+            // checks its cache. The armed timer is the actual debounce decision.
+            if (timer.Interval != TimeSpan.FromMilliseconds(1) || LiveDeadline() > Environment.TickCount64)
+                throw new Exception($"Expected an already-due build; timer interval={timer.Interval.TotalMilliseconds}ms, due={LiveDeadline()}, now={Environment.TickCount64}");
+        }
         async Task LatestPdf()
         {
             await Until(() => !(bool)Field(window, "_building")! && (int)Field(window, "_pdfRevision")! == (int)Field(window, "_revision")!,
@@ -68,40 +77,60 @@ internal static partial class Program
             // remains in flight while the newer source's debounce actually expires.
             Configure(true, 1000);
             first = await StartHeld();
+            long due;
+            await saveGate.WaitAsync();
             try
             {
-                editor.Document.Insert(editor.Document.TextLength, "% expired debounce\n");
-                await Task.Delay(1150);
-                if (!(bool)Field(window, "_buildAgain")!) throw new Exception("Expired edit debounce did not queue the newer revision");
+                try
+                {
+                    editor.Document.Insert(editor.Document.TextLength, "% expired debounce\n");
+                    due = LiveDeadline();
+                    await Until(() => (bool)Field(window, "_buildAgain")!, "Expired edit debounce did not queue the newer revision");
+                }
+                finally { compileGate.Release(); }
+                await first;
+                if (LiveDeadline() != due) throw new Exception("The expired source deadline was replaced with a new debounce");
+                CheckImmediateTimer();
+                // Keep the new build in its real save phase so compiler startup and
+                // scheduler dispatch are independently observable, regardless of disk speed.
+                await Until(() => (bool)Field(window, "_building")! && Field(window, "_compileTask") is null,
+                    "The already-due timer did not dispatch the next build to the save gate");
             }
-            finally { compileGate.Release(); }
-            await first;
-            var continuation = Stopwatch.StartNew();
-            await Started();
-            if (continuation.ElapsedMilliseconds > 450)
-                throw new Exception("A debounce that already expired waited again after the old build completed: " + continuation.ElapsedMilliseconds + "ms");
+            finally { saveGate.Release(); }
             await LatestPdf();
             Console.WriteLine("PASS: an expired source debounce starts the next revision immediately after the running engine finishes");
 
             Configure(true, 2000);
             first = await StartHeld();
-            long due;
+            // Edit when WPF receives the old engine's log. A slow Tectonic process
+            // cannot consume the remaining-debounce fixture's entire editing interval.
+            var log = (TextBox)window.FindName("LogText");
+            log.Clear();
+            due = 0;
+            long editFinishedAt = 0;
+            long dispatchedAt = 0;
+            void ObserveTick(object? sender, EventArgs e) => dispatchedAt = Environment.TickCount64;
+            void EditOnResult(object sender, TextChangedEventArgs e)
+            {
+                log.TextChanged -= EditOnResult;
+                editor.Document.Insert(editor.Document.TextLength, "% remaining debounce\n");
+                due = LiveDeadline();
+                editFinishedAt = Environment.TickCount64;
+            }
+            log.TextChanged += EditOnResult;
+            timer.Tick += ObserveTick;
+            compileGate.Release();
             try
             {
-                editor.Document.Insert(editor.Document.TextLength, "% remaining debounce\n");
-                due = (long)Field(window, "_liveBuildDueAt")!;
+                await first;
+                var earliestInterval = Math.Max(1, due - Environment.TickCount64);
+                var latestInterval = Math.Max(1, due - editFinishedAt);
+                if (due == 0 || LiveDeadline() != due || timer.Interval.TotalMilliseconds < earliestInterval || timer.Interval.TotalMilliseconds > latestInterval)
+                    throw new Exception($"Pending build lost the original deadline {due}: due={LiveDeadline()}, interval={timer.Interval.TotalMilliseconds}ms, expected {earliestInterval}..{latestInterval}ms");
+                await LatestPdf();
+                if (dispatchedAt < due) throw new Exception($"The next build ran before its source-edit deadline: dispatch={dispatchedAt}, due={due}");
             }
-            finally { compileGate.Release(); }
-            await first;
-            var remaining = due - Environment.TickCount64;
-            if (remaining <= 100) throw new Exception("The remaining-debounce fixture did not finish its first build before the deadline");
-            if (!timer.IsEnabled || Math.Abs(timer.Interval.TotalMilliseconds - remaining) > 130)
-                throw new Exception($"Pending debounce was restarted instead of retaining its remaining time ({timer.Interval.TotalMilliseconds:0}ms vs {remaining}ms)");
-            await Started();
-            var startedAt = Environment.TickCount64;
-            if (startedAt < due - 50 || startedAt > due + 400)
-                throw new Exception("The next engine did not start at the original source-edit deadline");
-            await LatestPdf();
+            finally { log.TextChanged -= EditOnResult; timer.Tick -= ObserveTick; }
             Console.WriteLine("PASS: when the old build finishes early, only the remaining edit debounce is retained");
 
             Configure(false, 2000);
@@ -113,8 +142,7 @@ internal static partial class Program
             }
             finally { compileGate.Release(); }
             await first;
-            continuation.Restart(); await Started();
-            if (continuation.ElapsedMilliseconds > 450) throw new Exception("An explicit new revision waited for automatic debounce with live preview off");
+            CheckImmediateTimer();
             await LatestPdf();
             if (!File.ReadAllText(main).Contains("explicit latest revision")) throw new Exception("Explicit pending build did not save the latest source");
             Console.WriteLine("PASS: an explicit newer revision saves and compiles promptly even when live preview is disabled");

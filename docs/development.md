@@ -53,10 +53,13 @@ dotnet run --project tests/TeXeed.AppTests -c Release --no-build
 | `--ai-upstream-only`、`--ai-reference-navigation-only`、`--ai-inline-branch-only` | 上游回源、真实工作区导航与行内追问链接 |
 | `--ai-prototype-only` | 原生 AI 界面与原型约定 |
 | `--ai-math-scroll-only`、`--ai-math-copy-only`、`--ai-math-proofread-only` | 公式渲染、复制和校对 |
+| `--ai-eqref-only` | 单行与双行公式引用的单击预览、双击定位和键盘操作。加 `--window-mouse --real-tex` 可用窗口鼠标消息和本机 TeX 验证 |
 | `--crop-only`、`--layout-only`、`--print-only` | 裁边、版心和打印输出 |
 | `--ai-ui-perf-only` | 固定合成资料的 UI 性能简评 |
 
 真实排版专项需要相应 TeX 引擎和宏包。Tectonic 测试使用 `.tools/tectonic/tectonic.exe`；`--outline-preview-only` 使用本机 XeLaTeX。`--print-only` 输出测试文件，`--print-review` 打开人工预览窗口。
+
+编译调度回归分别检查排队期限和最终 PDF。旧编译结束时，已到期的编辑应立即续排，未到期的编辑应保留最初的截止时间。随后等待最新修订的 PDF 实际出现在预览里。保存文件、启动编译器以及测试线程获调度的耗时均独立于防抖期限。
 
 当前 AI 原型与脚本测试位于 [prototypes/ai-chat-v02](../prototypes/ai-chat-v02/README.md)。完整测试参数以 `tests/TeXeed.AppTests/Program.cs` 为准。
 
