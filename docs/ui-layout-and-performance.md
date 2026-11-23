@@ -1009,3 +1009,9 @@ WPF 虚拟列表按轮次对象查找已经测量的高度。`AiTurn` 原先由 
 重开只留有会话标签的项目时，TeXeed 可以在后台读入缓存的主 PDF。此前主 PDF 容器在首次选中预览标签时才登记，但它从窗口创建起就默认可见。此时打开「会话关系」，右栏会同时显示关系图、PDF 页面和 PDF 状态栏。现在主 PDF 容器初始折叠，打开项目时即受该项目的标签可见性管理。独立分栏显示 PDF 时，两栏仍可分别操作。
 
 在 200% 缩放下，用同一份十节点会话与十二页 PDF 的副本，从会话工具栏打开关系图。0.5.19 同时显示关系图和 PDF。0.5.21 仅显示关系图，切回 PDF 可恢复已保存的第二页。原生回归还检查图节点与 PDF 的鼠标命中、独立预览区和重开后的布局。[原生回归](../tests/TeXeed.AppTests/AiRelationsSurfaceTests.cs) · [性能样本](../tests/performance-baselines/relation-preview-20261119/README.md)
+
+### 公式引用的预览与跳转（0.5.22）
+
+单击正文中的 `\eqref`，在引用旁显示目标公式和它的编号。预览按需创建，可直接使用目标公式已加载的 TeX 图形，保持引用所在行的屏幕位置和原章节的折叠状态。双击再定位原式，并展开目标所需的上级章节。
+
+原生与浏览器回归分别测试单行公式和双行对齐公式。检查预览包含的实际公式、点击前后的正文位置，以及双击后可见的目标及其编号。性能夹具对比相同文稿在旧版单击跳转、新版单击预览和双击跳转时的结果。[原生交互测试](../tests/TeXeed.AppTests/AiEquationReferenceTests.cs) · [原生性能记录](../tests/performance-baselines/eqref-20261123/README.md) · [浏览器性能记录](../tests/performance-baselines/eqref-20261123/browser.md)

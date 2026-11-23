@@ -52,12 +52,12 @@ const text=value=>({nodeType:3,nodeValue:value}),element=(name,classes,children)
 const heading=element('h6',[],[element('button',[],[element('span',['heading-marker'],[text('[4:1.1.1.1.1.1]')]),element('span',['heading-label'],[text('Deep title')])])]);
 assert.equal(context.serialize(heading),'Deep title\n');assert.equal(context.serialize({nodeType:11,childNodes:[heading]}),'Deep title\n');
 
-let formulaHandler;const formulaTarget={passage:renderedAnswer.passages[11],scrollIntoView(){},classList:{add(){}}};
+const formulaTarget={passage:renderedAnswer.passages[11],scrollIntoView(){},classList:{add(){}}};
 renderedAnswer=answer();formulaTarget.passage=renderedAnswer.passages[11];
-context.$=id=>id==='thread'?{addEventListener(type,handler){formulaHandler=handler;}}:formulaTarget;context.renderTurns=()=>{};context.requestAnimationFrame=callback=>callback();context.saveReading=()=>{};
-const formulaStart=app.indexOf("$('thread').addEventListener('click',event=>{const b=event.target.closest('[data-equation-ref]')");
-vm.runInContext(app.slice(formulaStart,app.indexOf("\n});",formulaStart)+4),context);
+context.$=()=>formulaTarget;context.renderTurns=()=>{};context.closeEquationPreview=()=>{};context.cancelReadingRestore=()=>{};context.requestAnimationFrame=callback=>callback();context.saveReading=()=>{};
+const formulaStart=app.indexOf('function jumpToEquation(');
+vm.runInContext(app.slice(formulaStart,app.indexOf('let equationPreviewLink',formulaStart)),context);
 turn.sections={p0:true,p2:true,p4:true,p6:true,p8:true,p10:true,p12:true};
-const link={dataset:{equationRef:'third-eq-1'},closest:selector=>selector==='.turn'?{id:turn.id}:renderedAnswer};formulaHandler({target:{closest:()=>link}});
+const link={dataset:{equationRef:'third-eq-1'},closest:selector=>selector==='.turn'?{id:turn.id}:renderedAnswer};context.jumpToEquation(link);
 for(const key of ['p0','p2','p4','p6','p8','p10'])assert.equal(turn.sections[key],false);assert.equal(turn.sections.p12,true);
 console.log('Answer headings: real h1–h6, legacy cache anchors, dynamic ordinals, nested folds, copy text and formula ancestor restoration passed.');

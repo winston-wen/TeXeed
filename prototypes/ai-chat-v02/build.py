@@ -33,7 +33,8 @@ document = [r'\documentclass{article}', r'\usepackage{amsmath,amssymb,xeCJK}',
             r'\setCJKmainfont{Microsoft YaHei}', r'\tracinglostchars=2', r'\begin{document}']
 for (tex, display), i in formulas.items():
     style = r'\displaystyle' if display else r'\textstyle'
-    document += [r'\begingroup', r'\setbox0=\hbox{$' + style + '\n' + tex + '\n$}',
+    body = re.sub(r'\\(?:tag\*?|label)\{[^{}]+\}', '', tex) if display else tex
+    document += [r'\begingroup', r'\setbox0=\hbox{$' + style + '\n' + body + '\n$}',
                  r'\typeout{METRIC-' + str(i) + r': \the\wd0,\the\ht0,\the\dp0}',
                  r'\shipout\box0', r'\endgroup']
 document += [r'\end{document}']

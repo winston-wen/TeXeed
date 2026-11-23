@@ -28,6 +28,12 @@ internal static partial class Program
             foreach (var payload in handler.Payloads)
             {
                 var instruction = payload["instructions"]!.GetValue<string>();
+                if (!instruction.Contains("主动在相应分句末引用本回答中给出该步骤的公式") ||
+                    !instruction.Contains(@"\label{eq:receiver-w}") || !instruction.Contains(@"如公式 \eqref{eq:receiver-w} 所示") ||
+                    !instruction.Contains("无对应公式时省略引用") ||
+                    !instruction.Contains(@"公式 \eqref{eq:first}、\eqref{eq:second} 说明了") ||
+                    !instruction.Contains("每条依据分别引用"))
+                    throw new Exception($"Equation reference guidance is missing from the {mode} request.");
                 if (!instruction.Contains("纯数字优先直接写作普通文本") || !instruction.Contains("取 512 或 64") ||
                     !instruction.Contains("$x=512$") || !instruction.Contains("用户明确指定排版"))
                     throw new Exception($"The number-writing preference or its exceptions are missing from the {mode} system instructions.");
@@ -64,7 +70,7 @@ internal static partial class Program
             var instruction = handler.Payloads.Single()["instructions"]!.GetValue<string>();
             if (instruction != "内部会话压缩") throw new Exception("User-facing heading policy leaked into internal session compaction");
         }
-        Console.WriteLine("PASS: outbound read, workspace, resume, branch and repair instructions prefer prose numbers; compaction and existing math are preserved.");
+        Console.WriteLine("PASS: read, workspace, resume, branch and repair requests encourage prose numbers and references to the equations used; existing math and compaction are preserved.");
     }
 
     private sealed class HeadingPromptHandler(string answer) : HttpMessageHandler

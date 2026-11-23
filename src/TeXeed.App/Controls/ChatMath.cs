@@ -31,6 +31,7 @@ internal sealed class ChatMath
         var protectedSpans = parsed.Descendants().Where(b => b is CodeBlock).Select(b => b.Span)
             .Concat(parsed.Descendants<LeafBlock>().Where(b => b.Inline is not null).SelectMany(b => b.Inline!.Descendants<CodeInline>()).Select(i => i.Span)).OrderBy(s => s.Start).ToArray();
         var output = new StringBuilder(); int copied = 0, spanIndex = 0, number = 0;
+        var numberedReferences = markdown.Contains(@"\eqref{eq-", StringComparison.Ordinal) || markdown.Contains(@"\ref{eq-", StringComparison.Ordinal);
         var unresolved = markdown.ToCharArray();
         foreach (var span in protectedSpans)
             if (span.Start >= 0 && span.End >= span.Start && span.Start < unresolved.Length)
@@ -58,6 +59,7 @@ internal sealed class ChatMath
                     }
                     if (display) { number++; tag ??= number.ToString(System.Globalization.CultureInfo.InvariantCulture); }
                     if (label is not null && tag is not null) Labels.TryAdd(label, tag);
+                    if (numberedReferences && display && tag is not null) Labels.TryAdd("eq-" + tag, tag);
                     token = new(source, display, label, tag) { CopyTex = copyTex };
                 }
                 var key = Prefix + Tokens.Count + "END";

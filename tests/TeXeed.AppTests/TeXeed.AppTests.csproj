@@ -5,5 +5,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/TeXeed.App/TeXeed.App.csproj" />
     <EmbeddedResource Include="Fixtures/inline-axis/*.svg" LogicalName="TeXeed.AppTests.Fixtures.inline-axis.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Fixtures/eqref/*.svg" LogicalName="TeXeed.AppTests.Fixtures.eqref.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

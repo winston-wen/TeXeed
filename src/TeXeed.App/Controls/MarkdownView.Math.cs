@@ -78,7 +78,7 @@ public sealed partial class MarkdownView
             if (token.Reference is { } reference)
             {
                 var number = _math.Labels.GetValueOrDefault(reference, reference + " ?");
-                target.Add(EquationLink(reference, token.Parenthesize ? $"({number})" : number));
+                target.Add(token.Parenthesize ? new EquationReference(this, reference, number) : EquationLink(reference, number));
             }
             else target.Add(FormulaInline(token));
             offset = match.Index + match.Length;

@@ -6,6 +6,10 @@ assert.ok(start>='const DATA='.length&&end>start,'Built prototype must contain i
 assert.deepEqual(JSON.parse(index.slice(start,end)).prompts,prompts,'Built prototype must use current default instructions');
 assert.match(prompts.answer,/克制使用加粗/);
 assert.match(prompts.answer,/纯数字优先直接写作普通文本/);
+assert.ok(prompts.answer.includes('主动在相应分句末引用本回答中给出该步骤的公式') &&
+ prompts.answer.includes('如公式 \\eqref{eq:receiver-w} 所示') && prompts.answer.includes('无对应公式时省略引用'));
+assert.ok(prompts.answer.includes('公式 \\eqref{eq:first}、\\eqref{eq:second} 说明了……') &&
+ prompts.answer.includes('每条依据分别引用，只有一条就只写一条') && prompts.answer.includes('同一分句对同一公式只引一次'));
 assert.ok(prompts.answer.includes('取 512 或 64') && prompts.answer.includes('$x=512$') && prompts.answer.includes('用户明确指定排版'));
 assert.match(prompts.answer,/首个分节标题必须使用 Markdown 一级标题 #/);
 assert.match(prompts.answer,/不得跳过上级/);

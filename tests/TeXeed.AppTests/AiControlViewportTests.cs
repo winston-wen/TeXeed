@@ -132,6 +132,10 @@ internal static partial class Program
             Check(Top(equations[2]) > scroll.ViewportHeight, "The equation navigation target was already visible.");
             equationLink.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
             await LayoutAsync();
+            Check(scroll.VerticalOffset < 1 && Field(answer, "_equationPreview") is Popup { IsOpen: true },
+                "A single equation click must preview without moving the reading viewport.");
+            DoubleClickEquation(equationLink);
+            await LayoutAsync();
             Check(Top(equations[2]) >= -1 && Top(equations[2]) + equations[2].ActualHeight <= scroll.ViewportHeight + 1,
                 $"The equation link did not reveal the actual formula: Y={Top(equations[2]):F1}.");
 

@@ -116,6 +116,11 @@ internal static partial class Program
                     await CheckAiChatReadingFontAsync(window, output);
                     await CloseAndObserveAsync(window, "AI chat reading typography"); result = 0; return;
                 }
+                if (args.Contains("--ai-eqref-only"))
+                {
+                    await CheckEquationReferenceAsync(window, output, args.Contains("--real-tex"), args.Contains("--window-mouse"));
+                    await CloseAndObserveAsync(window, "equation references"); result = 0; return;
+                }
                 if (args.Contains("--ai-inline-axis-only"))
                 {
                     await CheckAiInlineTypographyAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-inline-axis"));

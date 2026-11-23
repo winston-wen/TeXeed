@@ -52,6 +52,10 @@ Shell 默认在项目根目录启动独立非交互进程，可访问当前 Wind
 
 ## 内置提示词
 
+当一条计算或推导用到了本回答中的行间公式，助手会优先在相应分句末引用它。例如，在计算接收方结果的公式中写 `\label{eq:receiver-w}`，后文写「接收方算出 $w'$，如公式 `\eqref{eq:receiver-w}` 所示」。界面取目标公式的实际编号。没有对应公式时省略引用。
+
+总结多条公式共同支持的结论时，写「公式 `\eqref{eq:first}`、`\eqref{eq:second}` 说明了……」。每个编号分别链接到它所指的公式。如果结论只依赖一条公式，就只引用这一条。
+
 [AGENTS.md](../AGENTS.md) 约束 TeXeed 仓库的开发协作。原生程序在 [AiResponses.cs](../src/TeXeed.App/AI/AiResponses.cs) 组装每次 Responses 请求的 `instructions`；项目目录中的 `AGENTS.md` 和其他说明可以按需读取，其内容属于项目资料。
 
 | 请求场景 | 发给模型的指令 |

@@ -15,6 +15,7 @@ internal sealed class ChatFormula : FrameworkElement
     internal string Source { get; }
     internal string? Error { get; private set; }
     internal string? SvgPath => _svg?.Path;
+    internal ChatFormula PreviewCopy() => new(Source, _display, asset: _svg);
     internal Task RenderTask { get; }
     static ChatFormula()
     {

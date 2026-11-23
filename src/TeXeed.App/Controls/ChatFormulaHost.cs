@@ -7,6 +7,7 @@ namespace TeXeed.App.Controls;
 internal sealed class ChatFormulaHost : Decorator
 {
     private readonly ChatFormula _formula;
+    internal ChatFormula Formula => _formula;
     private ScrollViewer? _scroll;
     private readonly bool _leftAligned;
     internal ChatFormulaHost(ChatFormula formula, bool leftAligned = false) { _formula = formula; _leftAligned = leftAligned; Child = formula; ClipToBounds = true; }

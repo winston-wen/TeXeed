@@ -131,6 +131,7 @@ function turnHtml(t,index=0,turns=[t]){
  return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer-start-divider" aria-hidden="true"></div><div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+processAfter+'</div>'+footer+'</article>';
 }
 function renderTurns(){
+ closeEquationPreview();
  const pos=$('reader').scrollTop;
  $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):current().branchSource?branchOriginHtml(current().branchSource):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
  enhanceAnswers();addSameTurnLinks();window.alignReadingMedia?.($('thread'));alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
@@ -515,7 +516,17 @@ function readingAnchor(id){let node=$(id);const seen=new Set();while(node?.datas
 function prepareReadingLayout(answer){
  const tid=answer.dataset.turn;
  const equations=answer.querySelectorAll('.equation'),bodySize=equations.length?parseFloat(getComputedStyle(answer).fontSize):0;
- for(const eq of equations){const number=eq.querySelector('.equation-number'),n=Number(number.textContent.replace(/\D/g,'')),math=eq.querySelector('.math');eq.id=tid+'-eq-'+n;number.textContent='Eq. '+n;
+ const labels=new Map(),numbers=new Map();
+ for(const [i,eq] of equations.entries()){const number=eq.querySelector('.equation-number'),math=eq.querySelector('.math');
+  const source=math.dataset.tex,label=/\\label\{([^{}]+)\}/.exec(source)?.[1],tag=/\\tag\*?\{([^{}]+)\}/.exec(source)?.[1]||String(i+1);
+  const target={id:tid+'-eq-'+(i+1),tag};
+  eq.id=target.id;number.textContent='('+tag+')';
+  if(label&&!labels.has(label))labels.set(label,target);
+  if(!numbers.has(tag))numbers.set(tag,target);
+  if(math.querySelector('.render-fallback')&&/\\(?:label|tag\*?)\{/.test(source)){
+   const clean=source.replace(/\\(?:label|tag\*?)\{[^{}]+\}/g,'').trim();
+   math.innerHTML=renderRichText('$$'+clean+'$$',true);
+  }
   const tex=math.dataset.tex,svg=math.querySelector('svg'),width=svg?parseFloat(svg.getAttribute('width'))*bodySize:math.getBoundingClientRect().width*bodySize/parseFloat(getComputedStyle(math).fontSize);
   if(width>bodySize*5||/=|\\(?:eq|neq|equiv|leq|geq)/.test(tex))continue;
   const passage=eq.closest('.passage'),previous=passage.previousElementSibling,following=passage.nextElementSibling,prevP=previous?.querySelector('.passage-body>p'),nextP=following?.querySelector('.passage-body>p');
@@ -524,14 +535,95 @@ function prepareReadingLayout(answer){
   else {const p=document.createElement('p');p.append(math);eq.replaceWith(p);}
  }
  answer.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
- const walker=document.createTreeWalker(answer,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){const node=walker.currentNode;if(!node.parentElement.closest('.math,code,button,.equation-number')&&/公式\s*[（(]\d+[)）]/.test(node.textContent))nodes.push(node);}
- for(const node of nodes){const fragment=document.createDocumentFragment();let start=0;for(const match of node.textContent.matchAll(/公式\s*[（(](\d+)[)）]/g)){fragment.append(node.textContent.slice(start,match.index));const target=tid+'-eq-'+match[1];if($(target)){const b=document.createElement('button');b.className='equation-ref';b.dataset.equationRef=target;b.textContent='Eq. '+match[1];b.title='跳转到公式 '+match[1];fragment.append(b);}else fragment.append(match[0]);start=match.index+match[0].length;}fragment.append(node.textContent.slice(start));node.replaceWith(fragment);}
+ if(!equations.length)return;
+ const pattern=/(?<!\\)\\(eqref|ref)\{([^{}\r\n]+)\}|公式\s*[（(](\d+)[)）]/g;
+ const walker=document.createTreeWalker(answer,NodeFilter.SHOW_TEXT),nodes=[];
+ while(walker.nextNode()){
+  const node=walker.currentNode;
+  if(/\\(?:eqref|ref)\{|公式\s*[（(]/.test(node.data)&&!node.parentElement.closest('.math,code,button,a,.equation-number'))nodes.push(node);
+ }
+ for(const node of nodes){
+  const fragment=document.createDocumentFragment();let start=0;
+  for(const match of node.data.matchAll(pattern)){
+   const key=match[2];
+   const target=match[3]?numbers.get(match[3]):labels.get(key)||(key.startsWith('eq-')&&numbers.get(key.slice(3)));
+   if(!target)continue;
+   const link=document.createElement('button'),direct=match[1]!=='eqref';
+   link.type='button';link.className='equation-ref';link.dataset.equationRef=target.id;
+   if(direct)link.dataset.direct='true';
+   link.textContent=match[3]?match[0]:direct?target.tag:'（'+target.tag+'）';
+   link.title=direct?'跳转到公式 '+target.tag:'单击预览公式，双击跳转。Enter 预览，Ctrl+Enter 跳转。';
+   if(!direct)link.setAttribute('aria-expanded','false');
+   fragment.append(node.data.slice(start,match.index),link);start=match.index+match[0].length;
+  }
+  if(start){fragment.append(node.data.slice(start));node.replaceWith(fragment);}
+ }
 }
-$('thread').addEventListener('click',event=>{const b=event.target.closest('[data-equation-ref]');if(!b)return;const id=b.dataset.equationRef,turn=current().turns.find(t=>t.id===b.closest('.turn').id);turn.collapsed=false;
+function jumpToEquation(b){const id=b.dataset.equationRef,turn=current().turns.find(t=>t.id===b.closest('.turn').id);
  // Expand any collapsed heading that contains the target, without altering other headings.
- const answer=b.closest('.answer');let stack=[];for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h1,h2,h3,h4,h5,h6');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}if(p.contains($(id))){for(const h of stack)if(turn.sections)turn.sections[h.id]=false;break;}}
- renderTurns();requestAnimationFrame(()=>{const target=$(id);if(target){target.scrollIntoView({block:'center'});target.classList.add('equation-target');saveReading();}});
+ const answer=b.closest('.answer'),target=$(id);let stack=[],changed=turn.collapsed;
+ turn.collapsed=false;
+ for(const p of answer.querySelectorAll(':scope>.passage')){
+  const h=p.querySelector('h1,h2,h3,h4,h5,h6');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}
+  if(p.contains(target)){for(const h of stack)if(turn.sections?.[h.id]){turn.sections[h.id]=false;changed=true;}break;}
+ }
+ closeEquationPreview();cancelReadingRestore();if(changed)renderTurns();
+ requestAnimationFrame(()=>{const target=$(id);if(target){target.scrollIntoView({block:'center'});target.classList.add('equation-target');saveReading();}});
+}
+let equationPreviewLink=null;
+function closeEquationPreview(){
+ if(!equationPreviewLink)return;
+ equationPreviewLink.setAttribute('aria-expanded','false');equationPreviewLink=null;
+ $('equation-preview')?.remove();
+}
+function previewEquation(link){
+ if(equationPreviewLink===link){closeEquationPreview();return;}
+ closeEquationPreview();
+ const target=$(link.dataset.equationRef),original=target?.matches('.math')?target:target?.querySelector('.math');
+ if(!original)return;
+ const popup=document.createElement('aside'),content=original.cloneNode(true);
+ popup.id='equation-preview';popup.setAttribute('aria-label','公式预览');
+ content.removeAttribute('id');content.removeAttribute('tabindex');content.dataset.display='true';
+ // SVG glyphs must resolve within the preview even when their original heading is folded.
+ for(const def of content.querySelectorAll('svg [id]'))def.id='equation-preview-'+def.id;
+ for(const use of content.querySelectorAll('svg use'))for(const attr of use.attributes)
+  if(attr.localName==='href'&&attr.value.startsWith('#'))attr.value='#equation-preview-'+attr.value.slice(1);
+ const body=document.createElement('div'),number=document.createElement('span');
+ body.className='equation-preview-body';body.append(content);
+ number.className='equation-number';number.textContent=link.textContent.replace('（','(').replace('）',')');
+ popup.append(body,number);document.body.append(popup);
+ const anchor=link.getBoundingClientRect(),reader=$('reader').getBoundingClientRect(),gap=6;
+ popup.style.maxWidth=Math.max(1,reader.width-2*gap)+'px';
+ const above=anchor.top-reader.top-gap,below=reader.bottom-anchor.bottom-gap;
+ const showAbove=popup.offsetHeight>below&&above>below;
+ popup.style.maxHeight=Math.max(32,showAbove?above:below)+'px';
+ popup.style.top=(showAbove?anchor.top-gap-popup.offsetHeight:anchor.bottom+gap)+'px';
+ popup.style.left=Math.max(reader.left+gap,Math.min(anchor.left,reader.right-popup.offsetWidth-gap))+'px';
+ link.setAttribute('aria-expanded','true');equationPreviewLink=link;
+}
+$('thread').addEventListener('click',event=>{
+ const link=event.target.closest('[data-equation-ref]');if(!link)return;
+ if(link.dataset.direct)jumpToEquation(link);
+ else if(event.detail<=1)previewEquation(link);
 });
+$('thread').addEventListener('dblclick',event=>{
+ const link=event.target.closest('[data-equation-ref]');if(!link||link.dataset.direct)return;
+ event.preventDefault();jumpToEquation(link);
+});
+$('thread').addEventListener('keydown',event=>{
+ const link=event.target.closest('[data-equation-ref]');if(link&&event.ctrlKey&&event.key==='Enter'){event.preventDefault();jumpToEquation(link);}
+});
+document.addEventListener('pointerdown',event=>{
+ if(equationPreviewLink&&!event.target.closest('#equation-preview,[data-equation-ref]'))closeEquationPreview();
+});
+document.addEventListener('focusin',event=>{
+ if(equationPreviewLink&&event.target!==equationPreviewLink&&!event.target.closest('#equation-preview'))closeEquationPreview();
+});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeEquationPreview();});
+document.addEventListener('scroll',event=>{
+ if(equationPreviewLink&&event.target!==$('equation-preview')&&event.target.contains?.(equationPreviewLink))closeEquationPreview();
+},true);
+window.addEventListener('resize',closeEquationPreview);
 
 function annotationLayoutChanged(){if(annotationCanDrag&&editing)positionEditor();else commitAnnotation();}
 window.addEventListener('resize',annotationLayoutChanged);

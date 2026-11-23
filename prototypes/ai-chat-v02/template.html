@@ -167,7 +167,11 @@ th { color:var(--muted); font-weight:500; background:var(--question) }
 .answer .equation { margin:0; padding-top:0; padding-bottom:0 }
 .answer .equation .katex-display { margin:0 }
 .equation-number { flex-shrink:0; font:13px/1.5 var(--sans); color:var(--muted); margin-left:auto; padding:1px 0 1px 16px; white-space:nowrap }
-.equation-ref { color:var(--accent); font-family:"Times New Roman",serif; padding:0 2px; text-decoration:none; white-space:nowrap; font-size:14.4px }
+.equation-ref { color:var(--accent); font:inherit; padding:0; text-decoration:none; white-space:nowrap }
+.equation-ref:hover,.equation-ref:focus-visible { text-decoration:underline; background:none }
+#equation-preview { position:fixed; z-index:100; display:flex; align-items:center; width:max-content; box-sizing:border-box; padding:12px 16px; border:1px solid var(--line); border-radius:5px; background:var(--panel); color:var(--ink); box-shadow:0 4px 16px #0003; overflow:auto; overscroll-behavior:contain; }
+#equation-preview .equation-preview-body { min-width:0; overflow:auto; overscroll-behavior:contain; }
+#equation-preview .katex-display { margin:0 }
 .equation-target { animation:eq-flash 1.4s ease-out }
 @keyframes eq-flash { from{background:#d8b87633} to{background:transparent} }
 .rich-equation { overflow:auto; margin:10px 0 }

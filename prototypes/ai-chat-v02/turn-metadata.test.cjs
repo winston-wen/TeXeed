@@ -86,10 +86,11 @@ function requestFixture(mode){
   running:null,requests:new Map(),state:{active:conversation.id},activeView:'conversation',
   current:()=>conversation,$:id=>nodes[id],clone:value=>JSON.parse(JSON.stringify(value)),
   DATA:{prompts:{answer:'合成说明',title:'合成标题'},playback:{answer:'第二次飞得更远。',answerHtml:'<p>第二次飞得更远。</p>'}},
-  closePopups:noop,refreshEditors:noop,renderTabs:noop,status:noop,setBusy:noop,renderTurns:noop,scrollEnd:noop,
+  closePopups:noop,refreshEditors:noop,renderTabs:noop,status:noop,setBusy:noop,renderTurns:noop,scrollEnd:noop,persist:()=>true,
   record:action=>records.push({action,conversation:JSON.parse(JSON.stringify(conversation))}),
   setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>cancelled.push(id)
  });
+ vm.runInContext(app.slice(app.indexOf('function defaultModel('),app.indexOf('function selectStoredValue(')),runtime);
  vm.runInContext(app.slice(app.indexOf('function setPendingStatus('),app.indexOf('function alignReadingInk(')),runtime);
  vm.runInContext(app.slice(app.indexOf('function send('),app.indexOf('function newConversation(){')),runtime);
  runtime.send();

@@ -116,7 +116,9 @@
   });
  };
  function answerTokenHtml(token){
-  return token.tex!==undefined?'<span class="math" data-tex="'+escape(token.tex)+'" data-display="'+token.display+'" role="math" aria-label="'+escape(token.tex)+'">'+root.renderRichText(token.raw,true)+'</span>':root.renderRichText(token.raw,!token.block);
+  if(token.tex===undefined)return root.renderRichText(token.raw,!token.block);
+  const body=token.display?token.tex.replace(/\\(?:tag\*?|label)\{[^{}]+\}/g,'').trim():token.tex;
+  return '<span class="math" data-tex="'+escape(token.tex)+'" data-display="'+token.display+'" role="math" aria-label="'+escape(body)+'">'+math(body,token.display,token.raw)+'</span>';
  }
  // Rebuild only the obsolete 0.5.20 placeholders from the original Markdown.
  // Patching the saved passage in place preserves anchors in older sessions.

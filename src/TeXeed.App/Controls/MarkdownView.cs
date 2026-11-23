@@ -121,6 +121,7 @@ public sealed partial class MarkdownView : RichTextBox
     }
     private void Render()
     {
+        if (_equationPreview is { } preview) preview.IsOpen = false;
         var version = ++_renderVersion;
         _renderPending = false; _renderPaused = false;
         LayoutVersion++;

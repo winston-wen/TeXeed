@@ -3,11 +3,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const app=fs.readFileSync(__dirname+'/app.js','utf8');
 const c={draft:'统一问题仍在编辑',turns:[],entries:[{id:'one',question:'旧内容',selected:false},{id:'two',question:'其他圈点',selected:false}]};
 const elements={
- 'annotation-input':{value:'新批注'},'annotation-editor':{hidden:false},
+ 'annotation-input':{value:'新批注'},'annotation-editor':{hidden:false},'annotation-delete-hint':{hidden:false},
  'entries-dialog':{open:false,close(){this.open=false;}}
 };
 let sent=0;
 const ctx=vm.createContext({current:()=>c,editing:'one',$:id=>elements[id],record:()=>{},renderEntries:()=>{},updateEditor:()=>{},send:()=>sent++,ICON_SEND:'↑',document:{createElement:()=>({dataset:{},classList:{},children:[],setAttribute(){},append(...children){this.children.push(...children);},firstElementChild:{style:{}}})}});
+vm.runInContext(app.slice(app.indexOf('let annotationPosition='),app.indexOf('function updateAnnotationDeleteHint()')),ctx);
 vm.runInContext(app.slice(app.indexOf('function commitAnnotation(){'),app.indexOf('function positionEditor(){')),ctx);
 vm.runInContext(app.slice(app.indexOf('function mountEditors(root){'),app.indexOf('function updateEditor(field){')),ctx);
 function input(id,dataset={}){

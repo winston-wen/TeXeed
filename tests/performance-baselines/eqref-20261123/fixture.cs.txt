@@ -1,0 +1,174 @@
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using TeXeed.App.Controls;
+using TeXeed.App.Services;
+
+internal static class EquationReferencePerformance
+{
+
+    private static IEnumerable<T> Children<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match) yield return match;
+            foreach (var node in Children<T>(child)) yield return node;
+        }
+    }
+
+    private static int Visible(FrameworkElement root) => Children<Control>(root).Count(control =>
+        control.IsVisible && control.ActualWidth > 0 && control.ActualHeight > 0 &&
+        control.TransformToAncestor(root).TransformBounds(new Rect(control.RenderSize)).IntersectsWith(new Rect(root.RenderSize)));
+
+    private static void Capture(FrameworkElement window, FrameworkElement? popup, string path)
+    {
+        var canvas = new DrawingVisual();
+        using (var drawing = canvas.RenderOpen())
+        {
+            drawing.DrawRectangle(new VisualBrush(window), null, new Rect(window.RenderSize));
+            if (popup is not null)
+            {
+                var location = window.PointFromScreen(popup.PointToScreen(new Point()));
+                drawing.DrawRectangle(new VisualBrush(popup), null, new Rect(location, popup.RenderSize));
+            }
+        }
+        var image = new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        image.Render(canvas);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image));
+        using var file = File.Create(path); encoder.Save(file);
+    }
+
+    [STAThread]
+    private static int Main(string[] args)
+    {
+        var output = Path.GetFullPath(args[0]); Directory.CreateDirectory(output);
+        var candidate = args.Contains("preview");
+        var diagnose = args.Contains("diagnose");
+        var theme = args.Contains("light") ? "github-light-default" : "ristretto";
+        Environment.SetEnvironmentVariable("TEXEED_HOME", Path.Combine(output, "profile"));
+        var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/TeXeed;component/Theme.xaml", UriKind.Relative) });
+        ThemeManager.Apply(theme);
+        var view = new MarkdownView { ChatMode = true, Margin = new Thickness(24, 18, 24, 18) };
+        var scroll = new ChatScrollViewer { Content = view, VerticalScrollBarVisibility = ScrollBarVisibility.Visible, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        var host = new Window { Width = 900, Height = 680, Left = 40, Top = 20, Content = scroll,
+            WindowStartupLocation = WindowStartupLocation.Manual, ShowActivated = false, ShowInTaskbar = false };
+        host.SetResourceReference(Window.BackgroundProperty, "PanelBackground");
+        var expression = args.Contains("one-line") ? @"w'=\boldsymbol b^{\mathsf T}(\boldsymbol u\bmod p)+h_1" :
+            @"\begin{aligned} w_x &= (\boldsymbol b'_x)^{\mathsf T}(\boldsymbol r\bmod p)+h_1,\\ w' &= \boldsymbol b^{\mathsf T}(\boldsymbol u\bmod p)+h_1. \end{aligned}";
+        var prose = @"接收方利用私有的 $\boldsymbol u$ 和收到的 $\boldsymbol b$ 算出 $w'$，如公式\eqref{receiver}所示。";
+        var markdown = "# 发送与接收\n\n$$" + expression + @"\tag{17}\label{receiver}$$" + "\n\n" +
+            string.Join("\n\n", Enumerable.Range(1, 30).Select(i => i % 5 == 0 ?
+                $"## 第 {i / 5} 节\n\n{prose}" : prose));
+        var result = 1;
+        host.Loaded += async (_, _) =>
+        {
+            try
+            {
+                async Task Idle() { await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); host.UpdateLayout(); }
+                async Task Drain() { await Idle(); await Task.Delay(620); await Idle(); }
+                Popup? Preview() => (Popup?)typeof(MarkdownView).GetField("_equationPreview", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(view);
+                Hyperlink Reference()
+                {
+                    for (var pointer = view.Document.ContentEnd; pointer != null; pointer = pointer.GetNextContextPosition(LogicalDirection.Backward))
+                        if (pointer.Parent is Hyperlink link && new TextRange(link.ContentStart,link.ContentEnd).Text == "(17)") return link;
+                    throw new Exception("The rendered answer has no equation reference");
+                }
+                async Task WarmRender()
+                {
+                    await view.RenderTask; await Idle();
+                    var formulas = Children<ChatFormula>(view).ToArray();
+                    await Task.WhenAll(formulas.Select(formula => formula.RenderTask)).WaitAsync(TimeSpan.FromSeconds(60));
+                    if (!formulas.Any(f => f.Source == expression) || formulas.Any(f => f.Error != null || f.SvgPath == null))
+                        throw new Exception("Expected TeX SVGs for the complete reference and prose");
+                }
+                view.Markdown = markdown; await WarmRender(); await Drain();
+                var samples = new List<object>();
+                var operations = diagnose ? new[] { "anchor-only", "missing-preview", "single" }
+                    : args.Contains("render-only") ? new[] { "render" } : new[] { "render", "single", "navigate" };
+                foreach (var operation in operations)
+                {
+                    var targets = (Dictionary<string, Paragraph>)typeof(MarkdownView)
+                        .GetField("_equations", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(view)!;
+                    var original = targets["receiver"];
+                    if (operation == "missing-preview") targets.Remove("receiver");
+                    for (int i = 0; i < 9; i++)
+                    {
+                        if (Preview() is { } last) last.IsOpen = false;
+                        if (operation != "render") { scroll.ScrollToBottom(); await Idle(); }
+                        var link = Reference();
+                        var previous = scroll.VerticalOffset;
+                        var targetFormula = Children<ChatFormula>(view).Single(f => f.Source == expression);
+                        var args2 = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent };
+                        typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(args2, 2);
+                        var idle = Stopwatch.StartNew(); var idleBytes = GC.GetAllocatedBytesForCurrentThread();
+                        await Drain();
+                        var idleMs = idle.Elapsed.TotalMilliseconds;
+                        idleBytes = GC.GetAllocatedBytesForCurrentThread() - idleBytes;
+                        var timer = Stopwatch.StartNew(); var start = GC.GetAllocatedBytesForCurrentThread();
+                        if (operation == "render")
+                        {
+                            view.Markdown = markdown + (i % 2 == 0 ? "\n\n结论。" : "\n\n总结。");
+                            await view.RenderTask;
+                        }
+                        else if (operation == "anchor-only")
+                        {
+                            if (link.ContentStart.GetCharacterRect(LogicalDirection.Forward).IsEmpty)
+                                throw new Exception("The visible link has no anchor rectangle");
+                        }
+                        else
+                        {
+                            link.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
+                            if (candidate && operation == "navigate") link.RaiseEvent(args2);
+                        }
+                        await Idle();
+                        var feedbackMs = timer.Elapsed.TotalMilliseconds;
+                        if (Preview()?.Child is FrameworkElement root)
+                            foreach (var formula in Children<ChatFormula>(root)) await formula.RenderTask;
+                        await Drain();
+                        var rawMs = timer.Elapsed.TotalMilliseconds; var rawBytes = GC.GetAllocatedBytesForCurrentThread() - start;
+                        var pop = Preview();
+                        var preview = pop?.IsOpen == true ? (FrameworkElement)pop.Child : null;
+                        var visible = Visible(host) + (preview == null ? 0 : Visible(preview));
+                        var delta = scroll.VerticalOffset - previous;
+                        if (operation == "anchor-only")
+                        {
+                            if (preview != null || Math.Abs(delta) > 1) throw new Exception("Measuring the link moved the reader");
+                        }
+                        else if (operation == "missing-preview")
+                        {
+                            if (preview == null || Math.Abs(delta) > 1 || !Children<TextBlock>(preview).Any(t => t.Text == "未找到引用的公式"))
+                                throw new Exception("The empty-preview control was not displayed");
+                        }
+                        else if (operation == "single" && candidate)
+                        {
+                            if (preview == null || Math.Abs(delta) > 1 || !Children<ChatFormula>(preview).Any(f => f.Source == expression && f.SvgPath != null))
+                                throw new Exception($"Single click did not preview the referenced formula at the reading position: popup={preview != null}, delta={delta}");
+                        }
+                        else if (operation != "render" && (preview != null || delta > -500 || targetFormula.TranslatePoint(new Point(), scroll).Y > scroll.ViewportHeight))
+                            throw new Exception($"Navigation missed the source equation: delta={delta}, popup={preview != null}");
+                        if (i == 8 && operation != "render") Capture(host, preview, Path.Combine(output, operation + ".png"));
+                        if (i >= 2) samples.Add(new { operation, feedbackMs, rawMs, idleMs, correctedMs = rawMs - idleMs,
+                            rawBytes, idleBytes, correctedBytes = rawBytes - idleBytes, visible, delta, preview = preview != null });
+                    }
+                    if (operation == "missing-preview") targets["receiver"] = original;
+                }
+                File.WriteAllText(Path.Combine(output,"samples.json"),JsonSerializer.Serialize(samples));
+                result = 0;
+            }
+            catch (Exception e) { File.WriteAllText(Path.Combine(output,"failure.txt"),e.ToString()); }
+            finally { host.Close(); application.Shutdown(result); }
+        };
+        host.Show(); application.Run(); return result;
+    }
+}
