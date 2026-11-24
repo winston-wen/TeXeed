@@ -199,7 +199,7 @@ public sealed record AiTurn(string Question, string Answer)
     [JsonIgnore] public string DisplayQuestion => AiConversation.CleanQuestion(Question);
     [JsonIgnore] public string DisplayAnswer => string.IsNullOrWhiteSpace(Answer) ? "此旧记录未保存回答，可删除或重新提问。" : Answer;
     [JsonIgnore] public string DisplayTime => AiTimestamp.Full(SentAt ?? CreatedAt.ToLocalTime());
-    [JsonIgnore] public string SentTime => DisplayTime + " 发送" + (Collapsed ? "（已折叠）" : "");
+    [JsonIgnore] public string SentTime => DisplayTime + " 发送";
     [JsonIgnore] public bool IsIncomplete => Incomplete ?? (AnsweredAt is null && (string.IsNullOrWhiteSpace(Answer) || Answer.StartsWith("[本轮未完成]") || FailureSegment is not null));
     private AiSegment? FailureSegment => Segments.LastOrDefault(s => s.Kind == "activity" && (s.Id == "failure" || s.Text.StartsWith("已停止。") || s.Text.StartsWith("本轮未完成：")));
     [JsonIgnore] public string AnswerTime

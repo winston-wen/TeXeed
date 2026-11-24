@@ -157,12 +157,40 @@ internal static partial class Program
         Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
         var scroll = (ScrollViewer)panel.FindName("MessagesScroll"); scroll.ScrollToEnd(); host.UpdateLayout();
         await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle); host.UpdateLayout();
-        var last = Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == book.Turns[119].Id);
-        var marker = Descendants<TextBlock>(last).Single(t => t.Text == "[120]");
+        var rangeView = Descendants<AiTurnView>(panel).Single(v => v.IsVisible);
+        var marker = Descendants<TextBlock>(rangeView).Single(t => t.IsVisible && t.Text == "[1 ~ 120]");
         var markerBounds = VisibleBounds(marker, panel);
-        Check(markerBounds.Width >= marker.ActualWidth - .1 && markerBounds.Height >= marker.ActualHeight - .1, "The three-digit hanging turn number is clipped");
-        Console.WriteLine($"Turn 120 marker bounds: width {marker.ActualWidth:F2}, visible {markerBounds.Width:F2}");
+        Check(markerBounds.Width >= marker.ActualWidth - .1 && markerBounds.Height >= marker.ActualHeight - .1, "The three-digit hanging turn range is clipped");
+        Console.WriteLine($"Folded 120 turns: one visible row, marker width {marker.ActualWidth:F2}, visible {markerBounds.Width:F2}");
         Capture(host, Path.Combine(output, "ai-compact-turn-120.png"));
+        Check(await panel.NavigateSameConversationTurnAsync(book.Turns[2].Id), "Unable to reach the third turn within a collapsed range");
+        await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle); host.UpdateLayout();
+        string[] Ranges() => Descendants<AiTurnView>(panel).Where(v => v.IsVisible && v.Turn.Collapsed)
+            .Select(v => Descendants<TextBlock>(v).Single(t => t.IsVisible).Text).ToArray();
+        Check(Ranges().SequenceEqual(new[] { "[1, 2]", "[4 ~ 120]" }) && !book.Turns[2].Collapsed, "Expanding just the third turn did not split the interval: " + string.Join(" · ", Ranges()));
+        var selectedRange = Descendants<AiTurnView>(panel).Single(v => v.Turn == book.Turns[0]);
+        selectedRange.FoldTarget.RaiseEvent(CreateKey(host, System.Windows.Input.Key.Space, System.Windows.Input.Keyboard.KeyDownEvent)); host.UpdateLayout();
+        Check(book.Turns.Take(3).All(t => !t.Collapsed) && book.Turns.Skip(3).All(t => t.Collapsed), "Opening a range changed turns outside it");
+        Descendants<AiTurnView>(panel).Single(v => v.Turn == book.Turns[2]).Toggle(); host.UpdateLayout();
+        Check(Ranges().SequenceEqual(new[] { "[3 ~ 120]" }), "Closing the third turn did not coalesce it with its neighbor");
+        book.Turns.Clear();
+        for (var n = 1; n <= 12; n++) book.Turns.Add(new($"阅读第 {n} 轮", "第一段。\n\n第二段。") { Collapsed = n == 4 });
+        Invoke(panel, "RefreshTranscript");
+        Check(await panel.NavigateSameConversationTurnAsync(book.Turns[4].Id), "Could not navigate to the fold viewport fixture");
+        var fifth = Descendants<AiTurnView>(panel).Single(v => v.Turn == book.Turns[4]);
+        var time = Descendants<AiReplyStatus>(fifth).Single();
+        double Y(FrameworkElement element) => element.TranslatePoint(new Point(), scroll).Y;
+        scroll.ScrollToVerticalOffset(scroll.VerticalOffset + Y(time) - 130);
+        host.UpdateLayout();
+        var clickY = Y(time);
+        var click = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+            { RoutedEvent = System.Windows.Input.Mouse.MouseDownEvent };
+        typeof(System.Windows.Input.MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(click, 2);
+        time.RaiseEvent(click);
+        await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle); host.UpdateLayout();
+        var merged = Descendants<AiTurnView>(panel).Single(v => v.Turn == book.Turns[3]);
+        Check(book.Turns[4].Collapsed && Math.Abs(Y(merged.FoldTarget) - clickY) < 2,
+            $"Folding at {clickY:F1} moved the merged line to {Y(merged.FoldTarget):F1} DIP");
         book.Turns.Clear();
         var sent = new DateTimeOffset(2000, 1, 1, 16, 20, 0, TimeSpan.FromHours(8));
         book.Turns.Add(new("先帮我列一份纸飞机试飞记录的提纲。", "记录折法、试飞距离和环境条件。") { SentAt = sent, AnsweredAt = sent.AddSeconds(18), Collapsed = true });

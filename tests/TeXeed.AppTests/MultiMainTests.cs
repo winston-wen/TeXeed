@@ -56,7 +56,7 @@ internal static partial class Program
         preview.SetZoom(1.35); preview.ShowLocation(new PdfLocation(2, 0, 0), highlight: false);
         await WaitForPreviewRenderedAsync(window);
         var bPage = preview.VisiblePage; var bZoom = preview.Zoom;
-        Invoke(window, "SelectWorkspaceTab", TabSide.Right, TabWorkspace.PreviewKey);
+        Eye(window, ownA, a, true).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await WaitUntilAsync(() => string.Equals((string?)Field(window, "_activePreviewEntry"), a, StringComparison.OrdinalIgnoreCase) && !(bool)Field(window, "_switchingEntryPreview")!, "Could not switch back to the first PDF");
         Check(string.Equals((string?)Field(window, "_pdfPath"), aPdf, StringComparison.OrdinalIgnoreCase), "Switching to the first preview showed the wrong PDF");
         Check(((PdfPreview)window.FindName("Preview")).PageCount == 1, "First preview should still show its own one-page PDF");
@@ -66,7 +66,7 @@ internal static partial class Program
         preview = firstPreview;
         preview.SetZoom(1.1); await WaitForPreviewRenderedAsync(window);
         Capture(window, Path.Combine(output, "multi-main-a.png"));
-        Invoke(window, "SelectWorkspaceTab", TabSide.Right, TabWorkspace.PreviewKeyFor(b));
+        Eye(window, b, b, true).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await WaitUntilAsync(() => string.Equals((string?)Field(window, "_activePreviewEntry"), b, StringComparison.OrdinalIgnoreCase) && !(bool)Field(window, "_switchingEntryPreview")!, "Could not switch back to the second PDF");
         preview = (PdfPreview)window.FindName("Preview");
         Check(string.Equals((string?)Field(window, "_pdfPath"), bPdf, StringComparison.OrdinalIgnoreCase), "Switching back showed the wrong PDF");

@@ -11,6 +11,31 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
+    private static async Task MeasureFoldedHistoryAsync(MainWindow owner, string output)
+    {
+        using var panel = new AiPanel(new AiConnection(new AiFakeHandler()));
+        var host = new Window { Owner = owner, Width = 820, Height = 760, Content = panel, ShowInTaskbar = false };
+        host.Show(); await panel.SetProjectAsync(Path.Combine(output, "folded.tex"));
+        var book = (AiNotebook)Field(panel, "_book")!;
+        var turns = Enumerable.Range(1, 120).Select(i => new AiTurn("合成问题 " + i, "合成回答") { Collapsed = true }).ToArray();
+        var samples = new List<object>();
+        for (var run = 0; run < 8; run++)
+        {
+            book.Turns.Clear(); Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            book.Turns.AddRange(turns);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            var timer = Stopwatch.StartNew();
+            Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); timer.Stop();
+            var bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            if (run > 0) samples.Add(new { ms = timer.Elapsed.TotalMilliseconds, bytes,
+                visibleTurns = Descendants<AiTurnView>(panel).Count(v => v.IsVisible && VisibleBounds(v, panel).Height > 0),
+                visibleControls = Descendants<Control>(panel).Count(v => v.IsVisible && VisibleBounds(v, panel) is { Width: > 0, Height: > 0 }) });
+        }
+        File.WriteAllText(Path.Combine(output, "native-fold-load.json"), JsonSerializer.Serialize(samples, new JsonSerializerOptions { WriteIndented = true }));
+        host.Close();
+    }
     private static async Task CheckAiUiPerformanceAsync(MainWindow owner, string output, string? baseline, bool normalizeTypography, bool withHeadings = false, bool complexQuestions = false, bool inlineCode = false)
     {
         using var panel = new AiPanel(new AiConnection(new AiFakeHandler()));

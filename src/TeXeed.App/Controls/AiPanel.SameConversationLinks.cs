@@ -59,10 +59,10 @@ public partial class AiPanel
     {
         CancelLayoutAnchor();
         var conversation = _book.Active;
-        if (_liveBookmarkCheckpointReady && _foldingLiveTurn?.Id == turnId && LiveContainer.Visibility == Visibility.Visible)
-        { CancelReadingRestore(); RevealLiveTurn(); return true; }
+        if (_liveBookmarkCheckpointReady && _foldingLiveTurn is { } pending && pending.Id == turnId && conversation.Turns.All(t => t.Id != turnId))
+        { CancelReadingRestore(); RevealableTurnIndex(pending); RevealLiveTurn(); return true; }
         var turn = conversation.Turns.FirstOrDefault(item => item.Id == turnId);
-        var index = turn is null ? -1 : _transcriptItems.IndexOf(turn);
+        var index = turn is null ? -1 : RevealableTurnIndex(turn);
         if (turn is null || index < 0) return false;
         CancelReadingRestore();
         var version = _readingRestoreVersion;
@@ -72,7 +72,6 @@ public partial class AiPanel
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (_readingRestoreVersion != version || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var view)) return false;
-        if (turn.Collapsed) view.Toggle();
         History.UpdateLayout(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (_readingRestoreVersion != version || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || !view.IsLoaded) return false;

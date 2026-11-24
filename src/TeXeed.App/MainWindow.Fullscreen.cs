@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Shell;
 using System.Windows.Interop;
@@ -32,6 +33,7 @@ public partial class MainWindow
             WindowState = WindowState.Normal;
             _fullscreen = true;
             _fullscreenTitleBarVisible = false;
+            PreviewMouseMove += FullscreenTopEdge_MouseMove;
             // Even a zero-sized WindowChrome clips a maximized HWND's native
             // region to rcWork, leaving the taskbar strip uncovered despite
             // our full-monitor WM_GETMINMAXINFO and Shell fullscreen marking.
@@ -50,6 +52,7 @@ public partial class MainWindow
             WindowState = WindowState.Normal;
             _fullscreen = false;
             _fullscreenTitleBarVisible = false;
+            PreviewMouseMove -= FullscreenTopEdge_MouseMove;
             ResizeMode = ResizeMode.CanResize;
             WindowChrome.SetWindowChrome(this, _beforeFullscreenChrome);
             TitleBar.Visibility = Visibility.Visible;
@@ -62,6 +65,16 @@ public partial class MainWindow
         MarkShellFullscreen(_fullscreen);
         UpdateCaptionState(); UpdateTitleBarLayout(); UpdateCompactMenuSize();
         ShowFullscreenToast(_fullscreen ? "已进入全屏 · 按 F11 退出" : "已退出全屏");
+    }
+    private void FullscreenTopEdge_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_fullscreenTitleBarVisible || _closing || Mouse.Captured is not null
+            || e.LeftButton != MouseButtonState.Released || e.RightButton != MouseButtonState.Released || e.MiddleButton != MouseButtonState.Released) return;
+        if (e.GetPosition(WindowRoot).Y is >= 0 and <= 3)
+        {
+            SetFullscreenTitleBarVisible(true);
+            if (_compactTitleBar) ShowMainMenu(FirstMenuItem);
+        }
     }
     private void SetFullscreenTitleBarVisible(bool visible)
     {
@@ -87,7 +100,8 @@ public partial class MainWindow
             taskbar.MarkFullscreenWindow(new WindowInteropHelper(this).Handle, fullscreen);
             _shellFullscreenMarked = fullscreen;
         }
-        catch (COMException ex) { System.Diagnostics.Debug.WriteLine(ex); }
+        // A desktop without Explorer can return E_NOTIMPL from HrInit.
+        catch (Exception ex) when (ex is COMException or NotImplementedException) { System.Diagnostics.Debug.WriteLine(ex); }
         finally { if (taskbar is not null) Marshal.FinalReleaseComObject(taskbar); }
     }
     [ComImport, Guid("56FDF344-FD6D-11D0-958A-006097C9A090"), ClassInterface(ClassInterfaceType.None)]

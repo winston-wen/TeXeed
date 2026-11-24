@@ -103,9 +103,9 @@ details[open]>summary:before { transform:rotate(90deg) }
 .sent-time[role=button] { cursor:pointer }
 .turn-footer { margin:0; padding:0; border-radius:2px }
 .turn-footer[role=button] { cursor:pointer; user-select:none }
-.turn-footer.folded { margin-top:8px }
-.turn-footer.folded .turn-time { margin:0; padding:0; line-height:1.45; white-space:pre-line }
-.turn-collapsed-label,.incomplete-label { color:var(--quiet); font-size:inherit }
+.fold-line { display:flex; align-items:center; column-gap:.625em; margin-left:calc(8px - var(--ordinal-gutter)); min-height:var(--reading-line); cursor:pointer; user-select:none; font:var(--reading-font)/var(--reading-line) var(--serif) }
+.fold-number { color:#d8c09b; min-width:calc(var(--ordinal-gutter) - 8px - .625em); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums }
+.fold-line::after { content:""; flex:1; border-top:1px solid var(--line) }
 .incomplete-label { color:#ccaa92 }
 .retry-turn { font:inherit; line-height:inherit; color:var(--accent); background:transparent; border:0; padding:0 4px; margin-left:12px; vertical-align:baseline }
 .answer>.passage:last-child { margin-bottom:0 }

@@ -62,11 +62,12 @@ public partial class MainWindow
                 var preview = EntryState(project.MainPath);
                 state.PreviewPositions?.TryGetValue(project.MainPath, out preview.Position);
                 project = project with { IsolateEntryOutputs = true };
+                var inputs = new CompileInputSnapshot(project);
+                preview.Inputs = inputs;
                 var cached = await _compiler.GetCachedPreviewAsync(project, _settings);
                 if (cached is not null)
                 {
-                    var inputs = new CompileInputSnapshot(project);
-                    preview.Pdf = cached.PdfPath; preview.Project = project; preview.Inputs = inputs;
+                    preview.Pdf = cached.PdfPath; preview.Project = project;
                     preview.Revision = cached.IsCurrent && await inputs.IsCurrentAsync(_projects) ? _revision : -1;
                     preview.Warning = preview.Revision < 0;
                 }

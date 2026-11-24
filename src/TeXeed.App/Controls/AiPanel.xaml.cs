@@ -25,7 +25,6 @@ public partial class AiPanel : UserControl, IDisposable
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     private readonly SemaphoreSlim _saveGate = new(1);
     private AiNotebook _book = new();
-    private readonly ObservableCollection<AiTurn> _visibleTurns = [];
     private readonly ObservableCollection<object> _transcriptItems = [];
     private readonly ObservableCollection<AiSegment> _liveSegments = [];
     internal Func<AiToolRunner>? CreateToolRunner { get; set; }
@@ -81,13 +80,6 @@ public partial class AiPanel : UserControl, IDisposable
         // use IScrollInfo. A wrapping StackPanel silently disables virtualization.
         History.Items.Clear(); _transcriptItems.Add(EmptyConversation); _transcriptItems.Add(LiveContainer);
         History.ItemsSource = _transcriptItems; LiveSegments.ItemsSource = _liveSegments;
-        _visibleTurns.CollectionChanged += (_, change) =>
-        {
-            if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
-            { _transcriptItems.Clear(); _transcriptItems.Add(EmptyConversation); _transcriptItems.Add(LiveContainer); }
-            else if (change.NewItems is not null)
-                for (var i = 0; i < change.NewItems.Count; i++) _transcriptItems.Insert(change.NewStartingIndex + i + 1, change.NewItems[i]!);
-        };
         _ownsSettings = sharedSettings is null; Settings = sharedSettings ?? new AiSettingsPanel(connection);
         PermissionPicker.ItemsSource = AiPermissionChoice.Choices;
         SyncPermission();
@@ -293,11 +285,7 @@ public partial class AiPanel : UserControl, IDisposable
     {
         InvalidateSameConversationLinks();
         UpdateOrdinalGutter(_book.Turns.Count);
-        // Keep existing document visuals when appending a follow-up. Never bind the mutable
-        // notebook List directly: WPF's item generator needs collection notifications.
-        if (_visibleTurns.Count > _book.Turns.Count || !_visibleTurns.SequenceEqual(_book.Turns.Take(_visibleTurns.Count)))
-            _visibleTurns.Clear();
-        foreach (var turn in _book.Turns.Skip(_visibleTurns.Count)) _visibleTurns.Add(turn);
+        SyncTranscriptRows();
         EmptyConversation.Visibility = _book.Turns.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         RefreshBranchOriginPreview();
         LiveContainer.Visibility = Visibility.Collapsed;
@@ -454,7 +442,7 @@ public partial class AiPanel : UserControl, IDisposable
             LiveTurnNumber.Text = $"[{book.Turns.Count + 1}]";
             _liveOrdinalAlignment.Schedule();
             _liveBookmarkCheckpointReady = false; _foldingLiveTurn = pendingTurn; LiveSegments.Visibility = Visibility.Visible;
-            LiveSentTime.Text = pendingTurn.SentTime; LiveReplyStatus.IsCollapsed = false;
+            LiveSentTime.Text = pendingTurn.SentTime;
             LiveReplyStatus.PendingText = "等待 AI 响应";
             LiveContainer.Visibility = Visibility.Visible; EmptyConversation.Visibility = Visibility.Collapsed;
             _liveQueuedId = queued?.Id;
@@ -468,7 +456,7 @@ public partial class AiPanel : UserControl, IDisposable
             foreach (var submission in submittedForms) _pendingFormSubmissions[submission.TurnId] = submission;
             RefreshFormEnabled();
             try { checkpoint = await AiTurnCheckpoint.StartAsync(_project!, book.Active.Id, book.Active.Title, pendingTurn, buffer, scoped: _store is not null); _liveBookmarkCheckpointReady = true; }
-            catch { _pendingFormSubmissions.Clear(); RefreshFormEnabled(); LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; throw; }
+            catch { _pendingFormSubmissions.Clear(); RefreshFormEnabled(); LiveContainer.Visibility = Visibility.Collapsed; _foldingLiveTurn = null; SyncTranscriptRows(); throw; }
             var queueRefreshed = false;
             if (queued is not null)
             {
@@ -599,11 +587,7 @@ public partial class AiPanel : UserControl, IDisposable
     private void ToggleLiveTurn()
     {
         if (_foldingLiveTurn is not { } turn) return;
-        turn.Collapsed = !turn.Collapsed;
-        LiveSentTime.Text = turn.SentTime;
-        LiveSegments.Visibility = turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
-        LiveReplyStatus.IsCollapsed = turn.Collapsed;
-        ScheduleViewportCapture();
+        ChangeTurnFold(turn, LiveSentTime);
     }
     public async Task StopAndSaveAsync() { await StopFollowUpsAsync(); _operation?.Cancel(); _lifetime.Cancel(); if (_operationDone is { } pending) await pending.Task; if (_ownsSettings) await Settings.StopAsync(); await SaveAsync(); }
     public void Dispose() { CancelLayoutAnchor(); _disposed = true; CancelAnswerMarking(); CancelAnswerExitHint(); ClearBookmarkMarkers(); _autoScroll.Dispose(); _liveOrdinalAlignment.Dispose(); _operation?.Cancel(); _lifetime.Cancel(); _saveTimer.Stop(); Settings.ConnectionChanged -= _settingsChanged; if (_ownsSettings) { Settings.Dispose(); _connection.Dispose(); } _lifetime.Dispose(); }

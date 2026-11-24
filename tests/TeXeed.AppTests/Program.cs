@@ -27,6 +27,17 @@ internal static partial class Program
         var output = outputArgument >= 0 && outputArgument + 1 < args.Length
             ? Path.GetFullPath(args[outputArgument + 1]) : Path.Combine(root, "artifacts", "ui-check");
         Directory.CreateDirectory(output);
+        if (args.Contains("--workspace-chrome-only"))
+        {
+            CheckWorkspaceChromeAsync(output).GetAwaiter().GetResult();
+            return 0;
+        }
+        if (args.Contains("--workspace-chrome-native"))
+        {
+            var log = new StreamWriter(Path.Combine(output, "input.log")) { AutoFlush = true };
+            Console.SetOut(log);
+            Console.SetError(log);
+        }
         SettingsMigrationTests.Run(Path.Combine(output, "settings-migration"));
         var config = Path.Combine(output, "profile"); Directory.CreateDirectory(config);
         Environment.SetEnvironmentVariable("TEXEED_HOME", config);
@@ -53,6 +64,11 @@ internal static partial class Program
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--workspace-chrome-native"))
+                {
+                    await ExerciseWorkspaceChromeAsync(window, output);
+                    await CloseAndObserveAsync(window, "workspace chrome"); result = 0; return;
+                }
                 if (args.Contains("--answer-annotation-offscreen"))
                 {
                     await CheckAnswerAnnotationModesAsync(window, output);
@@ -405,7 +421,8 @@ internal static partial class Program
                 if (args.Contains("--ai-ui-perf-only"))
                 {
                     var compare = Array.IndexOf(args, "--baseline");
-                    await CheckAiUiPerformanceAsync(window, output, compare >= 0 ? args[compare + 1] : null, args.Contains("--normalize-typography"), args.Contains("--with-headings"), args.Contains("--with-complex-questions"), args.Contains("--with-inline-code"));
+                    if (args.Contains("--with-folded-turns")) await MeasureFoldedHistoryAsync(window, output);
+                    else await CheckAiUiPerformanceAsync(window, output, compare >= 0 ? args[compare + 1] : null, args.Contains("--normalize-typography"), args.Contains("--with-headings"), args.Contains("--with-complex-questions"), args.Contains("--with-inline-code"));
                     await CloseAndObserveAsync(window, "AI UI performance"); result = 0; return;
                 }
                 if (args.Contains("--ai-compact-only"))
@@ -819,6 +836,7 @@ internal static partial class Program
                 var settings = new SettingsWindow(new AppSettings()) { Owner = window }; settings.Show();
                 await Task.Delay(200); Capture(settings, Path.Combine(output, "settings.png")); settings.Close();
                 Console.WriteLine("PASS: WPF startup, main/child editing, multi-file save, detached buffer preservation, settings and layout rendering");
+                await CheckWorkspaceChromeAsync(output);
                 await CheckClosingAsync(window, main);
                 if (app.Windows.OfType<MainWindow>().Any()) throw new Exception("A MainWindow remained open after the close regressions");
                 Console.WriteLine($"Render output: {output}"); result = 0;

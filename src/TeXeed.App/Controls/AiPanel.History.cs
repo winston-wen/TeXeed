@@ -99,7 +99,8 @@ public partial class AiPanel
         _messageMatchIndex = (_messageMatchIndex % _messageMatches.Length + _messageMatches.Length) % _messageMatches.Length;
         UpdateMessageMatchStatus();
         var target = _messageMatches[_messageMatchIndex];
-        VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(_transcriptItems.IndexOf(target));
+        var index = RevealableTurnIndex(target);
+        if (index >= 0) VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
     }
 
     private void UpdateMessageMatchStatus() => MessageMatchStatus.Text =

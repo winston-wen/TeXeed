@@ -35,6 +35,11 @@ public partial class MainWindow
     private bool ProcessMenuKeyDown(Key key, ModifierKeys modifiers, bool isRepeat = false)
     {
         if (_closing || _allowClose) { ResetMenuAltGesture(); return false; }
+        if (key == Key.Escape && WorkspaceIconBar.IsMouseCaptured)
+        {
+            EndSidebarDrag(false);
+            return true;
+        }
         // WPF's built-in Alt/F10 activation independently restores menu focus.
         // We own that activation so it cannot undo our collapsed-menu state.
         MainMenu.IsMainMenu = false;

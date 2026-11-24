@@ -239,9 +239,26 @@ public partial class MainWindow
         foreach(var side in new[]{TabSide.Left,TabSide.Right}.Concat(_workspaceTabs.ExtraGroups)) UpdateTabStrip(side);
         if (_aiHistory?.IsVisible==true) _aiHistory.RefreshExternal();
     }
-    private void UpdateTabStrip(TabSide side) => GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(key=>new EditorTab(key,
-        TabWorkspace.IsPreview(key) ? (PreviewEntryForKey(key) is { } entry && _entryPreviews.Count > 0 ? "预览 · " + System.IO.Path.GetFileName(entry) : "预览") : TabWorkspace.IsSource(key) ? System.IO.Path.GetFileName(key) : AiTabTitle(key),
-        _changes.ContainsKey(key),false,TabWorkspace.IsPreview(key) && (string.Equals(PreviewEntryForKey(key), _activePreviewEntry, StringComparison.OrdinalIgnoreCase) ? _previewWarning : PreviewEntryForKey(key) is { } previewEntry && EntryState(previewEntry).Warning),TabWorkspace.IsPreview(key) ? PreviewEntryForKey(key) : AiConversationForKey(key)?.Title)).ToArray(),_workspaceTabs.Active(side));
+    private void UpdateTabStrip(TabSide side) =>
+        GroupStrip(side).SetTabs(_workspaceTabs.Tabs(side).Select(DescribeTab).ToArray(), _workspaceTabs.Active(side));
+
+    private EditorTab DescribeTab(string key)
+    {
+        if (TabWorkspace.IsSource(key))
+        {
+            var entry = PreviewEntryForSource(key);
+            return new EditorTab(key, System.IO.Path.GetFileName(key), _changes.ContainsKey(key), PreviewEntry: entry,
+                PreviewOpen: entry is not null && _workspaceTabs.Owner(PreviewKeyForEntry(entry)) is not null);
+        }
+        if (TabWorkspace.IsPreview(key))
+        {
+            var entry = PreviewEntryForKey(key);
+            var title = entry is not null && _entryPreviews.Count > 0 ? "预览 · " + System.IO.Path.GetFileName(entry) : "预览";
+            var warning = string.Equals(entry, _activePreviewEntry, StringComparison.OrdinalIgnoreCase) ? _previewWarning : entry is not null && EntryState(entry).Warning;
+            return new EditorTab(key, title, false, Warning: warning, FullTitle: entry);
+        }
+        return new EditorTab(key, AiTabTitle(key), false, FullTitle: AiConversationForKey(key)?.Title);
+    }
     private void AiSettings_Click(object sender,RoutedEventArgs e) { HideMainMenu(false); OpenAiSettings(); }
     private void AiHistory_Click(object sender,RoutedEventArgs e) { HideMainMenu(false); OpenAiHistory(); }
     private void AiRecent_Opened(object sender,RoutedEventArgs e)

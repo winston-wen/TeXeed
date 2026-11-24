@@ -34,7 +34,8 @@
   <Grid x:Name="Workspace" Visibility="Collapsed">
    <Grid.ColumnDefinitions><ColumnDefinition x:Name="SidebarColumn" Width="294" MinWidth="242"/><ColumnDefinition x:Name="SidebarSplitterColumn" Width="2"/><ColumnDefinition Width="*" MinWidth="300"/><ColumnDefinition Width="2"/><ColumnDefinition Width="0.95*" MinWidth="300"/></Grid.ColumnDefinitions>
    <Grid x:Name="SidebarHost"><Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <Border x:Name="WorkspaceRail" PreviewMouseLeftButtonDown="Sidebar_BlankDoubleClick" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">     <UniformGrid x:Name="WorkspaceIconBar" Columns="1" Margin="3" VerticalAlignment="Top">
+    <Border x:Name="WorkspaceRail" PreviewMouseLeftButtonDown="Sidebar_BlankDoubleClick" Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+     <UniformGrid x:Name="WorkspaceIconBar" Columns="1" Margin="3" VerticalAlignment="Top" PreviewMouseLeftButtonDown="SidebarDrag_Down" PreviewMouseMove="SidebarDrag_Move" PreviewMouseLeftButtonUp="SidebarDrag_Up" LostMouseCapture="SidebarDrag_LostCapture">
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceOutlineIcon}" Tag="outline" ToolTip="大纲" AutomationProperties.Name="大纲" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceFilesIcon}" Tag="files" ToolTip="文件" AutomationProperties.Name="文件" Click="SidebarMode_Click"/>
       <Button Style="{StaticResource WorkspaceIconButton}" Content="{StaticResource WorkspaceSearchIcon}" Tag="search" ToolTip="搜索" AutomationProperties.Name="搜索" Click="SidebarMode_Click"/>

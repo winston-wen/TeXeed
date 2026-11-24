@@ -1,0 +1,44 @@
+[
+  {
+    "ms": 59.0636,
+    "bytes": 2413648,
+    "visibleTurns": 5,
+    "visibleControls": 31
+  },
+  {
+    "ms": 47.9661,
+    "bytes": 2416808,
+    "visibleTurns": 5,
+    "visibleControls": 31
+  },
+  {
+    "ms": 48.6041,
+    "bytes": 2418080,
+    "visibleTurns": 5,
+    "visibleControls": 31
+  },
+  {
+    "ms": 72.39,
+    "bytes": 2468584,
+    "visibleTurns": 5,
+    "visibleControls": 31
+  },
+  {
+    "ms": 43.5684,
+    "bytes": 2324056,
+    "visibleTurns": 5,
+    "visibleControls": 31
+  },
+  {
+    "ms": 42.2441,
+    "bytes": 2413456,
+    "visibleTurns": 5,
+    "visibleControls": 31
+  },
+  {
+    "ms": 43.9715,
+    "bytes": 2416592,
+    "visibleTurns": 5,
+    "visibleControls": 31
+  }
+]

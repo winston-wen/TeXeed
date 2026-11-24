@@ -117,6 +117,7 @@ public partial class AiPanel
         if (turn is null)
         {
             if (StableLiveBookmarkQuestion()?.Id != bookmark.TurnId || bookmark.Kind != AiBookmarkKind.User || bookmark.Anchor is not { } liveAnchor || LiveQuestion.Revision != liveAnchor.Revision) return false;
+            if (_foldingLiveTurn is { Collapsed: true } pending) RevealableTurnIndex(pending);
             VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(_transcriptItems.Count - 1);
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
             if (version != _readingRestoreVersion || !IsVisible) return true;
@@ -132,13 +133,12 @@ public partial class AiPanel
             MessagesScroll.ScrollToVerticalOffset(Math.Max(0, MessagesScroll.VerticalOffset + livePosition.Y - 24));
             return true;
         }
-        var index = _transcriptItems.IndexOf(turn);
+        var index = RevealableTurnIndex(turn);
         if (index < 0) return false;
         VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (version != _readingRestoreVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var turnView)) return false;
-        if (turn.Collapsed) turnView.Toggle();
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (version != _readingRestoreVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation) return false;

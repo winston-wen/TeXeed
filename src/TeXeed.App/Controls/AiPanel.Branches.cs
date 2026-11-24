@@ -167,7 +167,7 @@ public partial class AiPanel
         CancelLayoutAnchor();
         var conversation = _book.Active;
         var turn = conversation.Turns.FirstOrDefault(t => t.Id == anchor.TurnId);
-        var index = turn is null ? -1 : _transcriptItems.IndexOf(turn);
+        var index = turn is null ? -1 : RevealableTurnIndex(turn);
         if (turn is null || index < 0) return false;
         CancelReadingRestore();
         var readingVersion = _readingRestoreVersion;
@@ -177,7 +177,6 @@ public partial class AiPanel
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var turnView)) return false;
-        if (turn.Collapsed) turnView.Toggle();
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         var view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment s && s.Id == anchor.SegmentId);

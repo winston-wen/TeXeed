@@ -39,6 +39,7 @@ public partial class MainWindow
     private void InitializeTabStrip(EditorTabStrip strip, TabSide side)
     {
         strip.Selected += key => SelectWorkspaceTab(side, key);
+        strip.PreviewRequested += async entry => await ShowEntryPreviewAsync(entry);
         strip.RenameRequested += ShowAiConversationRename;
         strip.CloseRequested += CloseTabs;
         strip.ReorderRequested += (key, target) => MoveTab(key, target);
@@ -133,13 +134,21 @@ public partial class MainWindow
     private async void ShowPreview_Click(object sender, RoutedEventArgs e)
     {
         if (_project is null || _closing || _transitioning) { Status("请先打开项目。"); return; }
-        var entry = _project.MainPath;
+        await ShowEntryPreviewAsync(_project.MainPath);
+    }
+    private async Task ShowEntryPreviewAsync(string entry)
+    {
+        if (_project is null || _closing || _transitioning) return;
+        var session = _session;
         var key = PreviewKeyForEntry(entry);
-        var added = _workspaceTabs.Owner(key) is null;
-        if (added) _workspaceTabs.Open(key);
-        if (!await SelectEntryPreviewAsync(entry))
+        var owner = _workspaceTabs.Owner(key);
+        if (owner is { } existing) _workspaceTabs.Focus(existing);
+        else _workspaceTabs.Open(key);
+        var selected = await SelectEntryPreviewAsync(entry);
+        if (_session != session || _closing || _transitioning) return;
+        if (!selected)
         {
-            if (added) _workspaceTabs.Close(key, TabCloseRange.This);
+            if (owner is null) _workspaceTabs.Close(key, TabCloseRange.This);
             RefreshTabs(); return;
         }
         if (_workspaceTabs.Owner(key) is { } side) _workspaceTabs.Select(side, key);

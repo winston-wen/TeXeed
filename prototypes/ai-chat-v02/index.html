@@ -103,9 +103,9 @@ details[open]>summary:before { transform:rotate(90deg) }
 .sent-time[role=button] { cursor:pointer }
 .turn-footer { margin:0; padding:0; border-radius:2px }
 .turn-footer[role=button] { cursor:pointer; user-select:none }
-.turn-footer.folded { margin-top:8px }
-.turn-footer.folded .turn-time { margin:0; padding:0; line-height:1.45; white-space:pre-line }
-.turn-collapsed-label,.incomplete-label { color:var(--quiet); font-size:inherit }
+.fold-line { display:flex; align-items:center; column-gap:.625em; margin-left:calc(8px - var(--ordinal-gutter)); min-height:var(--reading-line); cursor:pointer; user-select:none; font:var(--reading-font)/var(--reading-line) var(--serif) }
+.fold-number { color:#d8c09b; min-width:calc(var(--ordinal-gutter) - 8px - .625em); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums }
+.fold-line::after { content:""; flex:1; border-top:1px solid var(--line) }
 .incomplete-label { color:#ccaa92 }
 .retry-turn { font:inherit; line-height:inherit; color:var(--accent); background:transparent; border:0; padding:0 4px; margin-left:12px; vertical-align:baseline }
 .answer>.passage:last-child { margin-bottom:0 }
@@ -586,7 +586,7 @@ function mountActivityCode(details){
 const ICON_CLOSE='<svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg>';
 const ICON_SEND='<svg class="icon" viewBox="0 0 20 20"><path d="M10 17V3M4 9L10 3L16 9"/></svg>';
 let restoring=false,scrollTimer,readingRestoreVersion=0;
-function readingPosition(){const area=$('reader'),top=area.getBoundingClientRect().top;const nodes=[...area.querySelectorAll('.passage,.question')].filter(n=>n.getClientRects().length);const anchor=nodes.find(n=>n.getBoundingClientRect().bottom>top+2);return {top:area.scrollTop,anchor:anchor?.id||anchor?.closest('.turn')?.id,offset:anchor?anchor.getBoundingClientRect().top-top:0};}
+function readingPosition(){const area=$('reader'),top=area.getBoundingClientRect().top;const nodes=[...area.querySelectorAll('.passage,.question,.fold-line')].filter(n=>n.getClientRects().length);const anchor=nodes.find(n=>n.getBoundingClientRect().bottom>top+2);return {top:area.scrollTop,anchor:anchor?.id||anchor?.closest('.turn')?.id,offset:anchor?anchor.getBoundingClientRect().top-top:0};}
 function saveReading(){if(!restoring&&!$('chat').hidden){current().reading=readingPosition();persist();}}
 function restoreReading(pos,version){if(version!==readingRestoreVersion)return;const area=$('reader');restoring=true;area.scrollTop=pos?.top??area.scrollHeight;if(pos?.anchor){const anchor=readingAnchor(pos.anchor);if(anchor?.getClientRects().length)area.scrollTop+=anchor.getBoundingClientRect().top-area.getBoundingClientRect().top-pos.offset;}requestAnimationFrame(()=>{if(version!==readingRestoreVersion)return;restoring=false;positionEditor();});}
 function cancelReadingRestore(){readingRestoreVersion++;restoring=false;}
@@ -649,18 +649,29 @@ function turnHtml(t,index=0,turns=[t]){
  const after=proofIndex<0?[]:activities.splice(proofIndex);
  const processAfter=after.length?'<div class="process-log after-answer" aria-label="过程记录">'+after.map(activity).join('')+'</div>':'';
  const process=(t.segments||[]).some(s=>s.kind==='text'&&s.text)?(t.segments||[]).filter(s=>s.kind==='text'||s.kind==='activity'&&!isConnectionStatus(s)&&!/^公式排版检查通过/.test(s.text)).map(s=>s.kind==='text'?'<div class="streaming-answer">'+esc(s.text)+'</div>':'<div class="process-log" aria-label="过程记录">'+activity(s)+'</div>').join(''):(activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'');
- const sent='<div class="turn-time sent-time" data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起或展开本轮回答">'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送'+(t.collapsed?'<span class="turn-collapsed-label">（已折叠）</span>':'')+'</div>';
+ const sent='<div class="turn-time sent-time"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起本轮"':'')+'>'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送</div>';
  const answerTime=thinking?'<span class="thinking-label" role="status"><span class="pending-label-text">'+esc(running.pendingStatus||'等待 AI 响应')+'</span><span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
- const folded=!thinking&&t.collapsed;
  const retry=!running&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
- const stamp=folded?sent.replace(/^<div[^>]*>/,'').replace(/<\/div>$/,'')+'\n'+answerTime:answerTime;
- const footer='<div class="turn-footer '+(folded?'folded':'')+'" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="'+!t.collapsed+'" aria-controls="'+t.id+'-segments" title="双击展开或收起本轮回答；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+stamp+retry+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
- return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+(folded?'':sent)+'<div class="segments" id="'+t.id+'-segments" '+(t.collapsed?'hidden':'')+'>'+process+(svgHtml(t)?'<div class="answer-start-divider" aria-hidden="true"></div><div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+processAfter+'</div>'+footer+'</article>';
+ const footer='<div class="turn-footer" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="true" aria-controls="'+t.id+'-segments" title="双击收起本轮；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+answerTime+retry+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
+ return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t)+'</div>'+sent+'<div class="segments" id="'+t.id+'-segments">'+process+(svgHtml(t)?'<div class="answer-start-divider" aria-hidden="true"></div><div class="answer" data-turn="'+t.id+'">'+svgHtml(t)+'</div>':'')+processAfter+'</div>'+footer+'</article>';
+}
+function transcriptHtml(turns){
+ const html=[];
+ for(let i=0;i<turns.length;i++){
+  const turn=turns[i];
+  if(!turn.collapsed||turn.id===running?.turn.id){html.push(turnHtml(turn,i,turns));continue;}
+  const start=i;
+  while(i+1<turns.length&&turns[i+1].collapsed&&turns[i+1].id!==running?.turn.id)i++;
+  const first=start+1,last=i+1;
+  const label=first===last?String(first):first+(last===first+1?', ':' ~ ')+last;
+  html.push('<article class="turn collapsed-turn" id="'+esc(turn.id)+'"><div role="button" class="fold-line" id="'+esc(turn.id)+'-divider" data-turn-divider="'+esc(turn.id)+'" data-toggle-turn="'+esc(turn.id)+'" data-fold-end="'+esc(turns[i].id)+'" aria-expanded="false" tabindex="0" aria-label="展开折叠轮次 ['+label+']" title="双击展开；键盘 Enter / 空格展开"><span class="fold-number">['+label+']</span></div></article>');
+ }
+ return html.join('');
 }
 function renderTurns(){
  closeEquationPreview();
  const pos=$('reader').scrollTop;
- $('thread').innerHTML=current().turns.length?current().turns.map(turnHtml).join(''):current().branchSource?branchOriginHtml(current().branchSource):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
+ $('thread').innerHTML=current().turns.length?transcriptHtml(current().turns):current().branchSource?branchOriginHtml(current().branchSource):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
  enhanceAnswers();addSameTurnLinks();window.alignReadingMedia?.($('thread'));alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
 }
 function sourceTextNodes(root){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){const node=walker.currentNode;if(!node.parentElement.closest('.same-turn-link,.heading-marker,.margin-notes,.math,svg'))nodes.push(node);}return nodes;}
@@ -762,7 +773,25 @@ function alignReadingInk(headingsChanged=true){
  for(let i=0;i<headingEdits.length;i+=2)headingEdits[i].style.transform='translateY('+headingEdits[i+1]+'px)';
  ordinalEdits.forEach(apply=>apply());
 }
-function toggleTurn(t){const node=$(t.id+'-divider'),offset=node.getBoundingClientRect().top;t.collapsed=!t.collapsed;renderTurns();$('reader').scrollTop+=$(node.id).getBoundingClientRect().top-offset;saveReading();}
+function toggleTurn(t,control){
+ const turns=current().turns,index=turns.indexOf(t);
+ if(index<0||running?.turn.id===t.id)return;
+ const expanding=t.collapsed;
+ const offset=control.getBoundingClientRect().top;
+ let first=index;
+ if(expanding){
+  const last=turns.findIndex(item=>item.id===control.dataset.foldEnd);
+  for(let i=index;i<=Math.max(index,last);i++)turns[i].collapsed=false;
+ }else{
+  t.collapsed=true;
+  while(first>0&&turns[first-1].collapsed&&turns[first-1].id!==running?.turn.id)first--;
+ }
+ cancelReadingRestore();renderTurns();
+ const anchor=expanding?$(t.id+'-question'):$(turns[first].id+'-divider');
+ $('reader').scrollTop+=anchor.getBoundingClientRect().top-offset;
+ saveReading();
+ return expanding?$(t.id+'-question').nextElementSibling:anchor;
+}
 
 function openSource(ref){const m=/^([^:]+)(?::(\d+)(?:[–—-](\d+))?)?$/.exec(ref),file=m[1],start=Number(m[2]||1),end=Number(m[3]||start);const text=DATA.sourceFiles[file];if(text===undefined){status('未收集此文件的源码。');return;}$('source-title').textContent=ref;$('source-lines').innerHTML=text.split('\n').map((line,i)=>'<div class="source-line '+(i+1>=start&&i+1<=end?'selected':'')+'" id="source-line-'+(i+1)+'"><span class="source-number">'+(i+1)+'</span><span class="source-code">'+esc(line||' ')+'</span></div>').join('');$('source-dialog').showModal();requestAnimationFrame(()=>$('source-line-'+start)?.scrollIntoView({block:'center'}));}
 
@@ -1024,8 +1053,8 @@ $('entries').addEventListener('pointerout',()=>{clearTimeout(tooltipTimer);$('co
 $('entries-dialog').addEventListener('close',()=>{clearTimeout(tooltipTimer);$('context-tooltip').hidden=true;document.body.append($('context-tooltip'));});
 $('thread').addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.id==='branch-origin-return'){returnBranchOrigin();return;}if(b.dataset.retryTurn){const t=current().turns.at(-1);if(!running&&t?.id===b.dataset.retryTurn&&turnEnd(t).incomplete)send(t);return;}if(b.dataset.file){openSource(b.dataset.file);return;}if(b.dataset.section){const answer=b.closest('.answer'),turn=current().turns.find(t=>t.id===answer.dataset.turn),p=$(b.dataset.section),offset=p.getBoundingClientRect().top;turn.sections||={};turn.sections[p.id]=!turn.sections[p.id];renderTurns();$('reader').scrollTop+=$(p.id).getBoundingClientRect().top-offset;saveReading();}});
 // Persist answer and heading folds independently of activity disclosures.
-$('thread').addEventListener('dblclick',event=>{const divider=event.target.closest('[data-turn-divider]');if(!divider||event.target.closest('button,a'))return;event.preventDefault();const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t);});
-$('thread').addEventListener('keydown',event=>{const id=event.target.dataset.toggleTurn;if(id&&(event.key==='Enter'||event.key===' ')){event.preventDefault();if(event.repeat)return;const t=current().turns.find(t=>t.id===id);if(t){toggleTurn(t);$(id+'-divider').focus({preventScroll:true});}}});
+$('thread').addEventListener('dblclick',event=>{const divider=event.target.closest('[data-turn-divider]');if(!divider||event.target.closest('button,a'))return;event.preventDefault();const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t,divider);});
+$('thread').addEventListener('keydown',event=>{const id=event.target.dataset.toggleTurn;if(id&&(event.key==='Enter'||event.key===' ')){event.preventDefault();if(event.repeat)return;const t=current().turns.find(t=>t.id===id);if(t){toggleTurn(t,event.target)?.focus({preventScroll:true});}}});
 $('thread').addEventListener('click',event=>{const link=event.target.closest('[data-open-turn]');if(!link)return;const turn=current().turns.find(t=>t.id===link.dataset.openTurn);if(!turn)return;if(turn.collapsed){turn.collapsed=false;renderTurns();}$(turn.id)?.scrollIntoView({block:'center'});saveReading();});
 $('thread').addEventListener('click',event=>{const link=event.target.closest('[data-snapshot-turn]');if(link){event.preventDefault();showSnapshot(link);return;}const close=event.target.closest('[data-close-preview]');if(close){const preview=$(close.dataset.closePreview+'-preview'),number=preview.dataset.number;hideSnapshot(preview);document.querySelector('[data-snapshot-turn="'+close.dataset.closePreview+'"][data-snapshot-number="'+number+'"]').focus({preventScroll:true});}});
 $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const preview=event.target.closest('.snapshot-preview');if(preview){event.preventDefault();preview.querySelector('[data-close-preview]').click();}}});

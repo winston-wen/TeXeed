@@ -16,11 +16,13 @@ public sealed class AiTurnView : StackPanel
     public static readonly DependencyProperty TurnProperty = DependencyProperty.Register(nameof(Turn), typeof(AiTurn), typeof(AiTurnView), new PropertyMetadata(null, (d, _) => ((AiTurnView)d).Build()));
     public AiTurn Turn { get => (AiTurn)GetValue(TurnProperty); set => SetValue(TurnProperty, value); }
     private int _turnNumber;
-    public int TurnNumber { get => _turnNumber; set { _turnNumber = value; _number.Text = value > 0 ? $"[{value}]" : ""; _ordinalAlignment?.Schedule(); foreach (var answer in Answers) answer.TurnNumber = value; } }
+    public int TurnNumber { get => _turnNumber; set { if (_turnNumber == value) return; _turnNumber = value; _number.Text = value > 0 ? $"[{value}]" : ""; _ordinalAlignment?.Schedule(); foreach (var answer in Answers) answer.TurnNumber = value; } }
     private ChatOrdinalAlignment? _ordinalAlignment;
     private string? _imageBaseDirectory;
     public string? ImageBaseDirectory { get => _imageBaseDirectory; set { _imageBaseDirectory = value; foreach (var answer in Answers) answer.ImageBaseDirectory = value; } }
     internal Action? Changed;
+    internal Action<FrameworkElement>? FoldRequested;
+    internal FrameworkElement FoldTarget => Turn.Collapsed && _foldedRow is not null ? _foldedRow : _sentTime;
     internal Action<MarkdownView>? AnswerReady, AnswerGone, QuestionReady, QuestionGone;
     internal Action<MarkdownView>? AnswerFoldingChanged;
     internal Func<AiEntry, bool>? AnswerReferenceRequested;
@@ -37,34 +39,70 @@ public sealed class AiTurnView : StackPanel
     private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
     private AiReplyStatus? _footer;
     private string? _previewId;
-    private bool _bodyBuilt;
+    private Grid? _foldedRow;
+    private int _foldEnd;
 
     public AiTurnView()
     {
         KeyDown += (_, e) => { if (e.Key == Key.Escape && _previewId is not null) { ClosePreview(); e.Handled = true; } };
         _sentTime.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         _number.SetResourceReference(TextBlock.ForegroundProperty, "ChatHeading");
-        _sentTime.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };
-        _sentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) Toggle(); e.Handled = true; } };
+        EnableFold(_sentTime);
         System.Windows.Automation.AutomationProperties.SetHelpText(_sentTime, "双击收起本轮回答");
     }
-    internal void Toggle()
+    private void EnableFold(FrameworkElement target)
     {
-        Turn.Collapsed = !Turn.Collapsed; ApplyCollapsed(); Changed?.Invoke();
+        target.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(target); e.Handled = true; } };
+        target.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) Toggle(target); e.Handled = true; } };
     }
-    private void ApplyCollapsed()
+    internal void Toggle() => Toggle(_foldedRow?.IsVisible == true ? _foldedRow : this);
+    private void Toggle(FrameworkElement target)
     {
-        if (!Turn.Collapsed && !_bodyBuilt) BuildBody();
-        _body.Visibility = Turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
-        _sentTime.Text = Turn.SentTime;
-        _sentTime.Visibility = Turn.Collapsed ? Visibility.Collapsed : Visibility.Visible;
-        if (_footer is not null)
+        if (FoldRequested is { } toggle) { toggle(target); return; }
+        Turn.Collapsed = !Turn.Collapsed; SetFoldRange(TurnNumber); Changed?.Invoke();
+    }
+    internal void SetFoldRange(int end)
+    {
+        if (Turn.Collapsed)
         {
-            _footer.Text = Turn.Collapsed ? Turn.SentTime + "\n" + Turn.AnswerTime : Turn.AnswerTime;
-            _footer.Margin = new Thickness(AiChatTypography.TextLeft, Turn.Collapsed ? 8 : 0, 4, 0);
-            _footer.IsCollapsed = Turn.Collapsed;
-            System.Windows.Automation.AutomationProperties.SetHelpText(_footer, Turn.Collapsed ? "已折叠，双击任一时间行展开" : "双击收起");
+            if (_foldedRow is null || _foldedRow.Visibility != Visibility.Visible)
+            {
+                ClosePreview();
+                foreach (UIElement child in Children) child.Visibility = Visibility.Collapsed;
+                if (_foldedRow is null) { _foldedRow = MakeFoldedRow(); Children.Add(_foldedRow); }
+                _foldedRow.Visibility = Visibility.Visible;
+            }
+            if (_foldEnd != end || end == 0)
+            {
+                _foldEnd = end;
+                var label = end <= TurnNumber ? $"[{TurnNumber}]" : end == TurnNumber + 1 ? $"[{TurnNumber}, {end}]" : $"[{TurnNumber} ~ {end}]";
+                ((TextBlock)_foldedRow.Children[0]).Text = label;
+                System.Windows.Automation.AutomationProperties.SetName(_foldedRow, label + " 已折叠，展开");
+            }
+            return;
         }
+        if (_footer is null) BuildExpanded();
+        if (_foldedRow is { Visibility: Visibility.Visible })
+        {
+            foreach (UIElement child in Children)
+                child.Visibility = child == _foldedRow || child == _preview ? Visibility.Collapsed : Visibility.Visible;
+            _ordinalAlignment?.Schedule();
+        }
+        _foldEnd = 0;
+    }
+    private Grid MakeFoldedRow()
+    {
+        var row = new Grid { Background = Brushes.Transparent, Focusable = true, Cursor = Cursors.Hand,
+            MinHeight = AiChatTypography.LineHeight, Margin = new Thickness(-12, 0, 4, 0), ToolTip = "双击或按 Enter、空格展开折叠轮次" };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 12 + AiChatTypography.TextLeft });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        var label = new TextBlock { FontSize = AiChatTypography.FontSize, FontFamily = ChatReadingTypography.Family,
+            FontWeight = FontWeights.Normal, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "ChatHeading");
+        var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
+        line.SetResourceReference(Border.BackgroundProperty, "ChatDivider");
+        Grid.SetColumn(line, 1); row.Children.Add(label); row.Children.Add(line);
+        EnableFold(row); return row;
     }
     private void Build()
     {
@@ -73,7 +111,11 @@ public sealed class AiTurnView : StackPanel
         foreach (var old in Questions) QuestionGone?.Invoke(old);
         if (_number.Parent is Panel question) question.Children.Remove(_number);
         Answers.Clear(); Questions.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
-        if (Turn is null) return;
+        _footer = null; _foldedRow = null; _foldEnd = 0;
+        if (Turn is not null) SetFoldRange(TurnNumber);
+    }
+    private void BuildExpanded()
+    {
         var entries = Turn.SentAnnotations;
         var prompt = entries.Count == 0 ? Turn.DisplayQuestion : Turn.Prompt ?? Turn.DisplayQuestion;
         var annotationsOnly = entries.Count > 0 && string.IsNullOrWhiteSpace(prompt);
@@ -105,8 +147,9 @@ public sealed class AiTurnView : StackPanel
         _preview.Visibility = Visibility.Collapsed; _preview.Margin = new Thickness(AiChatTypography.TextLeft, 8, 12, 10); Children.Add(_preview);
         Children.Add(_sentTime);
         _body.Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0); Children.Add(_body);
-        _bodyBuilt = false;
-        _footer = Footer(); Children.Add(_footer); ApplyCollapsed();
+        _sentTime.Text = Turn.SentTime;
+        _footer = Footer(); Children.Add(_footer);
+        BuildBody();
     }
     private void RegisterQuestion(MarkdownView view)
     {
@@ -116,7 +159,6 @@ public sealed class AiTurnView : StackPanel
     }
     private void BuildBody()
     {
-        _bodyBuilt = true;
         var segments = Turn.DisplaySegments;
         var remainingAnswers = segments.Count(segment => segment.Kind != "activity");
         var headings = new AiHeadingNumbers();
@@ -198,8 +240,7 @@ public sealed class AiTurnView : StackPanel
     {
         var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
         toggle.CanRetry = _canRetry; toggle.RetryRequested = () => RetryRequested?.Invoke();
-        toggle.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { Toggle(); e.Handled = true; } };
-        toggle.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) Toggle(); e.Handled = true; } };
+        EnableFold(toggle);
         return toggle;
     }
 }

@@ -49,7 +49,7 @@ internal static partial class Program
         var numberInk = GlyphInk(number, view).Select(i => i.Bounds).Aggregate(Rect.Empty, (a, r) => { a.Union(r); return a; });
         Check(Math.Abs(questionInk.Top + questionInk.Height / 2 - numberInk.Top - numberInk.Height / 2) < .5, "Turn number ink axis differs from the question");
         DoubleClick(sent); Check(turn.Collapsed && !row.IsVisible && !separator.IsVisible, "Double-clicking send time does not fold the turn and separator");
-        DoubleClick(reply); Check(!turn.Collapsed && separator.IsVisible, "Answer-time expansion did not restore the separator");
+        DoubleClick(view.FoldTarget); Check(!turn.Collapsed && separator.IsVisible, "Folded line expansion did not restore the separator");
         foreach (var theme in new[] { "ristretto", "github-light-default" })
         {
             ThemeManager.Apply(theme); row.IsExpanded = true; host.UpdateLayout();

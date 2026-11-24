@@ -1,0 +1,206 @@
+{
+  "fixture": "WorkspaceRestorePerformanceTests, 8 cached pages / 320 lines, normalized to the top, two warmups and seven samples per batch",
+  "args": "--workspace-perf-only --normalize-restore --offscreen",
+  "previousCommit": "8aeaf79",
+  "sdk": "10.0.203",
+  "os": "Microsoft Windows NT 10.0.26300.0",
+  "configuration": "Release",
+  "runs": [
+    {
+      "version": "0.5.22",
+      "samples": [
+        {
+          "elapsedMs": 306.4154,
+          "openMs": 306.1651,
+          "renderMs": 0.25029999999998154,
+          "allocatedBytes": 6172848
+        },
+        {
+          "elapsedMs": 315.6747,
+          "openMs": 45.821,
+          "renderMs": 269.8537,
+          "allocatedBytes": 6241760
+        },
+        {
+          "elapsedMs": 285.902,
+          "openMs": 35.5144,
+          "renderMs": 250.3876,
+          "allocatedBytes": 6192720
+        },
+        {
+          "elapsedMs": 239.1623,
+          "openMs": 239.0354,
+          "renderMs": 0.1268999999999778,
+          "allocatedBytes": 6101264
+        },
+        {
+          "elapsedMs": 297.5699,
+          "openMs": 30.9622,
+          "renderMs": 266.6077,
+          "allocatedBytes": 6196480
+        },
+        {
+          "elapsedMs": 185.9857,
+          "openMs": 185.347,
+          "renderMs": 0.6387,
+          "allocatedBytes": 6119520
+        },
+        {
+          "elapsedMs": 310.9637,
+          "openMs": 21.2259,
+          "renderMs": 289.7378,
+          "allocatedBytes": 6124800
+        }
+      ],
+      "visibleControls": 48,
+      "createdVisibleControls": 52
+    },
+    {
+      "version": "0.5.23",
+      "samples": [
+        {
+          "elapsedMs": 351.1415,
+          "openMs": 347.8662,
+          "renderMs": 3.2753000000000156,
+          "allocatedBytes": 6224072
+        },
+        {
+          "elapsedMs": 198.2168,
+          "openMs": 67.086,
+          "renderMs": 131.13080000000002,
+          "allocatedBytes": 6122392
+        },
+        {
+          "elapsedMs": 358.6748,
+          "openMs": 80.139,
+          "renderMs": 278.5358,
+          "allocatedBytes": 6195704
+        },
+        {
+          "elapsedMs": 210.3663,
+          "openMs": 82.094,
+          "renderMs": 128.2723,
+          "allocatedBytes": 6137424
+        },
+        {
+          "elapsedMs": 449.4069,
+          "openMs": 97.719,
+          "renderMs": 351.6879,
+          "allocatedBytes": 6188168
+        },
+        {
+          "elapsedMs": 312.5101,
+          "openMs": 80.7561,
+          "renderMs": 231.75400000000002,
+          "allocatedBytes": 6189232
+        },
+        {
+          "elapsedMs": 285.4654,
+          "openMs": 67.5846,
+          "renderMs": 217.8808,
+          "allocatedBytes": 6114024
+        }
+      ],
+      "visibleControls": 50,
+      "createdVisibleControls": 54
+    },
+    {
+      "version": "0.5.23",
+      "samples": [
+        {
+          "elapsedMs": 225.5457,
+          "openMs": 88.6986,
+          "renderMs": 136.8471,
+          "allocatedBytes": 6325464
+        },
+        {
+          "elapsedMs": 418.7647,
+          "openMs": 67.9494,
+          "renderMs": 350.8153,
+          "allocatedBytes": 6125928
+        },
+        {
+          "elapsedMs": 214.7041,
+          "openMs": 213.9818,
+          "renderMs": 0.7223000000000184,
+          "allocatedBytes": 6173832
+        },
+        {
+          "elapsedMs": 355.3463,
+          "openMs": 62.5892,
+          "renderMs": 292.7571,
+          "allocatedBytes": 6126912
+        },
+        {
+          "elapsedMs": 232.6821,
+          "openMs": 232.0451,
+          "renderMs": 0.6370000000000005,
+          "allocatedBytes": 6161288
+        },
+        {
+          "elapsedMs": 260.0089,
+          "openMs": 78.8694,
+          "renderMs": 181.1395,
+          "allocatedBytes": 6122808
+        },
+        {
+          "elapsedMs": 234.6544,
+          "openMs": 234.4521,
+          "renderMs": 0.20230000000000814,
+          "allocatedBytes": 6100552
+        }
+      ],
+      "visibleControls": 50,
+      "createdVisibleControls": 54
+    },
+    {
+      "version": "0.5.22",
+      "samples": [
+        {
+          "elapsedMs": 322.6891,
+          "openMs": 318.4018,
+          "renderMs": 4.287300000000016,
+          "allocatedBytes": 6233416
+        },
+        {
+          "elapsedMs": 203.0334,
+          "openMs": 76.0443,
+          "renderMs": 126.9891,
+          "allocatedBytes": 6146568
+        },
+        {
+          "elapsedMs": 326.7571,
+          "openMs": 74.8286,
+          "renderMs": 251.92849999999999,
+          "allocatedBytes": 6192672
+        },
+        {
+          "elapsedMs": 351.8171,
+          "openMs": 51.4471,
+          "renderMs": 300.37,
+          "allocatedBytes": 6139016
+        },
+        {
+          "elapsedMs": 313.9878,
+          "openMs": 176.6096,
+          "renderMs": 137.3782,
+          "allocatedBytes": 6186032
+        },
+        {
+          "elapsedMs": 331.454,
+          "openMs": 60.1018,
+          "renderMs": 271.35220000000004,
+          "allocatedBytes": 6199808
+        },
+        {
+          "elapsedMs": 210.5771,
+          "openMs": 209.8906,
+          "renderMs": 0.6864999999999952,
+          "allocatedBytes": 6107464
+        }
+      ],
+      "visibleControls": 48,
+      "createdVisibleControls": 52
+    }
+  ]
+}

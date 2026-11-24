@@ -41,28 +41,17 @@ for(const fixture of cases){
  assert.equal(end.action,fixture.action,fixture.name);
  assert.equal(end.incomplete,fixture.incomplete,fixture.name);
  assert.equal(end.at,fixture.at,fixture.name);
- for(const collapsed of [false,true]){
-  turn.collapsed=collapsed;
-  const html=context.turnHtml(turn,9),footer=block(html,'turn-time answer-time');
-  assert.match(html,/class="turn-number"[^>]*>\[10\]<\//,fixture.name);
-  assert.ok(html.includes(escape(turn.question)),fixture.name+': question lost');
-  actionFollowsTime(footer,fixture.at,fixture.action,fixture.name);
-  assert.doesNotMatch(plain(footer),/答复时间[：:]/,fixture.name+': old prefix remains');
-  if(collapsed){
-   assert.equal((html.match(/class="turn-time sent-time"/g)||[]).length,0,fixture.name+': duplicate collapsed sending block');
-   const lines=footer.split('\n');
-   assert.equal(lines.length,2,fixture.name+': collapsed timestamps must share a two-line block');
-   actionFollowsTime(lines[0],sentAt,'发送',fixture.name);
-   actionFollowsTime(lines[1],fixture.at,fixture.action,fixture.name);
-   assert.match(html,/id="synthetic-turn-segments"[^>]*\bhidden\b/,fixture.name);
-   assert.match(html,/aria-expanded="false"/,fixture.name);
-  }else{
-   actionFollowsTime(block(html,'turn-time sent-time'),sentAt,'发送',fixture.name);
-   assert.doesNotMatch(html,/id="synthetic-turn-segments"[^>]*\bhidden\b/,fixture.name);
-   assert.match(html,/aria-expanded="true"/,fixture.name);
-   assert.ok(!turn.answer||html.includes(escape(turn.answer)),fixture.name+': partial or complete answer lost');
-  }
- }
+ const html=context.turnHtml(turn,9),footer=block(html,'turn-time answer-time');
+ assert.match(html,/class="turn-number"[^>]*>\[10\]<\//,fixture.name);
+ assert.ok(html.includes(escape(turn.question)),fixture.name);
+ actionFollowsTime(footer,fixture.at,fixture.action,fixture.name);
+ actionFollowsTime(block(html,'turn-time sent-time'),sentAt,'发送',fixture.name);
+ assert.match(html,/aria-expanded="true"/,fixture.name);
+ turn.collapsed=true;
+ const collapsed=context.transcriptHtml([turn]);
+ assert.equal(plain(collapsed),'[1]',fixture.name);
+ assert.match(collapsed,/aria-expanded="false"/);
+ assert.doesNotMatch(collapsed,/class="(?:segments|turn-time)|<time|已折叠<|data-retry-turn/);
  delete turn.collapsed;
  assert.equal(JSON.stringify(turn),snapshot,fixture.name+': rendering mutated stored turn');
 }
@@ -71,6 +60,10 @@ for(const [index,expected] of [[undefined,1],[0,1],[9,10],[99,100]]){
  assert.match(html,new RegExp('class="turn-number"[^>]*>\\['+expected+'\\]<\\/'));
  assert.equal((html.match(/class="turn-number"/g)||[]).length,1,'Exactly one turn number is rendered');
 }
+const grouped=[true,true,false,true,true,true,false,true].map((collapsed,i)=>({...base,id:'t'+i,collapsed}));
+const ranges=context.transcriptHtml(grouped);
+assert.deepEqual([...ranges.matchAll(/class="fold-number">([^<]+)/g)].map(match=>match[1]),['[1, 2]','[4 ~ 6]','[8]']);
+assert.equal((ranges.match(/class="question"/g)||[]).length,2);
 context.running={turn:{id:base.id}};
 const pending=context.turnHtml({...base,answer:'',incomplete:true},0);
 assert.match(pending,/class="thinking-label"/);
@@ -125,7 +118,7 @@ const stoppedSnapshot=JSON.stringify(stopped.turn);
 stopped.timers[0]();
 assert.equal(JSON.stringify(stopped.turn),stoppedSnapshot,'A late completion must not replace a user stop');
 
-console.log('Turn metadata: ordinal numbering, chronological labels, complete/program/user endings, legacy records, collapsed two-line timestamps, running state and persisted termination causes passed.');
+console.log('Turn metadata: ordinal numbering, chronological labels, complete/program/user endings, legacy records, compact collapsed ranges, running state and persisted termination causes passed.');
 
 const offline=requestFixture('failure');
 offline.timers[0]();assert.equal(offline.runtime.requests.size,1);assert.equal(offline.timers.length,2);

@@ -11,7 +11,8 @@ using TeXeed.App.Services;
 
 namespace TeXeed.App.Controls;
 
-public sealed record EditorTab(string Path, string Title, bool Modified, bool IsPreview = false, bool Warning = false, string? FullTitle = null);
+public sealed record EditorTab(string Path, string Title, bool Modified, bool IsPreview = false, bool Warning = false,
+    string? FullTitle = null, string? PreviewEntry = null, bool PreviewOpen = false);
 public enum TabCloseScope { This, All, Others, Left, Right }
 public partial class EditorTabStrip : UserControl
 {
@@ -23,6 +24,7 @@ public partial class EditorTabStrip : UserControl
     private double _dragX;
     private readonly DispatcherTimer _dragScroll = new() { Interval = TimeSpan.FromMilliseconds(50) };
     public event Action<string>? Selected;
+    public event Action<string>? PreviewRequested;
     public event Action<string>? RenameRequested;
     public event Action<string, TabCloseScope>? CloseRequested;
     public event Action<string, int>? ReorderRequested;
@@ -72,17 +74,52 @@ public partial class EditorTabStrip : UserControl
         {
             var tab = tabs[i];
             if (!_views.TryGetValue(tab.Path, out var view)) { view = CreateTab(tab.Path); _views.Add(tab.Path, view); }
-            var label = (TextBlock)((Button)((Grid)view.Child).Children[0]).Content;
+            var grid = (Grid)view.Child;
+            var label = (TextBlock)((Button)grid.Children[0]).Content;
             var text = tab.Title + (tab.Warning ? " ⚠" : "") + (tab.Modified ? "  ●" : "");
             if (label.Text != text && string.Equals(tab.Path, active, StringComparison.OrdinalIgnoreCase)) reveal = true;
             label.Text = text;
-            AutomationProperties.SetName((Button)((Grid)view.Child).Children[1], "关闭 " + (tab.FullTitle ?? tab.Title));
+            AutomationProperties.SetName((Button)grid.Children[1], "关闭 " + (tab.FullTitle ?? tab.Title));
+            UpdatePreviewButton(grid, tab);
             view.ToolTip = tab.Warning ? "本次编译未生成有效预览，当前显示上次缓存的 PDF。请查看编译输出。" : tab.FullTitle ?? (TeXeed.Core.TabWorkspace.IsSource(tab.Path) ? tab.Path : tab.Title) + (tab.Modified ? "\n尚未保存" : "");
             var previous = Items.Children.IndexOf(view);
             if (previous != i) { if (previous >= 0) Items.Children.Remove(view); Items.Children.Insert(i, view); }
         }
         UpdateChrome();
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { UpdateOverflow(); if (reveal && active is not null) Reveal(active); }));
+    }
+    private void UpdatePreviewButton(Grid grid, EditorTab tab)
+    {
+        var eye = grid.Children.Count == 3 ? (Button)grid.Children[2] : null;
+        if (tab.PreviewEntry is not { } entry)
+        {
+            if (eye is not null)
+            {
+                grid.Children.Remove(eye); Grid.SetColumn(grid.Children[1], 1);
+                grid.ColumnDefinitions.RemoveAt(2);
+            }
+            return;
+        }
+        if (eye is null)
+        {
+            var icon = new Path { Width = 16, Height = 16, StrokeThickness = 1.4, StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round, StrokeLineJoin = PenLineJoin.Round };
+            icon.SetResourceReference(Shape.StrokeProperty, "Ink");
+            eye = new Button { Style = (Style)Resources["TabButton"], Width = 22, Height = 22, Content = icon };
+            eye.Click += (sender, e) =>
+            {
+                e.Handled = true;
+                if (((Button)sender).Tag is string target) PreviewRequested?.Invoke(target);
+            };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(grid.Children[1], 2); Grid.SetColumn(eye, 1); grid.Children.Add(eye);
+        }
+        var path = (Path)eye.Content;
+        var geometry = (Geometry)Resources[tab.PreviewOpen ? "OpenPreviewEye" : "ClosedPreviewEye"];
+        if (Equals(eye.Tag, entry) && ReferenceEquals(path.Data, geometry)) return;
+        eye.Tag = entry; path.Data = geometry;
+        var label = (tab.PreviewOpen ? "显示已打开的预览" : "打开预览") + " · " + System.IO.Path.GetFileName(entry);
+        eye.ToolTip = label; AutomationProperties.SetName(eye, label);
     }
     private Border CreateTab(string path)
     {
@@ -114,7 +151,8 @@ public partial class EditorTabStrip : UserControl
         view.MouseLeave += (_, _) => middlePressed = false;
         view.PreviewMouseLeftButtonDown += (_, e) =>
         {
-            if (IsInside(e.OriginalSource as DependencyObject, close)) return;
+            var target = e.OriginalSource as DependencyObject;
+            if (IsInside(target, close) || grid.Children.Count == 3 && IsInside(target, grid.Children[2])) return;
             if (e.ClickCount == 2 && TeXeed.Core.TabWorkspace.IsAiConversation(path))
             { EndDrag(); e.Handled = true; RenameRequested?.Invoke(path); return; }
             _dragPath = path; _dragStart = e.GetPosition(this); _dragging = false;

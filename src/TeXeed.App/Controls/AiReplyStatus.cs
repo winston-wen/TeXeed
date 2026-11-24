@@ -19,7 +19,8 @@ public sealed class AiReplyStatus : StackPanel
     public string PendingText { get => (string)GetValue(PendingTextProperty); set => SetValue(PendingTextProperty, value); }
     public string Text { get => (string)GetValue(TextProperty); set => SetValue(TextProperty, value); }
     public bool IsThinking { get => (bool)GetValue(IsThinkingProperty); set => SetValue(IsThinkingProperty, value); }
-    private readonly TextBlock _stamp = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _stamp = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap,
+        LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
     private readonly Ellipse _indicator = new() { Width = AiChatTypography.MetadataFontSize, Height = AiChatTypography.MetadataFontSize, Margin = new Thickness(7, 0, 0, 0), IsHitTestVisible = false };
     private readonly InlineUIContainer _indicatorInline;
     private bool _pulsing;
@@ -44,16 +45,11 @@ public sealed class AiReplyStatus : StackPanel
             if (_retry is not null) _retry.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         }
     }
-    internal bool IsCollapsed
-    {
-        set { _stamp.LineHeight = value ? double.NaN : AiChatTypography.ExpandedLineHeight; _stamp.LineStackingStrategy = value ? LineStackingStrategy.MaxHeight : LineStackingStrategy.BlockLineHeight; }
-    }
     public AiReplyStatus() : this(() => SystemParameters.ClientAreaAnimation) { }
     internal AiReplyStatus(Func<bool> animationsEnabled)
     {
         _animationsEnabled = animationsEnabled;
         Background = Brushes.Transparent;
-        IsCollapsed = false;
         _indicatorInline = new InlineUIContainer(_indicator) { BaselineAlignment = BaselineAlignment.Baseline };
         _stamp.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         _indicator.SetResourceReference(Shape.FillProperty, "ChatThinking");

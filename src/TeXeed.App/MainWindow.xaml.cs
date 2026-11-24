@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException)
         { ThemeManager.UseDefault(); _settings = _settings with { ThemeId = ThemeManager.DefaultId }; }
         InitializeComponent();
+        _defaultSidebarButtons = WorkspaceIconBar.Children.OfType<Button>().ToArray();
         RegisterName("Preview", InitialPreview);
         InitializeWelcome();
         InitializeTitleBar();
@@ -144,7 +145,11 @@ public partial class MainWindow : Window
             if (createNew) await File.WriteAllTextAsync(path, NewDocument);
             var project = await Task.Run(() => _projects.LoadAsync(path));
             var preparedIndex = new ProjectIndexCache();
-            await Task.Run(() => preparedIndex.Update(project.Files));
+            var iconOrder = await Task.Run(() =>
+            {
+                preparedIndex.Update(project.Files);
+                return ProjectExplorerSettings.LoadSidebarOrder(project.Root);
+            });
             _session++; _revision = 0; _pdfRevision = -1; _pdfGeneration++; _navigationRequest++;
             _followAwaitingSourceInteraction = false; _previewUserOwnsView = false;
             _externalChangePending = false; _assetChangePending = false;
@@ -155,6 +160,7 @@ public partial class MainWindow : Window
             // The XAML preview already exists even if the restored workspace has no PDF tab.
             PreviewContainerForKey(TabWorkspace.PreviewKey);
             ResetDirectoryCatalog();
+            RestoreSidebarOrder(iconOrder);
             _sidebarIndex = preparedIndex; _outlineIndex = null;
             foreach (var sourceEditor in Editors) sourceEditor.ClearSession(); Preview.Clear();
             CloseWelcomeSettings(); Workspace.Visibility = Visibility.Visible; Welcome.Visibility = Visibility.Collapsed;

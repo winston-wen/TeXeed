@@ -32,17 +32,20 @@ public partial class AiPanel
         {
             await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
             if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
-            var index = conversation.Turns.FindIndex(t => t.Id == conversation.ReadingTurnId);
-            if (index >= 0) VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index + 1);
+            var savedTurn = conversation.Turns.FirstOrDefault(t => t.Id == conversation.ReadingTurnId);
+            var representative = savedTurn is null ? null : FoldRepresentative(savedTurn);
+            var index = representative is null ? -1 : _transcriptItems.IndexOf(representative);
+            if (index >= 0) VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
             else MessagesScroll.ScrollToVerticalOffset(conversation.ReadingOffset);
             await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
             if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
-            if (conversation.ReadingTurnId is { } id && _turnViews.TryGetValue(id, out var view))
+            if (representative is not null && _turnViews.TryGetValue(representative.Id, out var view))
             {
                 await Task.WhenAll(view.Answers.Select(a => a.RenderTask));
                 await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
                 if (version != _readingRestoreVersion || _book.Active != conversation || _disposed) return;
-                MessagesScroll.ScrollToVerticalOffset(MessagesScroll.VerticalOffset + view.TranslatePoint(new Point(), MessagesScroll).Y + conversation.ReadingTurnOffset);
+                var offset = view.Turn.Collapsed ? 0 : conversation.ReadingTurnOffset;
+                MessagesScroll.ScrollToVerticalOffset(MessagesScroll.VerticalOffset + view.TranslatePoint(new Point(), MessagesScroll).Y + offset);
             }
             _restoringReading = false; ScheduleViewportCapture();
         }
@@ -100,13 +103,14 @@ public partial class AiPanel
     private void Turn_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not AiTurnView view) return;
-        view.TurnNumber = _book.Turns.IndexOf(view.Turn) + 1;
+        UpdateFoldedView(view);
         SetOrdinalGutter(view);
         view.ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project);
         _turnViews[view.Turn.Id] = view;
         view.Unloaded -= Turn_Unloaded; view.Unloaded += Turn_Unloaded;
         ScheduleViewportCapture();
         view.Changed = () => { Dirty(); ScheduleViewportCapture(); };
+        view.FoldRequested = target => ChangeTurnFold(view.Turn, target);
         view.SourceRequested = OpenChatSource;
         view.RetryRequested = async () => await SubmitAsync(view.Turn);
         view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;

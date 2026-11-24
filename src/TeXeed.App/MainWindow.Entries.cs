@@ -200,6 +200,15 @@ public partial class MainWindow
 
     private string? PreviewEntryForKey(string key) => key == TabWorkspace.PreviewKey ? _project?.MainPath : TabWorkspace.PreviewEntry(key);
     private string PreviewKeyForEntry(string path) => string.Equals(path, _project?.MainPath, StringComparison.OrdinalIgnoreCase) ? TabWorkspace.PreviewKey : TabWorkspace.PreviewKeyFor(path);
+    private string? PreviewEntryForSource(string path)
+    {
+        if (_project is null || !path.EndsWith(".tex", StringComparison.OrdinalIgnoreCase)) return null;
+        if (_entryPreviews.ContainsKey(path) || path.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase)) return path;
+        if (_activePreviewEntry is { } active && _previewInputs?.Contains(path) == true) return active;
+        foreach (var (entry, preview) in _entryPreviews)
+            if (preview.Inputs?.Contains(path) == true) return entry;
+        return _activePreviewEntry ?? _project.MainPath;
+    }
     private EntryPreview EntryState(string path)
     {
         if (!_entryPreviews.TryGetValue(path, out var state)) _entryPreviews[path] = state = new();
@@ -352,6 +361,8 @@ public partial class MainWindow
                 if (!_project.Files.Any(existing => existing.Path.Equals(file.Path, StringComparison.OrdinalIgnoreCase)))
                     _project = _project with { Files = [.. _project.Files, file] };
             if (!full.Equals(_project.MainPath, StringComparison.OrdinalIgnoreCase)) _project = _project with { IsolateEntryOutputs = true };
+            // Even before the first build, source tabs can identify the entry that includes them.
+            EntryState(full).Inputs ??= new CompileInputSnapshot(project);
             if (!preserveFocus) ActivateFile(full);
             var key = PreviewKeyForEntry(full);
             if (!await SelectEntryPreviewAsync(full)) { RefreshTabs(); return; }
