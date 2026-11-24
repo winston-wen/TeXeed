@@ -82,31 +82,7 @@ internal static partial class Program
             var stamp = Descendants<TextBlock>(reply).Single(t => t.FontSize == 13 && t.Text.Contains(completed.AnswerTime));
             var line = Descendants<Border>(reply).Single(b => !b.IsHitTestVisible);
             Check(line.TranslatePoint(new Point(), reply).Y >= stamp.ActualHeight, "Timestamp intersects the separator");
-            void CheckCollapsedSpacing()
-            {
-                var texts = Descendants<TextBlock>(second).Where(t => t.IsVisible).ToArray();
-                var rules = Descendants<Border>(second).Where(b => b.IsVisible && b.Height == 1).ToArray();
-                Check(texts.Length == 1 && texts[0].Text == "[2]" && rules.Length == 1 && rules[0].ActualWidth > 100,
-                    "A folded turn must render only its ordinal and one rule");
-                Check(!Descendants<MarkdownView>(second).Any(v => v.IsVisible) && !Descendants<AiReplyStatus>(second).Any(v => v.IsVisible),
-                    "A folded turn still shows content or timestamps");
-            }
-            CheckCollapsedSpacing();
-            var folded = second.FoldTarget;
-            var clickPoint = folded.TranslatePoint(new Point(folded.ActualWidth * .6, folded.ActualHeight / 2), host);
-            var hit = host.InputHitTest(clickPoint) as UIElement;
-            Check(hit is not null, "Folded rule is not hit-testable");
-            var doubleClick = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.MouseDownEvent };
-            typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(doubleClick, 2); hit!.RaiseEvent(doubleClick); host.UpdateLayout();
-            Check(!partial.Collapsed, "Double-click on the rule did not expand the turn");
-            var footer = Descendants<AiReplyStatus>(second).Single();
-            Check(footer.Text.EndsWith("程序中止") && footer.IsVisible, "Expanding lost the end status");
-            footer.RaiseEvent(CreateKey(host, Key.Space, Keyboard.KeyDownEvent)); host.UpdateLayout();
-            CheckCollapsedSpacing();
-            second.FoldTarget.RaiseEvent(CreateKey(host, Key.Enter, Keyboard.KeyDownEvent)); host.UpdateLayout();
-            Check(!partial.Collapsed && footer.IsVisible, "Keyboard expansion did not restore the footer");
-            doubleClick.Handled = false; footer.RaiseEvent(doubleClick); host.UpdateLayout();
-            Check(partial.Collapsed, "Double-click did not fold the answer");
+            CheckSingleFoldGestures(host, second, partial, Check);
             await panel.SaveAsync(); var saved = AiStorage.Load(project).Turns.Single(t => t.Id == partial.Id);
             Check(saved.Collapsed && saved.Incomplete == true && saved.EndedAt == partial.EndedAt, "New status fields or folds did not persist");
 
@@ -117,7 +93,7 @@ internal static partial class Program
                 Capture(host, Path.Combine(output, "ai-prototype-" + colors + ".png"));
                 host.Width = 420; host.UpdateLayout();
                 Check(panel.FindName("ChatHeader") is null,"Narrow layout resurrected the removed header");
-                CheckCollapsedSpacing();
+                CheckSingleFoldShape(second, Check);
                 Capture(host, Path.Combine(output, "ai-prototype-narrow-" + colors + ".png"));
             }
             ThemeManager.Apply(theme); host.Width = 820;
@@ -128,15 +104,7 @@ internal static partial class Program
             Check(live.IsVisible && live.IsThinking && !live.Focusable, "Live footer must display thinking without enabling folding");
             Check(((TextBlock)panel.FindName("LiveSentTime")).Text.EndsWith("发送"), "Live send time does not place the timestamp first");
             Check(((TextBlock)panel.FindName("LiveTurnNumber")).Text == "[1]", "Live turn number does not follow the conversation");
-            var liveStamp = (TextBlock)panel.FindName("LiveSentTime");
-            var liveClick = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.MouseDownEvent };
-            typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.SetValue(liveClick, 2); liveStamp.RaiseEvent(liveClick);
-            host.UpdateLayout();
-            var foldedLive = Descendants<AiTurnView>(panel).Single(v => v.IsVisible);
-            await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-            Check(!liveStamp.IsVisible && !live.IsVisible && Descendants<TextBlock>(foldedLive).Single(t => t.IsVisible).Text == "[1]", "Folded live turn must show only its compact row");
-            foldedLive.FoldTarget.RaiseEvent(CreateKey(host, Key.Enter, Keyboard.KeyDownEvent)); host.UpdateLayout();
-            Check(liveStamp.IsVisible && live.IsVisible, "The live folded rule cannot restore the running turn");
+            await CheckLiveFoldAsync(host, panel, live, Check);
             var indicator = Descendants<Ellipse>(live).Single();
             Check(indicator.HasAnimatedProperties == SystemParameters.ClientAreaAnimation, "Visible thinking indicator uses the wrong system animation mode");
             var extent = ((ScrollViewer)panel.FindName("MessagesScroll")).ExtentHeight;

@@ -64,6 +64,11 @@ internal static partial class Program
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--ai-turn-fold-only"))
+                {
+                    await CheckAiTurnFoldingAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI turn folds"); result = 0; return;
+                }
                 if (args.Contains("--workspace-chrome-native"))
                 {
                     await ExerciseWorkspaceChromeAsync(window, output);
