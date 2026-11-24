@@ -74,8 +74,13 @@ public partial class AiPanel
         var conversationId = _book.Active.Id;
         await view.RenderTask;
         if (_disposed || _book.Active.Id != conversationId || !view.IsLoaded) return;
-        var branches = _book.Conversations.Where(c => c.ParentConversationId == conversationId && c.BranchAnchor?.TurnId == turn.Id && c.BranchAnchor.SegmentId == segment.Id).ToArray();
-        var localLinks = SameConversationLinks(turn.Id, segment.Id);
+        var rows = turn.RevisionHistory?.LastOrDefault()?.Rows;
+        string Owner(string id, string oldSegment) =>
+            rows?.FirstOrDefault(r => r.Links.Any(l => l.Id == id))?.SegmentId ?? oldSegment;
+        var branches = _book.Conversations.Where(c => c.ParentConversationId == conversationId && c.BranchAnchor?.TurnId == turn.Id &&
+            Owner(c.Id, c.BranchAnchor.SegmentId) == segment.Id).ToArray();
+        var localLinks = rows is null ? SameConversationLinks(turn.Id, segment.Id) : AiRevisionText.Segments(turn)
+            .SelectMany(s => SameConversationLinks(turn.Id, s.Id)).Where(link => Owner(link.Id, link.Anchor.SegmentId) == segment.Id).ToList();
         if (branches.Length == 0 && localLinks.Count == 0 && view.BranchLinkBlocks.Count == 0) return;
         var branchIds = branches.Select(branch => branch.Id).Concat(localLinks.Select(link => link.Id)).ToHashSet(StringComparer.Ordinal);
         var obsolete = view.BranchLinkBlocks.Where(pair => !branchIds.Contains(pair.Key)).ToArray();
@@ -96,6 +101,18 @@ public partial class AiPanel
             }
         }
         if (_disposed || _book.Active.Id != conversationId || !view.IsLoaded) return;
+        if (rows is not null)
+        {
+            var savedOrder = rows.Where(row => row.SegmentId == segment.Id).SelectMany(row => row.Links)
+                .Select((link, i) => (link.Id, i)).ToDictionary(item => item.Id, item => item.i);
+            var actions = branches.Select(branch => (branch.Id, branch.Title, Anchor: branch.BranchAnchor!, Before: branch.BranchContextBefore,
+                    After: branch.BranchContextAfter, Open: (Action)(() => OpenRelatedConversation(branch.Id))))
+                .Concat(localLinks.Select(link => (link.Id, Title: "[" + link.TargetNumber + "]", link.Anchor, link.Before,
+                    link.After, Open: (Action)(() => OpenSameConversationTurn(link.TargetTurnId)))));
+            foreach (var action in actions.OrderBy(item => savedOrder.GetValueOrDefault(item.Id, int.MaxValue)))
+                view.AddBranchLink(action.Id, action.Title, action.Anchor, action.Before, action.After, action.Open);
+            return;
+        }
         foreach (var branch in branches)
         {
             var anchor = branch.BranchAnchor!;
@@ -132,7 +149,8 @@ public partial class AiPanel
             Title = string.Concat(quote.EnumerateRunes().Take(16)),
             SelectedModelId = snapshot.SelectedModelId ?? Settings.SelectedModel?.Id,
             SelectedReasoningEffort = snapshot.SelectedReasoningEffort ?? Settings.SelectedEffort,
-            InheritedTurns = snapshot.InheritedTurns.Concat(snapshot.Turns.Take(turnIndex + 1)).ToList(),
+            InheritedTurns = snapshot.InheritedTurns.Concat(snapshot.Turns.Take(turnIndex + 1))
+                .Select(t => t with { UserRevisionDraft = null, RevisionRequest = null }).ToList(),
             Entries = [AiSessionExcerptReferences.Create(parent.Id, anchor, context.Before, context.After, protectOrigin: true)] };
         _book.Conversations.Add(branch);
         foreach (var answer in _answerLayers.Keys.ToArray()) AddBranchLinks(answer);
@@ -148,7 +166,20 @@ public partial class AiPanel
         var active = _book.Active;
         if (source.Id == active.Id)
         {
-            _ = NavigateAnswerReferenceAsync(anchor, before, after);
+            string? sourceId = null;
+            foreach (var turn in active.Turns)
+            {
+                var index = turn.SentAnnotations.FindIndex(item => item.Id == entry.Id);
+                if (index < 0) continue;
+                sourceId = "turn:" + turn.Id + ":" + index;
+                break;
+            }
+            _ = NavigateAnswerReferenceAsync(anchor, before, after, sourceId);
+            return true;
+        }
+        if (active.ParentConversationId == source.Id && AiAnswerAnchor.SamePayload(active.BranchAnchor, anchor) && BranchSourceRequested is not null)
+        {
+            BranchSourceRequested(this, active);
             return true;
         }
         if (AnswerSourceRequested is null) return false;
@@ -156,17 +187,18 @@ public partial class AiPanel
         return true;
     }
 
-    private async Task NavigateAnswerReferenceAsync(AiAnswerAnchor anchor, string? before, string? after)
+    private async Task NavigateAnswerReferenceAsync(AiAnswerAnchor anchor, string? before, string? after, string? sourceId)
     {
-        try { if (!await NavigateBranchSourceAsync(anchor, before, after)) StatusText.Text = "无法定位引用出处，原回答可能已改变。"; }
+        try { if (!await NavigateBranchSourceAsync(anchor, before, after, sourceId)) StatusText.Text = "无法定位引用出处，原回答可能已改变。"; }
         catch (Exception ex) { ShowError(ex); }
     }
 
-    internal async Task<bool> NavigateBranchSourceAsync(AiAnswerAnchor anchor, string? before = null, string? after = null)
+    internal async Task<bool> NavigateBranchSourceAsync(AiAnswerAnchor anchor, string? before = null, string? after = null, string? sourceId = null)
     {
         CancelLayoutAnchor();
         var conversation = _book.Active;
         var turn = conversation.Turns.FirstOrDefault(t => t.Id == anchor.TurnId);
+        if (turn is not null && _revisionEditors.ContainsKey(turn.Id)) CloseRevisionEditor(turn.Id);
         var index = turn is null ? -1 : RevealableTurnIndex(turn);
         if (turn is null || index < 0) return false;
         CancelReadingRestore();
@@ -179,12 +211,17 @@ public partial class AiPanel
         if (_disposed || _book.Active != conversation || !_turnViews.TryGetValue(turn.Id, out var turnView)) return false;
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
-        var view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment s && s.Id == anchor.SegmentId);
+        var latest = turn.RevisionHistory?.LastOrDefault();
+        if (latest is not null && sourceId is null)
+            sourceId = RevisionReferences(turn).FirstOrDefault(r => AiAnswerAnchor.SamePayload(r.Anchor, anchor))?.Id;
+        var owner = latest?.Rows.FirstOrDefault(row => row.Links.Any(link => link.Id == sourceId))?.SegmentId ?? anchor.SegmentId;
+        var view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment s && s.Id == owner);
         if (view is null) return false;
         await view.RenderTask;
         if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
-        if (_disposed || _book.Active != conversation || view.Revision != anchor.Revision) return false;
-        var pointer = view.ResolveBranchAnchor(anchor, before, after);
+        if (_disposed || _book.Active != conversation) return false;
+        var pointer = sourceId is null ? null : view.RevisionPointer(sourceId, reveal: true);
+        pointer ??= view.ResolveBranchAnchor(anchor, before, after);
         History.UpdateLayout(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         if (_readingRestoreVersion != readingVersion || !IsVisible) return true;
         if (pointer is null || view.BookmarkPoint(pointer) is not { } point) return false;

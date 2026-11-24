@@ -1,0 +1,118 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs'), path=require('node:path'), {pathToFileURL}=require('node:url');
+const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
+(async()=>{
+ const browser=await chromium.launch({headless:true,...(process.env.TEXEED_BROWSER_PATH?{executablePath:process.env.TEXEED_BROWSER_PATH}:{})});
+ try{
+  const page=await browser.newPage({viewport:{width:1250,height:900}});
+  page.setDefaultTimeout(5500);
+  const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.message);});
+  await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
+  const original='# 密钥恢复\n\n先算接收值，再核对。\n\n## 进一步计算\n\n复查结论。\n\n行内 $x+1$ 仍在。\n\n$$w=x+1$$\n\n| 输入 | 输出 |\n| --- | --- |\n| 1 | 2 |';
+  await page.evaluate(original=>{
+    const c=current();c.turns=[{id:'up',answer:original,question:'如何恢复密钥？',segments:[],reviewDraft:{blocks:{},comments:[],oldComments:{preserve:true}}},{id:'follow',question:'何时核对？',answer:'保留原注。',segments:[],annotations:[{id:'q1',block:'up-p1',quote:'接收值',endTextOffset:5}]}];
+    c.draft='我的未发草稿';c.entries=[];
+    state.reviewPinnedTurns=[];state.reviewTemporaryTurns=[];state.reviewAutoSeen={};
+    renderConversation();persist();
+  },original);
+  async function edit(){await page.locator('[data-revise="up"]').click();await page.waitForSelector('.revision-editor');}
+  const row=id=>page.locator('.revision-row[data-id="'+id+'"] .words');
+  const save=()=>page.getByRole('button',{name:'完成整理',exact:true}).click();
+  async function caret(locator,side,selectAll=false){await locator.evaluate((el,{side,selectAll})=>{
+    el.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(el);if(!selectAll)range.collapse(side==='start');
+    const s=getSelection();s.removeAllRanges();s.addRange(range);
+  },{side,selectAll});}
+  // Start a branch using the ordinary context menu and come back.
+  const source=page.locator('#up-p1 p');
+  await source.evaluate(el=>{const n=el.firstChild,r=document.createRange();r.setStart(n,0);r.setEnd(n,2);const s=getSelection();s.removeAllRanges();s.addRange(r);const b=r.getBoundingClientRect();el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:b.x+1,clientY:b.y+1}));});
+  await page.locator('#branch-conversation').click();const child=await page.evaluate(()=>current().id);
+  await page.locator('#branch-origin-return').click();assert.equal(await source.locator('.same-turn-link').count(),2);
+  const baseSnapshot=await page.evaluate(()=>structuredClone(state.conversations.at(-1).inheritedContext));
+  await edit();const first=row('up-p1');
+  assert.equal(await first.locator('[contenteditable=false]').count(),2);
+  await first.evaluate(el=>{const ref=el.querySelector('[data-open-child]');el.focus();const r=document.createRange();r.setStartAfter(ref);r.collapse(true);const s=getSelection();s.removeAllRanges();s.addRange(r);});
+  await page.keyboard.insertText('顺序');assert.match(await first.innerText(),/顺序/);
+  await caret(first,'start',true);
+  const ime=await page.context().newCDPSession(page);await ime.send('Input.imeSetComposition',{text:'zheng',selectionStart:5,selectionEnd:5});
+  await ime.send('Input.insertText',{text:'整句重写'});await ime.detach();
+  assert.equal(await first.locator('[contenteditable=false]').count(),2);assert.match(await first.textContent(),/整句重写/);
+  await page.getByRole('button',{name:'撤销',exact:true}).click();assert.match(await first.textContent(),/顺序/);
+  await caret(first,'start',true);await page.keyboard.press('Backspace');
+  assert.equal(await row('up-p0').locator('.same-turn-link').count(),2);
+  assert.equal(await first.count(),0);
+  await page.getByRole('button',{name:'撤销',exact:true}).click();assert.equal(await first.locator('.same-turn-link').count(),2);
+  await caret(first,'start',true);await page.keyboard.press('Backspace');
+  await caret(row('up-p0'),'end');await page.keyboard.press('Enter');await page.keyboard.insertText('恢复条件');
+  const newId=await page.evaluate(()=>document.activeElement.closest('.revision-row').dataset.id);
+  await page.getByLabel('段落样式').selectOption('2');
+  assert.equal(await page.locator('.revision-row[data-id="'+newId+'"] .revision-number').innerText(),'[1:1.1] ');
+  await caret(row(newId),'end');await page.keyboard.press('Shift+Enter');await page.keyboard.insertText('按提示恢复。');
+  await caret(row('up-p3'),'start');await page.keyboard.press('Backspace');
+  assert.equal(await row('up-p3').count(),0);
+  // Reversibility for whole-paragraph selection, with protected inline and display math.
+  await page.getByRole('button',{name:'选择段落',exact:true}).click();
+  await page.locator('.revision-row[data-id="up-p0"]').click();await page.locator('.revision-row[data-id="up-p4"]').click();
+  await page.getByRole('button',{name:/删除所选/}).click();
+  assert.equal(await page.locator('.revision-editor .same-turn-link').count(),2);
+  assert.equal(await page.locator('.revision-editor .math').count(),2);
+  await page.getByRole('button',{name:'撤销',exact:true}).click();
+  const dir=process.env.TEXEED_REVISION_ARTIFACTS;if(dir){fs.mkdirSync(dir,{recursive:true});await page.locator('.revision-editor').screenshot({path:path.join(dir,'editing.png')});}
+  await save();
+  assert.equal(await page.locator('#up .answer table').count(),1);
+  assert.equal(await page.locator('#up .answer .math').count(),2);
+  assert.equal(await page.locator('#up-p0 .same-turn-link').count(),2);
+  assert.equal(await page.evaluate(()=>current().turns[0].readingRevisions[0].author),'用户');
+  assert.equal(await page.evaluate(()=>current().turns[0].answer),original);
+  await page.reload();await page.waitForSelector('#up-p0 .same-turn-link');
+  assert.equal(await page.locator('#composer').inputValue(),'我的未发草稿');
+  assert.equal(await page.locator('#up-p0 .same-turn-link').count(),2);
+  await page.locator('[data-open-child="'+child+'"]').click();await page.locator('#branch-origin-return').click();
+  assert.equal(await page.locator('#up-p0 .same-turn-link').count(),2);
+  assert.deepEqual(await page.evaluate(()=>state.conversations.at(-1).inheritedContext),baseSnapshot);
+  await edit();await page.getByRole('button',{name:'AI 改稿',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'AI 改稿 · 原型模拟'});
+  await dialog.locator('textarea').fill('帮我把结论写具体');await dialog.getByRole('button',{name:'提交'}).click();
+  assert.match(await dialog.locator('label').textContent(),/原句/);
+  await dialog.locator('textarea').fill('按提示恢复。');await dialog.getByRole('button',{name:'提交'}).click();
+  await dialog.getByRole('button',{name:'关闭'}).click();
+  await page.reload();await edit();await page.getByRole('button',{name:'AI 改稿',exact:true}).click();
+  assert.match(await dialog.locator('label').textContent(),/什么文字/);
+  await dialog.locator('textarea').fill('核对提示后恢复密钥。');await dialog.getByRole('button',{name:'提交'}).click();
+  assert.match(await page.locator('#up .answer').innerText(),/核对提示后恢复密钥/);
+  assert.deepEqual(await page.evaluate(()=>current().turns[0].readingRevisions.map(v=>v.author)),['用户','AI']);
+  await edit();await page.getByRole('button',{name:'版本历史',exact:true}).click();
+  const versions=page.getByRole('dialog',{name:'本轮版本历史'});
+  await versions.locator('select').selectOption('0');assert.match(await versions.locator('article').innerText(),/先算接收值/);
+  await versions.locator('select').selectOption('1');assert.match(await versions.locator('article').innerText(),/按提示恢复/);
+  await versions.locator('select').selectOption('2');assert.match(await versions.locator('article').innerText(),/核对提示后恢复密钥/);
+  assert.equal(await page.evaluate(()=>current().turns[0].reviewDraft.oldComments.preserve),true);
+  if(dir)await versions.screenshot({path:path.join(dir,'history.png')});
+  await versions.getByRole('button',{name:'关闭'}).click();await save();
+  await page.locator('[data-open-child="'+child+'"]').click();await page.locator('#composer').fill('请继续这处追问');await page.locator('#send').click();
+  await page.waitForSelector('[data-back-origin]');await page.locator('[data-back-origin]').click();
+  assert.match(await page.locator('#up .answer').innerText(),/核对提示后恢复密钥/);
+  assert.deepEqual(await page.evaluate(()=>state.conversations.find(c=>c.branchSource).inheritedContext),baseSnapshot);
+  await page.evaluate(()=>{
+    const c=current();c.turns.push({id:'edges',question:'边界输入',answer:'# 第一节\n相邻正文\n## 子节\n\n中段文字\n\n末段文字',segments:[]});renderTurns();
+  });
+  await page.locator('[data-revise="edges"]').click();const edgeEditor=page.locator('#edges .revision-editor'),words=edgeEditor.locator('.words');
+  assert.equal(await words.count(),5,'相邻 Markdown 标题与段落均可整理');
+  await caret(words.first(),'start');await page.keyboard.press('Enter');
+  await caret(words.first(),'start');await page.keyboard.press('Backspace');assert.equal(await words.count(),6,'首空段 Backspace 保留');
+  await page.keyboard.press('Delete');assert.equal(await words.count(),5);assert.equal(await page.evaluate(()=>document.activeElement.textContent),'第一节');
+  await caret(words.last(),'end');await page.keyboard.press('Enter');await page.keyboard.press('Delete');assert.equal(await words.count(),6,'尾空段 Delete 保留');
+  await page.keyboard.press('Backspace');assert.equal(await words.count(),5);assert.equal(await page.evaluate(()=>document.activeElement.textContent),'末段文字');
+  await caret(words.nth(1),'end');await page.keyboard.press('Enter');await page.keyboard.press('Delete');
+  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'子节');
+  await caret(words.nth(1),'end');await page.keyboard.press('Delete');assert.equal(await words.count(),4);
+  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'相邻正文子节');
+  assert.equal(await page.evaluate(()=>getSelection().anchorOffset),'相邻正文'.length,'合并后光标停在接缝');
+  await caret(words.last(),'end');await page.keyboard.insertText('新增草稿');
+  await page.reload();await page.locator('[data-revise="edges"]').click();assert.match(await words.last().textContent(),/新增草稿/);
+  await save();
+  if(dir)await page.locator('#edges').screenshot({path:path.join(dir,'reading.png')});
+  assert.deepEqual(errors,[]);
+  console.log('PASS 原位整理、标题编号、跨段合并、撤销、受保护的公式表格和多个引用、最新稿回源、草稿与历史恢复、跨轮模拟 AI 改稿');
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

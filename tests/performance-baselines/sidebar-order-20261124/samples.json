@@ -1,0 +1,96 @@
+{
+  "0.5.22": [
+    {
+      "discoveryMs": 1.9364,
+      "indexMs": 0.7879,
+      "openMs": 297.1804,
+      "firstFrameMs": 576.3486,
+      "outlineContainers": 80,
+      "files-0": 22.0159,
+      "labels-0": 25.141,
+      "outline-0": 2.8131,
+      "files-1": 2.889,
+      "outline-1": 2.9604,
+      "bookmarks-0": 5.687,
+      "unchangedRefreshMs": 10.815,
+      "editIndexMs": 14.7209
+    },
+    {
+      "discoveryMs": 1.6275,
+      "indexMs": 0.4937,
+      "openMs": 230.7249,
+      "firstFrameMs": 500.3158,
+      "outlineContainers": 80,
+      "files-0": 26.8033,
+      "labels-0": 28.2799,
+      "outline-0": 3.7963,
+      "files-1": 2.9073,
+      "outline-1": 3.1328,
+      "bookmarks-0": 6.3657,
+      "unchangedRefreshMs": 12.9806,
+      "editIndexMs": 16.8151
+    },
+    {
+      "discoveryMs": 1.5041,
+      "indexMs": 0.5308,
+      "openMs": 220.5374,
+      "firstFrameMs": 442.0411,
+      "outlineContainers": 80,
+      "files-0": 17.5659,
+      "labels-0": 23.1694,
+      "outline-0": 2.3368,
+      "files-1": 2.0934,
+      "outline-1": 2.3752,
+      "bookmarks-0": 6.1875,
+      "unchangedRefreshMs": 25.6673,
+      "editIndexMs": 11.998
+    }
+  ],
+  "0.5.23": [
+    {
+      "discoveryMs": 1.5123,
+      "indexMs": 0.5463,
+      "openMs": 220.8467,
+      "firstFrameMs": 476.4754,
+      "outlineContainers": 80,
+      "files-0": 33.2242,
+      "labels-0": 24.1406,
+      "outline-0": 2.4148,
+      "files-1": 2.145,
+      "outline-1": 2.5905,
+      "bookmarks-0": 5.276,
+      "unchangedRefreshMs": 0.707,
+      "editIndexMs": 11.8412
+    },
+    {
+      "discoveryMs": 1.7607,
+      "indexMs": 0.5498,
+      "openMs": 273.6037,
+      "firstFrameMs": 542.1259,
+      "outlineContainers": 80,
+      "files-0": 20.7076,
+      "labels-0": 24.3041,
+      "outline-0": 2.4621,
+      "files-1": 2.5375,
+      "outline-1": 2.7175,
+      "bookmarks-0": 6.1098,
+      "unchangedRefreshMs": 8.0527,
+      "editIndexMs": 12.4617
+    },
+    {
+      "discoveryMs": 2.0036,
+      "indexMs": 0.4844,
+      "openMs": 220.1289,
+      "firstFrameMs": 455.9006,
+      "outlineContainers": 80,
+      "files-0": 17.8255,
+      "labels-0": 30.3228,
+      "outline-0": 2.2497,
+      "files-1": 2.7911,
+      "outline-1": 2.4146,
+      "bookmarks-0": 6.5798,
+      "unchangedRefreshMs": 19.2995,
+      "editIndexMs": 13.1908
+    }
+  ]
+}

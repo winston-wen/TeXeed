@@ -177,12 +177,26 @@ public sealed record AiTurn(string Question, string Answer)
     public bool? Incomplete { get; init; }
     public string? EndReason { get; init; }
     public string? Prompt { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public AiRevisionRequest? RevisionRequest { get; init; }
     public List<AiEntry> SentAnnotations { get; init; } = [];
     public bool Collapsed { get; set; }
     public Dictionary<string, bool> CollapsedSections { get; init; } = [];
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";
     public List<AiSegment> Segments { get; init; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<AiTurnRevision>? RevisionHistory { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AiRevisionDraft? UserRevisionDraft { get; set; }
+    internal AiTurn Snapshot() => this with
+    {
+        SentAnnotations = SentAnnotations.Select(entry => entry.Snapshot()).ToList(),
+        Segments = Segments.Select(segment => segment.Snapshot()).ToList(),
+        CollapsedSections = new(CollapsedSections),
+        RevisionHistory = RevisionHistory?.Select(revision => revision with
+            { Rows = AiRevisionText.Clone(revision.Rows), Sources = new(revision.Sources) }).ToList(),
+        UserRevisionDraft = UserRevisionDraft is { } draft ? draft with { Rows = AiRevisionText.Clone(draft.Rows) } : null
+    };
     [JsonIgnore] public IReadOnlyList<AiSegment> DisplaySegments
     {
         get
@@ -197,7 +211,7 @@ public sealed record AiTurn(string Question, string Answer)
         }
     }
     [JsonIgnore] public string DisplayQuestion => AiConversation.CleanQuestion(Question);
-    [JsonIgnore] public string DisplayAnswer => string.IsNullOrWhiteSpace(Answer) ? "此旧记录未保存回答，可删除或重新提问。" : Answer;
+    [JsonIgnore] public string DisplayAnswer => string.IsNullOrWhiteSpace(Answer) && RevisionHistory is not { Count: > 0 } ? "此旧记录未保存回答，可删除或重新提问。" : Answer;
     [JsonIgnore] public string DisplayTime => AiTimestamp.Full(SentAt ?? CreatedAt.ToLocalTime());
     [JsonIgnore] public string SentTime => DisplayTime + " 发送";
     [JsonIgnore] public bool IsIncomplete => Incomplete ?? (AnsweredAt is null && (string.IsNullOrWhiteSpace(Answer) || Answer.StartsWith("[本轮未完成]") || FailureSegment is not null));
@@ -341,10 +355,10 @@ public sealed class AiConversation
     }
     internal AiConversation Snapshot() => new()
     {
-        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
+        Id = Id, Title = Title, UpdatedAt = UpdatedAt, LastSentAt = LastSentAt, Draft = Draft, HeaderPinned = HeaderPinned, ReadingOffset = ReadingOffset, ReadingTurnId = ReadingTurnId, ReadingTurnOffset = ReadingTurnOffset, BookmarkBallX = BookmarkBallX, BookmarkBallY = BookmarkBallY, BookmarkSort = BookmarkSort, Bookmarks = Bookmarks.Select(b => b with { FoldKeys = [.. b.FoldKeys] }).ToList(), Turns = Turns.Select(t => t.Snapshot()).ToList(), Permission = Permission, ContextUsage = ContextUsage, ContextMemory = ContextMemory,
         Entries = Entries.Select(e => e.Snapshot()).ToList(), ParentConversationId = ParentConversationId, BranchAnchor = BranchAnchor, BranchContextBefore = BranchContextBefore, BranchContextAfter = BranchContextAfter,
         SelectedModelId = SelectedModelId, SelectedReasoningEffort = SelectedReasoningEffort, ModelPreferenceExplicit = ModelPreferenceExplicit,
-        InheritedTurns = InheritedTurns.Select(t => t with { SentAnnotations = t.SentAnnotations.Select(e => e.Snapshot()).ToList(), Segments = t.Segments.Select(s => s.Snapshot()).ToList(), CollapsedSections = new(t.CollapsedSections) }).ToList(), AdditionalData = AdditionalData is null ? null : new(AdditionalData)
+        InheritedTurns = InheritedTurns.Select(t => t.Snapshot()).ToList(), AdditionalData = AdditionalData is null ? null : new(AdditionalData)
     };
 }
 

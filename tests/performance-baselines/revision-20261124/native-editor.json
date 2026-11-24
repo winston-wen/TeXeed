@@ -1,0 +1,96 @@
+{
+  "eager": {
+    "small": {
+      "firstMenuMs": 938.9196,
+      "firstOpenMs": 157.5209,
+      "firstOpenUiAllocatedBytes": 3698472,
+      "visibleLineEditors": 5,
+      "warm": [
+        {
+          "menuMs": 207.7906,
+          "openMs": 99.1184,
+          "openUiAllocatedBytes": 2694056
+        },
+        {
+          "menuMs": 316.875,
+          "openMs": 65.3299,
+          "openUiAllocatedBytes": 2689336
+        },
+        {
+          "menuMs": 184.9177,
+          "openMs": 55.199,
+          "openUiAllocatedBytes": 2698400
+        },
+        {
+          "menuMs": 183.1177,
+          "openMs": 54.7546,
+          "openUiAllocatedBytes": 2703248
+        },
+        {
+          "menuMs": 180.5472,
+          "openMs": 75.5142,
+          "openUiAllocatedBytes": 2725856
+        }
+      ]
+    },
+    "long": {
+      "turns": 40,
+      "editableRows": 70,
+      "openMs": 372.3416,
+      "openUiAllocatedBytes": 18771240,
+      "splitMs": 16.8134,
+      "splitUiAllocatedBytes": 1060704,
+      "screenYBefore": 149.99999999999977,
+      "screenYAfter": 150,
+      "neighboringEditorReused": true
+    }
+  },
+  "onDemand": {
+    "small": {
+      "firstMenuMs": 924.8673,
+      "firstOpenMs": 110.5653,
+      "firstOpenUiAllocatedBytes": 2867624,
+      "editableRows": 5,
+      "initialNativeEditors": 2,
+      "warm": [
+        {
+          "menuMs": 136.7078,
+          "openMs": 69.4859,
+          "openUiAllocatedBytes": 2262848
+        },
+        {
+          "menuMs": 197.8347,
+          "openMs": 47.2598,
+          "openUiAllocatedBytes": 2253960
+        },
+        {
+          "menuMs": 196.0177,
+          "openMs": 43.1018,
+          "openUiAllocatedBytes": 2262872
+        },
+        {
+          "menuMs": 182.0595,
+          "openMs": 47.0957,
+          "openUiAllocatedBytes": 2268552
+        },
+        {
+          "menuMs": 184.4539,
+          "openMs": 45.2841,
+          "openUiAllocatedBytes": 2273616
+        }
+      ]
+    },
+    "long": {
+      "turns": 40,
+      "editableRows": 70,
+      "initialNativeEditors": 0,
+      "openMs": 100.6978,
+      "openUiAllocatedBytes": 3334000,
+      "splitMs": 12.4852,
+      "splitUiAllocatedBytes": 672504,
+      "screenYBefore": 149.99999999999977,
+      "screenYAfter": 150,
+      "neighboringEditorReused": true
+    }
+  }
+}

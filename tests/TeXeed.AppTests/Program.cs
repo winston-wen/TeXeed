@@ -69,6 +69,12 @@ internal static partial class Program
                     await CheckAiTurnFoldingAsync(window, output);
                     await CloseAndObserveAsync(window, "AI turn folds"); result = 0; return;
                 }
+                if (args.Contains("--revision-editor-only"))
+                {
+                    await CheckRevisionEditorAsync(window, output);
+                    await CheckRevisionEditorViewportAsync(window, output);
+                    await CloseAndObserveAsync(window, "turn revision editor"); result = 0; return;
+                }
                 if (args.Contains("--workspace-chrome-native"))
                 {
                     await ExerciseWorkspaceChromeAsync(window, output);
@@ -253,6 +259,11 @@ internal static partial class Program
                 {
                     await CheckAiBookmarksAsync(window, output);
                     await CloseAndObserveAsync(window, "AI bookmark navigation"); result = 0; return;
+                }
+                if (args.Contains("--ai-revision-source-only"))
+                {
+                    await CheckRevisionSourcesAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI revised sources"); result = 0; return;
                 }
                 if (args.Contains("--ai-branches-only"))
                 {
@@ -449,6 +460,11 @@ internal static partial class Program
                 {
                     await CheckAiDiscoveryAsync(window, root, output);
                     await CloseAndObserveAsync(window, "AI project discovery regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-revision-agent-only"))
+                {
+                    await CheckRevisionAgentAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI answer revision regression"); result = 0; return;
                 }
                 if (args.Contains("--ai-agent-only"))
                 {

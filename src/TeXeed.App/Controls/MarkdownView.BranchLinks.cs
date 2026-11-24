@@ -23,6 +23,12 @@ public sealed partial class MarkdownView
             if (existing.Parent is not null && existing.Child is Button button) { SetBranchTitle(button, title); return true; }
             _branchLinkBlocks.Remove(id);
         }
+        if (HasRevisionLink(id))
+        {
+            if (RevisionPointer(id, reveal: false) is not { Paragraph: not null } saved) return false;
+            var savedOwner = _tableViews.FirstOrDefault(t => saved.IsInSameDocument(t.View.Document.ContentStart))?.View ?? this;
+            return InsertBranchLink(id, title, saved, savedOwner, open);
+        }
         var start = ResolveBranchAnchor(anchor, before, after, reveal: false, out var offset);
         if (start is null) return false;
         var quote = anchor.Quote.Trim();
@@ -41,6 +47,11 @@ public sealed partial class MarkdownView
             var skip = offset - prefix;
             if (skip < 0 || skip > selected.Length - quote.Length || !selected.AsSpan(skip, quote.Length).SequenceEqual(quote)) return false;
         }
+        return InsertBranchLink(id, title, end, owner, open);
+    }
+
+    private bool InsertBranchLink(string id, string title, TextPointer end, MarkdownView owner, Action open)
+    {
         // Repeated references to the same text are kept in their original order.
         foreach (var inline in _branchLinkBlocks.Values.Where(link => link.Parent is not null && link.ElementStart.IsInSameDocument(end) && link.ElementStart.Paragraph == end.Paragraph).OrderBy(link => link.ElementStart, TextPointerComparer.Instance))
             if (end.CompareTo(inline.ElementStart) <= 0 && CopySourceLength(end, inline.ElementStart) == 0) end = inline.ElementEnd;

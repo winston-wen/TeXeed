@@ -185,6 +185,7 @@ public sealed partial class MarkdownView
 
     internal TextPointer? ResolveUserBookmark(AiUserBookmark bookmark)
     {
+        if (HasRevisionLink("bookmark:" + bookmark.Id)) return RevisionPointer("bookmark:" + bookmark.Id, reveal: false);
         if (bookmark.Anchor is not { } anchor || anchor.Revision != Revision ||
             bookmark.FoldKeys.Any(key => _folds?.GetValueOrDefault(key) == true)) return null;
         // Older bookmarks may omit the target's fold ancestry. A match in the

@@ -1,0 +1,27 @@
+.revision-open { margin-inline-start:1em; color:inherit; background:transparent; border:0; padding:0 .3em; font:inherit; cursor:pointer }
+.revision-open:hover,.revision-open:focus-visible { color:var(--text,inherit); text-decoration:underline }
+.revision-editor { font:inherit; color:inherit; line-height:inherit }
+.revision-toolbar,.revision-dialog header { display:flex;align-items:center;gap:8px;flex-wrap:wrap }
+.revision-toolbar { position:sticky;top:0;z-index:2;background:var(--panel,#2c2728);border-block:1px solid var(--border,#5e5454);padding:7px 3px;margin-bottom:.75em }
+.revision-toolbar button,.revision-toolbar select,.revision-dialog button,.revision-dialog select { font-family:inherit;font-size:14px;color:inherit;background:transparent;border:1px solid #827777;border-radius:4px;padding:4px 8px;cursor:pointer }
+.revision-toolbar button:disabled { opacity:.4;cursor:default }
+.revision-toolbar select option,.revision-dialog option { color:CanvasText;background:Canvas }
+.revision-toolbar .revision-primary,.revision-dialog .revision-primary { color:#231d18;background:#e2c492;border-color:#e2c492;margin-inline-start:auto }
+.revision-row { margin:0 0 .55em; line-height:inherit }
+.revision-row .words { white-space:pre-wrap;min-height:1lh;outline-offset:3px;outline:none;overflow-wrap:anywhere;cursor:text }
+.revision-row .words:focus-visible { box-shadow:inset 2px 0 #b59872;padding-inline-start:6px }
+.revision-number { color:var(--gold,#d9b883) }
+.revision-choice { cursor:pointer;border-radius:3px }
+.revision-choice[aria-pressed=true] { background:color-mix(in srgb,currentColor 14%,transparent);outline:1px solid #ae9675 }
+.revision-choice .words,.revision-object { pointer-events:none }
+.revision-notice,.revision-feedback { font-size:.83em;opacity:.8 }
+.revision-dialog { width:min(580px,86vw);max-height:80vh;overflow:auto;background:var(--panel,Canvas);color:var(--text,CanvasText);padding:1.2em;box-sizing:border-box }
+.revision-dialog header { justify-content:space-between;margin-bottom:.8em }
+.revision-dialog h2 { font:inherit;font-size:1.15em;margin:0 }
+.revision-dialog textarea { display:block;font:inherit;width:100%;min-height:5em;box-sizing:border-box;margin-top:.5em }
+.revision-history-body { margin-top:1em;line-height:1.6 }
+.revision-history-body { font:var(--reading-font)/var(--reading-line) var(--reading-face);font-synthesis:none;font-feature-settings:'ss04' 1 }
+.revision-history-body :is(h1,h2,h3,h4,h5,h6,p) { font:inherit;margin:0 }
+.revision-history-body .passage { margin-block:0 .55em }
+.revision-history-body .same-turn-link { font:inherit;border:0;padding:0;background:transparent;opacity:.85 }
+.revision-dialog > select { width:min(100%,25em);max-width:100% }

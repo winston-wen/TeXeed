@@ -148,13 +148,20 @@ public partial class AiPanel
             if (!int.TryParse(bookmark.SegmentId.AsSpan(BookmarkQuestionPrefix.Length), out var question) || question < 0 || question >= turnView.Questions.Count) return false;
             view = turnView.Questions[question];
         }
-        else view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment segment && segment.Id == bookmark.SegmentId);
+        else
+        {
+            var segmentId = turn.RevisionHistory?.LastOrDefault()?.Rows.FirstOrDefault(row =>
+                row.Links.Any(link => link.Id == "bookmark:" + bookmark.Id))?.SegmentId ?? bookmark.SegmentId;
+            view = turnView.Answers.FirstOrDefault(answer => answer.DataContext is AiSegment segment && segment.Id == segmentId);
+        }
         if (view is null) return false;
         await view.RenderTask;
         if (version != _readingRestoreVersion || !IsVisible) return true;
         if (_disposed || _book.Active != conversation) return false;
         TextPointer? pointer;
-        if (bookmark.Kind == AiBookmarkKind.User)
+        if (bookmark.Kind == AiBookmarkKind.User && view.HasRevisionLink("bookmark:" + bookmark.Id))
+            pointer = view.RevisionPointer("bookmark:" + bookmark.Id, reveal: true);
+        else if (bookmark.Kind == AiBookmarkKind.User)
         {
             if (bookmark.Anchor is not { } anchor || view.Revision != anchor.Revision) return false;
             var saved = conversation.Bookmarks.FirstOrDefault(b => b.Id == bookmark.Id);
@@ -227,7 +234,7 @@ public partial class AiPanel
             segment = index >= 0 ? BookmarkQuestionPrefix + index : null;
         }
         var bookmarks = turn is null || segment is null ? [] : _book.Active.Bookmarks.Where(b =>
-            b.Anchor is { } anchor && anchor.TurnId == turn.Id && anchor.SegmentId == segment).ToArray();
+            b.Anchor is { } anchor && anchor.TurnId == turn.Id && (view.HasRevisionLink("bookmark:" + b.Id) || anchor.SegmentId == segment)).ToArray();
         if (bookmarks.Length == 0) { RemoveBookmarkMarker(view); return; }
         if (!_bookmarkMarkerLayers.TryGetValue(view, out var layer))
             _bookmarkMarkerLayers[view] = layer = new AiBookmarkMarkerLayer(view, question);

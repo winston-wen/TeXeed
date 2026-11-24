@@ -30,11 +30,12 @@
  function marks(p,turn){if(view!=='draft')return;const comments=(turn.reviewDraft?.comments||[]).filter(c=>c.block===p.dataset.reviewBlock&&!c.orphan&&!c.resolved).sort((a,b)=>b.start-a.start);let last=Infinity;for(const c of comments){if(c.end>last)continue;const range=rangeAt(p,c.start,c.end);if(!range)continue;const mark=document.createElement('mark');mark.className='review-mark';mark.dataset.reviewNote=c.id;try{mark.append(range.extractContents());range.insertNode(mark);last=c.start;}catch{}}}
  function paragraphFor(p,turn){const id=p.closest('.passage')?.id;if(!id)return;const old=turn.reviewDraft?.blocks?.[id];const simple=[...p.childNodes].every(n=>n.nodeType===Node.TEXT_NODE||n.nodeType===Node.ELEMENT_NODE&&n.matches('.same-turn-link'));if(!simple&&!old)return;
   const raw=document.createRange();raw.selectNodeContents(p);p.dataset.reviewBlock=id;p.dataset.reviewTurn=turn.id;p.dataset.reviewOriginal=old?.original??reviewText(raw);p.classList.add('review-editable');
-  if(old&&view!=='original')outputRuns(p,old.runs);
+  if(old&&view!=='original'&&!turn.readingRevisions?.length)outputRuns(p,old.runs);
   p.removeAttribute('contenteditable');
   p.setAttribute('spellcheck','false');marks(p,turn);
  }
- function mount(){document.querySelectorAll('.answer').forEach(answer=>{const turn=findTurn(answer.dataset.turn);if(!turn)return;answer.querySelectorAll(':scope > .passage > .passage-body > p').forEach(p=>paragraphFor(p,turn));});
+ window.mountTurnReview=answer=>{const turn=findTurn(answer.dataset.turn);if(turn)answer.querySelectorAll(':scope > .passage > .passage-body > p').forEach(p=>paragraphFor(p,turn));};
+ function mount(){document.querySelectorAll('.answer').forEach(window.mountTurnReview);
   toolbar.querySelectorAll('[data-review-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.reviewView===view)));
   toolbar.querySelector('.review-caption').textContent=view==='draft'?'只读 · 保留历史修改稿':view==='original'?'只读 · AI 原件保持不变':'显示原文删除与用户新增';
   renderNotes();updateSendToggle();
@@ -73,7 +74,7 @@
  selectEarlier.onclick=()=>{renderPicker();picker.showModal();};picker.querySelector('#review-pick-close').onclick=()=>picker.close();
  picker.addEventListener('change',e=>{const input=e.target;if(input.matches('[data-pick-conversation][data-pick-turn]'))setMode(input.dataset.pickConversation,input.dataset.pickTurn,input.value);});
  pinnedSummary.addEventListener('click',e=>{const button=e.target.closest('[data-unpin-conversation]');if(button)setMode(button.dataset.unpinConversation,button.dataset.unpinTurn,'none');});
- const oldQuestionHtml=questionHtml;questionHtml=function(t){return oldQuestionHtml(t)+(t.request?.review?snapshotHtmlReview(t.request.review):'');};
+ const oldQuestionHtml=questionHtml;questionHtml=function(t,index){return oldQuestionHtml(t,index)+(t.request?.review?snapshotHtmlReview(t.request.review):'');};
  const oldRender=renderTurns;renderTurns=function(){oldRender();mount();};
  const oldConversation=renderConversation;renderConversation=function(){selection=null;autoLatest(current());oldConversation();mount();updateSendToggle();persist();};
  const oldSend=send;send=function(retryTurn=null){const conversation=current(),before=conversation.turns.length;if(!retryTurn&&selections().some(pin=>!source(pin).turn)){status('携带的批注来源不可用，请先恢复来源或取消该轮，再发送。');return;}const review=retryTurn?clone(retryTurn.request?.review||null):(selections().length?snapshot(conversation):null);oldSend(retryTurn);if(conversation.turns.length===before)return;const sent=conversation.turns.at(-1);if(review)sent.request.review=review;if(!retryTurn)state.reviewTemporaryTurns=[];autoLatest(conversation);updateSendToggle();persist();renderTurns();};

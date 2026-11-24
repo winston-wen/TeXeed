@@ -47,7 +47,7 @@ public sealed partial class MarkdownView
     private void AddScrollableTable(BlockCollection target, MdTable source, int depth)
     {
         var view = new MarkdownView { Padding = new Thickness(0), Margin = new Thickness(-AiChatTypography.RichTextInset, 0, -AiChatTypography.RichTextInset, 0), FontFamily = FontFamily, FontSize = FontSize,
-            ImageBaseDirectory = ImageBaseDirectory, SourceLink = SourceLink, LocalLink = LocalLink, FormulaAsset = FormulaAsset, _math = _math, _tableOwner = this,
+            ImageBaseDirectory = ImageBaseDirectory, SourceLink = SourceLink, LocalLink = LocalLink, FormulaAsset = FormulaAsset, _math = _math, _tableOwner = this, _revisionRanges = _revisionRanges,
             _restoringSpacedEmphasis = this._restoringSpacedEmphasis };
         view.SetBinding(ContextMenuProperty, new System.Windows.Data.Binding(nameof(ContextMenu)) { Source = this });
         var document = view.NewDocument(); view.AddBlock(document.Blocks, source, depth); view.Document = document;

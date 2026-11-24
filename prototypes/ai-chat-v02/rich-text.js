@@ -107,6 +107,10 @@
   });
   return {blocks:source.trim().split(/\n\s*\n/),tokens,singleToken,allTokens};
  }
+ root.answerSourceBlocks=function(source,protectCode=true){
+  const {blocks,tokens,allTokens}=answerParts(source,protectCode);
+  return blocks.map(block=>block.replace(allTokens,(_,index)=>tokens[index].raw));
+ };
  // Keep the cached renderer's passage boundaries while correcting heading levels.
  root.restoreAnswerHeadings=function(markup,source){
   const runtimeMarkup=/<\/(?:h[1-6]|p|pre|ul|ol|blockquote|div)>\r?\n<\/div>/.test(markup),{blocks}=answerParts(source,runtimeMarkup);

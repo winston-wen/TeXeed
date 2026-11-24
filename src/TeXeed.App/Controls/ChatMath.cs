@@ -101,4 +101,20 @@ internal sealed class ChatMath
     }
 
     internal void ReleaseOriginalSource() { _preparedText = ""; _originalText = ""; }
+
+    // Map a Markdig position past TeX placeholders back into the author's Markdown.
+    internal int OriginalPosition(int prepared)
+    {
+        var shift = 0;
+        foreach (var (key, token) in Tokens)
+        {
+            var pad = token.Display ? 2 : 0;
+            var start = token.PreparedOffset - pad;
+            var end = token.PreparedOffset + key.Length + pad;
+            if (prepared < start) break;
+            if (prepared < end) return prepared <= token.PreparedOffset ? token.OriginalOffset : token.OriginalOffset + token.OriginalLength;
+            shift += token.OriginalLength - (end - start);
+        }
+        return prepared + shift;
+    }
 }

@@ -121,6 +121,7 @@ public sealed partial class MarkdownView : RichTextBox
     }
     private void Render()
     {
+        _revisionBlocks?.Clear();
         if (_equationPreview is { } preview) preview.IsOpen = false;
         var version = ++_renderVersion;
         _renderPending = false; _renderPaused = false;
@@ -303,6 +304,7 @@ public sealed partial class MarkdownView : RichTextBox
             case LeafBlock leaf:
                 target.Add(Paragraph(leaf.Inline, depth)); break;
         }
+        if (_revisionRanges is not null) TrackRevisionBlock(block, target.LastBlock);
     }
 
     private Paragraph Paragraph(ContainerInline? inline, int depth)

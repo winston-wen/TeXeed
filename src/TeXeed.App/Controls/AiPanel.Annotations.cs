@@ -101,6 +101,7 @@ public partial class AiPanel
             catch (System.Runtime.InteropServices.ExternalException ex) { ShowError(ex); }
         };
         menu.Items.Add(copyParagraph);
+        AddRevisionCommands(menu, () => AnswerTurn(view), view);
         view.ContextMenu = menu;
     }
     private void Answer_Unloaded(object sender, RoutedEventArgs e)

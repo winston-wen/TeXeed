@@ -41,6 +41,17 @@ public sealed partial class MarkdownView
     internal bool HasContextParagraph => _contextParagraph is { } context &&
         context.Paragraph.ContentStart.IsInSameDocument(context.View.Document.ContentStart);
 
+    internal (string Text, int Offset, double Y)? RevisionContext(FrameworkElement viewport)
+    {
+        if (!HasContextParagraph || _contextParagraph is not { } context || !context.View.IsVisible) return null;
+        var start = context.Paragraph.ContentStart;
+        var bounds = start.GetCharacterRect(LogicalDirection.Forward);
+        if (bounds.IsEmpty) return null;
+        return (context.View.CopySource(start, context.Paragraph.ContentEnd).Trim(),
+            context.View.CopySourceLength(context.View.Document.ContentStart, start),
+            context.View.TranslatePoint(bounds.TopLeft, viewport).Y);
+    }
+
     internal void CopyContextParagraph()
     {
         if (HasContextParagraph && _contextParagraph is { } context)

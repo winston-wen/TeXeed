@@ -34,7 +34,7 @@ public partial class MainWindow
             if (branch.ParentConversationId is not { } id || branch.BranchAnchor is not { } anchor) return;
             await OpenAiConversationCoreAsync(id, async source =>
             {
-                if (!await source.NavigateBranchSourceAsync(anchor, branch.BranchContextBefore, branch.BranchContextAfter)) Status("无法定位提问出处，原回答可能已改变。");
+                if (!await source.NavigateBranchSourceAsync(anchor, branch.BranchContextBefore, branch.BranchContextAfter, branch.Id)) Status("无法定位提问出处，原回答可能已改变。");
             });
         };
         panel.SettingsRequested += (_,_) => OpenAiSettings();

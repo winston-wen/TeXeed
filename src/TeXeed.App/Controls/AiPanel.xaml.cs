@@ -401,6 +401,9 @@ public partial class AiPanel : UserControl, IDisposable
             if (!AiEffort.Choices(selectedModel).Any(item => item.Value == requestedEffort))
             { StatusText.Text = "当前会话的推理强度暂不可用，请重新选择。"; return; }
         }
+        var revision = retry is null ? AiAnswerRevision.Resolve(prompt, _book.Turns, submittedForms) : retry.RevisionRequest;
+        var waitingForRevisionReply = false;
+        var revisionRunner = revision is { Cancelled: false } ? CreateRevisionRunner(revision, waiting => waitingForRevisionReply = waiting) : null;
         var followUpTurnSucceeded = false;
         var followUpBook = _book;
         await RunOperationAsync(async token =>
@@ -419,7 +422,7 @@ public partial class AiPanel : UserControl, IDisposable
             if (book.Turns.Count == 0 && book.Active.Title == "新对话") book.Active.Title = AiConversation.MakeTitle(question);
             book.Active.UpdatedAt = DateTimeOffset.UtcNow;
             var buffer = new AiStreamBuffer();
-            var pendingTurn = AiForms.WithSubmissions(new AiTurn(question, "[本轮未完成]") { Id = queued?.DispatchTurnId ?? Guid.NewGuid().ToString("N"), CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, SentAnnotations = sentAnnotations }, submittedForms);
+            var pendingTurn = AiForms.WithSubmissions(new AiTurn(question, "[本轮未完成]") { Id = queued?.DispatchTurnId ?? Guid.NewGuid().ToString("N"), CreatedAt = sentAt, SentAt = sentAt, Incomplete = true, Prompt = prompt, RevisionRequest = revision, SentAnnotations = sentAnnotations }, submittedForms);
             foreach (var submission in submittedForms) batch.Add(new AiEntry { Title = "用户填写的控件", Question = "本次提交消息标识：" + pendingTurn.Id + "\n" + AiForms.Describe(submission) });
             _followUpBuffer = buffer;
             _steering = CreateSteeringController(book, pendingTurn.Id);
@@ -541,7 +544,7 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null, steering: _steering, formSourceIds: book.Turns.Select(turn => turn.Id).ToHashSet(StringComparer.Ordinal), formCurrentSubmissions: submittedForms, formCurrentSubmissionId: pendingTurn.Id, formGradingAvailable: ids => allowedGradingSources = ids.ToHashSet(StringComparer.Ordinal)), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null, steering: _steering, formSourceIds: book.Turns.Select(turn => turn.Id).ToHashSet(StringComparer.Ordinal), formCurrentSubmissions: submittedForms, formCurrentSubmissionId: pendingTurn.Id, formGradingAvailable: ids => allowedGradingSources = ids.ToHashSet(StringComparer.Ordinal), revisionRunner: revisionRunner), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected.Where(entry => !book.Entries.Contains(entry))) { entry.State = "已完成"; entry.Selected = false; }
@@ -563,7 +566,7 @@ public partial class AiPanel : UserControl, IDisposable
                     var segments = buffer.Snapshot();
                     var answer = string.Join("\n\n", segments.Where(s => s.Kind == "final").Select(s => s.Text));
                     if (answer.Length == 0) answer = "[本轮未完成]\n" + string.Join("\n", segments.Where(s => s.Kind == "text" || s.Id == "failure").Select(s => s.Text));
-                    var completedTurn = AttachSteeringHistory(pendingTurn with { Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, EndReason = endReason, Model = modelId, ReasoningEffort = effort, Segments = segments }, AiFollowUpQueue.Load(book.Active).History);
+                    var completedTurn = AttachSteeringHistory(pendingTurn with { RevisionRequest = revision is null ? null : revision with { AwaitingReply = waitingForRevisionReply }, Answer = answer, AnsweredAt = answeredAt, EndedAt = endedAt, Incomplete = answeredAt is null, EndReason = endReason, Model = modelId, ReasoningEffort = effort, Segments = segments }, AiFollowUpQueue.Load(book.Active).History);
                     _formGradeCommitPending = completedTurn.AnsweredAt is not null && AiFormGrading.HasCandidate(completedTurn.Answer);
                     if (_formGradeCommitPending) { QueueButton.IsEnabled = false; SteerButton.IsEnabled = false; }
                     try

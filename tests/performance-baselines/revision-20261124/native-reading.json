@@ -1,0 +1,607 @@
+{
+  "fixture": "120 turns, 1,800 activities, 2,000-line details",
+  "command": "--ai-ui-perf-only --offscreen",
+  "baseline": "0ea29064f034dda133b1a653109d4c1df339e81b",
+  "batches": [
+    {
+      "case": "0523-a",
+      "result": {
+        "scroll_layout_ms": 35.14,
+        "detail_toggle_ms": 5.4546,
+        "resize_ms": 112.2584,
+        "scroll_allocated_bytes": 2377880,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            103.7014,
+            16.8759,
+            56.2203,
+            16.1447,
+            35.9048,
+            15.9232,
+            35.14
+          ],
+          "detail_toggle_ms": [
+            5.3957,
+            5.2925,
+            6.4235,
+            6.8488,
+            5.3819,
+            6.3302,
+            5.4546
+          ],
+          "resize_ms": [
+            129.5731,
+            99.3613,
+            84.8794,
+            117.3146,
+            112.2584,
+            98.3275,
+            113.1914
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6380144,
+            952768,
+            3988744,
+            954336,
+            2377968,
+            953904,
+            2377880
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007152,
+            2466264,
+            1007152,
+            2465952
+          ]
+        }
+      }
+    },
+    {
+      "case": "060-a",
+      "result": {
+        "scroll_layout_ms": 48.1364,
+        "detail_toggle_ms": 5.6163,
+        "resize_ms": 98.5417,
+        "scroll_allocated_bytes": 2378120,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            112.1488,
+            14.8999,
+            58.353,
+            15.5308,
+            48.1364,
+            17.4966,
+            53.0713
+          ],
+          "detail_toggle_ms": [
+            5.4187,
+            5.3489,
+            6.2177,
+            5.5911,
+            5.6163,
+            5.6827,
+            8.7929
+          ],
+          "resize_ms": [
+            123.3508,
+            103.824,
+            80.5513,
+            113.5469,
+            91.0342,
+            98.5417,
+            90.0047
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6384048,
+            952768,
+            3989720,
+            954336,
+            2378688,
+            954336,
+            2378120
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007584,
+            2466984,
+            1007584,
+            2465952
+          ]
+        }
+      }
+    },
+    {
+      "case": "060-b",
+      "result": {
+        "scroll_layout_ms": 44.4947,
+        "detail_toggle_ms": 5.6066,
+        "resize_ms": 102.0947,
+        "scroll_allocated_bytes": 2377880,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            110.4558,
+            16.038,
+            56.9226,
+            15.8374,
+            44.4947,
+            15.5544,
+            52.185
+          ],
+          "detail_toggle_ms": [
+            5.6066,
+            5.3085,
+            5.3599,
+            5.7394,
+            7.0533,
+            5.5153,
+            6.598
+          ],
+          "resize_ms": [
+            127.8486,
+            104.4537,
+            85.1172,
+            119.2602,
+            102.0947,
+            101.0883,
+            96.0377
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6384048,
+            952768,
+            3989720,
+            954336,
+            2378640,
+            953904,
+            2377880
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007584,
+            2466264,
+            1007152,
+            2465952
+          ]
+        }
+      }
+    },
+    {
+      "case": "0523-b",
+      "result": {
+        "scroll_layout_ms": 35.3281,
+        "detail_toggle_ms": 5.554,
+        "resize_ms": 106.067,
+        "scroll_allocated_bytes": 2377880,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            105.5728,
+            15.5627,
+            58.8162,
+            16.417,
+            35.3281,
+            15.3422,
+            40.059
+          ],
+          "detail_toggle_ms": [
+            5.554,
+            5.389,
+            5.6433,
+            6.5327,
+            5.3167,
+            5.5712,
+            5.152
+          ],
+          "resize_ms": [
+            138.7642,
+            103.2268,
+            83.616,
+            117.1411,
+            112.2134,
+            97.269,
+            106.067
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6380144,
+            952768,
+            3988744,
+            954336,
+            2377968,
+            953904,
+            2377880
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007152,
+            2466264,
+            1007152,
+            2465952
+          ]
+        }
+      }
+    },
+    {
+      "case": "060-final-a",
+      "result": {
+        "scroll_layout_ms": 36.5115,
+        "detail_toggle_ms": 5.8413,
+        "resize_ms": 102.1779,
+        "scroll_allocated_bytes": 2377880,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            105.2132,
+            15.6194,
+            67.4701,
+            16.5801,
+            36.5115,
+            15.3471,
+            47.8321
+          ],
+          "detail_toggle_ms": [
+            6.5559,
+            5.2812,
+            5.6801,
+            5.8413,
+            5.3063,
+            7.8065,
+            6.9225
+          ],
+          "resize_ms": [
+            129.9339,
+            102.1779,
+            86.5078,
+            122.7583,
+            102.6314,
+            100.6178,
+            90.031
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6383536,
+            952768,
+            3989592,
+            954336,
+            2377968,
+            953904,
+            2377880
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007152,
+            2466264,
+            1007152,
+            2465952
+          ]
+        }
+      }
+    },
+    {
+      "case": "0523-final-a",
+      "result": {
+        "scroll_layout_ms": 33.2654,
+        "detail_toggle_ms": 5.5423,
+        "resize_ms": 99.1734,
+        "scroll_allocated_bytes": 2377880,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            114.881,
+            16.0093,
+            56.1972,
+            16.4661,
+            37.1729,
+            14.3427,
+            33.2654
+          ],
+          "detail_toggle_ms": [
+            5.6014,
+            5.4778,
+            5.5423,
+            6.2945,
+            5.282,
+            6.0161,
+            5.3106
+          ],
+          "resize_ms": [
+            120.8706,
+            99.1734,
+            88.1589,
+            115.5163,
+            95.8724,
+            97.2051,
+            116.1377
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6380208,
+            952768,
+            3988760,
+            954336,
+            2377968,
+            953904,
+            2377880
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007152,
+            2466264,
+            1007152,
+            2465952
+          ]
+        }
+      }
+    },
+    {
+      "case": "0523-final-b",
+      "result": {
+        "scroll_layout_ms": 32.618,
+        "detail_toggle_ms": 5.517,
+        "resize_ms": 105.7942,
+        "scroll_allocated_bytes": 2377880,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            104.7983,
+            16.3419,
+            56.3175,
+            16.0298,
+            36.6007,
+            14.4958,
+            32.618
+          ],
+          "detail_toggle_ms": [
+            5.517,
+            5.2969,
+            5.3089,
+            5.855,
+            5.454,
+            5.7231,
+            5.5621
+          ],
+          "resize_ms": [
+            130.0693,
+            105.7942,
+            87.722,
+            110.7008,
+            102.9051,
+            98.0601,
+            119.5081
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6380208,
+            952768,
+            3988760,
+            954336,
+            2377968,
+            953904,
+            2377880
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007152,
+            2466264,
+            1007152,
+            2465952
+          ]
+        }
+      }
+    },
+    {
+      "case": "060-final-b",
+      "result": {
+        "scroll_layout_ms": 31.9393,
+        "detail_toggle_ms": 5.5475,
+        "resize_ms": 104.4559,
+        "scroll_allocated_bytes": 2377880,
+        "detail_allocated_bytes": 338536,
+        "resize_allocated_bytes": 2283712,
+        "realized_turns": 8,
+        "realized_activities": 120,
+        "realized_controls": 228,
+        "visible_controls": 42
+      },
+      "samples": {
+        "elapsed": {
+          "scroll_layout_ms": [
+            109.97,
+            15.9946,
+            56.9236,
+            16.1302,
+            33.9603,
+            14.7014,
+            31.9393
+          ],
+          "detail_toggle_ms": [
+            6.0467,
+            5.3159,
+            5.7827,
+            6.0619,
+            5.2855,
+            5.1698,
+            5.5475
+          ],
+          "resize_ms": [
+            128.8516,
+            100.7864,
+            83.5631,
+            112.6055,
+            104.4559,
+            99.0931,
+            122.686
+          ]
+        },
+        "allocated": {
+          "scroll_allocated_bytes": [
+            6383536,
+            952768,
+            3989592,
+            954336,
+            2377968,
+            953904,
+            2377880
+          ],
+          "detail_allocated_bytes": [
+            335176,
+            338864,
+            338448,
+            341984,
+            338536,
+            341984,
+            338448
+          ],
+          "resize_allocated_bytes": [
+            2283712,
+            1006624,
+            2466736,
+            1007152,
+            2466264,
+            1007152,
+            2465952
+          ]
+        }
+      }
+    }
+  ]
+}

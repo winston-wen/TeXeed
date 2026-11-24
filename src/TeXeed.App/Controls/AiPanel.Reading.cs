@@ -112,6 +112,8 @@ public partial class AiPanel
         view.Changed = () => { Dirty(); ScheduleViewportCapture(); };
         view.FoldRequested = target => ChangeTurnFold(view.Turn, target);
         view.SourceRequested = OpenChatSource;
+        view.ConfigureRevisionMenu = menu => AddRevisionCommands(menu, () => view.Turn);
+        if (!view.Turn.Collapsed && _revisionEditors.TryGetValue(view.Turn.Id, out var openEditor)) view.SetRevisionEditor(openEditor);
         view.RetryRequested = async () => await SubmitAsync(view.Turn);
         view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };

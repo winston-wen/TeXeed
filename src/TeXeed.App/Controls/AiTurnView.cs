@@ -33,6 +33,20 @@ public sealed class AiTurnView : StackPanel
     internal bool CanRetry { get => _canRetry; set { _canRetry = value; if (_footer is not null) _footer.CanRetry = value; } }
     internal List<MarkdownView> Answers { get; } = [];
     internal List<MarkdownView> Questions { get; } = [];
+    internal Action<ContextMenu>? ConfigureRevisionMenu;
+    private TurnRevisionEditor? _revisionEditor;
+    internal void SetRevisionEditor(TurnRevisionEditor? editor)
+    {
+        if (ReferenceEquals(_revisionEditor, editor)) return;
+        if (_revisionEditor is not null) Children.Remove(_revisionEditor);
+        _revisionEditor = editor;
+        _body.Visibility = editor is null ? Visibility.Visible : Visibility.Collapsed;
+        if (editor is null || _footer is null) return;
+        if (editor.Parent is AiTurnView previous) previous.SetRevisionEditor(null);
+        editor.Margin = _body.Margin;
+        Children.Insert(Children.IndexOf(_footer), editor);
+    }
+
     private readonly StackPanel _body = new(), _preview = new();
     private readonly TextBlock _number = new() { FontFamily = ChatReadingTypography.Family, FontSize = AiChatTypography.FontSize,
         FontWeight = FontWeights.Normal, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
@@ -85,7 +99,7 @@ public sealed class AiTurnView : StackPanel
         if (_foldedRow is { Visibility: Visibility.Visible })
         {
             foreach (UIElement child in Children)
-                child.Visibility = child == _foldedRow || child == _preview ? Visibility.Collapsed : Visibility.Visible;
+                child.Visibility = child == _foldedRow || child == _preview || child == _body && _revisionEditor is not null ? Visibility.Collapsed : Visibility.Visible;
             _ordinalAlignment?.Schedule();
         }
         _foldEnd = 0;
@@ -111,6 +125,7 @@ public sealed class AiTurnView : StackPanel
         foreach (var old in Questions) QuestionGone?.Invoke(old);
         if (_number.Parent is Panel question) question.Children.Remove(_number);
         Answers.Clear(); Questions.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
+        _revisionEditor = null; _body.Visibility = Visibility.Visible;
         _footer = null; _foldedRow = null; _foldEnd = 0;
         if (Turn is not null) SetFoldRange(TurnNumber);
     }
@@ -182,7 +197,13 @@ public sealed class AiTurnView : StackPanel
                 answer.ConfigureFolding(Turn.CollapsedSections, segment.Id, () => { Changed?.Invoke(); AnswerFoldingChanged?.Invoke(answer); });
                 var gradedReply = AiFormGrading.IsApplied(Turn);
                 if (gradedReply) answer.RevisionSourceOverride = segment.Text;
-                answer.Markdown = gradedReply ? AiFormGrading.DisplayText(segment.Text) : segment.Text;
+                var source = gradedReply ? AiFormGrading.DisplayText(segment.Text) : segment.Text;
+                if (Turn.RevisionHistory?.LastOrDefault() is { } revision)
+                {
+                    answer.RevisionSourceOverride = segment.Text;
+                    source = answer.SetRevisionSource(source, revision.Rows.Where(row => row.SegmentId == segment.Id));
+                }
+                answer.Markdown = source;
                 answer.Loaded += (_, _) => AnswerReady?.Invoke(answer); answer.Unloaded += (_, _) => AnswerGone?.Invoke(answer);
                 Answers.Add(answer); _body.Children.Add(answer);
                 if (--remainingAnswers > 0)
@@ -240,6 +261,19 @@ public sealed class AiTurnView : StackPanel
     {
         var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
         toggle.CanRetry = _canRetry; toggle.RetryRequested = () => RetryRequested?.Invoke();
+        toggle.ToolTip = "双击收起本轮，右键整理或查看编辑历史";
+        void OpenMenu()
+        {
+            if (ConfigureRevisionMenu is null || Turn.IsIncomplete) return;
+            var menu = new ContextMenu { PlacementTarget = toggle }; ConfigureRevisionMenu(menu);
+            menu.IsOpen = true;
+        }
+        toggle.MouseRightButtonUp += (_, e) => { OpenMenu(); e.Handled = true; };
+        toggle.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Apps && !(e.Key == Key.F10 && Keyboard.Modifiers == ModifierKeys.Shift)) return;
+            OpenMenu(); e.Handled = true;
+        };
         EnableFold(toggle);
         return toggle;
     }
