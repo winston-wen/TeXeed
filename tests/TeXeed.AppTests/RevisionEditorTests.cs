@@ -90,9 +90,19 @@ internal static partial class Program
             await formula.RenderTask; await Idle();
             Check(formula.SvgPath is not null && formula.ActualWidth > 8 && formula.ActualHeight > 8 && formula.IsVisible, "The locked display formula was not painted");
             var mathHostView = Descendants<RevisionLineHost>(Editor()).ElementAt(4);
-            Check(!mathHostView.IsKeyboardFocusWithin && mathHostView.Child is TextBlock { Text: sourceLine } &&
-                !Descendants<ChatFormula>(Editor()).Any(f => f.Source == "A"), "Inline TeX must be visible as editable source even in an unfocused paragraph");
             Capture(host, Path.Combine(output, "revision-editor.png"));
+            // Merely hovering the paragraph realizes its editor. Either visible surface
+            // must show literal source before the test focuses or edits that paragraph.
+            string? VisibleInlineText() => mathHostView.Child switch
+            {
+                TextBlock { IsVisible: true } preview => preview.Text,
+                RevisionLineEditor { IsVisible: true } editor => editor.Text,
+                _ => null
+            };
+            Check(VisibleInlineText() == sourceLine && !Descendants<ChatFormula>(Editor()).Any(f => f.Source == "A"),
+                $"Inline TeX must be visible as source when the editor opens; surface: {mathHostView.Child?.GetType().Name}, text: {VisibleInlineText()}");
+            mathHostView.Activate(); await Idle();
+            Check(VisibleInlineText() == sourceLine, "Hover activation changed the visible inline TeX source");
             var mathEditor = Line(4);
             var sourceStart = mathEditor.Text.IndexOf("$A$", StringComparison.Ordinal);
             mathEditor.Select(sourceStart, "$A$".Length);
@@ -119,13 +129,14 @@ internal static partial class Program
             host.Width = 360;
             refEditor = Line(4);
             await Idle();
+            Capture(host, Path.Combine(output, "revision-editor-inline-wrap.png"));
             var textView = refEditor.TextArea.TextView;
             var visual = textView.VisualLines.Single();
             var firstReferenceLine = visual.GetTextLine(visual.GetVisualColumn(referenceStart));
             var lastReferenceLine = visual.GetTextLine(visual.GetVisualColumn(referenceStart + referenceSource.Length - 1));
             Check(!ReferenceEquals(firstReferenceLine, lastReferenceLine) && Math.Abs(firstReferenceLine.Baseline - lastReferenceLine.Baseline) < 1,
-                "The protected equation reference did not wrap across normally aligned visual lines");
-            Capture(host, Path.Combine(output, "revision-editor-inline-wrap.png"));
+                $"Protected equation reference failed to wrap at matching baselines (width {textView.ActualWidth:F1} DIP; " +
+                $"{visual.TextLines.Count} visual lines; first/last baselines {firstReferenceLine.Baseline:F2}/{lastReferenceLine.Baseline:F2} DIP)");
             host.Width = 790; await Idle();
             Check(Rows()[4].Text == sourceLine, "Undo did not restore the original formula and reference");
             var linkIds = Rows()[2].Links.Select(l => l.Id).ToArray();
