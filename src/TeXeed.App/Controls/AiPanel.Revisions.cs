@@ -114,6 +114,15 @@ public partial class AiPanel
         var previousTime = conversation.UpdatedAt;
         var writer = author.ToLowerInvariant();
         if (writer is not ("ai" or "user")) throw new ArgumentException("修订需标记作者。", nameof(author));
+        if (writer == "user")
+        {
+            var original = conversation.Turns.FirstOrDefault(t => t.Id == turnId)
+                ?? throw new InvalidOperationException("找不到指定轮次。");
+            var draft = BeginRevision(original);
+            if (draft.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
+            var proposed = AiRevisionText.Normalize(draft, rows, editableInlineMath: true);
+            rows = await AiRevisionInlineMath.ValidateAsync(draft.Rows, proposed, RepairRevisionInlineMathAsync, _lifetime.Token);
+        }
         void Apply()
         {
             if (_book.Active != conversation || _project != project) throw new InvalidOperationException("会话已经切换。");
@@ -124,7 +133,7 @@ public partial class AiPanel
             if (writer == "ai" && original.UserRevisionDraft is not null) throw new InvalidOperationException("该轮有未完成的手动整理，请先保存或取消手动整理。");
             var draft = BeginRevision(original);
             if (draft.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
-            var normalized = AiRevisionText.Normalize(draft, rows);
+            var normalized = AiRevisionText.Normalize(draft, rows, editableInlineMath: writer == "user");
             bool Same(IEnumerable<AiRevisionRow> left, IEnumerable<AiRevisionRow> right) =>
                 left.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))).SequenceEqual(
                     right.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))));

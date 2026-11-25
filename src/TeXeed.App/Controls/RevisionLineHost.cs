@@ -16,7 +16,7 @@ internal sealed class RevisionLineHost : Decorator
     {
         _buffer = buffer; _imageBaseDirectory = images; _connected = connected;
         Focusable = true; Cursor = Cursors.IBeam;
-        if (buffer.Atoms.Count != 0) { Activate(); return; }
+        if (buffer.Atoms.Any(atom => atom.HasObject)) { Activate(); return; }
         var text = new TextBlock { Text = buffer.Display, FontFamily = ChatReadingTypography.Family, FontSize = AiChatTypography.FontSize,
             TextWrapping = TextWrapping.Wrap, Padding = new Thickness(2, 1, 2, 1), MinHeight = AiChatTypography.LineHeight,
             Background = System.Windows.Media.Brushes.Transparent };

@@ -65,7 +65,9 @@ internal sealed class RevisionLineEditor : TextEditor
         {
             e.Handled = true;
             if (SelectionLength == 0) return;
-            var selected = Buffer.Slice(SelectionStart, SelectionLength);
+            var buffer = Buffer;
+            var (start, end) = buffer.WholeAtoms(SelectionStart, SelectionStart + SelectionLength);
+            var selected = buffer.Slice(start, end - start);
             var plain = selected.Apply(new("", "", "", 0, false, [])).Text;
             try { if (plain.Length > 0) Clipboard.SetText(plain); }
             catch (System.Runtime.InteropServices.ExternalException) { ToolTip = "剪贴板暂时被占用"; return; }
@@ -75,17 +77,25 @@ internal sealed class RevisionLineEditor : TextEditor
 
     private sealed class ProtectedSections(RevisionLineEditor line) : IReadOnlySectionProvider
     {
-        public bool CanInsert(int offset) => true;
+        public bool CanInsert(int offset)
+        {
+            foreach (var (position, atom) in line._atoms)
+            {
+                if (position.Offset >= offset) break;
+                if (offset < position.Offset + atom.Length) return false;
+            }
+            return true;
+        }
         public IEnumerable<ISegment> GetDeletableSegments(ISegment selection)
         {
             var start = selection.Offset;
-            foreach (var (position, _) in line._atoms)
+            foreach (var (position, atom) in line._atoms)
             {
                 var offset = position.Offset;
-                if (offset < start) continue;
+                if (offset + atom.Length <= start) continue;
                 if (offset >= selection.EndOffset) break;
                 if (offset > start) yield return new TextSegment { StartOffset = start, Length = offset - start };
-                start = offset + 1;
+                start = offset + atom.Length;
             }
             if (start < selection.EndOffset) yield return new TextSegment { StartOffset = start, Length = selection.EndOffset - start };
         }
@@ -115,19 +125,19 @@ internal sealed class RevisionLineEditor : TextEditor
         }
         public override int GetFirstInterestedOffset(int startOffset)
         {
-            foreach (var (position, _) in line._atoms)
-                if (position.Offset >= startOffset) return position.Offset;
+            foreach (var (position, atom) in line._atoms)
+                if (atom.HasObject && position.Offset + atom.Length - 1 >= startOffset) return position.Offset + atom.Length - 1;
             return -1;
         }
         public override VisualLineElement? ConstructElement(int offset)
         {
             foreach (var (pos, atom) in line._atoms)
             {
-                if (pos.Offset != offset) continue;
+                if (!atom.HasObject || pos.Offset + atom.Length - 1 != offset) continue;
                 var box = new StackPanel { Orientation = Orientation.Horizontal, IsHitTestVisible = false };
-                if (atom.Source.Length > 0)
+                if (atom.Length == 1 && atom.Source.Length > 0)
                     box.Children.Add(ProtectedObject(atom.Source));
-                foreach (var link in atom.Links.Where(link => !link.Id.StartsWith("bookmark:", StringComparison.Ordinal)))
+                foreach (var link in atom.Links.Where(link => !RevisionBuffer.IsBookmark(link)))
                 {
                     var bubble = new TextBlock { Text = "🗨️ " + link.Label, FontFamily = ChatReadingTypography.Family, FontSize = AiChatTypography.FontSize };
                     bubble.SetResourceReference(TextBlock.ForegroundProperty, "Accent");
@@ -138,5 +148,6 @@ internal sealed class RevisionLineEditor : TextEditor
             }
             return null;
         }
+
     }
 }

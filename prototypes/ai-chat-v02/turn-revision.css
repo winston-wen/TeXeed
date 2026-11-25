@@ -14,6 +14,8 @@
 .revision-choice { cursor:pointer;border-radius:3px }
 .revision-choice[aria-pressed=true] { background:color-mix(in srgb,currentColor 14%,transparent);outline:1px solid #ae9675 }
 .revision-choice .words,.revision-object { pointer-events:none }
+.revision-equation-ref { display:inline; vertical-align:baseline; font:inherit; color:var(--accent); white-space:normal; overflow-wrap:anywhere }
+.revision-invalid .words { outline:1px solid var(--focus) }
 .revision-notice,.revision-feedback { font-size:.83em;opacity:.8 }
 .revision-dialog { width:min(580px,86vw);max-height:80vh;overflow:auto;background:var(--panel,Canvas);color:var(--text,CanvasText);padding:1.2em;box-sizing:border-box }
 .revision-dialog header { justify-content:space-between;margin-bottom:.8em }

@@ -2,7 +2,7 @@
 (() => {
  const catalogs = new WeakMap();
  const textPart = part => typeof part === 'string';
- const atomic = ref => ref.startsWith('media:') || ref.startsWith('block:');
+ const atomic = ref => ref.startsWith('media:') || ref.startsWith('block:') || ref.startsWith('equation-ref:');
  const live = turn => Array.isArray(turn.readingRevisions)&&Array.isArray(turn.readingRevisions.at(-1)?.rows)?turn.readingRevisions.at(-1).rows:null;
  const make = (tag, className, text) => {
    const el=document.createElement(tag);
@@ -11,6 +11,17 @@
    return el;
  };
  const rootOf = (html) => { const template=document.createElement('template'); template.innerHTML=html; return template.content; };
+ const equationRefs = /(?<!\\)\\(eqref|ref)\{([^{}\r\n]+)\}/g;
+ function originalInlineSource(node,available){
+   if(node.matches('code.render-fallback')){
+     const formula=revisionFormulaSpans(node.textContent)[0];
+     if(formula&&!formula.display&&formula.raw===node.textContent)return formula.raw;
+   }
+   if(!node.matches('.math[data-display="false"]'))return null;
+   const source=node.dataset.tex;
+   const index=available.findIndex(formula=>formula.tex.trim()===source.trim());
+   return index>=0?available.splice(index,1)[0].raw:'$'+source+'$';
+ }
  const compact = parts => {
    const result=[];
    for(const p of parts) if(p!==''){
@@ -22,12 +33,20 @@
  function catalog(turn){
    const saved=catalogs.get(turn);
    if(saved&&saved.answer===turn.answer)return saved;
-   const markup=svgHtml(turn),root=rootOf(markup),atoms=new Map(),rows=[],sources=new Map();
+   const markup=svgHtml(turn),root=rootOf(markup),atoms=new Map(),rows=[],sources=new Map(),inlineSources=new Map(),inlineMarkup=new Map(),equations=new Map();
+   for(const [index,node] of Array.from(root.querySelectorAll('.equation .math')).entries()){
+     const tex=node.dataset.tex,tag=/\\tag\*?\{([^{}]+)\}/.exec(tex)?.[1]||String(index+1),label=/\\label\{([^{}]+)\}/.exec(tex)?.[1];
+     const number=node.closest('.equation').querySelector('.equation-number');
+     if(number)number.textContent='('+tag+')';
+     if(label&&!equations.has(label))equations.set(label,tag);
+     if(!equations.has('eq-'+tag))equations.set('eq-'+tag,tag);
+   }
    const chunks=answerSourceBlocks(turn.answer,/<\/(?:h[1-6]|p|pre|ul|ol|blockquote|div)>\r?\n<\/div>/.test(markup));
    let sectionIndex=0;
    for(const section of Array.from(root.children).filter(el=>el.matches('.passage'))){
      const body=section.querySelector('.passage-body'),source=chunks[sectionIndex++];
      if(!body)continue;
+     const available=revisionFormulaSpans(source||'').filter(formula=>!formula.display&&formula.closed);
      for(const [childIndex,block] of Array.from(body.children).entries()){
        const id=section.id+(childIndex?'-sub'+childIndex:''),level=/^H[1-6]$/.test(block.tagName)?Number(block.tagName[1]):0;
        const parts=[];
@@ -44,24 +63,117 @@
            const mark=node.matches('strong,b')?'**':'*';parts.push(mark);node.childNodes.forEach(visit);parts.push(mark);return;
          }
          const ref='media:'+id+':'+count++;atoms.set(ref,node);parts.push({ref});
+         const formula=originalInlineSource(node,available);
+         if(formula!==null){
+           inlineSources.set(ref,formula);
+           if(node.matches('.math')&&!inlineMarkup.has(formula))inlineMarkup.set(formula,node);
+         }
        }
        block.childNodes.forEach(visit);rows.push({id,level,parts:compact(parts)});
      }
    }
-   const result={answer:turn.answer,atoms,rows,sources};catalogs.set(turn,result);return result;
+   const result={answer:turn.answer,atoms,rows,sources,inlineSources,inlineMarkup,equations};catalogs.set(turn,result);return result;
  }
  const protectedBlock=row=>row?.parts.some(p=>!textPart(p)&&p.ref.startsWith('block:'));
+ const equationText=(part,cat)=>{
+   const tag=cat.equations.get(part.label);
+   return tag===undefined?part.equation:part.parentheses?'（'+tag+'）':tag;
+ };
+ function editableRows(rows,cat){
+   return rows.map(row=>{
+     const parts=[];
+     const ids=new Set(refs(row.parts).map(part=>part.ref));
+     let next=0;
+     for(const part of compact(row.parts.map(p=>p?.ref&&cat.inlineSources.has(p.ref)?cat.inlineSources.get(p.ref):p))){
+       if(!isText(part)){parts.push(part);continue;}
+       let start=0;
+       const formulas=revisionFormulaSpans(part);
+       for(const match of part.matchAll(equationRefs)){
+         if(formulas.some(formula=>match.index>=formula.start&&match.index<formula.end))continue;
+         let ref;
+         do{ref='equation-ref:'+row.id+':'+next++;}while(ids.has(ref));
+         parts.push(part.slice(start,match.index),{ref,equation:match[0],label:match[2],parentheses:match[1]==='eqref'});
+         start=match.index+match[0].length;
+       }
+       parts.push(part.slice(start));
+     }
+     return {...row,parts:compact(parts)};
+   });
+ }
+ function checkFormulas(rows,original){
+   const existing=new Map(),failures=[],cache=new Map();
+   for(const row of original)for(const part of row.parts)if(isText(part))
+     for(const formula of revisionFormulaSpans(part))existing.set(formula.raw,(existing.get(formula.raw)||0)+1);
+   for(const [rowIndex,row] of rows.entries())for(const [partIndex,part] of row.parts.entries()){
+     if(!isText(part))continue;
+     for(const formula of revisionFormulaSpans(part)){
+       const count=existing.get(formula.raw)||0;
+       if(count){existing.set(formula.raw,count-1);continue;}
+       let error;
+       if(formula.display)error='行间公式在整理区中保留为只读。';
+       else if(!formula.closed)error='行内公式的结束定界符缺失。';
+       else{
+         if(!cache.has(formula.tex)){
+           let failure='';
+           try{compileRevisionFormula(formula.tex);}catch(e){failure=e.message;}
+           cache.set(formula.tex,failure);
+         }
+         error=cache.get(formula.tex);
+       }
+       if(error)failures.push({rowIndex,partIndex,formula,error});
+     }
+   }
+   return failures;
+ }
+ function simulateFormulaRepair(rows,failures){
+   const fixed=structuredClone(rows);
+   for(const {rowIndex,partIndex,formula} of [...failures].reverse()){
+     if(formula.display||!formula.closed)return null;
+     const tex=formula.tex.replace(/\\(?:frca|farc|sqtr)\b/g,token=>token==='\\sqtr'?'\\sqrt':'\\frac');
+     if(tex===formula.tex)return null;
+     const parts=fixed[rowIndex].parts,text=parts[partIndex];
+     parts[partIndex]=text.slice(0,formula.start)+formula.left+tex+formula.right+text.slice(formula.end);
+   }
+   return fixed;
+ }
+ function proseWithMath(part,cat){
+   const formulas=revisionFormulaSpans(part).filter(span=>!span.display&&span.closed);
+   if(!formulas.length&&!part.includes('*'))return document.createTextNode(part);
+   let marker='\ue000';while(part.includes(marker))marker+='\ue000';
+   const tokenPattern=new RegExp(marker+'(\\d+)\\ue001','g');
+   let input='',start=0;
+   for(const [i,formula] of formulas.entries()){
+     input+=part.slice(start,formula.start)+marker+i+'\ue001';
+     start=formula.end;
+   }
+   input+=part.slice(start);
+   const frag=document.createDocumentFragment();
+   function append(target,text){
+     let at=0;
+     for(const match of text.matchAll(tokenPattern)){
+       if(match.index>at)target.append(text.slice(at,match.index));
+       const formula=formulas[Number(match[1])],original=cat.inlineMarkup.get(formula.raw);
+       target.append(original?.cloneNode(true)??rootOf(renderRevisionFormula(formula)));
+       at=match.index+match[0].length;
+     }
+     if(at<text.length)target.append(text.slice(at));
+   }
+   for(const token of input.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)){
+     const bold=token.startsWith('**')&&token.endsWith('**')&&token.length>4;
+     const emphasis=token.startsWith('*')&&token.endsWith('*')&&token.length>2;
+     if(bold||emphasis){
+       const mark=make(bold?'strong':'em'),edge=bold?2:1;append(mark,token.slice(edge,-edge));frag.append(mark);
+     }else append(frag,token);
+   }
+   return frag;
+ }
  function partNode(part,cat,editing){
    // Never load markup from a revision. Rich tokens resolve against the unmodified original.
-   if(textPart(part)){
-     if(editing||!part.includes('*'))return document.createTextNode(part);
-     const frag=document.createDocumentFragment();
-     for(const token of part.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)){
-       if(token.startsWith('**')&&token.endsWith('**')&&token.length>4)frag.append(make('strong','',token.slice(2,-2)));
-       else if(token.startsWith('*')&&token.endsWith('*')&&token.length>2)frag.append(make('em','',token.slice(1,-1)));
-       else frag.append(token);
-     }
-     return frag;
+   if(textPart(part))return editing?document.createTextNode(part):proseWithMath(part,cat);
+   if(part.ref.startsWith('equation-ref:')){
+     if(!editing)return document.createTextNode(part.equation);
+     const atom=make('span','revision-object revision-equation-ref',part.equation);
+     atom.dataset.reference=part.ref;atom.contentEditable='false';return atom;
    }
    if(atomic(part.ref)){
      const original=cat.atoms.get(part.ref);if(!original)return document.createTextNode('');
@@ -101,6 +213,7 @@
    const cat=catalog(turn);
    return live(turn).map(row=>(row.level?'#'.repeat(row.level)+' ':'')+row.parts.map(part=>{
      if(textPart(part))return part;
+     if(part.equation!==undefined)return part.equation;
      if(cat.sources.has(part.ref))return cat.sources.get(part.ref);
      const node=cat.atoms.get(part.ref);if(!node)return '';
      const math=node.matches('.math')?node:node.querySelector('.math');
@@ -111,10 +224,11 @@
    }).join('')).join('\n\n');
  }
  function capture(turn){
-   const cat=catalog(turn),rows=structuredClone(live(turn)??cat.rows),known=new Set(rows.flatMap(r=>r.parts.filter(p=>!textPart(p)).map(p=>p.ref)));
+   const cat=catalog(turn),rows=editableRows(structuredClone(live(turn)??cat.rows),cat),known=new Set(rows.flatMap(r=>r.parts.filter(p=>!textPart(p)).map(p=>p.ref)));
    if(!live(turn))for(const row of rows){
      const old=turn.reviewDraft?.blocks?.[row.id]?.runs;
-     if(Array.isArray(old)&&row.parts.every(isText))row.parts=compact(old.filter(r=>r.kind!=='deleted').map(r=>r.text));
+     if(Array.isArray(old)&&row.parts.every(p=>isText(p)&&!revisionFormulaSpans(p).length))
+       row.parts=compact(old.filter(r=>r.kind!=='deleted').map(r=>r.text));
    }
    const additions=new Map();
    for(const link of document.getElementById(turn.id)?.querySelectorAll('.answer .same-turn-link[data-revision-ref]')||[]){
@@ -134,21 +248,32 @@
      if(link.dataset.sourceMedia!==undefined){
        const mediaIndex=Number(link.dataset.sourceMedia);let seen=-1;
        for(const p of row.parts){
-         position+=textPart(p)?p.length:1;
-         if(!textPart(p)&&atomic(p.ref)){
+         if(textPart(p)){
+           const formulas=revisionFormulaSpans(p).filter(span=>span.closed&&!span.display);
+           const formula=formulas[mediaIndex-seen-1];
+           if(formula){position+=formula.end;break;}
+           seen+=formulas.length;
+           position+=p.length;
+         }else if(atomic(p.ref)){
            const node=cat.atoms.get(p.ref);
            if(node&&(node.matches('.math,img,table')||node.querySelector('.math,img,table')))seen++;
+           position++;
            if(seen===mediaIndex||protectedBlock(row))break;
-         }
+         }else position++;
        }
      }else{
        for(const p of row.parts){
          if(!textPart(p)){
-           const node=cat.atoms.get(p.ref);if(node&&!node.matches('.math,svg')&&!node.querySelector('.math'))remaining=Math.max(0,remaining-node.textContent.length);
+           const node=cat.atoms.get(p.ref),length=p.equation!==undefined?equationText(p,cat).length:
+             node&&!node.matches('.math,svg')&&!node.querySelector('.math')?node.textContent.length:0;
+           remaining=Math.max(0,remaining-length);
            position++;continue;
          }
-         let used=0;
-         for(let i=0;i<p.length&&remaining>0;i++){used++;if(p[i]!=='*')remaining--;}
+         let used=0;const spans=revisionFormulaSpans(p).filter(span=>span.closed&&!span.display);
+         for(let i=0,formula=0;i<p.length&&remaining>0;i++){
+           if(spans[formula]?.start===i){i=spans[formula++].end-1;used=i+1;continue;}
+           used++;if(p[i]!=='*')remaining--;
+         }
          position+=used;if(remaining===0)break;
        }
      }
@@ -218,7 +343,9 @@
    if(turn.readingRevisions!==undefined&&(!Array.isArray(turn.readingRevisions)||turn.readingRevisions.some(v=>!Array.isArray(v?.rows)))){status('本轮包含当前原型无法编辑的版本记录。');return;}
    if(active?.root.isConnected){if(active.turn===turn)return;active.pause();}else active=null;
    const original=capture(turn),cat=catalog(turn);
-   let paragraphs=resumeDraft(turn.readingRevisionDraft,original),painting=false,selecting=false,activeId=sourceId||paragraphs[0]?.id;
+   const draft=turn.readingRevisionDraft;
+   const compatible=Array.isArray(draft?.rows)?{...draft,rows:editableRows(draft.rows,cat)}:draft;
+   let paragraphs=resumeDraft(compatible,original),painting=false,selecting=false,activeId=sourceId||paragraphs[0]?.id;
    const selected=new Set(),history=[];
    const tokenMap=new Map(paragraphs.flatMap(r=>refs(r.parts).map(p=>[p.ref,p])));
    const root=make('section','revision-editor'),tools=make('div','revision-toolbar'),body=make('div','revision-body'),notice=make('span','revision-notice');
@@ -350,6 +477,9 @@
       }
       if(JSON.stringify(next)===JSON.stringify(row.parts))return;
       remember();paragraphs[i]={...row,parts:next};
+      if(words.parentElement.classList.contains('revision-invalid')){
+        words.parentElement.classList.remove('revision-invalid');notice.textContent='';
+      }
       if(blank(textOf(next))&&!blank(textOf(row.parts)))removeEmpty(i,false);
       controls();save();
     }
@@ -362,6 +492,9 @@
         const next=compact([...left,value,...held,...right]);
         if(JSON.stringify(next)===JSON.stringify(row.parts)){setCaret(words,start+value.length);return}
         remember();paragraphs[i]={...row,parts:next};
+        if(words.parentElement.classList.contains('revision-invalid')){
+          words.parentElement.classList.remove('revision-invalid');notice.textContent='';
+        }
         if(blank(textOf(next))&&!blank(textOf(row.parts)))removeEmpty(i,false);
         else{paintWords(words,next);setCaret(words,start+value.length)}
       }else{
@@ -521,9 +654,30 @@
    };
    root.onkeydown=e=>{if(e.key==='Escape'&&selecting){e.preventDefault();pick.click();}};
    function finish(){
-     const rows=paragraphs.filter(p=>refs(p.parts).length||!blank(textOf(p.parts)));
+     let rows=editableRows(paragraphs.filter(p=>refs(p.parts).length||!blank(textOf(p.parts))),cat);
+     let repaired=false;
+     const errors=checkFormulas(rows,original);
+     if(errors.length){
+       const candidate=simulateFormulaRepair(rows,errors);
+       const remaining=candidate&&checkFormulas(candidate,original);
+       if(!candidate||remaining.length){
+         const {rowIndex,error}=(remaining?.[0]??errors[0]);
+         if(selecting){selecting=false;selected.clear();render();}
+         const row=Array.from(body.children).find(el=>el.dataset.id===rows[rowIndex].id);
+         row?.classList.add('revision-invalid');
+         row?.querySelector('.words').focus({preventScroll:true});
+         row?.scrollIntoView({block:'nearest'});
+         const result=error==='行间公式在整理区中保留为只读。'?error:
+           '行内公式未通过 KaTeX 校验。AI 模拟修正未能修复。'+error.slice(0,180);
+         notice.textContent=result;
+         save();clearTimeout(pendingWrite);persist();return false;
+       }
+       rows=candidate;repaired=true;
+     }
      if(JSON.stringify(rows)!==JSON.stringify(original)&&!commit(turn,rows,'用户'))return false;
-     clearTimeout(pendingWrite);delete turn.readingRevisionDraft;active=null;persist();anchoredRefresh(turn.id);return true;
+     clearTimeout(pendingWrite);delete turn.readingRevisionDraft;active=null;persist();anchoredRefresh(turn.id);
+     if(repaired)status('行内公式初次校验失败，AI 模拟修正后重新通过校验，已保存。');
+     return true;
    }
    active={turn,root,pause(){clearTimeout(pendingWrite);persist();active=null;anchoredRefresh(turn.id);}};
    render();
@@ -561,7 +715,7 @@
    label.textContent=messages[task.phase];input.placeholder=task.phase==='request'?'例如：把「原句」改为「新句」':'';label.append(input);
    const send=button('提交',()=>{
       const text=input.value.trim();if(!text){input.focus();return;}
-      const rows=capture(turn);
+      const rows=capture(turn),before=structuredClone(rows);
       task={...task,messages:[...task.messages,{author:'用户',text}]};
       if(task.phase==='request'){
         const match=/把[「“]([^」”]+)[」”]改[成为][「“]([^」”]*)[」”]/u.exec(text);
@@ -587,8 +741,14 @@
           if(begin===undefined||end===undefined){feedback.textContent='请选择公式或表格之外的文字。';return;}
           row.parts=compact([...slice(row.parts,0,begin),task.to,...refs(slice(row.parts,begin,end)),...slice(row.parts,end)]);
           if(blank(textOf(row.parts))&&!refs(row.parts).some(p=>atomic(p.ref))){const links=refs(row.parts);if(i>0){rows[i-1].parts.push(...links);rows.splice(i,1);}else if(!links.length)rows.splice(i,1);}
-          if(!commit(turn,rows,'AI'))return;
-          delete turn.readingAiTask;persist();dialog.close();anchoredRefresh(turn.id);status('AI 模拟改稿已保存到该轮。');return;
+          const final=editableRows(rows,catalog(turn)),errors=checkFormulas(final,before);
+          if(errors.length){
+            feedback.textContent='替换内容中的公式未通过 KaTeX 校验，请修改后再提交。'+errors[0].error.slice(0,180);
+            delete task.to;task.phase='replacement';
+          }else{
+            if(!commit(turn,final,'AI'))return;
+            delete turn.readingAiTask;persist();dialog.close();anchoredRefresh(turn.id);status('AI 模拟改稿已保存到该轮。');return;
+          }
         }
       }
       task.messages.push({author:'AI',text:messages[task.phase]});turn.readingAiTask=task;persist();label.firstChild.textContent=messages[task.phase];input.value='';input.placeholder='';input.focus();

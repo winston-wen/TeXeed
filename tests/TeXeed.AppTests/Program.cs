@@ -260,6 +260,11 @@ internal static partial class Program
                     await CheckAiBookmarksAsync(window, output);
                     await CloseAndObserveAsync(window, "AI bookmark navigation"); result = 0; return;
                 }
+                if (args.Contains("--ai-revision-inline-math-only"))
+                {
+                    await CheckRevisionInlineMathAsync(args.Contains("--real-tex"));
+                    await CloseAndObserveAsync(window, "AI inline revision mathematics"); result = 0; return;
+                }
                 if (args.Contains("--ai-revision-source-only"))
                 {
                     await CheckRevisionSourcesAsync(window, output);
@@ -506,6 +511,11 @@ internal static partial class Program
                 {
                     await CheckAiMathCopyAsync(window, output);
                     await CloseAndObserveAsync(window, "AI math copy"); result = 0; return;
+                }
+                if (args.Contains("--ai-inline-math-repair-request-only"))
+                {
+                    await CheckAiInlineMathRepairRequestAsync(output);
+                    await CloseAndObserveAsync(window, "AI inline math repair request"); result = 0; return;
                 }
                 if (args.Contains("--ai-math-proofread-only"))
                 {

@@ -112,12 +112,13 @@ internal static class AiRevisionText
         return rows;
     }
 
-    internal static IReadOnlyList<(int Start, int Length)> ProtectedSpans(string text)
+    internal static IReadOnlyList<(int Start, int Length)> ProtectedSpans(string text, bool editableInlineMath = false)
     {
         if (string.IsNullOrEmpty(text) || text.IndexOfAny(['$', '\\', '{', '!', '|', '~', (char)96]) < 0) return [];
         var math = new ChatMath();
         math.Prepare(text, Pipeline);
-        var spans = math.Tokens.Values.Select(token => (Start: token.OriginalOffset, Length: token.OriginalLength)).ToList();
+        var spans = math.Tokens.Values.Where(token => !editableInlineMath || token.Display || token.Reference is not null)
+            .Select(token => (Start: token.OriginalOffset, Length: token.OriginalLength)).ToList();
         spans.AddRange(AiForms.Token.Matches(text).Select(m => (m.Index, m.Length)));
         var parsed = Markdown.Parse(text, Pipeline);
         foreach (var item in parsed.Descendants().Where(x => x is LinkInline { IsImage: true } or CodeInline or CodeBlock or Markdig.Extensions.Tables.Table))
@@ -188,7 +189,7 @@ internal static class AiRevisionText
         return (text.ToString(), starts, ends);
     }
 
-    internal static List<AiRevisionRow> Normalize(AiRevisionDraft draft, IReadOnlyList<AiRevisionRow> proposed)
+    internal static List<AiRevisionRow> Normalize(AiRevisionDraft draft, IReadOnlyList<AiRevisionRow> proposed, bool editableInlineMath = false)
     {
         var previous = draft.Rows.ToDictionary(r => r.Id, StringComparer.Ordinal);
         var segments = draft.Rows.Select(row => row.SegmentId).Distinct().ToList();
@@ -210,8 +211,8 @@ internal static class AiRevisionText
             rows.Add(old is null ? row with { Links = [.. row.Links], Before = "\n\n", OriginalMarkup = null, OriginalText = null } :
                 old with { SegmentId = row.SegmentId, Text = row.Text, Level = row.Level, Links = [.. row.Links] });
         }
-        static IEnumerable<string> Atoms(IEnumerable<AiRevisionRow> list) => list.SelectMany(r => r.Locked
-            ? [r.Id + "\n" + r.Text] : ProtectedSpans(r.Text).Select(s => r.Text.Substring(s.Start, s.Length)));
+        IEnumerable<string> Atoms(IEnumerable<AiRevisionRow> list) => list.SelectMany(r => r.Locked
+            ? [r.Id + "\n" + r.Text] : ProtectedSpans(r.Text, editableInlineMath).Select(s => r.Text.Substring(s.Start, s.Length)));
         if (!Atoms(draft.Rows).SequenceEqual(Atoms(rows))) throw new InvalidOperationException("修改须保全公式、表格和其他内嵌对象。");
         var links = draft.Rows.SelectMany(r => r.Links).ToDictionary(l => l.Id, StringComparer.Ordinal);
         if (!links.Keys.SequenceEqual(rows.SelectMany(r => r.Links).Select(l => l.Id)))

@@ -25,6 +25,8 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   },{side,selectAll});}
   // Start a branch using the ordinary context menu and come back.
   const source=page.locator('#up-p1 p');
+  await page.evaluate(()=>document.fonts.ready);
+  await source.scrollIntoViewIfNeeded();
   await source.evaluate(el=>{const n=el.firstChild,r=document.createRange();r.setStart(n,0);r.setEnd(n,2);const s=getSelection();s.removeAllRanges();s.addRange(r);const b=r.getBoundingClientRect();el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:b.x+1,clientY:b.y+1}));});
   await page.locator('#branch-conversation').click();const child=await page.evaluate(()=>current().id);
   await page.locator('#branch-origin-return').click();assert.equal(await source.locator('.same-turn-link').count(),2);
@@ -50,13 +52,15 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await caret(row(newId),'end');await page.keyboard.press('Shift+Enter');await page.keyboard.insertText('按提示恢复。');
   await caret(row('up-p3'),'start');await page.keyboard.press('Backspace');
   assert.equal(await row('up-p3').count(),0);
-  // Reversibility for whole-paragraph selection, with protected inline and display math.
+  // Reversibility for whole-paragraph selection. Inline source can be deleted; display math is locked.
   await page.getByRole('button',{name:'选择段落',exact:true}).click();
   await page.locator('.revision-row[data-id="up-p0"]').click();await page.locator('.revision-row[data-id="up-p4"]').click();
   await page.getByRole('button',{name:/删除所选/}).click();
   assert.equal(await page.locator('.revision-editor .same-turn-link').count(),2);
-  assert.equal(await page.locator('.revision-editor .math').count(),2);
+  assert.equal(await page.locator('.revision-editor .math').count(),1);
+  assert.equal(await row('up-p4').count(),0);
   await page.getByRole('button',{name:'撤销',exact:true}).click();
+  assert.match(await row('up-p4').textContent(),/\$x\+1\$/);
   const dir=process.env.TEXEED_REVISION_ARTIFACTS;if(dir){fs.mkdirSync(dir,{recursive:true});await page.locator('.revision-editor').screenshot({path:path.join(dir,'editing.png')});}
   await save();
   assert.equal(await page.locator('#up .answer table').count(),1);
@@ -112,6 +116,61 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await page.reload();await page.locator('[data-revise="edges"]').click();assert.match(await words.last().textContent(),/新增草稿/);
   await save();
   if(dir)await page.locator('#edges').screenshot({path:path.join(dir,'reading.png')});
+  await page.evaluate(()=>{
+    current().turns.push({id:'tex-edit',question:'如何校验行内公式？',
+      answer:'计算 $x+1$，再核对 \\(y-2\\)。\n\n并且依照公式 \\eqref{editable-eq} 处理；参考编号 \\ref{editable-eq}。\n\n$$w=x+1\\label{editable-eq}\\tag{1234567890123456789012345678901234567890}$$\n\n|甲|乙|\n|---|---|\n|1|2|',segments:[]});
+    renderTurns();
+  });
+  const editTex=()=>page.locator('[data-revise="tex-edit"]').click();
+  const measureCompiles=()=>page.evaluate(()=>{
+    const compile=window.originalCompileRevisionFormula??=window.compileRevisionFormula;
+    window.validationCalls=[];
+    window.compileRevisionFormula=tex=>{window.validationCalls.push(tex);return compile(tex);};
+  });
+  const formula=row('tex-edit-p0');
+  await editTex();
+  assert.match(await formula.textContent(),/\$x\+1\$.*\\\(y-2\\\)/, 'Original inline delimiters are preserved in the editor');
+  assert.equal(await formula.locator('.math').count(),0);
+  const refs=row('tex-edit-p1').locator('.revision-equation-ref');
+  assert.equal(await refs.count(),2);
+  assert.deepEqual(await refs.allTextContents(),['\\eqref{editable-eq}','\\ref{editable-eq}']);
+  assert.equal(await page.locator('#tex-edit .revision-editor .equation-number').textContent(),'(1234567890123456789012345678901234567890)');
+  assert.equal(await refs.first().getAttribute('contenteditable'),'false');
+  const wrapped=await refs.first().evaluate(node=>{
+    const words=node.closest('.words');words.style.width='92px';
+    const range=document.createRange();range.selectNodeContents(node);
+    return {lines:new Set([...range.getClientRects()].map(rect=>rect.top)).size,align:getComputedStyle(node).verticalAlign};
+  });
+  assert(wrapped.lines>1 && wrapped.align==='baseline','The reference wraps and shares the text baseline');
+  if(dir)await page.locator('#tex-edit .revision-editor').screenshot({path:path.join(dir,'inline-source.png')});
+  await caret(row('tex-edit-p1'),'start',true);await page.keyboard.insertText('保留两个引用。');
+  assert.equal(await refs.count(),2,'Deleting across references must retain both protected tokens');
+  await measureCompiles();
+  await formula.fill('计算 $x+2$，再核对 \\(y-2\\)。');await save();
+  assert.deepEqual(await page.evaluate(()=>window.validationCalls),['x+2'],'A valid edit is compiled once; the untouched expression is reused');
+  assert.match(await page.locator('#tex-edit-p0 .math').first().getAttribute('data-tex'),/^x\+2$/);
+  assert.equal(await page.locator('#tex-edit .equation-ref').count(),2);
+  assert.equal(await page.locator('#tex-edit .equation-ref').first().textContent(),'（1234567890123456789012345678901234567890）');
+  assert.equal(await page.locator('#tex-edit .answer table').count(),1);
+  await editTex();await measureCompiles();
+  await formula.fill('计算 $\\frca{1}{2}$，再核对 \\(y-2\\)。');await save();
+  assert.deepEqual(await page.evaluate(()=>window.validationCalls),['\\frca{1}{2}','\\frac{1}{2}'],
+    'The simulated repair candidate is compiled only after the initial expression fails');
+  assert.match(await page.locator('#status').textContent(),/AI 模拟修正后重新通过校验/);
+  assert.equal(await page.locator('#tex-edit-p0 .math').first().getAttribute('data-tex'),'\\frac{1}{2}');
+  await editTex();await measureCompiles();
+  await formula.fill('换成 $\\unknownPrototypeMacro{x}$。');await save();
+  assert.deepEqual(await page.evaluate(()=>window.validationCalls),['\\unknownPrototypeMacro{x}']);
+  assert.match(await page.locator('#tex-edit .revision-notice').textContent(),/KaTeX 校验.*未能修复/);
+  assert.equal(await page.evaluate(()=>current().turns.at(-1).readingRevisions.length),2);
+  await page.reload();await editTex();
+  assert.match(await formula.textContent(),/\\unknownPrototypeMacro/,'A failed formula remains in the draft after reloading');
+  await formula.fill('缺少 $x 的结束符。');await save();
+  assert.match(await page.locator('#tex-edit .revision-notice').textContent(),/结束定界符缺失/);
+  await formula.fill('恢复为 $z^2$。');await save();
+  assert.equal(await page.locator('#tex-edit-p0 .math').getAttribute('data-tex'),'z^2');
+  assert.equal(await page.locator('#tex-edit .equation-ref').count(),2);
+  if(dir)await page.locator('#tex-edit .answer').screenshot({path:path.join(dir,'inline-rendered.png')});
   assert.deepEqual(errors,[]);
   console.log('PASS 原位整理、标题编号、跨段合并、撤销、受保护的公式表格和多个引用、最新稿回源、草稿与历史恢复、跨轮模拟 AI 改稿');
  }finally{await browser.close();}

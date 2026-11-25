@@ -58,6 +58,8 @@ jobs:
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-async-layout-only --output artifacts/ci-ai-layout-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-branches-only --output artifacts/ci-ai-branches-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-revision-source-only --offscreen --output artifacts/ci-revision-sources
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-revision-inline-math-only --offscreen --output artifacts/ci-revision-inline-math
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-inline-math-repair-request-only --offscreen --output artifacts/ci-revision-inline-math-request
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-revision-agent-only --offscreen --output artifacts/ci-revision-agent
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --revision-editor-only --offscreen --output artifacts/ci-revision-editor
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-relations-surface-only --offscreen --output artifacts/ci-ai-relations-check

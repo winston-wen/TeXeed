@@ -39,7 +39,7 @@ internal sealed class TurnRevisionEditor : StackPanel
             var button = new Button { Content = title, Margin = new Thickness(0, 2, 5, 2), Padding = new Thickness(8, 3, 8, 3) };
             button.Click += click; tools.Children.Add(button); return button;
         }
-        Add("完成整理", async (_, _) => await RunAsync(() => _finish(KeptRows())));
+        Add("完成整理", async (sender, _) => await RunAsync(() => _finish(KeptRows()), (Button)sender));
         Add("取消整理", async (_, _) => await RunAsync(cancel));
         _back = Add("撤销", (_, _) => Undo());
         _pick = Add("选择段落", (_, _) => { _selecting = !_selecting; _selected.Clear(); Paint(); });
@@ -66,12 +66,17 @@ internal sealed class TurnRevisionEditor : StackPanel
         EnsureRow(); _active = _rows.FirstOrDefault(r => !r.Locked)?.Id ?? ""; Paint();
     }
 
-    private async Task RunAsync(Func<Task> action)
+    private async Task RunAsync(Func<Task> action, Button? saveButton = null)
     {
+        if (saveButton is not null) saveButton.Content = "正在保存";
         IsEnabled = false;
         try { await action(); }
         catch (Exception ex) { _notice.Text = ex.Message; _notice.Visibility = Visibility.Visible; }
-        finally { IsEnabled = true; }
+        finally
+        {
+            if (saveButton is not null) saveButton.Content = "完成整理";
+            IsEnabled = true;
+        }
     }
     internal FrameworkElement? AtReadingPosition(string segmentId, string text, int offset)
     {
@@ -175,7 +180,7 @@ internal sealed class TurnRevisionEditor : StackPanel
         if (row.Locked || _selecting)
         {
             if (_selecting && !row.Locked)
-                block.Children.Add(new RevisionLineEditor(RevisionBuffer.From(row), _imageBaseDirectory) { Focusable = false, IsReadOnly = true, IsHitTestVisible = false });
+                block.Children.Add(new RevisionLineEditor(RevisionBuffer.From(row, editableInlineMath: true), _imageBaseDirectory) { Focusable = false, IsReadOnly = true, IsHitTestVisible = false });
             else
             {
                 var preview = new MarkdownView { ChatMode = true, ImageBaseDirectory = _imageBaseDirectory, Markdown = row.Text, Padding = new Thickness(2),
@@ -202,7 +207,7 @@ internal sealed class TurnRevisionEditor : StackPanel
         }
         else
         {
-            host = new RevisionLineHost(RevisionBuffer.From(row), _imageBaseDirectory, line =>
+            host = new RevisionLineHost(RevisionBuffer.From(row, editableInlineMath: true), _imageBaseDirectory, line =>
             {
                 _lines[row.Id] = line;
                 line.GotKeyboardFocus += (_, _) => { _active = row.Id; Controls(); };
@@ -271,6 +276,12 @@ internal sealed class TurnRevisionEditor : StackPanel
         var current = line.Buffer;
         var start = line.SelectionLength == 0 ? line.CaretOffset : line.SelectionStart;
         var end = start + line.SelectionLength;
+        if (start == end)
+        {
+            var containing = current.Atoms.FirstOrDefault(atom => start > atom.At && start < atom.End);
+            if (containing is not null) start = end = containing.End;
+        }
+        else (start, end) = current.WholeAtoms(start, end);
         var left = current.Slice(0, start);
         var keep = current.Slice(start, end - start).ProtectedOnly();
         var right = keep.Append(current.Slice(end, current.Display.Length - end));
@@ -308,7 +319,9 @@ internal sealed class TurnRevisionEditor : StackPanel
         var empty = string.IsNullOrWhiteSpace(_rows[i].Text);
         if (!empty && at != (forward ? buffer.Display.Length : 0))
         {
-            if (buffer.Atoms.Any(a => a.At == (forward ? at : at - 1))) { e.Handled = true; line.CaretOffset = at + (forward ? 1 : -1); }
+            var adjacent = forward ? at : at - 1;
+            var atom = buffer.Atoms.FirstOrDefault(a => adjacent >= a.At && adjacent < a.End);
+            if (atom is not null) { e.Handled = true; line.CaretOffset = forward ? atom.End : atom.At; }
             return;
         }
         e.Handled = true;
@@ -328,8 +341,8 @@ internal sealed class TurnRevisionEditor : StackPanel
     private void Merge(int index, bool forward)
     {
         var leftIndex = forward ? index : index - 1;
-        var left = RevisionBuffer.From(_rows[leftIndex]);
-        var right = RevisionBuffer.From(_rows[leftIndex + 1]);
+        var left = RevisionBuffer.From(_rows[leftIndex], editableInlineMath: true);
+        var right = RevisionBuffer.From(_rows[leftIndex + 1], editableInlineMath: true);
         var container = _rows[forward ? leftIndex + 1 : leftIndex];
         _rows[leftIndex] = left.Append(right).Apply(container);
         _rows.RemoveAt(leftIndex + 1); Changed(); Paint(container.Id, left.Display.Length);
@@ -351,12 +364,12 @@ internal sealed class TurnRevisionEditor : StackPanel
     }
     private static int EndOfText(AiRevisionRow row)
     {
-        var content = RevisionBuffer.From(row);
+        var content = RevisionBuffer.From(row, editableInlineMath: true);
         var at = content.Display.Length;
         foreach (var atom in content.Atoms.Reverse())
         {
-            if (atom.At != at - 1 || atom.Source.Length > 0) break;
-            at--;
+            if (atom.End != at || atom.Source.Length > 0) break;
+            at = atom.At;
         }
         return at;
     }
@@ -373,7 +386,7 @@ internal sealed class TurnRevisionEditor : StackPanel
         foreach (var row in _rows)
         {
             if (row.Locked || !_selected.Contains(row.Id)) { kept.Add(row); continue; }
-            var protectedRow = RevisionBuffer.From(row).ProtectedOnly().Apply(row);
+            var protectedRow = RevisionBuffer.From(row, editableInlineMath: true).ProtectedOnly().Apply(row);
             if (protectedRow.Text.Length > 0) kept.Add(protectedRow);
             else if (kept.Count == 0 && row.Links.Count > 0) kept.Add(protectedRow with { Level = 0 });
             else if (kept.Count > 0 && row.Links.Count > 0) AppendLinks(kept, kept.Count - 1, row.Links);

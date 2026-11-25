@@ -1,0 +1,165 @@
+{
+  "baselineCommit": "85406a0",
+  "versions": [
+    "0.6.1",
+    "0.6.2"
+  ],
+  "fixture": "790×810 WPF conversation with five editable paragraphs, inline math, a long equation reference, a table and display math",
+  "command": "dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --revision-editor-only --offscreen --output <isolated-folder>",
+  "batchOrder": [
+    "old-a",
+    "new-a",
+    "new-b",
+    "old-b"
+  ],
+  "batches": [
+    {
+      "batch": "old-a",
+      "sample": {
+        "firstMenuMs": 116.4219,
+        "firstOpenMs": 110.2696,
+        "firstOpenUiAllocatedBytes": 2668832,
+        "editableRows": 5,
+        "initialNativeEditors": 2,
+        "warm": [
+          {
+            "menuMs": 15.8954,
+            "openMs": 40.3837,
+            "openUiAllocatedBytes": 2342144
+          },
+          {
+            "menuMs": 15.8357,
+            "openMs": 38.5121,
+            "openUiAllocatedBytes": 2336184
+          },
+          {
+            "menuMs": 24.5903,
+            "openMs": 46.5199,
+            "openUiAllocatedBytes": 2345032
+          },
+          {
+            "menuMs": 18.1756,
+            "openMs": 57.2416,
+            "openUiAllocatedBytes": 2351528
+          },
+          {
+            "menuMs": 45.1464,
+            "openMs": 59.2291,
+            "openUiAllocatedBytes": 2335144
+          }
+        ]
+      }
+    },
+    {
+      "batch": "new-a",
+      "sample": {
+        "firstMenuMs": 73.1048,
+        "firstOpenMs": 103.146,
+        "firstOpenUiAllocatedBytes": 2671008,
+        "editableRows": 5,
+        "initialNativeEditors": 1,
+        "warm": [
+          {
+            "menuMs": 15.1842,
+            "openMs": 32.867,
+            "openUiAllocatedBytes": 2034704
+          },
+          {
+            "menuMs": 15.6248,
+            "openMs": 34.795,
+            "openUiAllocatedBytes": 2037256
+          },
+          {
+            "menuMs": 18.8323,
+            "openMs": 47.446,
+            "openUiAllocatedBytes": 2043056
+          },
+          {
+            "menuMs": 34.2605,
+            "openMs": 58.8463,
+            "openUiAllocatedBytes": 2046512
+          },
+          {
+            "menuMs": 53.1515,
+            "openMs": 50.881,
+            "openUiAllocatedBytes": 2037712
+          }
+        ]
+      }
+    },
+    {
+      "batch": "new-b",
+      "sample": {
+        "firstMenuMs": 119.9224,
+        "firstOpenMs": 111.0855,
+        "firstOpenUiAllocatedBytes": 2374672,
+        "editableRows": 5,
+        "initialNativeEditors": 1,
+        "warm": [
+          {
+            "menuMs": 20.2917,
+            "openMs": 43.2976,
+            "openUiAllocatedBytes": 2031592
+          },
+          {
+            "menuMs": 18.3461,
+            "openMs": 55.5733,
+            "openUiAllocatedBytes": 2035144
+          },
+          {
+            "menuMs": 25.7705,
+            "openMs": 63.5823,
+            "openUiAllocatedBytes": 2039944
+          },
+          {
+            "menuMs": 21.2278,
+            "openMs": 67.7175,
+            "openUiAllocatedBytes": 2049600
+          },
+          {
+            "menuMs": 20.4919,
+            "openMs": 50.1862,
+            "openUiAllocatedBytes": 2038584
+          }
+        ]
+      }
+    },
+    {
+      "batch": "old-b",
+      "sample": {
+        "firstMenuMs": 63.8219,
+        "firstOpenMs": 112.3268,
+        "firstOpenUiAllocatedBytes": 2952464,
+        "editableRows": 5,
+        "initialNativeEditors": 2,
+        "warm": [
+          {
+            "menuMs": 28.3966,
+            "openMs": 71.3182,
+            "openUiAllocatedBytes": 2344976
+          },
+          {
+            "menuMs": 18.4247,
+            "openMs": 45.8778,
+            "openUiAllocatedBytes": 2335568
+          },
+          {
+            "menuMs": 16.2426,
+            "openMs": 42.1417,
+            "openUiAllocatedBytes": 2345488
+          },
+          {
+            "menuMs": 17.4841,
+            "openMs": 58.8481,
+            "openUiAllocatedBytes": 2351448
+          },
+          {
+            "menuMs": 31.6611,
+            "openMs": 84.6037,
+            "openUiAllocatedBytes": 2362792
+          }
+        ]
+      }
+    }
+  ]
+}

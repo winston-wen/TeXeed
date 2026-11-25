@@ -3,10 +3,11 @@
  'use strict';
  const escape=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const code=(source,display)=>display?'<pre class="render-fallback"><code>'+escape(source)+'</code></pre>':'<code class="render-fallback">'+escape(source)+'</code>';
+ const compile=(tex,display=false)=>root.katex.renderToString(tex,{displayMode:display,throwOnError:true,trust:false,strict:'ignore',maxExpand:1000,maxSize:20,macros:{}});
  function math(tex,display,raw,closed=true){
   try{
    if(!closed)throw new Error('Unclosed math delimiter');
-   return root.katex.renderToString(tex,{displayMode:display,throwOnError:true,trust:false,strict:'ignore',maxExpand:1000,maxSize:20,macros:{}});
+   return compile(tex,display);
   }catch{return code(raw,display);}
  }
  function closing(source,delimiter,start){
@@ -83,6 +84,24 @@
   },{alt:['paragraph','reference','blockquote','list']});
   md.renderer.rules.tex_block=(tokens,i)=>{const t=tokens[i];return '<div class="rich-equation">'+math(t.content,true,t.meta.raw,t.meta.closed)+'</div>\n';};
  }catch{md=null;}
+ root.revisionFormulaSpans=function(source){
+  if(!source.includes('$')&&!source.includes('\\(')&&!source.includes('\\['))return [];
+  const spans=[];
+  const openings=/(?<!\\)(?:\\\\)*(\\\(|\\\[|\$\$|\$)/g;
+  for(let match;(match=openings.exec(source));){
+   const left=match[1],start=openings.lastIndex-left.length;
+   const right=left==='\\('? '\\)':left==='\\['?'\\]':left;
+   const body=start+left.length,close=closing(source,right,body),display=left==='$$'||left==='\\[';
+   const lineEnd=source.indexOf('\n',start),limit=lineEnd<0?source.length:lineEnd;
+   const closed=close>=0&&(display||close<=limit),end=closed?close+right.length:limit;
+   const tex=source.slice(body,closed?close:end);
+   openings.lastIndex=end;
+   if(left==='$'&&!closed&&(/^\s/.test(tex)||/^\d+(?:[.,]\d+)*(?:\s.*)?$/.test(tex)))continue;
+   spans.push({raw:source.slice(start,end),tex,display,closed,start,end,left,right});
+  }
+  return spans;
+ };
+ root.compileRevisionFormula=compile;
  root.renderRichText=function(source,inline=false,noLinks=false){
   source=String(source??'');
   try{if(!md)throw new Error('Markdown renderer unavailable');return inline?md.renderInline(source,{noLinks}):md.render(source,{noLinks});}
@@ -122,8 +141,9 @@
  function answerTokenHtml(token){
   if(token.tex===undefined)return root.renderRichText(token.raw,!token.block);
   const body=token.display?token.tex.replace(/\\(?:tag\*?|label)\{[^{}]+\}/g,'').trim():token.tex;
-  return '<span class="math" data-tex="'+escape(token.tex)+'" data-display="'+token.display+'" role="math" aria-label="'+escape(body)+'">'+math(body,token.display,token.raw)+'</span>';
+  return '<span class="math" data-tex="'+escape(token.tex)+'" data-display="'+token.display+'" role="math" aria-label="'+escape(body)+'">'+math(body,token.display,token.raw,token.closed!==false)+'</span>';
  }
+ root.renderRevisionFormula=answerTokenHtml;
  // Rebuild only the obsolete 0.5.20 placeholders from the original Markdown.
  // Patching the saved passage in place preserves anchors in older sessions.
  root.restoreCachedFormulaMarkup=function(markup,source){

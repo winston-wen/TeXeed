@@ -23,7 +23,7 @@ internal static class ChatTexRenderer
         internal DateTime FailedAt;
         internal void Fail(Exception error) { FailedAt = DateTime.UtcNow; Completion.TrySetException(error); }
     }
-    private sealed class TexSyntaxException(string message) : Exception(message);
+    internal sealed class TexSyntaxException(string message) : Exception(message);
     private static readonly Lock CacheLock = new();
     private static readonly Dictionary<string, Request> Cache = [];
     private static readonly Queue<Request> Pending = new();
@@ -59,7 +59,8 @@ internal static class ChatTexRenderer
     {
         try
         {
-            ChatTexInput.Validate(request.Source);
+            try { ChatTexInput.Validate(request.Source); }
+            catch (ArgumentException error) { throw new TexSyntaxException(error.Message); }
             // Disk hits never wait for a TeX process slot, including while a long answer compiles.
             if (File.Exists(request.Path))
             {

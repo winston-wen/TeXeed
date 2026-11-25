@@ -29,7 +29,11 @@ internal static partial class Program
                 using var file = File.Create(Path.Combine(mathHome, ChatTexRenderer.CacheFileName(tex, display)));
                 svg.CopyTo(file);
             }
-            var turn = new AiTurn("怎样从追问回到整理稿？", "# 定义\n\n承接段。\n\n命题甲与乙。\n\n## 例子\n\n最后一段含 $A$。\n\n| 标题 | 数值 |\n| --- | --- |\n| A | 1 |\n\n$$E=mc^2$$");
+            const string equationLabel = "eq:receiving-party-selection-and-coefficient-rounding-after-wrap";
+            const string referenceSource = @"\eqref{" + equationLabel + "}";
+            const string sourceLine = "最后一段含 $A$，公式 " + referenceSource + " 保留编号。";
+            var turn = new AiTurn("怎样从追问回到整理稿？", "# 定义\n\n承接段。\n\n命题甲与乙。\n\n## 例子\n\n" +
+                sourceLine + "\n\n| 标题 | 数值 |\n| --- | --- |\n| A | 1 |\n\n$$E=mc^2\\label{" + equationLabel + "}$$");
             book.Turns.Add(turn);
             foreach (var quote in new[] { "甲", "乙" })
                 book.Conversations.Add(new AiConversation { Title = "解释" + quote, ParentConversationId = book.Active.Id,
@@ -82,13 +86,48 @@ internal static partial class Program
             measurements["editableRows"] = Descendants<RevisionLineHost>(Editor()).Count();
             measurements["initialNativeEditors"] = Descendants<RevisionLineEditor>(Editor()).Count();
             Check(Rows().Count == 7 && Rows()[2].Links.Count == 2 && Rows()[5].Locked && Rows()[6].Locked, "Native editor lost protected links or table");
-            var formula = Descendants<ChatFormula>(Editor()).Single(f => f.Source == "A");
+            var formula = Descendants<ChatFormula>(Editor()).Single(f => f.Source == "E=mc^2");
             await formula.RenderTask; await Idle();
-            Check(formula.SvgPath is not null && formula.ActualWidth > 8 && formula.ActualHeight > 8 && formula.IsVisible, "The protected inline formula was not painted at its natural size");
+            Check(formula.SvgPath is not null && formula.ActualWidth > 8 && formula.ActualHeight > 8 && formula.IsVisible, "The locked display formula was not painted");
+            var mathHostView = Descendants<RevisionLineHost>(Editor()).ElementAt(4);
+            Check(!mathHostView.IsKeyboardFocusWithin && mathHostView.Child is TextBlock { Text: sourceLine } &&
+                !Descendants<ChatFormula>(Editor()).Any(f => f.Source == "A"), "Inline TeX must be visible as editable source even in an unfocused paragraph");
             Capture(host, Path.Combine(output, "revision-editor.png"));
-            await KeyIn(4, Key.Delete, 0, Line(4).Text.Length);
-            Check(Rows()[4].Text == "$A$", "Cross-selection removed an inline formula");
+            var mathEditor = Line(4);
+            var sourceStart = mathEditor.Text.IndexOf("$A$", StringComparison.Ordinal);
+            mathEditor.Select(sourceStart, "$A$".Length);
+            Type(mathEditor, @"\(q^2\)"); await Idle();
+            Check(Rows()[4].Text == sourceLine.Replace("$A$", @"\(q^2\)", StringComparison.Ordinal), "Keyboard input did not replace the inline TeX with its exact source");
+            await panel.SaveAsync();
+            Check(AiStorage.Load(project).Turns.Single().UserRevisionDraft?.Rows[4].Text == Rows()[4].Text, "Changed TeX source did not round-trip in the draft");
             Click("撤销"); await Idle();
+            await KeyIn(4, Key.Delete, sourceStart, "$A$".Length);
+            Check(Rows()[4].Text == sourceLine.Replace("$A$", "", StringComparison.Ordinal), "Deleting inline TeX changed its neighboring prose or equation reference");
+            Click("撤销"); await Idle();
+            var refEditor = Line(4);
+            var referenceStart = refEditor.Text.IndexOf(referenceSource, StringComparison.Ordinal);
+            await KeyIn(4, Key.Delete, referenceStart + 2, 8);
+            Check(Rows()[4].Text == sourceLine, "Deleting part of a protected equation reference changed the draft");
+            refEditor = Line(4);
+            refEditor.CaretOffset = referenceStart + 2;
+            Type(refEditor, "错"); await Idle();
+            Check(Rows()[4].Text == sourceLine, "Typing inside a protected equation reference changed the draft");
+            await KeyIn(4, Key.Enter, referenceStart + 2);
+            Check(Rows().Count == 8 && Rows()[4].Text.EndsWith(referenceSource, StringComparison.Ordinal) && Rows()[5].Text == " 保留编号。",
+                "Splitting a paragraph within a wrapped reference must retain the whole reference");
+            Click("撤销"); await Idle();
+            host.Width = 360;
+            refEditor = Line(4);
+            await Idle();
+            var textView = refEditor.TextArea.TextView;
+            var visual = textView.VisualLines.Single();
+            var firstReferenceLine = visual.GetTextLine(visual.GetVisualColumn(referenceStart));
+            var lastReferenceLine = visual.GetTextLine(visual.GetVisualColumn(referenceStart + referenceSource.Length - 1));
+            Check(!ReferenceEquals(firstReferenceLine, lastReferenceLine) && Math.Abs(firstReferenceLine.Baseline - lastReferenceLine.Baseline) < 1,
+                "The protected equation reference did not wrap across normally aligned visual lines");
+            Capture(host, Path.Combine(output, "revision-editor-inline-wrap.png"));
+            host.Width = 790; await Idle();
+            Check(Rows()[4].Text == sourceLine, "Undo did not restore the original formula and reference");
             var linkIds = Rows()[2].Links.Select(l => l.Id).ToArray();
             var across = Line(2);
             across.Select(0, across.Text.Length); Type(across, "合并表述"); await Idle();
@@ -109,7 +148,7 @@ internal static partial class Program
             await KeyIn(1, Key.Delete, Line(1).Text.Length);
             Check(Rows()[1].Id == rightId && Rows()[1].Text == "承接段。命题甲中与乙。" && Line(1).CaretOffset == 4, "Nonempty Delete failed to join the next row at its original seam");
             Click("撤销"); await Idle();
-            var locked = Descendants<MarkdownView>(Editor()).Single(v => v.Markdown == "$$E=mc^2$$");
+            var locked = Descendants<MarkdownView>(Editor()).Single(v => v.Markdown.StartsWith("$$E=mc^2", StringComparison.Ordinal));
             locked.RaiseEvent(CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent)); await Idle();
             var last = Descendants<RevisionLineHost>(Editor()).Count() - 1;
             await KeyIn(last, Key.Delete, 0);
@@ -162,7 +201,7 @@ internal static partial class Program
             }
             measurements["warm"] = warm;
             File.WriteAllText(Path.Combine(output, "revision-editor-performance.json"), JsonSerializer.Serialize(measurements, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine("PASS: real rendition/menu, composed Chinese input beside references, split/merge, empty and protected paragraphs, selection, undo, heading numbering, draft, history and cancel");
+            Console.WriteLine("PASS: real rendition/menu, editable inline TeX source and untouched equation references, wrapped baselines, composed Chinese input beside references, split/merge, empty and protected paragraphs, selection, undo, heading numbering, draft, history and cancel");
         }
         finally { host.Close(); }
     }
