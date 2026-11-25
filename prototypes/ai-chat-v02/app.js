@@ -131,18 +131,39 @@ function turnHtml(t,index=0,turns=[t]){
  const footer='<div class="turn-footer" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="true" aria-controls="'+t.id+'-segments" title="双击收起本轮；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+answerTime+retry+revise+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
  return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t,index)+'</div>'+sent+'<div class="segments" id="'+t.id+'-segments">'+process+(answerHtml?'<div class="answer-start-divider" aria-hidden="true"></div><div class="answer" data-turn="'+t.id+'">'+answerHtml+'</div>':'')+processAfter+'</div>'+footer+'</article>';
 }
-function transcriptHtml(turns){
- const html=[];
+function transcriptRows(turns){
+ const rows=[];
+ const folded=i=>turns[i]?.collapsed&&turns[i].id!==running?.turn.id;
+ const foldGroup=i=>{
+  const group=turns[i].foldGroup;
+  return group&&(folded(i-1)&&turns[i-1].foldGroup===group||folded(i+1)&&turns[i+1].foldGroup===group)?group:'';
+ };
  for(let i=0;i<turns.length;i++){
-  const turn=turns[i];
-  if(!turn.collapsed||turn.id===running?.turn.id){html.push(turnHtml(turn,i,turns));continue;}
-  const start=i;
-  while(i+1<turns.length&&turns[i+1].collapsed&&turns[i+1].id!==running?.turn.id)i++;
-  const first=start+1,last=i+1;
-  const label=first===last?String(first):first+(last===first+1?', ':' ~ ')+last;
-  html.push('<article class="turn collapsed-turn" id="'+esc(turn.id)+'"><div role="button" class="fold-line" id="'+esc(turn.id)+'-divider" data-turn-divider="'+esc(turn.id)+'" data-toggle-turn="'+esc(turn.id)+'" data-fold-end="'+esc(turns[i].id)+'" aria-expanded="false" tabindex="0" aria-label="展开折叠轮次 ['+label+']" title="双击展开；键盘 Enter / 空格展开"><span class="fold-number">['+label+']</span></div></article>');
+  if(!folded(i)){rows.push({index:i,folded:false});continue;}
+  const first=i,group=foldGroup(i);
+  while(folded(i+1)&&foldGroup(i+1)===group)i++;
+  if(group&&i>first){rows.push({index:first,folded:true,first,last:i,compact:true});continue;}
+  for(let index=first;index<=i;index++)
+   rows.push({index,folded:true,first,last:i,hint:first<i&&(index===first||index===i)});
  }
- return html.join('');
+ return rows;
+}
+function transcriptRowHtml(turns,row){
+ const {index,folded,first,last,compact,hint}=row,turn=turns[index];
+ if(!folded)return turnHtml(turn,index,turns);
+ const id=esc(turn.id),begin=first+1,end=last+1;
+ const label=compact?begin+(end===begin+1?', ':' ~ ')+end:String(index+1);
+ const action=compact?'展开':'收纳';
+ const button=compact||hint?'<button type="button" class="fold-run-hint" data-fold-run="'+(compact?'expand':'compact')+
+  '" data-fold-first="'+esc(turns[first].id)+'" data-fold-last="'+esc(turns[last].id)+'" aria-label="'+action+'第 '+begin+' 至 '+end+
+  ' 轮的折叠区间" title="双击'+action+'折叠区间">'+action+'</button>':'';
+ const number='<span class="fold-number"'+(compact?'':' data-toggle-turn="'+id+'" role="button" tabindex="0" aria-expanded="false" aria-label="展开第 '+(index+1)+' 轮"')+'>['+label+']</span>';
+ return '<article class="turn collapsed-turn'+(!compact&&index<last?' within-fold-run':'')+'" id="'+id+'"><div class="fold-line'+(button?' has-hint':'')+'" id="'+id+'-divider"'+
+  (compact?' data-fold-run-line title="双击展开折叠区间"':' data-turn-divider="'+id+'" title="双击展开本轮"')+'>'+
+  number+(button?'<span class="fold-track">'+button+'</span>':'')+'</div></article>';
+}
+function transcriptHtml(turns){
+ return transcriptRows(turns).map(row=>transcriptRowHtml(turns,row)).join('');
 }
 function renderTurns(){
  closeEquationPreview();
@@ -259,20 +280,50 @@ function toggleTurn(t,control){
  const turns=current().turns,index=turns.indexOf(t);
  if(index<0||running?.turn.id===t.id)return;
  const expanding=t.collapsed;
- const offset=control.getBoundingClientRect().top;
- let first=index;
- if(expanding){
-  const last=turns.findIndex(item=>item.id===control.dataset.foldEnd);
-  for(let i=index;i<=Math.max(index,last);i++)turns[i].collapsed=false;
- }else{
-  t.collapsed=true;
-  while(first>0&&turns[first-1].collapsed&&turns[first-1].id!==running?.turn.id)first--;
- }
+ const offset=(control.closest('.fold-line')||control).getBoundingClientRect().top;
+ if(expanding)revealFoldedTurn(t);
+ else{t.collapsed=true;delete t.foldGroup;}
  cancelReadingRestore();renderTurns();
- const anchor=expanding?$(t.id+'-question'):$(turns[first].id+'-divider');
+ const anchor=expanding?$(t.id+'-question'):$(t.id+'-divider');
  $('reader').scrollTop+=anchor.getBoundingClientRect().top-offset;
  saveReading();
- return expanding?$(t.id+'-question').nextElementSibling:anchor;
+ return expanding?anchor.nextElementSibling:anchor.querySelector('.fold-number');
+}
+function revealFoldedTurn(turn,turns=current().turns){
+ if(!turn.collapsed)return false;
+ const group=turn.foldGroup,index=turns.indexOf(turn);
+ if(group&&index>=0){
+  let first=index,last=index;
+  const matches=i=>turns[i]?.collapsed&&turns[i].foldGroup===group;
+  while(matches(first-1))first--;
+  while(matches(last+1))last++;
+  for(let i=first;i<=last;i++)delete turns[i].foldGroup;
+ }
+ turn.collapsed=false;
+ return true;
+}
+function changeFoldRun(control,restoreFocus){
+ const turns=current().turns,first=turns.findIndex(t=>t.id===control.dataset.foldFirst),last=turns.findIndex(t=>t.id===control.dataset.foldLast);
+ if(first<0||last<=first)return;
+ const compact=control.dataset.foldRun==='compact';
+ const group=compact?crypto.randomUUID():null;
+ const row=control.closest('.fold-line'),y=row.getBoundingClientRect().top;
+ const reader=$('reader'),pos=reader.scrollTop;
+ for(let i=first;i<=last;i++){if(compact)turns[i].foldGroup=group;else delete turns[i].foldGroup;}
+ const rows=transcriptRows(turns);
+ const changed=rows.find(item=>item.index===first);
+ const start=changed.first,end=changed.last;
+ cancelReadingRestore();
+ const fragment=document.createElement('template');
+ fragment.innerHTML=rows.filter(info=>info.index>=start&&info.index<=end).map(info=>transcriptRowHtml(turns,info)).join('');
+ const anchor=$(turns[start].id);
+ for(let i=start+1;i<=end;i++)$(turns[i].id)?.remove();
+ anchor.replaceWith(fragment.content);
+ const replacement=$(turns[first].id+'-divider');
+ reader.scrollTop=pos;
+ reader.scrollTop+=replacement.getBoundingClientRect().top-y;
+ if(restoreFocus)(replacement.querySelector('.fold-run-hint')||replacement.querySelector('.fold-number'))?.focus({preventScroll:true});
+ saveReading();
 }
 
 function openSource(ref){const m=/^([^:]+)(?::(\d+)(?:[–—-](\d+))?)?$/.exec(ref),file=m[1],start=Number(m[2]||1),end=Number(m[3]||start);const text=DATA.sourceFiles[file];if(text===undefined){status('未收集此文件的源码。');return;}$('source-title').textContent=ref;$('source-lines').innerHTML=text.split('\n').map((line,i)=>'<div class="source-line '+(i+1>=start&&i+1<=end?'selected':'')+'" id="source-line-'+(i+1)+'"><span class="source-number">'+(i+1)+'</span><span class="source-code">'+esc(line||' ')+'</span></div>').join('');$('source-dialog').showModal();requestAnimationFrame(()=>$('source-line-'+start)?.scrollIntoView({block:'center'}));}
@@ -341,7 +392,7 @@ function openBranchFrom(ctx){
 }
 function returnBranchOrigin(){
  const child=current(),source=child.branchSource,parent=source&&state.conversations.find(c=>c.id===source.parentId),turn=parent?.turns.find(t=>t.id===source.turn);if(!parent||!turn){status('原会话或来源已不存在。');return;}
- turn.collapsed=false;openConversation(parent.id);cancelReadingRestore();const marker=()=>document.querySelector('[data-revision-ref="'+CSS.escape('branch:'+child.id)+'"]'),owner=()=>marker()?.closest('.passage')||$(source.block);let target=owner(),answer=target?.closest('.answer'),stack=[];
+ revealFoldedTurn(turn,parent.turns);openConversation(parent.id);cancelReadingRestore();const marker=()=>document.querySelector('[data-revision-ref="'+CSS.escape('branch:'+child.id)+'"]'),owner=()=>marker()?.closest('.passage')||$(source.block);let target=owner(),answer=target?.closest('.answer'),stack=[];
  if(answer)for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h1,h2,h3,h4,h5,h6');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}if(p===target){for(const item of stack)if(turn.sections)turn.sections[item.id]=false;break;}}
  renderTurns();target=marker()||owner();target?.scrollIntoView({block:'center'});saveReading();
 }
@@ -387,7 +438,7 @@ function send(retryTurn=null){
 function stopConversation(id=state.active){const job=requests.get(id);if(!job)return;job.timers.forEach(clearTimeout);job.turn.incomplete=true;job.turn.endReason='user';job.turn.endedAt=new Date().toISOString();job.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:job.turn.endedAt});requests.delete(id);if(id===state.active){running=null;setBusy(false);renderTurns();status('已停止；本轮已保留，可继续提问。');}record('stop',{id});}
 function newConversation(){saveReading();const c={id:crypto.randomUUID(),title:'新对话',updatedAt:new Date().toISOString(),turns:[],entries:[],next:1,draft:'',permission:'完全访问',model:defaultModel(),effort:defaultEffort()};state.conversations.push(c);openConversation(c.id);record('new-conversation');$('composer').focus();}
 function search(){const q=$('search-input').value.trim().toLowerCase();matches=q?current().turns.filter(t=>(t.question+' '+t.answer).toLowerCase().includes(q)):[];matchIndex=0;showMatch();}
-function showMatch(){if(!matches.length){$('search-count').textContent='0';return;}matchIndex=(matchIndex+matches.length)%matches.length;$('search-count').textContent=(matchIndex+1)+'/'+matches.length;$(matches[matchIndex].id)?.scrollIntoView({block:'start'});}
+function showMatch(){if(!matches.length){$('search-count').textContent='0';return;}matchIndex=(matchIndex+matches.length)%matches.length;$('search-count').textContent=(matchIndex+1)+'/'+matches.length;const turn=matches[matchIndex];if(revealFoldedTurn(turn))renderTurns();$(turn.id)?.scrollIntoView({block:'start'});saveReading();}
 function tabTitle(title){const chars=[...new Intl.Segmenter('zh',{granularity:'grapheme'}).segment(title)].map(x=>x.segment);return chars.slice(0,15).join('')+(chars.length>15?'…':'');}
 function renderTabs(){
  state.openTabs=openTabs;const root=$('workspace-tabs');
@@ -535,9 +586,29 @@ $('entries').addEventListener('pointerout',()=>{clearTimeout(tooltipTimer);$('co
 $('entries-dialog').addEventListener('close',()=>{clearTimeout(tooltipTimer);$('context-tooltip').hidden=true;document.body.append($('context-tooltip'));});
 $('thread').addEventListener('click',event=>{const b=event.target.closest('button');if(!b)return;if(b.dataset.openChild){openConversation(b.dataset.openChild);return;}if(b.id==='branch-origin-return'||b.hasAttribute('data-back-origin')){returnBranchOrigin();return;}if(b.dataset.retryTurn){const t=current().turns.at(-1);if(!running&&t?.id===b.dataset.retryTurn&&turnEnd(t).incomplete)send(t);return;}if(b.dataset.file){openSource(b.dataset.file);return;}if(b.dataset.section){const answer=b.closest('.answer'),turn=current().turns.find(t=>t.id===answer.dataset.turn),p=$(b.dataset.section),offset=p.getBoundingClientRect().top;turn.sections||={};turn.sections[p.id]=!turn.sections[p.id];renderTurns();$('reader').scrollTop+=$(p.id).getBoundingClientRect().top-offset;saveReading();}});
 // Persist answer and heading folds independently of activity disclosures.
-$('thread').addEventListener('dblclick',event=>{const divider=event.target.closest('[data-turn-divider]');if(!divider||event.target.closest('button,a'))return;event.preventDefault();const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t,divider);});
-$('thread').addEventListener('keydown',event=>{const id=event.target.dataset.toggleTurn;if(id&&(event.key==='Enter'||event.key===' ')){event.preventDefault();if(event.repeat)return;const t=current().turns.find(t=>t.id===id);if(t){toggleTurn(t,event.target)?.focus({preventScroll:true});}}});
-$('thread').addEventListener('click',event=>{const link=event.target.closest('[data-open-turn]');if(!link)return;const turn=current().turns.find(t=>t.id===link.dataset.openTurn);if(!turn)return;if(turn.collapsed){turn.collapsed=false;renderTurns();}$(turn.id)?.scrollIntoView({block:'center'});saveReading();});
+$('thread').addEventListener('dblclick',event=>{
+ const hint=event.target.closest('[data-fold-run]')||event.target.closest('[data-fold-run-line]')?.querySelector('[data-fold-run]');
+ if(hint){event.preventDefault();changeFoldRun(hint,false);return;}
+ const divider=event.target.closest('[data-turn-divider]');
+ if(!divider||event.target.closest('button,a'))return;
+ event.preventDefault();
+ const t=current().turns.find(t=>t.id===divider.dataset.turnDivider);if(t)toggleTurn(t,divider);
+});
+$('thread').addEventListener('click',event=>{
+ const hint=event.target.closest('[data-fold-run]');
+ if(hint&&event.detail===0)changeFoldRun(hint,true);
+});
+$('thread').addEventListener('keydown',event=>{
+ if(event.key!=='Enter'&&event.key!==' ')return;
+ const hint=event.target.closest('[data-fold-run]'),id=event.target.dataset.toggleTurn;
+ if(!hint&&!id)return;
+ event.preventDefault();
+ if(event.repeat)return;
+ if(hint){changeFoldRun(hint,true);return;}
+ const t=current().turns.find(t=>t.id===id);
+ if(t)toggleTurn(t,event.target)?.focus({preventScroll:true});
+});
+$('thread').addEventListener('click',event=>{const link=event.target.closest('[data-open-turn]');if(!link)return;const turn=current().turns.find(t=>t.id===link.dataset.openTurn);if(!turn)return;if(revealFoldedTurn(turn))renderTurns();$(turn.id)?.scrollIntoView({block:'center'});saveReading();});
 $('thread').addEventListener('click',event=>{const link=event.target.closest('[data-snapshot-turn]');if(link){event.preventDefault();showSnapshot(link);return;}const close=event.target.closest('[data-close-preview]');if(close){const preview=$(close.dataset.closePreview+'-preview'),number=preview.dataset.number;hideSnapshot(preview);document.querySelector('[data-snapshot-turn="'+close.dataset.closePreview+'"][data-snapshot-number="'+number+'"]').focus({preventScroll:true});}});
 $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const preview=event.target.closest('.snapshot-preview');if(preview){event.preventDefault();preview.querySelector('[data-close-preview]').click();}}});
 // Keep formula clicks in the reading surface.
@@ -599,8 +670,7 @@ function prepareReadingLayout(answer){
 }
 function jumpToEquation(b){const id=b.dataset.equationRef,turn=current().turns.find(t=>t.id===b.closest('.turn').id);
  // Expand any collapsed heading that contains the target, without altering other headings.
- const answer=b.closest('.answer'),target=$(id);let stack=[],changed=turn.collapsed;
- turn.collapsed=false;
+ const answer=b.closest('.answer'),target=$(id);let stack=[],changed=revealFoldedTurn(turn);
  for(const p of answer.querySelectorAll(':scope>.passage')){
   const h=p.querySelector('h1,h2,h3,h4,h5,h6');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}
   if(p.contains(target)){for(const h of stack)if(turn.sections?.[h.id]){turn.sections[h.id]=false;changed=true;}break;}

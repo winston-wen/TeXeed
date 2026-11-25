@@ -6,26 +6,47 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
-    private readonly Dictionary<string, (int First, int Last)> _foldRanges = [];
+    private readonly Dictionary<string, (int First, int Last, bool Compacted)> _foldRanges = [];
+
+    private int TranscriptTurnCount => _book.Turns.Count + (PendingLiveTurn is null ? 0 : 1);
+    private AiTurn? PendingLiveTurn => _foldingLiveTurn is { } turn && _book.Turns.LastOrDefault()?.Id != turn.Id ? turn : null;
+    private AiTurn TranscriptTurn(int index) => index < _book.Turns.Count ? _book.Turns[index] : PendingLiveTurn!;
 
     // One virtualized item per visible row. The notebook keeps every turn and its own fold flag.
     private void SyncTranscriptRows()
     {
         var turns = _book.Turns;
-        var live = _foldingLiveTurn;
-        var includeLive = live?.Collapsed == true && turns.LastOrDefault()?.Id != live.Id;
-        var count = turns.Count + (includeLive ? 1 : 0);
+        var live = PendingLiveTurn;
+        var count = turns.Count + (live?.Collapsed == true ? 1 : 0);
         var desired = new List<AiTurn>();
+        AiTurn At(int index) => index < turns.Count ? turns[index] : live!;
         _foldRanges.Clear();
-        AiTurn At(int index) => index == turns.Count ? live! : turns[index];
+        // Deleting one of two compacted turns can leave a single member behind.
+        for (var i = 0; i < count; i++)
+        {
+            var turn = At(i);
+            if (turn.FoldGroup is not { } group) continue;
+            if (!turn.Collapsed || group.Length == 0 ||
+                (i == 0 || At(i - 1) is not { Collapsed: true } left || left.FoldGroup != group) &&
+                (i == count - 1 || At(i + 1) is not { Collapsed: true } right || right.FoldGroup != group))
+                turn.FoldGroup = null;
+        }
         for (var i = 0; i < count; i++)
         {
             var turn = At(i);
             desired.Add(turn);
             if (!turn.Collapsed) continue;
-            var first = i + 1;
-            while (i + 1 < count && At(i + 1).Collapsed) i++;
-            _foldRanges[turn.Id] = (first, i + 1);
+            var first = i;
+            while (i + 1 < count && At(i + 1) is { Collapsed: true } next && next.FoldGroup == turn.FoldGroup) i++;
+            if (i == first) continue;
+            if (turn.FoldGroup is not null) _foldRanges[turn.Id] = (first, i, true);
+            else
+            {
+                for (var n = first + 1; n <= i; n++) desired.Add(At(n));
+                var range = (first, i, false);
+                _foldRanges[turn.Id] = range;
+                _foldRanges[At(i).Id] = range;
+            }
         }
 
         // Preserve unchanged presenters on both sides, including any open editors and previews.
@@ -42,41 +63,79 @@ public partial class AiPanel
 
     private void UpdateFoldedView(AiTurnView view)
     {
-        var number = _foldRanges.TryGetValue(view.Turn.Id, out var range) ? range.First : _book.Turns.IndexOf(view.Turn) + 1;
+        var hasRange = _foldRanges.TryGetValue(view.Turn.Id, out var range);
+        var number = hasRange && range.Compacted ? range.First + 1 :
+            ReferenceEquals(view.Turn, PendingLiveTurn) ? TranscriptTurnCount : _book.Turns.IndexOf(view.Turn) + 1;
         if (number == 0) return;
         view.TurnNumber = number;
-        view.SetFoldRange(range.Last > 0 ? range.Last : number);
+        view.SetFoldRange(range.Compacted ? range.Last + 1 : number, offerCompact: hasRange && !range.Compacted);
+        view.SetFoldRunSpacing(view.Turn is { Collapsed: true, FoldGroup: null } && number < TranscriptTurnCount &&
+            TranscriptTurn(number) is { Collapsed: true, FoldGroup: null });
     }
 
     private AiTurn FoldRepresentative(AiTurn turn)
     {
-        if (!turn.Collapsed) return turn;
-        var index = ReferenceEquals(turn, _foldingLiveTurn) ? _book.Turns.Count : _book.Turns.IndexOf(turn);
-        while (index > 0 && _book.Turns[index - 1].Collapsed) turn = _book.Turns[--index];
+        if (!turn.Collapsed || turn.FoldGroup is not { } group) return turn;
+        var index = ReferenceEquals(turn, PendingLiveTurn) ? _book.Turns.Count : _book.Turns.IndexOf(turn);
+        while (index > 0 && TranscriptTurn(index - 1) is { Collapsed: true } previous && previous.FoldGroup == group)
+        {
+            turn = previous;
+            index--;
+        }
         return turn;
+    }
+
+    private void SplitFoldGroup(AiTurn turn)
+    {
+        if (turn.FoldGroup is not { } group) return;
+        var first = FoldRepresentative(turn);
+        var index = ReferenceEquals(first, PendingLiveTurn) ? _book.Turns.Count : _book.Turns.IndexOf(first);
+        var count = TranscriptTurnCount;
+        for (; index >= 0 && index < count && TranscriptTurn(index) is { Collapsed: true } member && member.FoldGroup == group; index++)
+            member.FoldGroup = null;
     }
 
     private void ChangeTurnFold(AiTurn turn, FrameworkElement trigger)
     {
-        var wasVisible = trigger.IsVisible && trigger.IsDescendantOf(MessagesScroll);
-        var y = wasVisible ? trigger.TranslatePoint(new Point(), MessagesScroll).Y : 0;
-        var byKeyboard = trigger.IsKeyboardFocusWithin;
-        var live = _foldingLiveTurn;
-        var liveActive = live is not null && _book.Turns.LastOrDefault()?.Id != live.Id;
-        if (turn.Collapsed && _foldRanges.TryGetValue(turn.Id, out var range))
+        if (turn.Collapsed && _foldRanges.TryGetValue(turn.Id, out var range) && range.Compacted)
         {
-            for (var i = range.First - 1; i < Math.Min(range.Last, _book.Turns.Count); i++) _book.Turns[i].Collapsed = false;
-            if (liveActive && range.Last > _book.Turns.Count) live!.Collapsed = false;
+            ChangeFoldGroup(turn, trigger);
+            return;
         }
-        else turn.Collapsed = !turn.Collapsed;
+        var anchor = CaptureFoldAnchor(trigger);
+        turn.FoldGroup = null;
+        turn.Collapsed = !turn.Collapsed;
+        FinishFoldChange(turn, anchor);
+    }
 
+    private void ChangeFoldGroup(AiTurn turn, FrameworkElement trigger)
+    {
+        if (!turn.Collapsed || !_foldRanges.TryGetValue(turn.Id, out var range)) return;
+        var anchor = CaptureFoldAnchor(trigger);
+        var group = range.Compacted ? null : Guid.NewGuid().ToString("N");
+        for (var i = range.First; i <= range.Last; i++) TranscriptTurn(i).FoldGroup = group;
+        FinishFoldChange(TranscriptTurn(range.First), anchor);
+    }
+
+    private (double Y, bool Focus, bool Hint) CaptureFoldAnchor(FrameworkElement trigger)
+    {
+        CancelReadingRestore();
+        CancelLayoutAnchor();
+        var hint = trigger is Button;
+        var row = hint && trigger is Button { Tag: FrameworkElement divider } ? divider : trigger;
+        var y = row.IsVisible && row.IsDescendantOf(MessagesScroll) ? row.TranslatePoint(new Point(), MessagesScroll).Y : -1;
+        return (y, trigger.IsKeyboardFocusWithin, hint);
+    }
+
+    private void FinishFoldChange(AiTurn turn, (double Y, bool Focus, bool Hint) anchor)
+    {
         SyncTranscriptRows();
-        if (liveActive) LiveContainer.Visibility = live!.Collapsed ? Visibility.Collapsed : Visibility.Visible;
-        if (wasVisible && y >= 0 && y < MessagesScroll.ViewportHeight)
+        var live = PendingLiveTurn;
+        if (live is not null) LiveContainer.Visibility = live.Collapsed ? Visibility.Collapsed : Visibility.Visible;
+        if (anchor.Y >= 0 && anchor.Y < MessagesScroll.ViewportHeight)
         {
-            var representative = FoldRepresentative(turn);
-            var isLive = liveActive && !turn.Collapsed && ReferenceEquals(turn, live);
-            var index = isLive ? _transcriptItems.Count - 1 : _transcriptItems.IndexOf(representative);
+            var isLive = !turn.Collapsed && ReferenceEquals(turn, live);
+            var index = isLive ? _transcriptItems.Count - 1 : _transcriptItems.IndexOf(turn);
             if (index >= 0)
             {
                 if (History.ItemContainerGenerator.ContainerFromIndex(index) is null)
@@ -89,8 +148,12 @@ public partial class AiPanel
                 FrameworkElement? target = isLive ? LiveQuestion : turn.Collapsed ? view?.FoldTarget : view;
                 if (target?.IsVisible == true)
                 {
-                    MessagesScroll.ScrollToVerticalOffset(MessagesScroll.VerticalOffset + target.TranslatePoint(new Point(), MessagesScroll).Y - y);
-                    if (byKeyboard) (isLive ? LiveSentTime : view!.FoldTarget).Focus();
+                    MessagesScroll.ScrollToVerticalOffset(MessagesScroll.VerticalOffset + target.TranslatePoint(new Point(), MessagesScroll).Y - anchor.Y);
+                    if (anchor.Focus)
+                    {
+                        var hint = anchor.Hint && view?.FoldGroupHint is { IsVisible: true } active ? active : null;
+                        (isLive ? LiveSentTime : (FrameworkElement?)hint ?? view!.FoldTarget).Focus();
+                    }
                 }
             }
         }
@@ -101,6 +164,7 @@ public partial class AiPanel
     {
         if (turn.Collapsed)
         {
+            SplitFoldGroup(turn);
             turn.Collapsed = false;
             SyncTranscriptRows();
             if (ReferenceEquals(turn, _foldingLiveTurn)) LiveContainer.Visibility = Visibility.Visible;

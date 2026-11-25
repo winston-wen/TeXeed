@@ -180,6 +180,8 @@ public sealed record AiTurn(string Question, string Answer)
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public AiRevisionRequest? RevisionRequest { get; init; }
     public List<AiEntry> SentAnnotations { get; init; } = [];
     public bool Collapsed { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FoldGroup { get; set; }
     public Dictionary<string, bool> CollapsedSections { get; init; } = [];
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";

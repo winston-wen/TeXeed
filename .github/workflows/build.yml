@@ -37,7 +37,7 @@ jobs:
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-heading-prompt-only --offscreen --output artifacts/ci-ai-writing-prompt-check
       - run: node prototypes/ai-chat-v02/preview.test.cjs
       - run: node prototypes/ai-chat-v02/turn-metadata.test.cjs
-      - name: Exercise the paragraph editor in Chromium
+      - name: Exercise paragraph editing and turn folding in Chromium
         run: |
           $deps = Join-Path $env:RUNNER_TEMP 'texeed-browser-tests'
           npm install --prefix $deps --no-save --ignore-scripts --no-audit --no-fund playwright@1.62.1
@@ -50,6 +50,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           node prototypes/ai-chat-v02/turn-revision-browser.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node prototypes/ai-chat-v02/turn-fold-browser.test.cjs
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-turn-fold-only --offscreen --output artifacts/ci-turn-fold-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --preview-close-restore-only --offscreen --output artifacts/ci-preview-eye-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-eqref-only --offscreen --output artifacts/ci-ai-eqref-check

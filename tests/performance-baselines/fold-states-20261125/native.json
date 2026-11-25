@@ -1,0 +1,479 @@
+{
+  "baselineCommit": "42ba0da909f4a243e05689ea85f733484b0de0ba",
+  "versions": [
+    "0.6.0",
+    "0.6.1"
+  ],
+  "runtime": "Microsoft.WindowsDesktop.App 10.0.7",
+  "os": "Microsoft Windows NT 10.0.26300.0",
+  "window": [
+    820,
+    760
+  ],
+  "fixture": "120 folded turns with the same synthetic question and answer per turn, warm once and take seven samples per batch",
+  "command": "dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-ui-perf-only --with-folded-turns --offscreen --output <isolated-folder>",
+  "batchOrder": [
+    "new-a",
+    "old-a",
+    "old-b",
+    "new-b"
+  ],
+  "batches": [
+    {
+      "candidate": true,
+      "batch": "new-a",
+      "packedLoad": [
+        {
+          "ms": 2.7065,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.9958,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.7684,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.4752,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 3.3935,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.6992,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 3.2777,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        }
+      ],
+      "individualLoad": [
+        {
+          "ms": 23.4792,
+          "bytes": 1411896,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 25.7621,
+          "bytes": 1411392,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 35.4874,
+          "bytes": 1410928,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 26.4143,
+          "bytes": 1411896,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 24.3773,
+          "bytes": 1411392,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 24.1845,
+          "bytes": 1413000,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 29.6929,
+          "bytes": 1414616,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        }
+      ],
+      "compact": [
+        {
+          "ms": 4.9728,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 4.962,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 5.0725,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 4.7201,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 4.7904,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 4.7939,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 7.0699,
+          "bytes": 262160,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        }
+      ],
+      "split": [
+        {
+          "ms": 26.2059,
+          "bytes": 1385088,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 24.5316,
+          "bytes": 1386080,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 22.4566,
+          "bytes": 1385504,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 23.264,
+          "bytes": 1384784,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 23.9438,
+          "bytes": 1386080,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 43.0809,
+          "bytes": 1382432,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 26.5333,
+          "bytes": 1386544,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        }
+      ]
+    },
+    {
+      "candidate": false,
+      "batch": "old-a",
+      "packedLoad": [
+        {
+          "ms": 2.4615,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 2.1419,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.8215,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.8048,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.6974,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.8784,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.7991,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        }
+      ]
+    },
+    {
+      "candidate": false,
+      "batch": "old-b",
+      "packedLoad": [
+        {
+          "ms": 2.0183,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.8268,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.9647,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.9726,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.6563,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 2.1799,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        },
+        {
+          "ms": 1.6106,
+          "bytes": 65216,
+          "visibleTurns": 1,
+          "visibleControls": 20
+        }
+      ]
+    },
+    {
+      "candidate": true,
+      "batch": "new-b",
+      "packedLoad": [
+        {
+          "ms": 2.3359,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.6089,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.7112,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.7507,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 3.7069,
+          "bytes": 103024,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.9353,
+          "bytes": 102128,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 2.7473,
+          "bytes": 102128,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        }
+      ],
+      "individualLoad": [
+        {
+          "ms": 21.8706,
+          "bytes": 1411896,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 25.2297,
+          "bytes": 1411696,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 32.0419,
+          "bytes": 1410928,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 21.6413,
+          "bytes": 1411896,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 49.82,
+          "bytes": 1411392,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 25.5841,
+          "bytes": 1366408,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 27.8935,
+          "bytes": 1367536,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        }
+      ],
+      "compact": [
+        {
+          "ms": 4.7612,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 4.4799,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 5.3447,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 4.5579,
+          "bytes": 260784,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 8.5805,
+          "bytes": 222704,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 6.0065,
+          "bytes": 222704,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        },
+        {
+          "ms": 6.5556,
+          "bytes": 223192,
+          "visibleTurns": 1,
+          "visibleControls": 21
+        }
+      ],
+      "split": [
+        {
+          "ms": 21.04,
+          "bytes": 1384784,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 23.1143,
+          "bytes": 1386080,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 21.5958,
+          "bytes": 1385504,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 22.2164,
+          "bytes": 1384784,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 34.304,
+          "bytes": 1340384,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 26.0409,
+          "bytes": 1336736,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        },
+        {
+          "ms": 38.108,
+          "bytes": 1338800,
+          "visibleTurns": 22,
+          "visibleControls": 22
+        }
+      ]
+    }
+  ]
+}

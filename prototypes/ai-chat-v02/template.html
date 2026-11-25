@@ -104,9 +104,14 @@ details[open]>summary:before { transform:rotate(90deg) }
 .sent-time[role=button] { cursor:pointer }
 .turn-footer { margin:0; padding:0; border-radius:2px }
 .turn-footer[role=button] { cursor:pointer; user-select:none }
-.fold-line { display:flex; align-items:center; column-gap:.625em; margin-left:calc(8px - var(--ordinal-gutter)); min-height:var(--reading-line); cursor:pointer; user-select:none; font:var(--reading-font)/var(--reading-line) var(--serif) }
+.fold-line { display:flex; align-items:center; column-gap:.625em; margin-left:calc(8px - var(--ordinal-gutter)); min-height:var(--reading-line); user-select:none; font:var(--reading-font)/var(--reading-line) var(--serif) }
+.turn.within-fold-run { margin-bottom:0 }
+.fold-line[data-turn-divider], .fold-line[data-fold-run-line] { cursor:pointer }
 .fold-number { color:#d8c09b; min-width:calc(var(--ordinal-gutter) - 8px - .625em); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums }
-.fold-line::after { content:""; flex:1; border-top:1px solid var(--line) }
+.fold-track { display:flex; align-items:center; flex:1 }
+.fold-line:not(.has-hint)::after, .fold-track::before, .fold-track::after { content:""; flex:1; border-top:1px solid var(--line) }
+.fold-run-hint { appearance:none; border:0; background:transparent; color:var(--muted); margin:0; padding:2px 8px; font:var(--meta-font)/1.3 var(--sans); cursor:pointer }
+.fold-run-hint:hover, .fold-run-hint:focus-visible { color:var(--ink) }
 .incomplete-label { color:#ccaa92 }
 .retry-turn { font:inherit; line-height:inherit; color:var(--accent); background:transparent; border:0; padding:0 4px; margin-left:12px; vertical-align:baseline }
 .answer>.passage:last-child { margin-bottom:0 }

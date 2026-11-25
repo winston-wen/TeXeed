@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -22,7 +23,9 @@ public sealed class AiTurnView : StackPanel
     public string? ImageBaseDirectory { get => _imageBaseDirectory; set { _imageBaseDirectory = value; foreach (var answer in Answers) answer.ImageBaseDirectory = value; } }
     internal Action? Changed;
     internal Action<FrameworkElement>? FoldRequested;
+    internal Action<FrameworkElement>? FoldGroupRequested;
     internal FrameworkElement FoldTarget => Turn.Collapsed && _foldedRow is not null ? _foldedRow : _sentTime;
+    internal Button? FoldGroupHint { get; private set; }
     internal Action<MarkdownView>? AnswerReady, AnswerGone, QuestionReady, QuestionGone;
     internal Action<MarkdownView>? AnswerFoldingChanged;
     internal Func<AiEntry, bool>? AnswerReferenceRequested;
@@ -54,7 +57,8 @@ public sealed class AiTurnView : StackPanel
     private AiReplyStatus? _footer;
     private string? _previewId;
     private Grid? _foldedRow;
-    private int _foldEnd;
+    private (int First, int Last) _foldLabel;
+    private double? _foldRunGap;
 
     public AiTurnView()
     {
@@ -75,7 +79,7 @@ public sealed class AiTurnView : StackPanel
         if (FoldRequested is { } toggle) { toggle(target); return; }
         Turn.Collapsed = !Turn.Collapsed; SetFoldRange(TurnNumber); Changed?.Invoke();
     }
-    internal void SetFoldRange(int end)
+    internal void SetFoldRange(int end, bool offerCompact = false)
     {
         if (Turn.Collapsed)
         {
@@ -86,13 +90,28 @@ public sealed class AiTurnView : StackPanel
                 if (_foldedRow is null) { _foldedRow = MakeFoldedRow(); Children.Add(_foldedRow); }
                 _foldedRow.Visibility = Visibility.Visible;
             }
-            if (_foldEnd != end || end == 0)
+            var group = end > TurnNumber;
+            if (_foldLabel != (TurnNumber, end) || end == 0)
             {
-                _foldEnd = end;
+                _foldLabel = (TurnNumber, end);
                 var label = end <= TurnNumber ? $"[{TurnNumber}]" : end == TurnNumber + 1 ? $"[{TurnNumber}, {end}]" : $"[{TurnNumber} ~ {end}]";
                 ((TextBlock)_foldedRow.Children[0]).Text = label;
-                System.Windows.Automation.AutomationProperties.SetName(_foldedRow, label + " 已折叠，展开");
+                var action = group ? "展开为逐条折叠" : "展开这一轮";
+                System.Windows.Automation.AutomationProperties.SetName(_foldedRow, label + " 已折叠，" + action);
+                _foldedRow.ToolTip = $"双击或按 Enter、空格{action}";
             }
+            if (offerCompact || group)
+            {
+                FoldGroupHint ??= AddFoldGroupHint();
+                var hint = group ? "展开" : "收纳";
+                if (!Equals(FoldGroupHint.Content, hint))
+                {
+                    FoldGroupHint.Content = hint;
+                    FoldGroupHint.ToolTip = group ? "双击展开为逐条折叠" : "双击收纳这段连续折叠";
+                }
+                FoldGroupHint.Visibility = Visibility.Visible;
+            }
+            else if (FoldGroupHint is not null) FoldGroupHint.Visibility = Visibility.Collapsed;
             return;
         }
         if (_footer is null) BuildExpanded();
@@ -102,31 +121,90 @@ public sealed class AiTurnView : StackPanel
                 child.Visibility = child == _foldedRow || child == _preview || child == _body && _revisionEditor is not null ? Visibility.Collapsed : Visibility.Visible;
             _ordinalAlignment?.Schedule();
         }
-        _foldEnd = 0;
+        _foldLabel = default;
+    }
+    internal void SetFoldRunSpacing(bool consecutive)
+    {
+        if (consecutive == _foldRunGap.HasValue) return;
+        var margin = Margin;
+        var regularGap = _foldRunGap ?? margin.Bottom;
+        _foldRunGap = consecutive ? regularGap : null;
+        margin.Bottom = consecutive ? 0 : regularGap;
+        Margin = margin;
     }
     private Grid MakeFoldedRow()
     {
         var row = new Grid { Background = Brushes.Transparent, Focusable = true, Cursor = Cursors.Hand,
             MinHeight = AiChatTypography.LineHeight, Margin = new Thickness(-12, 0, 4, 0), ToolTip = "双击或按 Enter、空格展开折叠轮次" };
+        // A wide answer can leave the virtualized panel wider than the visible reader.
+        // Size the divider to the viewport so its action stays centered on screen.
+        row.HorizontalAlignment = HorizontalAlignment.Left;
+        row.SetBinding(WidthProperty, new Binding(nameof(ChatScrollViewer.ViewportWidth))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(ChatScrollViewer), 1),
+            Converter = FoldDividerWidth.Instance
+        });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 12 + AiChatTypography.TextLeft });
         row.ColumnDefinitions.Add(new ColumnDefinition());
         var label = new TextBlock { FontSize = AiChatTypography.FontSize, FontFamily = ChatReadingTypography.Family,
             FontWeight = FontWeights.Normal, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
         label.SetResourceReference(TextBlock.ForegroundProperty, "ChatHeading");
-        var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
-        line.SetResourceReference(Border.BackgroundProperty, "ChatDivider");
+        var line = FoldLine();
         Grid.SetColumn(line, 1); row.Children.Add(label); row.Children.Add(line);
         EnableFold(row); return row;
     }
+    private sealed class FoldDividerWidth : IValueConverter
+    {
+        internal static readonly FoldDividerWidth Instance = new();
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
+            value is double width && width > 4 ? width - 4 : double.NaN;
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) => Binding.DoNothing;
+    }
+    private static Border FoldLine()
+    {
+        var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
+        line.SetResourceReference(Border.BackgroundProperty, "ChatDivider");
+        return line;
+    }
+    private Button AddFoldGroupHint()
+    {
+        var row = _foldedRow!;
+        row.Children.RemoveAt(1);
+        var divider = new Grid();
+        divider.ColumnDefinitions.Add(new ColumnDefinition());
+        divider.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        divider.ColumnDefinitions.Add(new ColumnDefinition());
+        var hint = new Button { Tag = row, Background = Brushes.Transparent, BorderThickness = new Thickness(0),
+            Padding = new Thickness(8, 0, 8, 0), FontSize = AiChatTypography.FoldHintFontSize, Cursor = Cursors.Hand };
+        hint.SetResourceReference(Control.ForegroundProperty, "Muted");
+        hint.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            e.Handled = true;
+            if (e.ClickCount == 2) FoldGroupRequested?.Invoke(hint);
+        };
+        hint.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key is not (Key.Enter or Key.Space)) return;
+            e.Handled = true;
+            if (!e.IsRepeat) FoldGroupRequested?.Invoke(hint);
+        };
+        hint.Click += (_, _) => FoldGroupRequested?.Invoke(hint);
+        var right = FoldLine();
+        Grid.SetColumn(hint, 1); Grid.SetColumn(right, 2);
+        divider.Children.Add(FoldLine()); divider.Children.Add(hint); divider.Children.Add(right);
+        Grid.SetColumn(divider, 1); row.Children.Add(divider);
+        return hint;
+    }
     private void Build()
     {
+        SetFoldRunSpacing(false);
         _ordinalAlignment?.Dispose(); _ordinalAlignment = null;
         foreach (var old in Answers) AnswerGone?.Invoke(old);
         foreach (var old in Questions) QuestionGone?.Invoke(old);
         if (_number.Parent is Panel question) question.Children.Remove(_number);
         Answers.Clear(); Questions.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
         _revisionEditor = null; _body.Visibility = Visibility.Visible;
-        _footer = null; _foldedRow = null; _foldEnd = 0;
+        _footer = null; _foldedRow = null; _foldLabel = default; FoldGroupHint = null;
         if (Turn is not null) SetFoldRange(TurnNumber);
     }
     private void BuildExpanded()

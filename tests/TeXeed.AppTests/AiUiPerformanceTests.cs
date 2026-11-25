@@ -11,6 +11,8 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
+    private sealed record FoldSample(double Ms, long Bytes, int VisibleTurns, int VisibleControls);
+
     private static async Task MeasureFoldedHistoryAsync(MainWindow owner, string output)
     {
         using var panel = new AiPanel(new AiConnection(new AiFakeHandler()));
@@ -18,22 +20,50 @@ internal static partial class Program
         host.Show(); await panel.SetProjectAsync(Path.Combine(output, "folded.tex"));
         var book = (AiNotebook)Field(panel, "_book")!;
         var turns = Enumerable.Range(1, 120).Select(i => new AiTurn("合成问题 " + i, "合成回答") { Collapsed = true }).ToArray();
-        var samples = new List<object>();
-        for (var run = 0; run < 8; run++)
+        var packedLoad = new List<FoldSample>();
+        var individualLoad = new List<FoldSample>();
+        var compact = new List<FoldSample>();
+        var split = new List<FoldSample>();
+        var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
+        AiTurnView FirstView() => Descendants<AiTurnView>(panel).Single(view => view.Turn.Id == turns[0].Id && view.IsVisible);
+
+        async Task<FoldSample> SampleAsync(Action change)
         {
-            book.Turns.Clear(); Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
-            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            book.Turns.AddRange(turns);
             var before = GC.GetAllocatedBytesForCurrentThread();
             var timer = Stopwatch.StartNew();
-            Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            change(); host.UpdateLayout();
             await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); timer.Stop();
             var bytes = GC.GetAllocatedBytesForCurrentThread() - before;
-            if (run > 0) samples.Add(new { ms = timer.Elapsed.TotalMilliseconds, bytes,
-                visibleTurns = Descendants<AiTurnView>(panel).Count(v => v.IsVisible && VisibleBounds(v, panel).Height > 0),
-                visibleControls = Descendants<Control>(panel).Count(v => v.IsVisible && VisibleBounds(v, panel) is { Width: > 0, Height: > 0 }) });
+            return new(timer.Elapsed.TotalMilliseconds, bytes,
+                Descendants<AiTurnView>(panel).Count(v => v.IsVisible && VisibleBounds(v, panel).Height > 0),
+                Descendants<Control>(panel).Count(v => v.IsVisible && VisibleBounds(v, panel) is { Width: > 0, Height: > 0 }));
         }
-        File.WriteAllText(Path.Combine(output, "native-fold-load.json"), JsonSerializer.Serialize(samples, new JsonSerializerOptions { WriteIndented = true }));
+        async Task ResetAsync(string? group)
+        {
+            book.Turns.Clear();
+            Invoke(panel, "RefreshTranscript");
+            scroll.ScrollToTop();
+            await SettleFoldLayoutAsync(host);
+            foreach (var turn in turns) turn.FoldGroup = group;
+            book.Turns.AddRange(turns);
+        }
+
+        for (var run = 0; run < 8; run++)
+        {
+            await ResetAsync("saved-group");
+            var fromPacked = await SampleAsync(() => Invoke(panel, "RefreshTranscript"));
+            await ResetAsync(null);
+            var fromIndividual = await SampleAsync(() => Invoke(panel, "RefreshTranscript"));
+            var compacted = await SampleAsync(() => ClickFoldHint(host, FirstView().FoldGroupHint!, 2));
+            var separated = await SampleAsync(() => ClickFoldHint(host, FirstView().FoldGroupHint!, 2));
+            if (fromPacked.VisibleTurns != 1 || fromIndividual.VisibleTurns <= 1 || compacted.VisibleTurns != 1 || separated.VisibleTurns <= 1)
+                throw new Exception("Fold benchmark did not reach the requested compact and individual product states");
+            if (run == 0) continue;
+            packedLoad.Add(fromPacked); individualLoad.Add(fromIndividual); compact.Add(compacted); split.Add(separated);
+        }
+        var options = new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        File.WriteAllText(Path.Combine(output, "native-fold-load.json"), JsonSerializer.Serialize(packedLoad, options));
+        File.WriteAllText(Path.Combine(output, "native-fold-actions.json"), JsonSerializer.Serialize(new { individualLoad, compact, split }, options));
         host.Close();
     }
     private static async Task CheckAiUiPerformanceAsync(MainWindow owner, string output, string? baseline, bool normalizeTypography, bool withHeadings = false, bool complexQuestions = false, bool inlineCode = false)

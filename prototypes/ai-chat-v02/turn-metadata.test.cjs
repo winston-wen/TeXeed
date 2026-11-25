@@ -61,9 +61,18 @@ for(const [index,expected] of [[undefined,1],[0,1],[9,10],[99,100]]){
  assert.equal((html.match(/class="turn-number"/g)||[]).length,1,'Exactly one turn number is rendered');
 }
 const grouped=[true,true,false,true,true,true,false,true].map((collapsed,i)=>({...base,id:'t'+i,collapsed}));
-const ranges=context.transcriptHtml(grouped);
-assert.deepEqual([...ranges.matchAll(/class="fold-number">([^<]+)/g)].map(match=>match[1]),['[1, 2]','[4 ~ 6]','[8]']);
-assert.equal((ranges.match(/class="question"/g)||[]).length,2);
+const numbers=html=>[...html.matchAll(/class="fold-number"[^>]*>([^<]+)/g)].map(match=>match[1]);
+const individual=context.transcriptHtml(grouped);
+assert.deepEqual(numbers(individual),['[1]','[2]','[4]','[5]','[6]','[8]']);
+assert.equal((individual.match(/data-fold-run="compact"/g)||[]).length,4);
+assert.equal((individual.match(/class="question"/g)||[]).length,2);
+for(const [i,group] of [[0,'first'],[1,'first'],[3,'second'],[4,'second'],[5,'second']])grouped[i].foldGroup=group;
+const compact=context.transcriptHtml(grouped);
+assert.deepEqual(numbers(compact),['[1, 2]','[4 ~ 6]','[8]']);
+assert.equal((compact.match(/data-fold-run="expand"/g)||[]).length,2);
+assert.equal((compact.match(/data-fold-run="compact"/g)||[]).length,0);
+delete grouped[4].foldGroup;
+assert.deepEqual(numbers(context.transcriptHtml(grouped)),['[1, 2]','[4]','[5]','[6]','[8]'],'Orphaned compact members join neighboring individual rows');
 context.running={turn:{id:base.id}};
 const pending=context.turnHtml({...base,answer:'',incomplete:true},0);
 assert.match(pending,/class="thinking-label"/);

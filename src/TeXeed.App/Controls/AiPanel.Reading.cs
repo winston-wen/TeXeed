@@ -111,6 +111,7 @@ public partial class AiPanel
         ScheduleViewportCapture();
         view.Changed = () => { Dirty(); ScheduleViewportCapture(); };
         view.FoldRequested = target => ChangeTurnFold(view.Turn, target);
+        view.FoldGroupRequested = target => ChangeFoldGroup(view.Turn, target);
         view.SourceRequested = OpenChatSource;
         view.ConfigureRevisionMenu = menu => AddRevisionCommands(menu, () => view.Turn);
         if (!view.Turn.Collapsed && _revisionEditors.TryGetValue(view.Turn.Id, out var openEditor)) view.SetRevisionEditor(openEditor);
