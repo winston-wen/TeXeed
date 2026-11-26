@@ -36,6 +36,7 @@
     }
     // Recover a common AI typo only for paired strong markers and CJK punctuation.
     if(this.src.charCodeAt(start)===42&&result.length===2){
+     if(this.env.revision&&after===' '&&/\S/u.test(this.src[start+3]||'')&&this.src[start+3]!=='*')result.can_open=true;
      this._strongOpeners??=new WeakMap();
      const open=this._strongOpeners.get(this.delimiters);
      if(open!==undefined&&!result.can_close&&before===' '){
@@ -84,6 +85,42 @@
   },{alt:['paragraph','reference','blockquote','list']});
   md.renderer.rules.tex_block=(tokens,i)=>{const t=tokens[i];return '<div class="rich-equation">'+math(t.content,true,t.meta.raw,t.meta.closed)+'</div>\n';};
  }catch{md=null;}
+ // Use the reading parser's delimiter pairs while keeping caret positions in the original source.
+ root.revisionEmphasisMarks=function(source){
+  if(!md)return [];
+  const state=new md.inline.State(source,md,{revision:true},[]),groups=[];
+  const scan=state.scanDelims;
+  state.scanDelims=function(start,canSplitWord){
+   const run=scan.call(this,start,canSplitWord);
+   if(this.src[start]==='*'||this.src[start]==='_')groups.push({start,length:run.length,list:this.delimiters,first:this.delimiters.length});
+   return run;
+  };
+  md.inline.tokenize(state);
+  // Each delimiter owns a token before Markdown pairs the runs and joins plain text.
+  // Keep those token objects so nested links, escapes and code use the parser's own decisions.
+  const positioned=[];
+  for(const {start,length,list,first} of groups)for(let i=0;i<length;i++)
+   positioned.push({at:start+i,token:state.tokens[list[first+i].token]});
+  for(const rule of md.inline.ruler2.getRules(''))rule(state);
+  const marks=[];
+  for(const {at,token} of positioned)if(token.tag==='strong'||token.tag==='em'){
+   // A paired strong run keeps the inner opening star and the inner closing star.
+   const open=token.nesting===1,size=token.markup.length;
+   marks.push({at:open?at-size+1:at,size,open,tag:token.tag});
+  }
+  if(source.includes('** ')&&/[\r\n]/.test(source)){
+   const stack=[],acrossBreaks=new Set();
+   for(const mark of marks){
+    if(mark.open){stack.push(mark);continue;}
+    const opening=stack.pop();
+    if(opening.tag==='strong'&&source[opening.at+2]===' '&&/[\r\n]/.test(source.slice(opening.at,mark.at))){
+     acrossBreaks.add(opening);acrossBreaks.add(mark);
+    }
+   }
+   return marks.filter(mark=>!acrossBreaks.has(mark));
+  }
+  return marks;
+ };
  root.revisionFormulaSpans=function(source){
   if(!source.includes('$')&&!source.includes('\\(')&&!source.includes('\\['))return [];
   const spans=[];

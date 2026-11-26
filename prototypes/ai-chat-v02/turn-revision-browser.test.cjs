@@ -3,6 +3,72 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'), path=require('node:path'), {pathToFileURL}=require('node:url');
 const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
 
+async function checkEditedStrong(page){
+ const source=String.raw`要点： \eqref{eq:recover} 用的是 $w'$，却能恢复从 $w_1$ 提取的位。 看公式 \eqref{eq:products} 的第一行和最后一行。`;
+ await page.evaluate(source=>{
+   current().turns=[{id:'bold',question:'怎样恢复？',segments:[],
+     answer:source+'\n\n'+String.raw`$$w=x\label{eq:recover}$$`+'\n\n'+String.raw`$$v=x\label{eq:products}$$`}];
+   renderConversation();persist();
+ },source);
+ const field=page.locator('[data-id="bold-p0"] .words'),reading=page.locator('#bold-p0 p');
+ await page.locator('[data-revise="bold"]').click();
+ assert.equal(await field.locator('.revision-equation-ref[contenteditable=false]').count(),2);
+ async function insertAfter(text){
+   await field.evaluate((el,text)=>{
+     const node=[...el.childNodes].find(n=>n.nodeType===3&&n.data.includes(text));
+     getSelection().collapse(node,node.data.indexOf(text)+text.length);
+   },text);
+   await page.keyboard.insertText('**');
+ }
+ await insertAfter('要点：');await insertAfter('提取的位。');
+ const edited=source.replace('要点：','要点：**').replace('提取的位。','提取的位。**');
+ assert.equal(await field.textContent(),edited);
+ await page.keyboard.press('Escape');
+ async function check(root){
+   const strong=root.locator('strong');
+   assert.equal(await strong.count(),1,'两端星号跨过受保护的公式引用和行内公式时应渲染为一个强调范围');
+   assert.equal(await strong.locator('.equation-ref').count(),1);
+   assert.equal(await root.locator('.equation-ref').count(),2);
+   assert.deepEqual(await strong.locator('.math').evaluateAll(nodes=>nodes.map(n=>n.dataset.tex)),["w'",'w_1']);
+   assert.equal(await strong.evaluate(el=>el.nextSibling.textContent.startsWith(' 看公式')),true);
+   assert.equal((await root.textContent()).includes('**'),false);
+   assert.notEqual(await strong.evaluate(el=>getComputedStyle(el).color),await root.evaluate(el=>getComputedStyle(el).color));
+ }
+ await check(field);
+ const point=await field.locator('strong').evaluate(el=>{
+   const text=[...el.childNodes].find(n=>n.nodeType===3&&n.data.includes('提取的位'));
+   const range=document.createRange(),at=text.data.indexOf('提取的位');
+   range.setStart(text,at);range.setEnd(text,at+1);
+   const rect=range.getBoundingClientRect();return {x:rect.left+1,y:rect.top+rect.height/2};
+ });
+ await page.mouse.click(point.x,point.y);
+ assert.equal(await field.evaluate(el=>{
+   const range=getSelection().getRangeAt(0).cloneRange();range.setStart(el,0);return range.cloneContents().textContent;
+ }),edited.slice(0,edited.indexOf('提取的位')),'点击引用和两条公式之后的强调文字应回到该字的源码位置');
+ await page.keyboard.press('Escape');
+ await page.keyboard.press('Control+s');await page.reload();
+ await page.locator('[data-revise="bold"]').click();
+ assert.equal(await field.textContent(),edited,'草稿重开可继续修改原始标记');
+ await page.getByRole('button',{name:'完成整理',exact:true}).click();
+ await check(reading);
+ await page.reload();await check(reading);
+ // Some existing revisions store a whole mixed Markdown paragraph in a single string.
+ await page.evaluate(edited=>{
+   current().turns[0].readingRevisions.at(-1).rows[0].parts=[edited];persist();
+ },edited);
+ await page.reload();await check(reading);
+ if(process.env.TEXEED_REVISION_ARTIFACTS){
+   fs.mkdirSync(process.env.TEXEED_REVISION_ARTIFACTS,{recursive:true});
+   await reading.screenshot({path:path.join(process.env.TEXEED_REVISION_ARTIFACTS,'edited-strong.png')});
+ }
+ await reading.locator('strong .equation-ref').click();
+ await page.locator('#equation-preview .math').waitFor();
+ assert.match(await page.locator('#equation-preview .math').getAttribute('data-tex'),/eq:recover/);
+ await page.keyboard.press('Escape');
+ await reading.locator('strong .equation-ref').dblclick();
+ await page.locator('#bold-eq-1.equation-target').waitFor();
+}
+
 async function checkCaretBlink(page,editor,dir){
  const indicator=editor.locator('.revision-caret');
  const cycle=await indicator.evaluate(async caret=>{
@@ -70,6 +136,7 @@ async function checkCaretBlink(page,editor,dir){
   page.setDefaultTimeout(5500);
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.message);});
   await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
+  await checkEditedStrong(page);
   const original='# 密钥恢复\n\n先算接收值，再核对。\n\n## 进一步计算\n\n复查结论。\n\n行内 $x+1$ 仍在。\n\n$$w=x+1$$\n\n| 输入 | 输出 |\n| --- | --- |\n| 1 | 2 |';
   await page.evaluate(original=>{
     const c=current();c.turns=[{id:'up',answer:original,question:'如何恢复密钥？',segments:[],reviewDraft:{blocks:{},comments:[],oldComments:{preserve:true}}},{id:'follow',question:'何时核对？',answer:'保留原注。',segments:[],annotations:[{id:'q1',block:'up-p1',quote:'接收值',endTextOffset:5}]}];

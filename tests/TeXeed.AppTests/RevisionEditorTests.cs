@@ -101,7 +101,8 @@ internal static partial class Program
             await panel.SetProjectAsync(project);
             var book = (AiNotebook)Field(panel, "_book")!;
             var mathHome = Directory.CreateDirectory(Path.Combine(AiStorage.Home, "math-svg")).FullName;
-            foreach (var (fixture, tex, display) in new[] { ("capital", "A", false), ("display-energy", "E=mc^2", true) })
+            foreach (var (fixture, tex, display) in new[] { ("capital", "A", false), ("display-energy", "E=mc^2", true),
+                ("w-prime", "w'", false), ("w-index", "w_1", false) })
             {
                 using var svg = typeof(Program).Assembly.GetManifestResourceStream($"TeXeed.AppTests.Fixtures.inline-axis.{fixture}.svg")!;
                 using var file = File.Create(Path.Combine(mathHome, ChatTexRenderer.CacheFileName(tex, display)));
@@ -390,8 +391,127 @@ internal static partial class Program
             }
             measurements["warm"] = warm;
             File.WriteAllText(Path.Combine(output, "revision-editor-performance.json"), JsonSerializer.Serialize(measurements, new JsonSerializerOptions { WriteIndented = true }));
+            var strongProject = Path.Combine(output, "revision-emphasis-" + Guid.NewGuid().ToString("N") + ".tex");
+            await panel.SetProjectAsync(strongProject);
+            book = (AiNotebook)Field(panel, "_book")!;
+            const string clause = @"\eqref{eq:result} 用的是 $w'$，却能恢复从 $w_1$ 提取的位。";
+            const string tail = @" 看公式 \eqref{eq:products} 的第一行和最后一行。";
+            const string displays = "\n\n$$E=mc^2$$\n\n$$E=mc^2\\label{eq:products}$$\n\n$$E=mc^2\\label{eq:result}$$";
+            const string edited = "要点：** " + clause + "**" + tail;
+            turn = new AiTurn("哪一段需要强调？", "要点：" + clause + tail + displays);
+            book.Turns.Add(turn);
+            Invoke(panel, "RefreshTranscript"); await Idle();
+            await Command("整理这一段", "要点");
+            var emphasisLine = ActiveLine(0);
+            emphasisLine.CaretOffset = emphasisLine.Text.IndexOf(" 看公式", StringComparison.Ordinal);
+            Type(emphasisLine, "**");
+            emphasisLine.CaretOffset = "要点：".Length;
+            Type(emphasisLine, "** "); await Idle();
+            Check(Rows()[0].Text == edited, "Typing the two emphasis delimiters damaged formula or reference source");
+            Capture(host, Path.Combine(output, "revision-emphasis-source.png"));
+            var errors = new List<string>();
+            static string Visible(TextElement element) => new TextRange(element.ContentStart, element.ContentEnd).Text;
+            async Task CheckEmphasis(MarkdownView reader, string stage)
+            {
+                await reader.RenderTask; await AwaitMathAsync(reader); await Idle();
+                var paragraph = Paragraphs(reader.Document.Blocks).First();
+                Capture(host, Path.Combine(output, $"revision-emphasis-{stage}.png"));
+                var strong = paragraph.Inlines.OfType<Span>().SingleOrDefault(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker));
+                if (strong is null) { errors.Add($"{stage}: emphasis delimiters were displayed as text"); return; }
+                var copy = reader.CopySource(strong.ContentStart, strong.ContentEnd);
+                var mapped = AiRevisionText.SelectionText(edited, reader.ReferenceText);
+                var visible = reader.CopySource(paragraph.ContentStart, paragraph.ContentEnd);
+                var tailAt = mapped.Text.IndexOf("看公式", StringComparison.Ordinal);
+                if (mapped.Text != visible || tailAt < 0 || mapped.Starts[tailAt] != edited.IndexOf("看公式", StringComparison.Ordinal))
+                    errors.Add($"{stage}: rendered offsets no longer point into the authored paragraph");
+                var link = strong.Inlines.OfType<Hyperlink>().SingleOrDefault();
+                if (copy.Trim() != "(3) 用的是 $w'$，却能恢复从 $w_1$ 提取的位。" || Visible(paragraph).Contains("**") ||
+                    ((SolidColorBrush)strong.Foreground).Color != ThemeManager.Brush("ChatEmphasis").Color ||
+                    link is null || Visible(link) != "(3)" || ((SolidColorBrush)link.Foreground).Color != ThemeManager.Brush("Accent").Color ||
+                    !strong.Inlines.OfType<InlineUIContainer>().Select(item => (item.Child as ChatFormula)?.Source).SequenceEqual(["w'", "w_1"]) ||
+                    !paragraph.Inlines.OfType<Hyperlink>().Any(reference => Visible(reference) == "(2)"))
+                    errors.Add($"{stage}: incorrect emphasis range, colors, math, or equation link: {copy}");
+                if (stage == "reopened" && link is not null)
+                {
+                    host.Height = 370; await Idle();
+                    var scroll = Descendants<ChatScrollViewer>(panel).Single();
+                    scroll.ScrollToHome(); await Idle();
+                    var target = Descendants<ChatFormula>(reader).Last(f => f.Source == "E=mc^2");
+                    double BottomOfTarget() => target.TranslatePoint(new Point(0, target.ActualHeight), scroll).Y;
+                    Check(BottomOfTarget() > scroll.ViewportHeight && scroll.VerticalOffset < 1, "The target must start below the viewport");
+                    ClickEquation(link); await Idle();
+                    if (Field(reader, "_equationPreview") is not System.Windows.Controls.Primitives.Popup { IsOpen: true, Child: FrameworkElement preview } ||
+                        Descendants<ChatFormula>(preview).SingleOrDefault()?.Source != "E=mc^2" ||
+                        Descendants<ChatEquationNumber>(preview).SingleOrDefault() is not { } number)
+                        errors.Add("Reopened emphasis did not preview equation (3) on click");
+                    else EquationNumberGlyphs(number, "(3)");
+                    DoubleClickEquation(link); await Idle();
+                    if (Field(reader, "_equationPreview") is System.Windows.Controls.Primitives.Popup { IsOpen: true } ||
+                        scroll.VerticalOffset < 1 || BottomOfTarget() > scroll.ViewportHeight + 1 || BottomOfTarget() < target.ActualHeight - 1)
+                        errors.Add("Double-click did not bring the referenced equation (3) into the viewport");
+                }
+            }
+            await KeyIn(0, Key.Escape, emphasisLine.CaretOffset);
+            MarkdownView InactiveEmphasis() => Descendants<MarkdownView>(Descendants<RevisionLineHost>(Editor()).First()).Single();
+            await CheckEmphasis(InactiveEmphasis(), "blur");
+            var reflows = new List<object>();
+            for (var i = 0; i < 6; i++)
+            {
+                var currentLine = Line(0); currentLine.Select(currentLine.Text.Length - 1, 1);
+                var start = Stopwatch.GetTimestamp(); var bytes = GC.GetAllocatedBytesForCurrentThread();
+                Type(currentLine, i % 2 == 0 ? "！" : "。");
+                currentLine.TextArea.RaiseEvent(CreateKey(host, Key.Escape, Keyboard.PreviewKeyDownEvent)); await Idle();
+                var reader = InactiveEmphasis(); await reader.RenderTask; await AwaitMathAsync(reader); await Idle();
+                reflows.Add(new { ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds, allocated = GC.GetAllocatedBytesForCurrentThread() - bytes,
+                    formulas = Descendants<ChatFormula>(reader).Count(), activeSourceEditors = Descendants<RevisionLineEditor>(Editor()).Count() });
+            }
+            File.WriteAllText(Path.Combine(output, "revision-emphasis-performance.json"), JsonSerializer.Serialize(reflows));
+            Click("完成整理");
+            await WaitUntilAsync(() => Current().RevisionHistory?.Count == 2 && !Descendants<TurnRevisionEditor>(panel).Any(), "Emphasized revision did not commit");
+            await CheckEmphasis(View().Answers.Single(), "saved");
+            await panel.SetProjectAsync(strongProject); book = (AiNotebook)Field(panel, "_book")!; await Idle();
+            Check(Current().Answer == edited + displays && Current().RevisionHistory![1].Author == "user", "Reopening changed the authored Markdown or revision author");
+            await CheckEmphasis(View().Answers.Single(), "reopened");
+            Check(errors.Count == 0, string.Join("; ", errors));
+            await Command("编辑历史");
+            var emphasisHistory = Application.Current.Windows.OfType<Window>().Single(w => w.Title.Contains("编辑历史"));
+            try
+            {
+                var choices = Descendants<ComboBox>(emphasisHistory).Single();
+                var reader = ((DockPanel)emphasisHistory.Content).Children.OfType<MarkdownView>().Single();
+                choices.SelectedIndex = 1; await Idle();
+                Check(reader.Markdown == turn.Answer, "History lost the original version");
+                choices.SelectedIndex = 0; await reader.RenderTask; await Idle();
+                Check(reader.Markdown == edited + displays && Paragraphs(reader.Document.Blocks).First().Inlines.OfType<Span>()
+                    .Any(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker)), "The historical user revision displayed literal emphasis delimiters");
+            }
+            finally { emphasisHistory.Close(); }
+            CheckRevisionEmphasisBoundaries();
+            Console.WriteLine("PASS: user-typed emphasis with two inline formulas and a protected equation reference, from source through blur, save, reopen and preview");
             Console.WriteLine("PASS: real rendition/menu, editable inline TeX source and untouched equation references, wrapped baselines, composed Chinese input beside references, split/merge, empty and protected paragraphs, selection, undo, heading numbering, draft, history and cancel");
         }
         finally { host.Close(); }
+    }
+
+    private static void CheckRevisionEmphasisBoundaries()
+    {
+        (string Source, string Visible, int Strong)[] cases =
+        [
+            ("**标准** 与 ** 带空格** 以及 ** 结论。 **后文", "标准 与  带空格 以及  结论。 后文", 3),
+            ("没有闭合 ** 这段", "没有闭合 ** 这段", 0),
+            (@"\*\* 转义\*\* 和 `** 原样**`", "** 转义** 和 ** 原样**", 0),
+            ("前段 ** 独立\n\n后段**", "前段 ** 独立\n\n后段**", 0),
+            ("2 ** 3 ** 4", "2 ** 3 ** 4", 0),
+        ];
+        foreach (var item in cases)
+        {
+            var view = new MarkdownView { ChatMode = true };
+            view.Markdown = view.SetRevisionSource(item.Source, AiRevisionText.Parse("segment", item.Source));
+            var paragraphs = view.Document.Blocks.OfType<Paragraph>().ToArray();
+            var visible = string.Join("\n\n", paragraphs.Select(p => view.CopySource(p.ContentStart, p.ContentEnd)));
+            var count = paragraphs.SelectMany(p => p.Inlines.OfType<Span>()).Count(s => ReferenceEquals(s.Tag, MarkdownView.StrongEmphasisMarker));
+            if (visible != item.Visible || count != item.Strong)
+                throw new Exception($"Revision Markdown changed delimiter meaning in '{item.Source}': '{visible}', {count} emphasis spans");
+        }
     }
 }

@@ -26,8 +26,7 @@ public sealed partial class MarkdownView : RichTextBox
     private double ChatLineHeight => Math.Max(25, FontSize * AiChatTypography.LineHeight / AiChatTypography.FontSize);
     private bool UsesChatTypography => ChatMode || UseChatEmphasis ||
         _tableOwner is { } owner && (owner.ChatMode || owner.UseChatEmphasis);
-    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
-        .UseCustomContainers().UsePipeTables().UseEmphasisExtras().UseCjkFriendlyEmphasis().UseAutoLinks().DisableHtml().Build();
+    private static MarkdownPipeline Pipeline => ChatMarkdown.ReadingPipeline;
     public static readonly DependencyProperty MarkdownProperty = DependencyProperty.Register(
         nameof(Markdown), typeof(string), typeof(MarkdownView), new PropertyMetadata("", (d, _) => ((MarkdownView)d).Render()));
     public string Markdown { get => (string)GetValue(MarkdownProperty); set => SetValue(MarkdownProperty, value); }
@@ -165,7 +164,7 @@ public sealed partial class MarkdownView : RichTextBox
         else
         {
             var document = NewDocument(); ClearRichState(); _math = new ChatMath();
-            try { var blocks = ChatMarkdown.Parse(_math.Prepare(source, Pipeline, PrecedingDisplayCount), Pipeline, out _restoringSpacedEmphasis); AddBlocks(document.Blocks, blocks, 0); }
+            try { var blocks = ChatMarkdown.Parse(_math.Prepare(source, Pipeline, PrecedingDisplayCount), Pipeline, out _restoringSpacedEmphasis, _isRevision); AddBlocks(document.Blocks, blocks, 0); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { CodeFallback(document, source); }
             if (_tableViews.Count == 0) _math.ReleaseOriginalSource();
             TrimAnswerEnd(document); ApplyFolding(document); Document = document; RenderTask = Task.CompletedTask;
@@ -196,10 +195,11 @@ public sealed partial class MarkdownView : RichTextBox
         var document = NewDocument();
         try
         {
+            var revision = _isRevision;
             var prepared = await Task.Run(() =>
             {
                 var math = new ChatMath(); var text = math.Prepare(source, Pipeline, PrecedingDisplayCount);
-                var blocks = ChatMarkdown.Parse(text, Pipeline, out var repaired);
+                var blocks = ChatMarkdown.Parse(text, Pipeline, out var repaired, revision);
                 return (Math: math, Blocks: blocks, Repaired: repaired);
             });
             if (version != _renderVersion) return;

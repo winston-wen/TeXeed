@@ -1,0 +1,250 @@
+{
+  "baselineCommit": "e3948b38e6a16fdc2e2e64586965cb03a477969d",
+  "command": "dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --revision-editor-only --offscreen --output <isolated-folder>",
+  "fixture": "790 x 810 DIP, WPF Release x64. Type the delimiters around an existing equation reference, two inline equations and prose, then press Esc. Warm samples replace the final punctuation and press Esc. Measure the UI thread through queued layout, SVG render completion and dispatcher idle. Both versions used the same test source, input and precompiled TeX SVGs. Version 0.6.6 used the installed release DLL. Each batch has one warm-up, then five measured edits. Timings are in milliseconds, allocations are bytes.",
+  "0.6.6": {
+    "batches": [
+      {
+        "warmupMs": 52.1318,
+        "ms": [
+          14.2491,
+          15.923,
+          14.4774,
+          13.0024,
+          16.48
+        ],
+        "uiAllocatedBytes": [
+          886288,
+          894880,
+          892280,
+          899336,
+          897392
+        ],
+        "shortMenuOpen": {
+          "firstMenuMs": 87.3803,
+          "firstOpenMs": 154.9982,
+          "firstOpenUiAllocatedBytes": 3564104,
+          "editableRows": 5,
+          "initialNativeEditors": 1,
+          "warm": [
+            {
+              "menuMs": 20.9801,
+              "openMs": 79.2904,
+              "openUiAllocatedBytes": 3023400
+            },
+            {
+              "menuMs": 25.2381,
+              "openMs": 93.6977,
+              "openUiAllocatedBytes": 3027904
+            },
+            {
+              "menuMs": 27.3767,
+              "openMs": 74.0884,
+              "openUiAllocatedBytes": 3034344
+            },
+            {
+              "menuMs": 15.6834,
+              "openMs": 94.4487,
+              "openUiAllocatedBytes": 3061264
+            },
+            {
+              "menuMs": 14.2643,
+              "openMs": 54.9803,
+              "openUiAllocatedBytes": 3004632
+            }
+          ]
+        }
+      },
+      {
+        "warmupMs": 14.1091,
+        "ms": [
+          12.1408,
+          11.2297,
+          10.4716,
+          10.7882,
+          10.2737
+        ],
+        "uiAllocatedBytes": [
+          889144,
+          884648,
+          882592,
+          888976,
+          886880
+        ],
+        "shortMenuOpen": {
+          "firstMenuMs": 62.7338,
+          "firstOpenMs": 126.2577,
+          "firstOpenUiAllocatedBytes": 3567576,
+          "editableRows": 5,
+          "initialNativeEditors": 1,
+          "warm": [
+            {
+              "menuMs": 15.4507,
+              "openMs": 52.8048,
+              "openUiAllocatedBytes": 3002488
+            },
+            {
+              "menuMs": 16.3672,
+              "openMs": 51.8894,
+              "openUiAllocatedBytes": 3007136
+            },
+            {
+              "menuMs": 16.2584,
+              "openMs": 62.3049,
+              "openUiAllocatedBytes": 3014064
+            },
+            {
+              "menuMs": 17.6512,
+              "openMs": 86.8901,
+              "openUiAllocatedBytes": 3031272
+            },
+            {
+              "menuMs": 17.1127,
+              "openMs": 50.1586,
+              "openUiAllocatedBytes": 2987720
+            }
+          ]
+        }
+      }
+    ],
+    "medianEditToRenderedMs": 12.572,
+    "medianEditToRenderedUiBytes": 889060.0,
+    "inlineFormulaControls": 2,
+    "activeSourceEditorsAfterEsc": 0
+  },
+  "0.6.7": {
+    "batches": [
+      {
+        "warmupMs": 22.2458,
+        "ms": [
+          10.0329,
+          11.6488,
+          10.6797,
+          10.5098,
+          11.5102
+        ],
+        "uiAllocatedBytes": [
+          853832,
+          864072,
+          858368,
+          866432,
+          867696
+        ],
+        "shortMenuOpen": {
+          "firstMenuMs": 73.9186,
+          "firstOpenMs": 143.4215,
+          "firstOpenUiAllocatedBytes": 3571064,
+          "editableRows": 5,
+          "initialNativeEditors": 1,
+          "warm": [
+            {
+              "menuMs": 17.1583,
+              "openMs": 54.3377,
+              "openUiAllocatedBytes": 3004200
+            },
+            {
+              "menuMs": 17.2141,
+              "openMs": 52.7594,
+              "openUiAllocatedBytes": 3009072
+            },
+            {
+              "menuMs": 16.3161,
+              "openMs": 55.0931,
+              "openUiAllocatedBytes": 3015552
+            },
+            {
+              "menuMs": 19.3946,
+              "openMs": 84.0018,
+              "openUiAllocatedBytes": 3044352
+            },
+            {
+              "menuMs": 14.5397,
+              "openMs": 49.9056,
+              "openUiAllocatedBytes": 2988592
+            }
+          ]
+        },
+        "longEditor": {
+          "turns": 40,
+          "editableRows": 70,
+          "initialNativeEditors": 1,
+          "openMs": 110.6656,
+          "openUiAllocatedBytes": 3936200,
+          "splitMs": 17.7417,
+          "splitUiAllocatedBytes": 839320,
+          "screenYBefore": 149.99999999999977,
+          "screenYAfter": 150,
+          "neighboringEditorReused": true
+        }
+      },
+      {
+        "warmupMs": 24.3121,
+        "ms": [
+          10.8185,
+          11.8101,
+          11.7976,
+          12.251,
+          10.979
+        ],
+        "uiAllocatedBytes": [
+          853784,
+          862056,
+          860328,
+          866384,
+          865000
+        ],
+        "shortMenuOpen": {
+          "firstMenuMs": 68.3601,
+          "firstOpenMs": 143.8195,
+          "firstOpenUiAllocatedBytes": 3571080,
+          "editableRows": 5,
+          "initialNativeEditors": 1,
+          "warm": [
+            {
+              "menuMs": 23.5003,
+              "openMs": 65.5734,
+              "openUiAllocatedBytes": 3006968
+            },
+            {
+              "menuMs": 23.528,
+              "openMs": 82.7608,
+              "openUiAllocatedBytes": 3011840
+            },
+            {
+              "menuMs": 30.2716,
+              "openMs": 86.7723,
+              "openUiAllocatedBytes": 3018320
+            },
+            {
+              "menuMs": 19.8205,
+              "openMs": 107.8213,
+              "openUiAllocatedBytes": 3044248
+            },
+            {
+              "menuMs": 18.544,
+              "openMs": 56.1273,
+              "openUiAllocatedBytes": 2989552
+            }
+          ]
+        },
+        "longEditor": {
+          "turns": 40,
+          "editableRows": 70,
+          "initialNativeEditors": 1,
+          "openMs": 111.6939,
+          "openUiAllocatedBytes": 3936136,
+          "splitMs": 15.199,
+          "splitUiAllocatedBytes": 839320,
+          "screenYBefore": 149.99999999999977,
+          "screenYAfter": 150,
+          "neighboringEditorReused": true
+        }
+      }
+    ],
+    "medianEditToRenderedMs": 11.245,
+    "medianEditToRenderedUiBytes": 863064.0,
+    "inlineFormulaControls": 2,
+    "activeSourceEditorsAfterEsc": 0
+  },
+  "historicalLongEditor": "../caret-blink-20261126/native.json"
+}

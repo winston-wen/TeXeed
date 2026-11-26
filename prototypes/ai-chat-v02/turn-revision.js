@@ -137,46 +137,51 @@
    }
    return fixed;
  }
- function proseWithMath(part,cat,locations,offset=0){
-   const formulas=revisionFormulaSpans(part).filter(span=>!span.display&&span.closed);
-   function textNode(text){
+ function appendReadingParts(root,parts,cat,locations,children){
+   if(parts.some((p,i)=>i&&textPart(p)&&textPart(parts[i-1])))parts=compact(parts);
+   // A protected inline occupies exactly one position in the source editor.
+   const marks=parts.some(p=>textPart(p)&&/\*|__/.test(p))
+     ?revisionEmphasisMarks(parts.map(p=>textPart(p)?p:'\ufffc').join('')):[];
+   let target=root,markIndex=0,offset=0;
+   function appendText(text,at){
+     if(!text)return;
      const node=document.createTextNode(text);
-     locations?.set(node,{offset});offset+=text.length;
-     return node;
+     locations?.set(node,{offset:at});target.append(node);
    }
-   if(!formulas.length&&!part.includes('*'))return textNode(part);
-   let marker='\ue000';while(part.includes(marker))marker+='\ue000';
-   const tokenPattern=new RegExp(marker+'(\\d+)\\ue001','g');
-   let input='',start=0;
-   for(const [i,formula] of formulas.entries()){
-     input+=part.slice(start,formula.start)+marker+i+'\ue001';
-     start=formula.end;
-   }
-   input+=part.slice(start);
-   const frag=document.createDocumentFragment();
-   function append(target,text){
-     let at=0;
-     for(const match of text.matchAll(tokenPattern)){
-       if(match.index>at)target.append(textNode(text.slice(at,match.index)));
-       const formula=formulas[Number(match[1])],original=cat.inlineMarkup.get(formula.raw);
-       const node=original?.cloneNode(true)??rootOf(renderRevisionFormula(formula)).firstElementChild;
-       locations?.set(node,{offset,size:formula.raw.length});offset+=formula.raw.length;target.append(node);
-       at=match.index+match[0].length;
+   for(const part of parts){
+     if(!textPart(part)){
+       const node=locations&&part.equation!==undefined?make('span','equation-ref',equationText(part,cat)):partNode(part,cat,false);
+       if(part.child)children?.push([part.child,node.title]);
+       locations?.set(node,{offset,size:1});
+       if(!locations&&part.ref.startsWith('block:'))target.append(...node.childNodes);else target.append(node);
+       offset++;
+       continue;
      }
-     if(at<text.length)target.append(textNode(text.slice(at)));
+     const events=revisionFormulaSpans(part).filter(span=>!span.display&&span.closed);
+     const firstMark=markIndex;
+     while(markIndex<marks.length&&marks[markIndex].at<offset+part.length){
+       const mark=marks[markIndex++],start=mark.at-offset;
+       events.push({start,end:start+mark.size,mark});
+     }
+     if(markIndex!==firstMark&&events.length>1)events.sort((a,b)=>a.start-b.start);
+     let from=0;
+     for(const event of events){
+       appendText(part.slice(from,event.start),offset+from);
+       if(event.mark){
+         if(event.mark.open){const el=make(event.mark.tag);target.append(el);target=el;}
+         else target=target.parentNode;
+       }else{
+         const node=cat.inlineMarkup.get(event.raw)?.cloneNode(true)??rootOf(renderRevisionFormula(event)).firstElementChild;
+         locations?.set(node,{offset:offset+event.start,size:event.raw.length});target.append(node);
+       }
+       from=event.end;
+     }
+     appendText(part.slice(from),offset+from);
+     offset+=part.length;
    }
-   for(const token of input.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)){
-     const bold=token.startsWith('**')&&token.endsWith('**')&&token.length>4;
-     const emphasis=token.startsWith('*')&&token.endsWith('*')&&token.length>2;
-     if(bold||emphasis){
-       const mark=make(bold?'strong':'em'),edge=bold?2:1;offset+=edge;append(mark,token.slice(edge,-edge));offset+=edge;frag.append(mark);
-     }else append(frag,token);
-   }
-   return frag;
  }
  function partNode(part,cat,editing){
    // Never load markup from a revision. Rich tokens resolve against the unmodified original.
-   if(textPart(part))return editing?document.createTextNode(part):proseWithMath(part,cat);
    if(part.displaySource){
      const wrapper=make('div'),equation=make('div','equation');
      const formula=revisionFormulaSpans(part.displaySource)[0];
@@ -213,10 +218,7 @@
    for(const row of rows){
      const section=make('section','passage');section.id=row.id;section.dataset.block=row.id;
      const body=make('div','passage-body'),root=protectedBlock(row)?body:make(row.level?'h'+row.level:'p');
-     for(const part of row.parts){
-       const node=partNode(part,cat,false);if(part.child)children.push([part.child,node.title]);
-       if(!textPart(part)&&part.ref.startsWith('block:'))root.append(...node.childNodes);else root.append(node);
-     }
+     appendReadingParts(root,row.parts,cat,null,children);
      if(root!==body)body.append(root);
      section.append(body,make('div','margin-notes'));container.append(section);
    }
@@ -460,17 +462,9 @@
   }
   const locations=new WeakMap();
   function paintReading(words,row){
-    const nodes=[];
-    let offset=0;
-    for(const part of row.parts){
-      if(isText(part))nodes.push(proseWithMath(part,cat,locations,offset));
-      else{
-        const node=part.equation!==undefined?make('span','equation-ref',equationText(part,cat)):partNode(part,cat,false);
-        locations.set(node,{offset,size:1});nodes.push(node);
-      }
-      offset+=width(part);
-    }
-    words.replaceChildren(...nodes);
+    const fragment=document.createDocumentFragment();
+    appendReadingParts(fragment,row.parts,cat,locations);
+    words.replaceChildren(fragment);
   }
   function pointerOffset(words,x,y){
     const range=document.caretRangeFromPoint(x,y);

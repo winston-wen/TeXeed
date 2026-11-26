@@ -151,11 +151,11 @@ internal static class AiRevisionText
 
     // Old excerpts contain displayed text. Markdig spans let us recover the original
     // Markdown offset even when a selection crosses emphasis, a link or inline TeX.
-    internal static (string Text, List<int> Starts, List<int> Ends) SelectionText(string raw, Func<string, bool, string>? referenceText = null)
+    internal static (string Text, List<int> Starts, List<int> Ends) SelectionText(string raw, Func<string, bool, string>? referenceText = null, bool revision = true)
     {
         var math = new ChatMath();
-        var prepared = math.Prepare(raw, Pipeline);
-        var parsed = Markdown.Parse(prepared, Pipeline);
+        var prepared = math.Prepare(raw, ChatMarkdown.ReadingPipeline);
+        var parsed = ChatMarkdown.Parse(prepared, ChatMarkdown.ReadingPipeline, out var repaired, revision);
         var text = new StringBuilder(); var starts = new List<int>(); var ends = new List<int>();
         void Append(string value, int start, int end, bool atomic)
         {
@@ -168,7 +168,7 @@ internal static class AiRevisionText
         }
         void Literal(LiteralInline literal)
         {
-            var value = literal.Content.ToString();
+            var value = ChatMarkdown.RestoreSpaces(literal.Content.ToString(), repaired);
             var position = 0;
             while (position < value.Length)
             {

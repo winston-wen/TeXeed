@@ -41,7 +41,7 @@ public partial class AiPanel
         {
             var candidates = rows.Where(r => r.SegmentId == reference.Anchor.SegmentId).ToArray();
             if (candidates.Length == 0) continue;
-            var (row, offset) = LocateSourceReference(candidates, reference);
+            var (row, offset) = LocateSourceReference(candidates, reference, latest != null);
             row.Links.Add(new(reference.Id, offset, reference.Label));
         }
         foreach (var row in rows)
@@ -54,7 +54,7 @@ public partial class AiPanel
         return new(turn.Id, version, rows);
     }
 
-    private static (AiRevisionRow Row, int Offset) LocateSourceReference(AiRevisionRow[] candidates, SourceReference reference)
+    private static (AiRevisionRow Row, int Offset) LocateSourceReference(AiRevisionRow[] candidates, SourceReference reference, bool revision)
     {
         var anchor = reference.Anchor;
         var quote = anchor.Quote.Trim();
@@ -80,7 +80,7 @@ public partial class AiPanel
         var found = Match(joined);
         if (found < 0 || joined.Contains("](", StringComparison.Ordinal) || joined.Contains("][", StringComparison.Ordinal))
         {
-            var visible = candidates.Select(row => AiRevisionText.SelectionText(row.Text)).ToArray();
+            var visible = candidates.Select(row => AiRevisionText.SelectionText(row.Text, revision: revision)).ToArray();
             var position = Match(string.Join("\r\n", visible.Select(item => item.Text)));
             if (position >= 0)
             {

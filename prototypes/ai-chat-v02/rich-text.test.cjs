@@ -34,6 +34,24 @@ assert.match(render('**正文 **后文'), /\*\*正文 \*\*后文/);
 assert.match(render('`**出处： **项目`'), /<code>\*\*出处： \*\*项目<\/code>/);
 assert.match(render(String.raw`\*\*出处： \*\*项目`), /\*\*出处： \*\*项目/);
 assert.match(render('**出处：\n **项目'), /\*\*出处：[\s\S]*\*\*项目/);
+// Revisions need the source positions as well as the same pairing used for reading.
+function revisionMarkup(source){
+  let text='',from=0;
+  for(const mark of context.revisionEmphasisMarks(source)){
+    text+=source.slice(from,mark.at)+(mark.open?'<':'</')+mark.tag+'>';
+    from=mark.at+mark.size;
+  }
+  return text+source.slice(from);
+}
+for(const source of ['2 ** 3 ** 4','** 未闭合','** 开头\n下一行**','`**代码**`',String.raw`\*\*字面\*\*`,
+                     '[文](https://demo.test/**path**)','$x^{**}$'])
+  assert.equal(revisionMarkup(source),source);
+assert.equal(revisionMarkup('前：** 文字** 与 ** $x_i$**、**\ufffc和*内层*\ufffc**。'),
+  '前：<strong> 文字</strong> 与 <strong> $x_i$</strong>、<strong>\ufffc和<em>内层</em>\ufffc</strong>。');
+assert.equal(revisionMarkup('__词__ 和 **[链接](a) 与 `**代码**`**'),
+  '<strong>词</strong> 和 <strong>[链接](a) 与 `**代码**`</strong>');
+assert.equal(revisionMarkup('开头** 一**，** 二** 后文。'), '开头<strong> 一</strong>，<strong> 二</strong> 后文。');
+assert.match(render('要点：** 留空**'),/\*\* 留空\*\*/,'编辑容错不改变原答的 Markdown');
 for (const formula of ['$x^2$', String.raw`\(\frac{1}{2}\)`, '$$x^2$$', String.raw`\[\sum_{i=1}^n i\]`]) {
   assert.match(render(formula), /class="katex"/);
   assert.doesNotMatch(render(formula), /render-fallback/);

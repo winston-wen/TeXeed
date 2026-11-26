@@ -141,7 +141,8 @@ public partial class AiPanel
         {
             if (list.SelectedIndex < 0) return;
             var version = chronological[list.SelectedIndex];
-            viewer.Markdown = version.Sources.Count > 0 ? string.Join("\n\n", version.Sources.Values) : AiRevisionText.Source(version.Rows);
+            var source = version.Sources.Count > 0 ? string.Join("\n\n", version.Sources.Values) : AiRevisionText.Source(version.Rows);
+            viewer.SetHistorySource(source, revision: version.Id != "original");
             viewer.ScrollToHome();
         };
         list.SelectedIndex = 0;
