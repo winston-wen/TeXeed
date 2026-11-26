@@ -32,7 +32,12 @@ internal static partial class Program
             CheckWorkspaceChromeAsync(output).GetAwaiter().GetResult();
             return 0;
         }
-        if (args.Contains("--workspace-chrome-native"))
+        if (args.Contains("--revision-editor-only"))
+        {
+            RunOnInputDesktopAsync("revision editor", "--revision-editor-native", output).GetAwaiter().GetResult();
+            return 0;
+        }
+        if (args.Contains("--workspace-chrome-native") || args.Contains("--revision-editor-native"))
         {
             var log = new StreamWriter(Path.Combine(output, "input.log")) { AutoFlush = true };
             Console.SetOut(log);
@@ -74,7 +79,7 @@ internal static partial class Program
                     await CheckAiTurnFoldingAsync(window, output);
                     await CloseAndObserveAsync(window, "AI turn folds"); result = 0; return;
                 }
-                if (args.Contains("--revision-editor-only"))
+                if (args.Contains("--revision-editor-native"))
                 {
                     await CheckRevisionEditorAsync(window, output);
                     await CheckRevisionEditorViewportAsync(window, output);

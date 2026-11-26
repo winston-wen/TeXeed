@@ -70,15 +70,50 @@ internal static partial class Program
                 throw new Exception("Splitting a paragraph rebuilt or displaced adjacent long-answer rows");
             var caret = moved[rowIndex + 1].Editor!; caret.TextArea.RaiseEvent(CreateKey(host, Key.Back, Keyboard.PreviewKeyDownEvent)); await Idle();
             if (turn.UserRevisionDraft?.Rows.Count != samples.Length || !ReferenceEquals(guard, Descendants<RevisionLineHost>(editor).ElementAt(rowIndex - 1)))
-                throw new Exception("Joining a long-answer paragraph lost a row or rebuilt its neighbor");
+                throw new Exception($"Joining a long-answer paragraph lost a row or rebuilt its neighbor: {turn.UserRevisionDraft?.Rows.Count} rows, caret {caret.CaretOffset}, modifiers {Keyboard.Modifiers}, same guard {ReferenceEquals(guard, Descendants<RevisionLineHost>(editor).ElementAt(rowIndex - 1))}");
             scroll.ScrollToEnd(); await Idle();
             virtualizer.Reveal(index); await Idle();
             if (!Descendants<TurnRevisionEditor>(panel).Any(v => v.IsVisible) || turn.UserRevisionDraft?.Rows.Count != samples.Length)
                 throw new Exception("Virtualization lost the active revision draft");
+            editor = Descendants<TurnRevisionEditor>(panel).Single(v => v.IsVisible);
+            var target = Descendants<RevisionLineHost>(editor).ElementAt(rowIndex);
+            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + target.TranslatePoint(new Point(), scroll).Y - 150);
+            await Idle();
+            target.Focus(); line = target.Editor!;
+            line.CaretOffset = line.Text.Length;
+            const string addition = "已校对。";
+            var composition = new TextComposition(InputManager.Current, line.TextArea, addition);
+            line.TextArea.RaiseEvent(new TextCompositionEventArgs(Keyboard.PrimaryDevice, composition) { RoutedEvent = TextCompositionManager.TextInputEvent });
+            await Idle();
+            var beforeSave = target.TranslatePoint(new Point(), scroll).Y;
+            if (beforeSave < 20 || beforeSave > scroll.ViewportHeight - 20) throw new Exception($"Commit fixture not visible: {beforeSave}");
+            var offsetBefore = scroll.VerticalOffset;
+            var toolbarControls = Descendants<Control>(editor).Count(c => c.IsVisible && c is Button or ComboBox);
+            start = Stopwatch.GetTimestamp(); allocated = GC.GetAllocatedBytesForCurrentThread();
+            RevisionShortcut(host, line.TextArea, Key.S);
+            await WaitUntilAsync(() => book.Turns.Single(t => t.Id == turn.Id).Answer.Contains(addition) && !Descendants<TurnRevisionEditor>(panel).Any(), "The long-answer revision did not finish");
+            await Idle();
+            var finishMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds; var finishBytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
+            async Task<double?> SavedY()
+            {
+                var savedView = Descendants<AiTurnView>(panel).FirstOrDefault(v => v.Turn.Id == turn.Id)?.Answers.SingleOrDefault();
+                if (savedView == null) return null;
+                await savedView.RenderTask; await Idle();
+                var p = savedView.Document.Blocks.OfType<Paragraph>().SingleOrDefault(p => new TextRange(p.ContentStart, p.ContentEnd).Text.Contains(addition));
+                return p is null ? null : savedView.TranslatePoint(p.ContentStart.GetCharacterRect(LogicalDirection.Forward).TopLeft, scroll).Y;
+            }
+            var afterSave = await SavedY();
+            await Task.Delay(250); await Idle();
+            var settledY = await SavedY();
+            var offsetAfter = scroll.VerticalOffset;
+            var realizedTurns = Descendants<AiTurnView>(panel).Select(v => v.TurnNumber).Order().ToArray();
+            if (afterSave == null || settledY == null || Math.Abs(afterSave.Value - beforeSave) > 4 || Math.Abs(settledY.Value - beforeSave) > 4)
+                throw new Exception($"Completing the long-answer revision moved the edited paragraph: {beforeSave:F1} -> {afterSave:F1} -> {settledY:F1} DIP; offset {offsetBefore:F1} -> {offsetAfter:F1}, realized turns {string.Join(",", realizedTurns)}");
             File.WriteAllText(Path.Combine(output, "revision-editor-long-performance.json"), JsonSerializer.Serialize(new
             {
                 turns = 40, editableRows = lines.Length, initialNativeEditors = initialEditors, openMs = duration, openUiAllocatedBytes = bytes, splitMs = split, splitUiAllocatedBytes = splitBytes,
-                screenYBefore = before, screenYAfter = entered, neighboringEditorReused = true
+                screenYBefore = before, screenYAfter = entered, neighboringEditorReused = true, toolbarControls, finishMs, finishUiAllocatedBytes = finishBytes,
+                screenYBeforeSave = beforeSave, screenYAfterSave = afterSave, screenYSettled = settledY, offsetBefore, offsetAfter, realizedTurns
             }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"PASS: right-clicked long-answer row stayed at {before:F1} / {entered:F1} DIP, unchanged editor survived split/merge, and draft survived virtualization");
         }

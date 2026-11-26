@@ -36,7 +36,10 @@ async function run(browser,folder,isNew){
         const range=document.createRange();range.selectNodeContents(field);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);
         document.execCommand('insertText',false,field.textContent.replace(/x\+[12]/,match=>match==='x+1'?'x+2':'x+1'));
       }else document.execCommand('insertText',false,'改');
-      document.querySelector('.revision-primary').click();
+      const finishButton=field.closest('.revision-editor').querySelector('.revision-toolbar .revision-primary');
+      if(finishButton)finishButton.click();
+      else field.dispatchEvent(new KeyboardEvent('keydown',{key:'s',ctrlKey:true,bubbles:true,cancelable:true}));
+      if(document.querySelector('.revision-editor'))throw Error('保存未完成整理');
       if(node!==document.getElementById('perf-35-p1'))throw Error('保存重建其他轮次');
     }
     reader.getBoundingClientRect();await twoFrames();
@@ -75,6 +78,13 @@ async function run(browser,folder,isNew){
     const {profile}=await c.send('HeapProfiler.stopSampling');
     records.settledAllocation[op].push(profile.samples.reduce((sum,sample)=>sum+sample.size,0));
    }
+   records.editorControls=await page.evaluate(async()=>{
+     document.getElementById('perf-17-p1').scrollIntoView({block:'center'});await perform('open');
+     const root=document.querySelector('.revision-editor'),bounds=document.getElementById('reader').getBoundingClientRect();
+     return {visibleButtonsAndSelectors:[...root.querySelectorAll('button,select')].filter(el=>{
+       const r=el.getBoundingClientRect();return r.height&&r.bottom>bounds.top&&r.top<bounds.bottom;
+     }).length,toolbarHeight:root.querySelector('.revision-toolbar')?.getBoundingClientRect().height??0};
+   });
   }
   return records;
  }finally{await page.close();}

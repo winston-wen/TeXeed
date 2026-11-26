@@ -43,18 +43,21 @@ internal static partial class Program
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(nint handle);
 
-    private static async Task CheckWorkspaceChromeAsync(string output)
+    private static Task CheckWorkspaceChromeAsync(string output) =>
+        RunOnInputDesktopAsync("workspace chrome", "--workspace-chrome-native", Path.Combine(output, "workspace-chrome"));
+
+    private static async Task RunOnInputDesktopAsync(string name, string option, string output)
     {
         // WPF discards native mouse messages when another application or the lock screen
         // covers its HWND. Give the fixture its own desktop without switching the display.
-        var desktopName = $"TeXeedChrome{Guid.NewGuid():N}";
+        var desktopName = $"TeXeedInput{Guid.NewGuid():N}";
         var desktop = CreateDesktop(desktopName, 0, 0, 0, 0x1ff, 0);
         if (desktop == 0) throw new Win32Exception(Marshal.GetLastWin32Error());
         try
         {
-            var fixture = Directory.CreateDirectory(Path.Combine(output, "workspace-chrome")).FullName;
+            var fixture = Directory.CreateDirectory(output).FullName;
             var executable = Path.Combine(AppContext.BaseDirectory, "TeXeed.AppTests.exe");
-            var command = new StringBuilder($"\"{executable}\" --workspace-chrome-native --output \"{fixture}\"");
+            var command = new StringBuilder($"\"{executable}\" {option} --output \"{fixture}\"");
             var startup = new DesktopStartup { Size = (uint)Marshal.SizeOf<DesktopStartup>(), Desktop = desktopName };
             const uint createNoWindow = 0x08000000;
             if (!CreateProcess(executable, command, 0, 0, false, createNoWindow, 0, null, ref startup, out var child))
@@ -66,7 +69,7 @@ internal static partial class Program
                 catch (TimeoutException) { process.Kill(entireProcessTree: true); throw; }
                 var log = Path.Combine(fixture, "input.log");
                 if (File.Exists(log)) Console.Write(File.ReadAllText(log));
-                if (process.ExitCode != 0) throw new Exception($"Workspace input fixture exited with code {process.ExitCode}");
+                if (process.ExitCode != 0) throw new Exception($"{name} fixture exited with code {process.ExitCode}");
             }
             finally { CloseHandle(child.Thread); CloseHandle(child.Process); }
         }

@@ -14,7 +14,6 @@ internal sealed class TurnRevisionEditor : StackPanel
     private readonly string? _imageBaseDirectory;
     private readonly (AiPanel Panel, AiTurn Source)? _equations;
     private readonly Action<AiRevisionDraft> _saveDraft;
-    private readonly Func<Task>? _persistDraft;
     private readonly Func<IReadOnlyList<AiRevisionRow>, Task> _finish;
     private readonly Dictionary<string, Dictionary<string, string>> _equationLabels = [];
     private readonly Dictionary<string, int> _precedingDisplays = [];
@@ -25,21 +24,18 @@ internal sealed class TurnRevisionEditor : StackPanel
     private sealed record RowView(AiRevisionRow Row, bool Selecting, FrameworkElement Container, TextBlock? Marker, RevisionLineHost? Host);
     private Dictionary<string, RowView> _displayed = [];
     private readonly StackPanel _passages = new();
-    private readonly Button _pick, _drop, _back;
-    private readonly ComboBox _level = new() { ToolTip = "当前段落的标题层级", MinWidth = 80, Margin = new Thickness(2) };
     private readonly TextBlock _notice = new() { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
-    private bool _selecting, _painting, _updatingLevel;
+    private bool _selecting, _painting, _busy;
     private string _active = "";
     private int _lastCaret;
     private Window? _window;
-    private ToolTip? _savedTip;
 
     internal TurnRevisionEditor(AiRevisionDraft draft, int number, string? imageBaseDirectory, Action<AiRevisionDraft> saveDraft,
-        Func<IReadOnlyList<AiRevisionRow>, Task> finish, Func<Task> cancel, Func<Task>? persistDraft = null,
+        Func<IReadOnlyList<AiRevisionRow>, Task> finish, Func<Task> cancel,
         (AiPanel Panel, AiTurn Source)? equations = null)
     {
         _original = draft; _rows = [.. draft.Rows]; _number = number; _imageBaseDirectory = imageBaseDirectory;
-        _saveDraft = saveDraft; _finish = finish; _persistDraft = persistDraft;
+        _saveDraft = saveDraft; _finish = finish;
         _equations = equations;
         Focusable = true;
         KeyboardNavigation.SetIsTabStop(this, false);
@@ -52,53 +48,32 @@ internal sealed class TurnRevisionEditor : StackPanel
         };
         Unloaded += (_, _) =>
         {
-            if (_savedTip != null) _savedTip.IsOpen = false;
             if (_window == null) return;
             _window.PreviewMouseDown -= WindowMouseDown;
             _window.Deactivated -= WindowDeactivated;
             _window = null;
         };
         IndexEquations();
-        var tools = new WrapPanel { Margin = new Thickness(0, 4, 0, 6) };
-        Children.Add(tools);
-        Button Add(string title, RoutedEventHandler click)
-        {
-            var button = new Button { Content = title, Margin = new Thickness(0, 2, 5, 2), Padding = new Thickness(8, 3, 8, 3) };
-            button.Click += click; tools.Children.Add(button); return button;
-        }
-        Add("完成整理", async (sender, _) => await RunAsync(() => _finish(KeptRows()), (Button)sender));
-        Add("取消整理", async (_, _) => await RunAsync(cancel));
-        _back = Add("撤销", (_, _) => Undo());
-        _pick = Add("选择段落", (_, _) => { _selecting = !_selecting; _selected.Clear(); Paint(); });
-        _drop = Add("删除所选段落", (_, _) => DeleteSelected());
-        _level.Items.Add("正文");
-        for (var i = 1; i <= 6; i++) _level.Items.Add($"{i} 级标题");
-        _level.SelectionChanged += (_, _) =>
-        {
-            if (_updatingLevel || _painting || _level.SelectedIndex < 0) return;
-            var index = Index(_active);
-            if (index < 0 || _rows[index].Locked || _rows[index].Level == _level.SelectedIndex) return;
-            var caret = _lines.GetValueOrDefault(_active)?.CaretOffset ?? _lastCaret;
-            Remember(_active, caret); _rows[index] = _rows[index] with { Level = _level.SelectedIndex };
-            Changed(); Paint(_active, caret);
-        };
-        tools.Children.Add(_level);
+        ContextMenu = new ContextMenu();
+        ContextMenu.Opened += (_, _) => BuildMenu(cancel);
         Children.Add(_notice); Children.Add(_passages);
         _notice.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(async (_, e) =>
         {
-            if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control) { e.Handled = true; Undo(); }
-            if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control && _persistDraft != null)
+            if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 e.Handled = true;
-                try { await _persistDraft(); await ShowSavedTipAsync(); }
-                catch (Exception ex) { _notice.Text = "草稿保存失败：" + ex.Message; _notice.Visibility = Visibility.Visible; }
+                if (!e.IsRepeat) await RunAsync(() => _finish(KeptRows()));
             }
-            if (e.Key == Key.Escape)
+            else if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 e.Handled = true;
-                if (_selecting) _pick.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                _level.IsDropDownOpen = false;
+                if (!_busy) Undo();
+            }
+            else if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                if (_selecting && !_busy) ToggleSelection();
                 Focus();
             }
         }));
@@ -115,27 +90,6 @@ internal sealed class TurnRevisionEditor : StackPanel
         Focus();
     }
 
-    private async Task ShowSavedTipAsync()
-    {
-        if (!IsLoaded || !IsKeyboardFocusWithin) return;
-        if (_savedTip != null) _savedTip.IsOpen = false;
-        var tip = new ToolTip { Content = "草稿已保存", PlacementTarget = _level,
-            Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
-        if (_lines.GetValueOrDefault(_active) is { IsKeyboardFocusWithin: true } line)
-        {
-            var view = line.TextArea.TextView;
-            var at = line.TextArea.Caret.CalculateCaretRectangle();
-            tip.PlacementTarget = view;
-            at.Offset(-view.ScrollOffset.X, -view.ScrollOffset.Y);
-            tip.PlacementRectangle = at;
-        }
-        _savedTip = tip;
-        tip.IsOpen = true;
-        await Task.Delay(1600);
-        tip.IsOpen = false;
-        if (ReferenceEquals(_savedTip, tip)) _savedTip = null;
-    }
-
     private void WindowDeactivated(object? sender, EventArgs e)
     {
         if (!IsKeyboardFocusWithin) return;
@@ -143,19 +97,36 @@ internal sealed class TurnRevisionEditor : StackPanel
         FocusManager.SetFocusedElement(FocusManager.GetFocusScope(this), this);
     }
 
-    private async Task RunAsync(Func<Task> action, Button? saveButton = null)
+    private async Task RunAsync(Func<Task> action)
     {
-        if (saveButton is not null) saveButton.Content = "正在保存";
-        IsEnabled = false;
+        if (_busy) return;
+        _busy = true;
+        var source = _lines.GetValueOrDefault(_active);
+        int? caret = source?.IsKeyboardFocusWithin == true ? source.CaretOffset : null;
+        // Keep this editor as the keyboard target while validation or disk I/O is pending.
+        // Repeated shortcuts still belong to this turn, even after its source loses focus.
+        if (IsKeyboardFocusWithin) Focus();
+        _passages.IsEnabled = false;
+        _notice.Visibility = Visibility.Collapsed;
         try { await action(); }
-        catch (Exception ex) { _notice.Text = ex.Message; _notice.Visibility = Visibility.Visible; }
-        finally
+        catch (Exception ex)
         {
-            if (saveButton is not null) saveButton.Content = "完成整理";
-            IsEnabled = true;
+            _notice.Text = ex.Message; _notice.Visibility = Visibility.Visible;
+            _passages.IsEnabled = true;
+            if (caret is { } at && IsKeyboardFocused) _displayed.GetValueOrDefault(_active)?.Host?.FocusSource(at);
         }
+        finally { _passages.IsEnabled = true; _busy = false; }
     }
     internal void FocusFirstParagraph() => _displayed.Values.FirstOrDefault(view => view.Host != null)?.Host?.FocusSource(0);
+
+    internal (string RowId, string SegmentId, double Y)? ActiveReadingAnchor(FrameworkElement viewport)
+    {
+        if (!_displayed.TryGetValue(_active, out var view) || !view.Container.IsVisible ||
+            !viewport.IsAncestorOf(view.Container)) return null;
+        var y = view.Container.TranslatePoint(new Point(), viewport).Y;
+        return y < viewport.ActualHeight && y + view.Container.ActualHeight > 0
+            ? (view.Row.Id, view.Row.SegmentId, y) : null;
+    }
 
     internal FrameworkElement? AtReadingPosition(string segmentId, string text, int offset, bool activate = false, string? rowId = null)
     {
@@ -190,10 +161,8 @@ internal sealed class TurnRevisionEditor : StackPanel
     private void Remember(string id, int caret) => _undo.Push((new List<AiRevisionRow>(_rows), id, caret));
     private void Changed()
     {
-        if (_savedTip != null) _savedTip.IsOpen = false;
         _notice.Visibility = Visibility.Collapsed;
         _saveDraft(_original with { Rows = [.. _rows] });
-        Controls();
     }
     private void Undo()
     {
@@ -201,18 +170,54 @@ internal sealed class TurnRevisionEditor : StackPanel
         _rows = previous.Rows; _selecting = false; _selected.Clear();
         Changed(); Paint(previous.Id, previous.Caret);
     }
-    private void Controls()
+    private void BuildMenu(Func<Task> cancel)
     {
-        _pick.Content = _selecting ? "取消选择" : "选择段落";
-        _back.IsEnabled = _undo.Count > 0;
-        _drop.Visibility = _selecting ? Visibility.Visible : Visibility.Collapsed;
-        _drop.IsEnabled = _selected.Count > 0;
-        _drop.Content = _selected.Count > 0 ? $"删除所选 {_selected.Count} 段" : "删除所选段落";
-        var index = Index(_active);
-        _updatingLevel = true;
-        _level.SelectedIndex = index < 0 ? -1 : _rows[index].Level;
-        _level.IsEnabled = !_selecting && index >= 0 && !_rows[index].Locked;
-        _updatingLevel = false;
+        var menu = ContextMenu;
+        menu.Items.Clear();
+        if (_busy) return;
+        // All rows share one menu. WPF sets PlacementTarget to the right-clicked row
+        // even when the insertion caret is in a different paragraph.
+        var target = menu.PlacementTarget as FrameworkElement;
+        var id = target?.Tag as string ?? _active;
+        var index = Index(id);
+        MenuItem Add(string title, RoutedEventHandler action)
+        {
+            var item = new MenuItem { Header = title };
+            item.Click += action;
+            menu.Items.Add(item);
+            return item;
+        }
+        if (!_selecting && index >= 0 && !_rows[index].Locked)
+        {
+            var levels = new MenuItem { Header = "段落类型" };
+            for (var i = 0; i <= 6; i++)
+            {
+                var level = i;
+                var item = new MenuItem { Header = level == 0 ? "正文" : $"{level} 级标题", IsChecked = _rows[index].Level == level };
+                item.Click += (_, _) => ChangeLevel(id, level);
+                levels.Items.Add(item);
+            }
+            menu.Items.Add(levels);
+        }
+        Add(_selecting ? "取消选择" : "选择段落", (_, _) => ToggleSelection());
+        if (_selecting)
+            Add($"删除所选 {_selected.Count} 段", (_, _) => DeleteSelected()).IsEnabled = _selected.Count > 0;
+        Add("取消整理", async (_, _) => await RunAsync(cancel));
+    }
+
+    private void ChangeLevel(string id, int level)
+    {
+        var index = Index(id);
+        if (index < 0 || _rows[index].Locked || _rows[index].Level == level) return;
+        var caret = _lines.GetValueOrDefault(id)?.CaretOffset ?? (id == _active ? _lastCaret : 0);
+        Remember(id, caret); _rows[index] = _rows[index] with { Level = level };
+        Changed(); Paint(id, caret);
+    }
+
+    private void ToggleSelection()
+    {
+        Focus();
+        _selecting = !_selecting; _selected.Clear(); Paint();
     }
 
     private void Paint(string? focus = null, int caret = 0)
@@ -247,7 +252,6 @@ internal sealed class TurnRevisionEditor : StackPanel
             }
             if (_passages.Children.Count > _rows.Count) _passages.Children.RemoveRange(_rows.Count, _passages.Children.Count - _rows.Count);
             _displayed = displayed;
-            Controls();
         }
         finally { _painting = false; }
         if (focus != null && _displayed.TryGetValue(focus, out var focused)) FocusRow(focused, caret);
@@ -310,7 +314,7 @@ internal sealed class TurnRevisionEditor : StackPanel
 
     private RowView BuildRow(AiRevisionRow row, int index)
     {
-        var block = new DockPanel { Margin = new Thickness(0, 3, 0, 3), Background = Brushes.Transparent };
+        var block = new DockPanel { Tag = row.Id, ContextMenu = ContextMenu, Margin = new Thickness(0, 3, 0, 3), Background = Brushes.Transparent };
         TextBlock? marker = null;
         RevisionLineHost? host = null;
         if (row.Level is >= 1 and <= 6)
@@ -331,7 +335,7 @@ internal sealed class TurnRevisionEditor : StackPanel
             {
                 var preview = (MarkdownView)RenderRow(row);
                 preview.ToolTip = "回车在其后分段，Shift+Enter 在其前分段";
-                preview.GotKeyboardFocus += (_, _) => { _active = row.Id; Controls(); };
+                preview.GotKeyboardFocus += (_, _) => _active = row.Id;
                 preview.PreviewKeyDown += (_, e) =>
                 {
                     if (_selecting || e.Key != Key.Enter || Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)) return;
@@ -356,7 +360,6 @@ internal sealed class TurnRevisionEditor : StackPanel
                 {
                     _active = row.Id;
                     if (marker != null) marker.Text = new string('#', row.Level) + " ";
-                    Controls();
                 };
                 line.Changed = () => TextChanged(row.Id, line);
                 line.PasteText = value => Replace(row.Id, line, value);
@@ -374,14 +377,13 @@ internal sealed class TurnRevisionEditor : StackPanel
         }
         if (_selecting && !row.Locked)
         {
-            var pick = new Button { Content = block, Tag = row.Id, HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            var pick = new Button { Content = block, Tag = row.Id, ContextMenu = ContextMenu, HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(2) };
             System.Windows.Automation.AutomationProperties.SetName(pick, $"选择第 {index + 1} 段");
             pick.Click += (_, _) =>
             {
                 if (_selected.Add(row.Id)) pick.SetResourceReference(BackgroundProperty, "TextSelectionBackground");
                 else { _selected.Remove(row.Id); pick.Background = Brushes.Transparent; }
-                Controls();
             };
             return new(row, _selecting, pick, marker, null);
         }

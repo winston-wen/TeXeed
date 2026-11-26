@@ -46,10 +46,10 @@ async function checkEditedStrong(page){
    const range=getSelection().getRangeAt(0).cloneRange();range.setStart(el,0);return range.cloneContents().textContent;
  }),edited.slice(0,edited.indexOf('提取的位')),'点击引用和两条公式之后的强调文字应回到该字的源码位置');
  await page.keyboard.press('Escape');
- await page.keyboard.press('Control+s');await page.reload();
+ await page.reload();
  await page.locator('[data-revise="bold"]').click();
  assert.equal(await field.textContent(),edited,'草稿重开可继续修改原始标记');
- await page.getByRole('button',{name:'完成整理',exact:true}).click();
+ await page.keyboard.press('Control+s');
  await check(reading);
  await page.reload();await check(reading);
  // Some existing revisions store a whole mixed Markdown paragraph in a single string.
@@ -67,6 +67,42 @@ async function checkEditedStrong(page){
  await page.keyboard.press('Escape');
  await reading.locator('strong .equation-ref').dblclick();
  await page.locator('#bold-eq-1.equation-target').waitFor();
+}
+
+async function checkRevisionFinish(page){
+ await page.evaluate(()=>{
+   current().turns=[
+     {id:'first-edit',question:'整理前一轮',answer:'保留这一轮的草稿。',segments:[]},
+     {id:'second-edit',question:'整理后一轮',answer:Array.from({length:48},(_,i)=>
+       '第 '+(i+1)+' 段，核对符号、公式和上一步的结果。').join('\n\n'),segments:[]}];
+   renderConversation();persist();
+ });
+ await page.waitForFunction(()=>!restoring);
+ await page.locator('[data-revise="first-edit"]').click();
+ await page.keyboard.press('End');await page.keyboard.insertText('尚未完成。');
+ const id='second-edit-p26',reading=page.locator('#'+id+' p');
+ await reading.evaluate(p=>p.scrollIntoView({block:'center'}));
+ await reading.click({button:'right'});await page.locator('#revise-here').click();
+ const field=page.locator('[data-id="'+id+'"] .words'),editor=page.locator('#second-edit .revision-editor');
+ assert.equal(await field.evaluate(el=>el===document.activeElement),true);
+ await page.keyboard.press('End');await page.keyboard.insertText('已订正。');
+ await page.keyboard.press('Escape');assert.equal(await editor.locator('[contenteditable=true]').count(),0);
+ const y=await field.evaluate(node=>node.getBoundingClientRect().y);
+ if(process.env.TEXEED_REVISION_ARTIFACTS)
+   await page.locator('#reader').screenshot({path:path.join(process.env.TEXEED_REVISION_ARTIFACTS,'shortcut-reader.png')});
+ // Losing durable storage must leave the editor and both turns' drafts available for retry.
+ await page.evaluate(()=>{window.originalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw new Error('fixture: storage full');};});
+ await page.keyboard.press('Control+s');
+ assert.equal(await editor.count(),1);assert.match(await editor.locator('.revision-notice').innerText(),/无法保存/);
+ assert.equal(await page.evaluate(()=>current().turns[1].readingRevisions?.length||0),0);
+ await page.evaluate(()=>{Storage.prototype.setItem=window.originalSetItem;delete window.originalSetItem;});
+ await page.keyboard.press('Control+s');assert.equal(await editor.count(),0);
+ await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
+ const after=await reading.evaluate(node=>node.getBoundingClientRect().y);
+ assert(Math.abs(after-y)<=2,'完成整理时正在读的段落移动了 '+(after-y)+' px');
+ console.log('Active paragraph displacement after finishing:',(after-y).toFixed(2),'px');
+ await page.reload();assert.match(await reading.textContent(),/已订正/);
+ assert.deepEqual(await page.evaluate(()=>current().turns.map(t=>[t.readingRevisions?.length||0,!!t.readingRevisionDraft])),[[0,true],[1,false]]);
 }
 
 async function checkCaretBlink(page,editor,dir){
@@ -137,6 +173,7 @@ async function checkCaretBlink(page,editor,dir){
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.message);});
   await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
   await checkEditedStrong(page);
+  await checkRevisionFinish(page);
   const original='# 密钥恢复\n\n先算接收值，再核对。\n\n## 进一步计算\n\n复查结论。\n\n行内 $x+1$ 仍在。\n\n$$w=x+1$$\n\n| 输入 | 输出 |\n| --- | --- |\n| 1 | 2 |';
   await page.evaluate(original=>{
     const c=current();c.turns=[{id:'up',answer:original,question:'如何恢复密钥？',segments:[],reviewDraft:{blocks:{},comments:[],oldComments:{preserve:true}}},{id:'follow',question:'何时核对？',answer:'保留原注。',segments:[],annotations:[{id:'q1',block:'up-p1',quote:'接收值',endTextOffset:5}]}];
@@ -144,14 +181,20 @@ async function checkCaretBlink(page,editor,dir){
     state.reviewPinnedTurns=[];state.reviewTemporaryTurns=[];state.reviewAutoSeen={};
     renderConversation();persist();
   },original);
-  async function edit(){await page.locator('[data-revise="up"]').click();await page.waitForSelector('.revision-editor');}
   async function editAt(target){
     await target.scrollIntoViewIfNeeded();await page.waitForFunction(()=>!restoring);
     await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
     await target.click({button:'right'});await page.getByRole('button',{name:'整理这一段',exact:true}).click();
   }
   const row=id=>page.locator('.revision-row[data-id="'+id+'"] .words');
-  const save=()=>page.getByRole('button',{name:'完成整理',exact:true}).click();
+  const save=()=>page.keyboard.press('Control+s');
+  async function actionAt(target,label){
+    await target.click({button:'right'});await page.getByRole('menuitem',{name:label,exact:true}).click();
+  }
+  async function readingAction(id,label){
+    await page.locator('#'+id+' .answer .passage-body').first().click({button:'right'});
+    await page.getByRole('button',{name:label,exact:true}).click();
+  }
   async function caret(locator,side,selectAll=false){await locator.evaluate((el,{side,selectAll})=>{
     el.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(el);if(!selectAll)range.collapse(side==='start');
     const s=getSelection();s.removeAllRanges();s.addRange(range);
@@ -167,6 +210,8 @@ async function checkCaretBlink(page,editor,dir){
   await editAt(source);
   const first=row('up-p1');
   assert.equal(await first.evaluate(el=>el===document.activeElement),true);
+  assert.equal(await page.locator('.revision-toolbar,.revision-editor select,.revision-editor > button').count(),0);
+  assert.equal(await page.locator('.revision-editor').evaluate(el=>el.firstElementChild===el.querySelector('.revision-body')),true,'整理模式应直接从正文开始');
   assert.equal(await first.locator('[contenteditable=false]').count(),2);
   await first.evaluate(el=>{const ref=el.querySelector('[data-open-child]');el.focus();const r=document.createRange();r.setStartAfter(ref);r.collapse(true);const s=getSelection();s.removeAllRanges();s.addRange(r);});
   await page.keyboard.insertText('顺序');assert.match(await first.innerText(),/顺序/);
@@ -174,15 +219,15 @@ async function checkCaretBlink(page,editor,dir){
   const ime=await page.context().newCDPSession(page);await ime.send('Input.imeSetComposition',{text:'zheng',selectionStart:5,selectionEnd:5});
   await ime.send('Input.insertText',{text:'整句重写'});await ime.detach();
   assert.equal(await first.locator('[contenteditable=false]').count(),2);assert.match(await first.textContent(),/整句重写/);
-  await page.getByRole('button',{name:'撤销',exact:true}).click();assert.match(await first.textContent(),/顺序/);
+  await page.keyboard.press('Control+z');assert.match(await first.textContent(),/顺序/);
   await caret(first,'start',true);await page.keyboard.press('Backspace');
   assert.equal(await row('up-p0').locator('.same-turn-link').count(),2);
   assert.equal(await first.count(),0);
-  await page.getByRole('button',{name:'撤销',exact:true}).click();assert.equal(await first.locator('.same-turn-link').count(),2);
+  await page.keyboard.press('Control+z');assert.equal(await first.locator('.same-turn-link').count(),2);
   await caret(first,'start',true);await page.keyboard.press('Backspace');
   await caret(row('up-p0'),'end');await page.keyboard.press('Enter');await page.keyboard.insertText('恢复条件');
   const newId=await page.evaluate(()=>document.activeElement.closest('.revision-row').dataset.id);
-  await page.getByLabel('段落样式').selectOption('2');
+  await actionAt(row(newId),'段落类型');await page.getByRole('menuitemradio',{name:'2 级标题',exact:true}).click();
   const editedHeading=page.locator('.revision-row[data-id="'+newId+'"] .revision-number');
   assert.equal(await editedHeading.textContent(),'## ');
   assert.equal(await row(newId).textContent(),'恢复条件','标题层级标记由界面绘制，独立于可编辑正文');
@@ -192,13 +237,13 @@ async function checkCaretBlink(page,editor,dir){
   await caret(row('up-p3'),'start');await page.keyboard.press('Backspace');
   assert.equal(await row('up-p3').count(),0);
   // Reversibility for whole-paragraph selection. Inline source can be deleted; display math is locked.
-  await page.getByRole('button',{name:'选择段落',exact:true}).click();
+  await actionAt(row('up-p0'),'选择段落');
   await page.locator('.revision-row[data-id="up-p0"]').click();await page.locator('.revision-row[data-id="up-p4"]').click();
-  await page.getByRole('button',{name:/删除所选/}).click();
+  await actionAt(page.locator('.revision-row[data-id="up-p4"]'),'删除所选 2 段');
   assert.equal(await page.locator('.revision-editor .same-turn-link').count(),2);
   assert.equal(await page.locator('.revision-editor .math').count(),1);
   assert.equal(await row('up-p4').count(),0);
-  await page.getByRole('button',{name:'撤销',exact:true}).click();
+  await page.keyboard.press('Control+z');
   assert.equal(await row('up-p4').locator('.math').getAttribute('data-tex'),'x+1');
   await row('up-p4').focus();
   assert.match(await row('up-p4').textContent(),/\$x\+1\$/);
@@ -212,29 +257,29 @@ async function checkCaretBlink(page,editor,dir){
   await page.reload();await page.waitForSelector('#up-p0 .same-turn-link');
   assert.equal(await page.locator('#composer').inputValue(),'我的未发草稿');
   assert.equal(await page.locator('#up-p0 .same-turn-link').count(),2);
-  await page.locator('[data-open-child="'+child+'"]').click();await page.locator('#branch-origin-return').click();
+  await page.locator('#thread [data-open-child="'+child+'"]').click();await page.locator('#branch-origin-return').click();
   assert.equal(await page.locator('#up-p0 .same-turn-link').count(),2);
   assert.deepEqual(await page.evaluate(()=>state.conversations.at(-1).inheritedContext),baseSnapshot);
-  await edit();await page.getByRole('button',{name:'AI 改稿',exact:true}).click();
+  await readingAction('up','请 AI 改这一轮');
   const dialog=page.getByRole('dialog',{name:'AI 改稿 · 原型模拟'});
   await dialog.locator('textarea').fill('帮我把结论写具体');await dialog.getByRole('button',{name:'提交'}).click();
   assert.match(await dialog.locator('label').textContent(),/原句/);
   await dialog.locator('textarea').fill('按提示恢复。');await dialog.getByRole('button',{name:'提交'}).click();
   await dialog.getByRole('button',{name:'关闭'}).click();
-  await page.reload();await edit();await page.getByRole('button',{name:'AI 改稿',exact:true}).click();
+  await page.reload();await readingAction('up','请 AI 改这一轮');
   assert.match(await dialog.locator('label').textContent(),/什么文字/);
   await dialog.locator('textarea').fill('核对提示后恢复密钥。');await dialog.getByRole('button',{name:'提交'}).click();
   assert.match(await page.locator('#up .answer').innerText(),/核对提示后恢复密钥/);
   assert.deepEqual(await page.evaluate(()=>current().turns[0].readingRevisions.map(v=>v.author)),['用户','AI']);
-  await edit();await page.getByRole('button',{name:'版本历史',exact:true}).click();
+  await readingAction('up','编辑历史');
   const versions=page.getByRole('dialog',{name:'本轮版本历史'});
   await versions.locator('select').selectOption('0');assert.match(await versions.locator('article').innerText(),/先算接收值/);
   await versions.locator('select').selectOption('1');assert.match(await versions.locator('article').innerText(),/按提示恢复/);
   await versions.locator('select').selectOption('2');assert.match(await versions.locator('article').innerText(),/核对提示后恢复密钥/);
   assert.equal(await page.evaluate(()=>current().turns[0].reviewDraft.oldComments.preserve),true);
   if(dir)await versions.screenshot({path:path.join(dir,'history.png')});
-  await versions.getByRole('button',{name:'关闭'}).click();await save();
-  await page.locator('[data-open-child="'+child+'"]').click();await page.locator('#composer').fill('请继续这处追问');await page.locator('#send').click();
+  await versions.getByRole('button',{name:'关闭'}).click();await versions.waitFor({state:'detached'});
+  await page.locator('#thread [data-open-child="'+child+'"]').click();await page.locator('#composer').fill('请继续这处追问');await page.locator('#send').click();
   await page.waitForSelector('[data-back-origin]');await page.locator('[data-back-origin]').click();
   assert.match(await page.locator('#up .answer').innerText(),/核对提示后恢复密钥/);
   assert.deepEqual(await page.evaluate(()=>state.conversations.find(c=>c.branchSource).inheritedContext),baseSnapshot);
@@ -256,10 +301,14 @@ async function checkCaretBlink(page,editor,dir){
   assert.equal(await page.evaluate(()=>document.activeElement.textContent),'相邻正文子节');
   assert.equal(await page.evaluate(()=>getSelection().anchorOffset),'相邻正文'.length,'合并后光标停在接缝');
   await caret(words.last(),'end');await page.keyboard.insertText('新增草稿');await page.keyboard.press('Control+s');
-  assert.equal(await edgeEditor.locator('.revision-notice').textContent(),'整理草稿已保存。');
-  assert.equal(await page.evaluate(()=>current().turns.at(-1).readingRevisions?.length||0),0);
+  assert.equal(await edgeEditor.count(),0,'Ctrl+S 应完成整理并恢复阅读');
+  assert.deepEqual(await page.evaluate(()=>[current().turns.at(-1).readingRevisions.map(v=>v.author),current().turns.at(-1).readingRevisionDraft]),[['用户'],undefined]);
   await page.reload();await page.locator('[data-revise="edges"]').click();assert.match(await words.last().textContent(),/新增草稿/);
   await save();
+  assert.equal(await page.evaluate(()=>current().turns.at(-1).readingRevisions.length),1,'未改动时完成整理不重复写入');
+  await page.locator('[data-revise="edges"]').click();await caret(words.last(),'end');await page.keyboard.insertText('放弃改动');
+  await actionAt(words.last(),'取消整理');assert.equal(await edgeEditor.count(),0);assert.doesNotMatch(await page.locator('#edges .answer').innerText(),/放弃改动/);
+  assert.equal(await page.evaluate(()=>current().turns.at(-1).readingRevisionDraft),undefined);
   if(dir)await page.locator('#edges').screenshot({path:path.join(dir,'reading.png')});
   await page.evaluate(()=>{
     current().turns.push({id:'tex-edit',question:'如何校验行内公式？',
@@ -341,14 +390,15 @@ async function checkCaretBlink(page,editor,dir){
   await caret(row('focus-p2'),'start',true);await page.keyboard.press('Backspace');
   await onlySource('focus-p1');
   assert.equal(await page.evaluate(()=>getSelection().anchorOffset),'先计算 $x_1$，再核对**符号**。'.length);
-  await editor.getByRole('button',{name:'撤销',exact:true}).click();await onlySource('focus-p2');
-  assert.equal(await page.evaluate(()=>getSelection().toString()),'从 $x_2$ 开始，然后检查**下标**。','工具栏撤销应恢复被删段落的选区');
+  await page.keyboard.press('Control+z');await onlySource('focus-p2');
+  assert.equal(await page.evaluate(()=>getSelection().toString()),'从 $x_2$ 开始，然后检查**下标**。','撤销应恢复被删段落的选区');
   await page.keyboard.press('Backspace');await onlySource('focus-p1');
   await page.keyboard.insertText('已核对。');
   await page.keyboard.press('Escape');assert.equal(await fields.count(),0);
   assert.equal(await row('focus-p1').locator('strong').innerText(),'符号');
   assert.equal(await row('focus-p1').locator('.math').getAttribute('data-tex'),'x_1');
-  await page.keyboard.press('Control+s');
+  // The pending edit also survives a reload without using the finish shortcut.
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem(KEY)).conversations.find(c=>c.id===current().id).turns.at(-1).readingRevisionDraft?.rows[1].parts.includes('先计算 $x_1$，再核对**符号**。已核对。'));
   assert.deepEqual(await page.evaluate(()=>{
     const turn=JSON.parse(localStorage.getItem(KEY)).conversations.find(c=>c.id===current().id).turns.at(-1);
     return [turn.readingRevisions?.length||0,turn.readingRevisionDraft.rows.map(r=>r.id),turn.readingRevisionDraft.rows[1].parts];
@@ -370,6 +420,8 @@ async function checkCaretBlink(page,editor,dir){
   assert(geometry.x<1&&geometry.mid<1&&geometry.color==='rgb(98, 229, 255)',JSON.stringify(geometry));
   await checkCaretBlink(page,editor,dir);
   await page.locator('#composer').focus();assert.equal(await fields.count(),0);
+  await page.keyboard.press('Control+s');
+  assert.equal(await page.evaluate(()=>current().turns.at(-1).readingRevisions?.length||0),0,'主输入框里的 Ctrl+S 不应提交失焦的整理稿');
   await page.evaluate(()=>renderTurns());assert.equal(await fields.count(),0);
   assert.equal(await page.evaluate(()=>document.activeElement.id),'composer');
   assert.equal(await editor.locator('.revision-caret').count(),0);assert.equal(await editor.locator('.math').count(),2);
@@ -383,10 +435,7 @@ async function checkCaretBlink(page,editor,dir){
       {id:'unrelated',question:'其他',answer:'无关。',segments:[]}];
     current().permission='完全访问';renderConversation();persist();
   });
-  const startAi=async()=>{
-    await page.locator('[data-revise="source-math"]').click();
-    await page.getByRole('button',{name:'AI 改稿',exact:true}).click();
-  };
+  const startAi=()=>readingAction('source-math','请 AI 改这一轮');
   await startAi();
   await dialog.locator('textarea').fill('把「$$w=x\\label{eq:old}$$」改为「$$\n\\begin{aligned}a&=b\\\\c&=d\\end{aligned}\\label{eq:new}\n$$」');
   await dialog.getByRole('button',{name:'提交'}).click();

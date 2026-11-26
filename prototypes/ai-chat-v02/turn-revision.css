@@ -1,12 +1,13 @@
 .revision-open { margin-inline-start:1em; color:inherit; background:transparent; border:0; padding:0 .3em; font:inherit; cursor:pointer }
 .revision-open:hover,.revision-open:focus-visible { color:var(--text,inherit); text-decoration:underline }
 .revision-editor { --revision-caret:light-dark(#005fcc,#62e5ff); font:inherit; color:inherit; line-height:inherit; outline:0 }
-.revision-toolbar,.revision-dialog header { display:flex;align-items:center;gap:8px;flex-wrap:wrap }
-.revision-toolbar { position:sticky;top:0;z-index:2;background:var(--panel,#2c2728);border-block:1px solid var(--border,#5e5454);padding:7px 3px;margin-bottom:.75em }
-.revision-toolbar button,.revision-toolbar select,.revision-dialog button,.revision-dialog select { font-family:inherit;font-size:14px;color:inherit;background:transparent;border:1px solid #827777;border-radius:4px;padding:4px 8px;cursor:pointer }
-.revision-toolbar button:disabled { opacity:.4;cursor:default }
-.revision-toolbar select option,.revision-dialog option { color:CanvasText;background:Canvas }
-.revision-toolbar .revision-primary,.revision-dialog .revision-primary { color:#231d18;background:#e2c492;border-color:#e2c492;margin-inline-start:auto }
+.revision-menu { inset:auto;margin:0;color:inherit }
+.revision-menu [aria-haspopup=menu]::after { content:'';float:right;width:.4em;height:.4em;margin:.4em .15em;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg) }
+.revision-menu [aria-checked=true] { color:var(--accent) }
+.revision-dialog header { display:flex;align-items:center;gap:8px;flex-wrap:wrap }
+.revision-dialog button,.revision-dialog select { font-family:inherit;font-size:14px;color:inherit;background:transparent;border:1px solid #827777;border-radius:4px;padding:4px 8px;cursor:pointer }
+.revision-dialog option { color:CanvasText;background:Canvas }
+.revision-dialog .revision-primary { color:#231d18;background:#e2c492;border-color:#e2c492;margin-inline-start:auto }
 .revision-row { position:relative; margin:0 0 .55em; line-height:inherit }
 .revision-row .words { white-space:pre-wrap;min-height:1lh;outline-offset:3px;outline:none;overflow-wrap:anywhere;cursor:text }
 .revision-row .words[contenteditable] { caret-color:var(--revision-caret) }

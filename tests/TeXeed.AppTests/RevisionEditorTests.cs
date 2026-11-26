@@ -138,10 +138,23 @@ internal static partial class Program
                 return source[0];
             }
             List<AiRevisionRow> Rows() => Current().UserRevisionDraft!.Rows;
-            void Click(string label)
+            void Ctrl(Key key)
             {
-                var button = Descendants<Button>(Editor()).Single(b => b.Content as string == label);
-                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var editor = Editor();
+                var target = Keyboard.FocusedElement is UIElement focused && editor.IsKeyboardFocusWithin ? focused : editor;
+                RevisionShortcut(host, target, key);
+            }
+            async Task EditMenu(string title, int? row = null, string? child = null)
+            {
+                var editor = Editor();
+                var menu = editor.ContextMenu ?? throw new Exception("Missing revision context menu");
+                menu.PlacementTarget = row is int i ? Descendants<DockPanel>(editor).Single(p => Equals(p.Tag, Rows()[i].Id)) : editor;
+                menu.IsOpen = true; await Idle();
+                var item = menu.Items.OfType<MenuItem>().Single(m => Equals(m.Header, title));
+                if (child != null) item = item.Items.OfType<MenuItem>().Single(m => Equals(m.Header, child));
+                Check(item.IsEnabled, $"Disabled context command: {title} {child}");
+                menu.IsOpen = false;
+                item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); await Idle();
             }
             async Task<(double MenuMs, double ShowMs, long ShowBytes)> Command(string name, string? target = null)
             {
@@ -179,6 +192,12 @@ internal static partial class Program
             Check(Descendants<TurnRevisionEditor>(panel).Count() == 0, "Idle transcript allocated a revision editor");
             var cold = await Command("整理这一段", "承接段");
             ActiveLine(1);
+            var oldControls = new[] { "完成整理", "取消整理", "撤销", "选择段落" };
+            Check(!Descendants<Button>(Editor()).Any(b => b.IsVisible && oldControls.Contains(b.Content as string)) &&
+                !Descendants<ComboBox>(Editor()).Any(c => c.IsVisible), "Revision still shows one of the former toolbar controls");
+            var firstHost = Descendants<RevisionLineHost>(Editor()).First();
+            Check(firstHost.TranslatePoint(new Point(), Editor()).Y < AiChatTypography.LineHeight,
+                "The removed toolbar still reserves an empty row above the text");
             measurements["firstMenuMs"] = cold.MenuMs;
             measurements["firstOpenMs"] = cold.ShowMs;
             measurements["firstOpenUiAllocatedBytes"] = cold.ShowBytes;
@@ -274,8 +293,8 @@ internal static partial class Program
                 "Escape did not put the paragraph back in reading mode within the current draft");
             await RenderedMath();
             mathEditor = Line(4);
-            Descendants<Button>(Editor()).Single(b => Equals(b.Content, "完成整理")).Focus(); await Idle();
-            Check(!Descendants<RevisionLineEditor>(Editor()).Any(line => line.IsVisible), "Focusing the toolbar left a paragraph in source");
+            ((TextBox)panel.FindName("Composer")).Focus(); await Idle();
+            Check(!Descendants<RevisionLineEditor>(Editor()).Any(line => line.IsVisible), "Moving focus outside the revision left a paragraph in source");
             await RenderedMath();
             mathEditor = Line(4);
             var sourceStart = mathEditor.Text.IndexOf("$A$", StringComparison.Ordinal);
@@ -284,10 +303,10 @@ internal static partial class Program
             Check(Rows()[4].Text == sourceLine.Replace("$A$", @"\(q^2\)", StringComparison.Ordinal), "Keyboard input did not replace the inline TeX with its exact source");
             await panel.SaveAsync();
             Check(AiStorage.Load(project).Turns.Single().UserRevisionDraft?.Rows[4].Text == Rows()[4].Text, "Changed TeX source did not round-trip in the draft");
-            Click("撤销"); await Idle();
+            Ctrl(Key.Z); await Idle();
             await KeyIn(4, Key.Delete, sourceStart, "$A$".Length);
             Check(Rows()[4].Text == sourceLine.Replace("$A$", "", StringComparison.Ordinal), "Deleting inline TeX changed its neighboring prose or equation reference");
-            Click("撤销"); await Idle();
+            Ctrl(Key.Z); await Idle();
             var refEditor = Line(4);
             var referenceStart = refEditor.Text.IndexOf(referenceSource, StringComparison.Ordinal);
             await KeyIn(4, Key.Delete, referenceStart + 2, 8);
@@ -299,7 +318,7 @@ internal static partial class Program
             await KeyIn(4, Key.Enter, referenceStart + 2);
             Check(Rows().Count == 8 && Rows()[4].Text.EndsWith(referenceSource, StringComparison.Ordinal) && Rows()[5].Text == " 保留编号。",
                 "Splitting a paragraph within a wrapped reference must retain the whole reference");
-            Click("撤销"); await Idle();
+            Ctrl(Key.Z); await Idle();
             host.Width = 360;
             refEditor = Line(4);
             await Idle();
@@ -318,7 +337,7 @@ internal static partial class Program
             var across = Line(2);
             across.Select(0, across.Text.Length); Type(across, "合并表述"); await Idle();
             Check(Rows()[2].Text == "合并表述" && Rows()[2].Links.Select(l => l.Id).SequenceEqual(linkIds), "IME completion over two protected references lost wording or ownership");
-            Click("撤销"); await Idle();
+            Ctrl(Key.Z); await Idle();
             var text = Line(2); text.TextArea.Focus(); text.CaretOffset = text.Text.IndexOf(RevisionBuffer.Marker) + 1;
             Type(text, "中"); await Idle();
             Check(Rows()[2].Text == "命题甲中与乙。" && Rows()[2].Links[0].Offset == 3 && Rows()[2].Links[1].Offset == 6, "Committed Chinese text did not insert immediately after the reference");
@@ -329,12 +348,12 @@ internal static partial class Program
             Check(Rows().Count == 7 && Rows()[2].Links.Select(l => l.Id).SequenceEqual(linkIds) && ActiveLine(2).CaretOffset == 5, "Backspace failed to merge at original seam");
             await KeyIn(2, Key.Delete, 0, Line(2).Text.Length);
             Check(Rows().Count == 6 && Rows()[1].Links.Select(l => l.Id).SequenceEqual(linkIds) && ActiveLine(1).CaretOffset == 4, "Clearing a linked row did not move both links to the previous text end");
-            Click("撤销"); await Idle();
+            Ctrl(Key.Z); await Idle();
             Check(Rows().Count == 7 && Rows()[2].Links.Count == 2, "Undo lost a paragraph or its references");
             var rightId = Rows()[2].Id;
             await KeyIn(1, Key.Delete, Line(1).Text.Length);
             Check(Rows()[1].Id == rightId && Rows()[1].Text == "承接段。命题甲中与乙。" && ActiveLine(1).CaretOffset == 4, "Nonempty Delete failed to join the next row at its original seam");
-            Click("撤销"); await Idle();
+            Ctrl(Key.Z); await Idle();
             var locked = Descendants<MarkdownView>(Editor()).Single(v => v.Markdown.StartsWith("$$E=mc^2", StringComparison.Ordinal));
             locked.RaiseEvent(CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent)); await Idle();
             var last = Descendants<RevisionLineHost>(Editor()).Count() - 1;
@@ -349,22 +368,22 @@ internal static partial class Program
             await KeyIn(0, Key.Enter, 0); await KeyIn(0, Key.Back, 0);
             Check(Rows()[0].Text == "", "Backspace deleted the first empty row");
             await KeyIn(0, Key.Delete, 0);
-            Click("选择段落"); await Idle();
+            await EditMenu("选择段落");
             Check(!Descendants<CheckBox>(Editor()).Any(), "Selection introduced checkboxes");
             var wanted = new[] { Rows()[0].Id, Rows()[2].Id };
             foreach (var id in wanted) Descendants<Button>(Editor()).Single(b => Equals(b.Tag, id)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Click("删除所选 2 段"); await Idle();
+            await EditMenu("删除所选 2 段");
             Check(Rows().Count == 5 && Rows()[0].Links.Select(l => l.Id).SequenceEqual(linkIds) && Rows()[^1].Locked, "Batch deletion changed protected contents");
             var heading = Line(1); heading.TextArea.Focus();
             Check(Descendants<TextBlock>(Editor()).Any(t => t.IsVisible && t.Text == "## "), "Focused second-level heading did not expose its Markdown prefix");
-            Descendants<ComboBox>(Editor()).Single().SelectedIndex = 1; await Idle();
+            await EditMenu("段落类型", 1, "1 级标题");
             Check(Rows()[1].Level == 1 && Descendants<TextBlock>(Editor()).Any(t => t.IsVisible && t.Text == "# "), "Changing the heading level did not update its source prefix");
             ActiveLine(1).TextArea.RaiseEvent(CreateKey(host, Key.Escape, Keyboard.PreviewKeyDownEvent)); await Idle();
             Check(Descendants<TextBlock>(Editor()).Any(t => t.IsVisible && t.Text == "[1:1] "), "Edited heading level was not renumbered when rendered");
             await panel.SaveAsync();
             Check(AiStorage.Load(project).Turns.Single().UserRevisionDraft?.Rows.Count == Rows().Count, "Unsaved manual revision draft did not round-trip");
-            Click("完成整理");
-            await WaitUntilAsync(() => Current().RevisionHistory?.Count == 2 && !Descendants<TurnRevisionEditor>(panel).Any(), "Manual revision did not commit via toolbar");
+            Ctrl(Key.S);
+            await WaitUntilAsync(() => Current().RevisionHistory?.Count == 2 && !Descendants<TurnRevisionEditor>(panel).Any(), "Ctrl+S did not commit and dismiss the manual revision");
             await Idle();
             var saved = AiStorage.Load(project).Turns.Single();
             Check(saved.UserRevisionDraft == null && saved.RevisionHistory![0].Author == "ai" && saved.RevisionHistory[1].Author == "user" && saved.Answer.Contains("| A | 1 |"), "Saved history, authors or locked table did not round-trip");
@@ -378,7 +397,7 @@ internal static partial class Program
             }
             finally { history.Close(); }
             await Command("整理这一段"); var first = Line(0); first.TextArea.Focus(); first.CaretOffset = 0; Type(first, "临时");
-            Click("取消整理");
+            await EditMenu("取消整理");
             await WaitUntilAsync(() => Current().UserRevisionDraft == null && !Descendants<TurnRevisionEditor>(panel).Any(), "Cancel left an active editor");
             Check(Current().RevisionHistory!.Count == 2 && !Current().Answer.Contains("临时"), "Cancel changed the saved answer");
             var warm = new List<object>();
@@ -386,7 +405,7 @@ internal static partial class Program
             {
                 var sample = await Command("整理这一段");
                 warm.Add(new { menuMs = sample.MenuMs, openMs = sample.ShowMs, openUiAllocatedBytes = sample.ShowBytes });
-                Click("取消整理");
+                await EditMenu("取消整理");
                 await WaitUntilAsync(() => Current().UserRevisionDraft == null && !Descendants<TurnRevisionEditor>(panel).Any(), "Warm editor close did not finish");
             }
             measurements["warm"] = warm;
@@ -466,7 +485,7 @@ internal static partial class Program
                     formulas = Descendants<ChatFormula>(reader).Count(), activeSourceEditors = Descendants<RevisionLineEditor>(Editor()).Count() });
             }
             File.WriteAllText(Path.Combine(output, "revision-emphasis-performance.json"), JsonSerializer.Serialize(reflows));
-            Click("完成整理");
+            Ctrl(Key.S);
             await WaitUntilAsync(() => Current().RevisionHistory?.Count == 2 && !Descendants<TurnRevisionEditor>(panel).Any(), "Emphasized revision did not commit");
             await CheckEmphasis(View().Answers.Single(), "saved");
             await panel.SetProjectAsync(strongProject); book = (AiNotebook)Field(panel, "_book")!; await Idle();

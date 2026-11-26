@@ -42,6 +42,21 @@ internal static class AiRevisionText
         row.OriginalMarkup is { } raw && row.Text == row.OriginalText && row.Level == row.OriginalLevel
             ? raw : row.Level == 0 ? row.Text : new string('#', row.Level) + " " + row.Text;
 
+    // Find each row in reading order so repeated paragraphs map to their own row IDs.
+    internal static IEnumerable<(AiRevisionRow Row, int Start, int End)> DisplayRanges(string displayed, IEnumerable<AiRevisionRow> rows)
+    {
+        var position = 0;
+        foreach (var row in rows)
+        {
+            var markup = Markup(row);
+            if (markup.Length == 0) markup = "\u2063"; // The reader gives an anchor-only row a paragraph.
+            var start = displayed.IndexOf(markup, position, StringComparison.Ordinal);
+            if (start < 0) continue;
+            position = start + markup.Length;
+            yield return (row, start, position);
+        }
+    }
+
     internal static string Source(IReadOnlyList<AiRevisionRow> rows, bool includeMargins = true)
     {
         var result = new StringBuilder();

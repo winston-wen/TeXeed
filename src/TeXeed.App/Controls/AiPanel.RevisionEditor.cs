@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Threading;
 using TeXeed.App.AI;
 
 namespace TeXeed.App.Controls;
@@ -66,8 +67,13 @@ public partial class AiPanel
                 next => { turn.UserRevisionDraft = next; Dirty(); },
                 async rows =>
                 {
+                    var anchor = editor?.ActiveReadingAnchor(MessagesScroll);
+                    var version = _readingRestoreVersion;
                     await CommitRevisionAsync(turn.Id, draft.Version, rows, "user");
+                    if (!_revisionEditors.TryGetValue(turn.Id, out var currentEditor) || currentEditor != editor) return;
                     CloseRevisionEditor(turn.Id);
+                    if (anchor is { } place)
+                        await RestoreFinishedParagraphAsync(turn.Id, rows, place, version);
                 },
                 async () =>
                 {
@@ -76,7 +82,7 @@ public partial class AiPanel
                     try { await SaveAsync(); }
                     catch { turn.UserRevisionDraft = previous; throw; }
                     CloseRevisionEditor(turn.Id);
-                }, SaveAsync, (this, turn));
+                }, (this, turn));
             _revisionEditors[turn.Id] = editor;
         }
         view.SetRevisionEditor(editor);
@@ -100,17 +106,12 @@ public partial class AiPanel
         // Resolve against the published text first. A saved draft may already have
         // changed the words or moved this paragraph, while its row ID remains stable.
         var rows = readingRows.ToList();
-        var start = 0;
-        for (var i = 0; i < rows.Count; i++)
+        foreach (var range in AiRevisionText.DisplayRanges(displayed, rows))
         {
-            var markup = AiRevisionText.Markup(rows[i]);
-            if (markup.Length == 0) markup = "\u2063"; // Anchor-only paragraph in the reader.
-            var found = displayed.IndexOf(markup, start, StringComparison.Ordinal);
-            if (found < 0) continue;
-            start = found + markup.Length;
-            if (offset >= start) continue;
-            if (draftRows.Any(r => r.Id == rows[i].Id)) return rows[i].Id;
+            if (offset >= range.End) continue;
+            if (draftRows.Any(r => r.Id == range.Row.Id)) return range.Row.Id;
             // The clicked paragraph was deleted from the draft. Open its nearest surviving neighbor.
+            var i = rows.IndexOf(range.Row);
             return rows.Select((r, index) => (r.Id, Distance: Math.Abs(index - i)))
                 .OrderBy(item => item.Distance).Select(item => item.Id).FirstOrDefault(id => draftRows.Any(r => r.Id == id));
         }
@@ -120,6 +121,42 @@ public partial class AiPanel
     {
         _revisionEditors.Remove(turnId);
         if (_turnViews.TryGetValue(turnId, out var current)) current.SetRevisionEditor(null);
+    }
+
+    private async Task RestoreFinishedParagraphAsync(string turnId, IReadOnlyList<AiRevisionRow> rows,
+        (string RowId, string SegmentId, double Y) place, int version)
+    {
+        var conversation = _book.Active;
+        bool Current() => !_disposed && IsVisible && version == _readingRestoreVersion && _book.Active == conversation;
+        if (!Current()) return;
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        if (!Current()) return;
+        var turn = conversation.Turns.FirstOrDefault(t => t.Id == turnId);
+        if (turn is null || turn.Collapsed) return;
+        if (!_turnViews.TryGetValue(turnId, out var view) || !view.IsLoaded || !ReferenceEquals(view.Turn, turn))
+        {
+            // Replacing a long item with its persisted version can recycle its presenter.
+            var index = _transcriptItems.IndexOf(turn);
+            if (index < 0) return;
+            VisualChildren<ChatVirtualizingPanel>(History).FirstOrDefault()?.Reveal(index);
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            if (!Current() || !_turnViews.TryGetValue(turnId, out view)) return;
+        }
+        var answer = view.Answers.FirstOrDefault(v => v.DataContext is AiSegment s && s.Id == place.SegmentId);
+        if (answer is null) return;
+        await answer.RenderTask;
+        if (!Current() || !answer.IsLoaded || !answer.IsVisible) return;
+        var saved = turn.RevisionHistory?.LastOrDefault()?.Rows ?? rows;
+        if (answer.RevisionRowStart(saved.Where(r => r.SegmentId == place.SegmentId), place.RowId) is not { } pointer) return;
+        for (var pass = 0; pass < 2; pass++)
+        {
+            MessagesScroll.UpdateLayout();
+            if (!Current() || !answer.IsLoaded || !pointer.IsInSameDocument(answer.Document.ContentStart) ||
+                !TryLayoutAnchorY(answer, pointer, out var y)) return;
+            var offset = Math.Clamp(MessagesScroll.VerticalOffset + y - place.Y, 0, MessagesScroll.ScrollableHeight);
+            if (Math.Abs(offset - MessagesScroll.VerticalOffset) <= .5) return;
+            MessagesScroll.ScrollToVerticalOffset(offset);
+        }
     }
     private void ShowRevisionHistory(AiTurn turn)
     {

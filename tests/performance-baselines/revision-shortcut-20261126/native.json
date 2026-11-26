@@ -1,0 +1,240 @@
+{
+  "baselineCommit": "6d19e6ee02c6045206816231587934bb1e0f4b0e",
+  "command": "dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --revision-editor-only --offscreen --output <isolated-folder>",
+  "fixture": "WPF x64 Release. Three runs per version on private Windows desktops. 40 turns; open paragraph 44 of 70 in turn 18, split and rejoin, recycle and reopen its container, type a suffix at Y=150 DIP and finish. Time and UI-thread allocation through save, editor dismissal and dispatcher idle. Measure Y again after 250 ms; null means turn 18 was not realized. Version 0.6.7 uses the published DLL and its Finish toolbar button; 0.6.8 uses Ctrl+S. Warm open uses the same seven-row editor fixture with five opens per run.",
+  "batches": {
+    "0.6.7": [
+      {
+        "openMs": 93.1976,
+        "openUiAllocatedBytes": 3925208,
+        "initialNativeEditors": 1,
+        "toolbarControls": 5,
+        "splitMs": 12.6469,
+        "splitUiAllocatedBytes": 837392,
+        "finishMs": 99.9105,
+        "finishUiAllocatedBytes": 7283952,
+        "screenYBeforeSave": 150,
+        "screenYAfterSave": null,
+        "screenYSettled": null,
+        "realizedTurns": [
+          22,
+          23,
+          24,
+          25,
+          26,
+          27
+        ],
+        "warmOpenMs": [
+          59.8555,
+          60.0298,
+          49.0293,
+          68.2116,
+          51.5958
+        ],
+        "warmOpenUiAllocatedBytes": [
+          3004256,
+          3033912,
+          3040192,
+          3068776,
+          3013944
+        ]
+      },
+      {
+        "openMs": 100.8487,
+        "openUiAllocatedBytes": 3928320,
+        "initialNativeEditors": 1,
+        "toolbarControls": 5,
+        "splitMs": 12.5564,
+        "splitUiAllocatedBytes": 837320,
+        "finishMs": 96.8862,
+        "finishUiAllocatedBytes": 7284008,
+        "screenYBeforeSave": 150,
+        "screenYAfterSave": null,
+        "screenYSettled": null,
+        "realizedTurns": [
+          22,
+          23,
+          24,
+          25,
+          26,
+          27
+        ],
+        "warmOpenMs": [
+          63.8586,
+          67.1444,
+          61.7044,
+          99.2647,
+          55.5223
+        ],
+        "warmOpenUiAllocatedBytes": [
+          3020000,
+          3024872,
+          3056064,
+          3059408,
+          3023568
+        ]
+      },
+      {
+        "openMs": 78.048,
+        "openUiAllocatedBytes": 3925808,
+        "initialNativeEditors": 1,
+        "toolbarControls": 5,
+        "splitMs": 12.1562,
+        "splitUiAllocatedBytes": 836752,
+        "finishMs": 95.4413,
+        "finishUiAllocatedBytes": 7279016,
+        "screenYBeforeSave": 150,
+        "screenYAfterSave": null,
+        "screenYSettled": null,
+        "realizedTurns": [
+          22,
+          23,
+          24,
+          25,
+          26,
+          27
+        ],
+        "warmOpenMs": [
+          44.5016,
+          50.2445,
+          52.7335,
+          39.3611,
+          41.6263
+        ],
+        "warmOpenUiAllocatedBytes": [
+          3006808,
+          3036824,
+          3042744,
+          3049968,
+          3013424
+        ]
+      }
+    ],
+    "0.6.8": [
+      {
+        "openMs": 80.1075,
+        "openUiAllocatedBytes": 3639936,
+        "initialNativeEditors": 1,
+        "toolbarControls": 0,
+        "splitMs": 8.1806,
+        "splitUiAllocatedBytes": 828800,
+        "finishMs": 79.6409,
+        "finishUiAllocatedBytes": 9556488,
+        "screenYBeforeSave": 149.99999999999955,
+        "screenYAfterSave": 149.99999999999977,
+        "screenYSettled": 149.99999999999977,
+        "realizedTurns": [
+          17,
+          18,
+          19
+        ],
+        "warmOpenMs": [
+          31.336,
+          37.6803,
+          37.0307,
+          54.4006,
+          26.8842
+        ],
+        "warmOpenUiAllocatedBytes": [
+          2657144,
+          2660672,
+          2669904,
+          2698000,
+          2643752
+        ]
+      },
+      {
+        "openMs": 82.0172,
+        "openUiAllocatedBytes": 3643352,
+        "initialNativeEditors": 1,
+        "toolbarControls": 0,
+        "splitMs": 11.5521,
+        "splitUiAllocatedBytes": 828048,
+        "finishMs": 128.6481,
+        "finishUiAllocatedBytes": 9105376,
+        "screenYBeforeSave": 149.99999999999955,
+        "screenYAfterSave": 149.99999999999977,
+        "screenYSettled": 149.99999999999977,
+        "realizedTurns": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          17,
+          18,
+          19,
+          23,
+          24,
+          25,
+          26,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        "warmOpenMs": [
+          44.3933,
+          48.4101,
+          40.763,
+          90.082,
+          52.0302
+        ],
+        "warmOpenUiAllocatedBytes": [
+          2666312,
+          2666344,
+          2671552,
+          2688872,
+          2647120
+        ]
+      },
+      {
+        "openMs": 101.5544,
+        "openUiAllocatedBytes": 3639616,
+        "initialNativeEditors": 1,
+        "toolbarControls": 0,
+        "splitMs": 8.6865,
+        "splitUiAllocatedBytes": 829328,
+        "finishMs": 112.163,
+        "finishUiAllocatedBytes": 9115648,
+        "screenYBeforeSave": 149.99999999999955,
+        "screenYAfterSave": 149.99999999999977,
+        "screenYSettled": 149.99999999999977,
+        "realizedTurns": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          17,
+          18,
+          19,
+          23,
+          24,
+          25,
+          26,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        "warmOpenMs": [
+          49.751,
+          39.9488,
+          43.1516,
+          73.0743,
+          45.1687
+        ],
+        "warmOpenUiAllocatedBytes": [
+          2662928,
+          2666456,
+          2672368,
+          2699688,
+          2645568
+        ]
+      }
+    ]
+  }
+}

@@ -108,6 +108,27 @@ public sealed partial class MarkdownView
 
     internal bool HasRevisionLink(string id) => _revisionLinks?.ContainsKey(id) == true;
 
+    // Resolve the row against the published segment in source order. Identical
+    // paragraphs can occur more than once within a turn.
+    internal TextPointer? RevisionRowStart(IEnumerable<AiRevisionRow> rows, string id)
+    {
+        var range = AiRevisionText.DisplayRanges(Markdown, rows).FirstOrDefault(r => r.Row.Id == id);
+        if (range.Row is null) return null;
+        for (var p = Document.ContentStart; p is not null; p = p.GetNextContextPosition(LogicalDirection.Forward))
+        {
+            if (p.Paragraph is not { } paragraph) continue;
+            var prepared = (int)paragraph.GetValue(ParagraphSourcePositionProperty);
+            if (prepared >= 0)
+            {
+                var offset = _math.OriginalPosition(prepared);
+                if (offset >= range.End) break;
+                if (offset >= range.Start) return paragraph.ContentStart;
+            }
+            p = paragraph.ElementEnd;
+        }
+        return null;
+    }
+
     internal TextPointer? RevisionPointer(string id, bool reveal)
     {
         if (_revisionLinks is null || !_revisionLinks.TryGetValue(id, out var position) || !_revisionBlocks!.TryGetValue(id, out var target)) return null;

@@ -10,6 +10,22 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
+    private static void RevisionShortcut(Window window, UIElement target, Key command)
+    {
+        var original = new byte[256];
+        if (!GetKeyboardState(original)) throw new Exception("Could not capture the test thread's modifier keys");
+        var ctrl = new byte[256];
+        ctrl[0x11] = ctrl[0xA2] = 0x80;
+        try
+        {
+            if (!SetKeyboardState(ctrl)) throw new Exception("Could not set Ctrl for the revision shortcut");
+            var key = CreateKey(window, command, Keyboard.PreviewKeyDownEvent);
+            target.RaiseEvent(key);
+            if (!key.Handled) throw new Exception($"Ctrl+{command} was not handled by the active editor");
+        }
+        finally { SetKeyboardState(original); }
+    }
+
     private static async Task CheckRevisionDraftShortcutAsync(MainWindow window, string output)
     {
         async Task Layout()
@@ -44,12 +60,13 @@ internal static partial class Program
             await Layout();
             return panel;
         }
-        async Task<RevisionLineEditor> OpenLastParagraph(AiPanel panel)
+        async Task<RevisionLineEditor> OpenLastParagraph(AiPanel panel, AiTurn which, string words, int rowCount)
         {
-            var answer = Descendants<AiTurnView>(panel).Single(view => view.Turn.Id == turn.Id).Answers.Single();
+            var view = Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == which.Id);
+            var answer = view.Answers.Single();
             await answer.RenderTask; await Layout();
             var last = answer.Document.Blocks.OfType<Paragraph>().Last(p =>
-                new TextRange(p.ContentStart, p.ContentEnd).Text.Contains("同一句话", StringComparison.Ordinal));
+                new TextRange(p.ContentStart, p.ContentEnd).Text.Contains(words, StringComparison.Ordinal));
             var origin = last.ContentStart.GetCharacterRect(LogicalDirection.Forward).TopLeft;
             answer.CaptureContextParagraph(new Point(origin.X + 3, origin.Y + 5));
             var menu = answer.ContextMenu!;
@@ -57,52 +74,70 @@ internal static partial class Program
             var command = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "整理这一段"));
             menu.IsOpen = false;
             command.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); await Layout();
-            var editor = Descendants<TurnRevisionEditor>(panel).Single();
+            var editor = Descendants<TurnRevisionEditor>(view).Single();
             var rows = Descendants<RevisionLineHost>(editor).ToList();
-            if (rows.Count != 3 || rows[2].Editor is not { IsKeyboardFocusWithin: true } line ||
+            if (rows.Count != rowCount || rows[^1].Editor is not { IsKeyboardFocusWithin: true } line ||
                 Descendants<RevisionLineEditor>(editor).Count(node => node.IsVisible) != 1)
                 throw new Exception("Right-clicking the second occurrence of typeset content did not focus its own source paragraph");
             return line;
         }
         var panel = await Open();
-        var line = await OpenLastParagraph(panel);
-        const string suffix = "这次只存草稿。";
-        line.CaretOffset = line.Text.Length;
-        var composition = new TextComposition(InputManager.Current, line.TextArea, suffix);
-        line.TextArea.RaiseEvent(new TextCompositionEventArgs(Keyboard.PrimaryDevice, composition) { RoutedEvent = TextCompositionManager.TextInputEvent });
-        ((DispatcherTimer)Field(panel, "_saveTimer")!).Stop(); // Isolate the shortcut from delayed autosave.
-        var generation = (int)Field(window, "_pdfGeneration")!;
-        var original = new byte[256];
-        if (!GetKeyboardState(original)) throw new Exception("Could not capture the test thread's modifier keys");
-        var ctrl = new byte[256];
-        ctrl[0x11] = ctrl[0xA2] = 0x80;
-        try
+        var line = await OpenLastParagraph(panel, turn, "同一句话", 3);
+        const string suffix = "核对后收进这一轮。";
+        void Append(RevisionLineEditor input, string value)
         {
-            if (!SetKeyboardState(ctrl)) throw new Exception("Could not set Ctrl for the draft shortcut");
-            var key = CreateKey(window, Key.S, Keyboard.PreviewKeyDownEvent);
-            line.TextArea.RaiseEvent(key);
-            if (!key.Handled) throw new Exception("The draft shortcut was not handled in the main window");
+            input.CaretOffset = input.Text.Length;
+            var composition = new TextComposition(InputManager.Current, input.TextArea, value);
+            input.TextArea.RaiseEvent(new TextCompositionEventArgs(Keyboard.PrimaryDevice, composition) { RoutedEvent = TextCompositionManager.TextInputEvent });
         }
-        finally { SetKeyboardState(original); }
-        bool DraftSaved() => AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id).UserRevisionDraft?.Rows[^1].Text == paragraph + suffix;
-        await WaitUntilAsync(DraftSaved, "Ctrl+S did not persist the revised paragraph");
-        var stored = AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id);
-        if (stored.Answer != turn.Answer || stored.RevisionHistory?.Count > 0 || !line.IsKeyboardFocusWithin ||
-            (bool)Field(window, "_building")! || (int)Field(window, "_pdfGeneration")! != generation)
-            throw new Exception("Ctrl+S published a revision, left the paragraph or triggered a TeX project build");
+        Append(line, suffix);
+        await WaitUntilAsync(() => AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id).UserRevisionDraft?.Rows[^1].Text == paragraph + suffix,
+            "A draft did not autosave while the source paragraph remained open");
         await CallAsync(window, "OpenAsync", other);
         panel = await Open();
-        line = await OpenLastParagraph(panel);
-        if (line.Text != paragraph + suffix) throw new Exception("Reopening the project and paragraph lost or misrouted its draft");
-        Descendants<Button>(panel).Single(b => Equals(b.Content, "完成整理")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        await WaitUntilAsync(() => AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id).RevisionHistory?.Count == 2,
-            "Finishing the restored draft did not create the turn history");
+        const string otherDraft = "还在整理。";
+        var otherLine = await OpenLastParagraph(panel, unrelated, unrelated.Answer, 1);
+        Append(otherLine, otherDraft);
+        line = await OpenLastParagraph(panel, turn, "同一句话", 3);
+        if (line.Text != paragraph + suffix) throw new Exception("Reopening the project lost or misrouted the autosaved draft");
+        Append(line, " $A");
+        var generation = (int)Field(window, "_pdfGeneration")!;
+        RevisionShortcut(window, line.TextArea, Key.S);
+        var editor = Descendants<TurnRevisionEditor>(Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == turn.Id)).Single();
+        await WaitUntilAsync(() => Descendants<TextBlock>(editor).Any(t => t.IsVisible && t.Text.Contains("定界符")),
+            "Ctrl+S did not report the unpaired TeX delimiter");
+        if (AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id).RevisionHistory?.Count > 0 ||
+            !Descendants<TurnRevisionEditor>(panel).Any(v => v.IsVisible))
+            throw new Exception("Invalid TeX entered the revision history or lost the editor");
+        var lastHost = Descendants<RevisionLineHost>(editor).Last();
+        lastHost.Focus(); line = lastHost.Editor!;
+        line.Select(line.Text.Length - 3, 3);
+        line.TextArea.RaiseEvent(CreateKey(window, Key.Delete, Keyboard.PreviewKeyDownEvent));
+        await Layout();
+        line = Descendants<RevisionLineHost>(editor).Last().Editor ?? throw new Exception("Correcting the formula lost the insertion point");
+        if (line.Text != paragraph + suffix) throw new Exception($"The failed-save draft was not editable: {line.Text}");
+        line.TextArea.RaiseEvent(CreateKey(window, Key.Escape, Keyboard.PreviewKeyDownEvent));
+        await Layout();
+        if (Descendants<RevisionLineEditor>(editor).Any(l => l.IsVisible) || !editor.IsKeyboardFocusWithin)
+            throw new Exception("ESC did not restore the paragraph to preview while leaving the revision focused");
+        RevisionShortcut(window, editor, Key.S);
+        if (editor.IsLoaded) RevisionShortcut(window, editor, Key.S); // Second key arrives during the disk write.
+        await WaitUntilAsync(() => AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id).RevisionHistory?.Count == 2 &&
+            !editor.IsLoaded, "Ctrl+S after a failed save and ESC did not finish the owning revision");
+        if ((bool)Field(window, "_building")! || (int)Field(window, "_pdfGeneration")! != generation)
+            throw new Exception("Finishing a paragraph revision also triggered a project build");
+        await CallAsync(window, "OpenAsync", other);
+        panel = await Open();
+        if (Descendants<TurnRevisionEditor>(panel).Any() ||
+            !Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == turn.Id).Answers.Single().Markdown.EndsWith(suffix))
+            throw new Exception("Reopening the saved turn did not show its revised text in reading mode");
         var finished = AiStorage.Load(project);
         var revised = finished.Turns.Single(t => t.Id == turn.Id);
         var untouched = finished.Turns.Single(t => t.Id == unrelated.Id);
         if (revised.UserRevisionDraft != null || revised.Answer != turn.Answer + suffix ||
-            revised.RevisionHistory![1].Author != "user" || untouched.RevisionHistory?.Count > 0 || untouched.Answer != unrelated.Answer)
+            revised.RevisionHistory![1].Author != "user" || untouched.RevisionHistory?.Count > 0 || untouched.Answer != unrelated.Answer ||
+            untouched.UserRevisionDraft?.Rows.Single().Text != unrelated.Answer + otherDraft)
             throw new Exception("Finishing the paragraph draft changed the wrong history or text");
-        Console.WriteLine("PASS: main-window paragraph menu distinguishes repeated Markdown, Ctrl+S saves only the draft, project reopen and completion update just the owning turn");
+        Console.WriteLine("PASS: main-window paragraph menu distinguishes repeated Markdown, autosaved draft recovery, failed TeX validation, retry from ESC preview and Ctrl+S completion change only the owning turn");
     }
 }
