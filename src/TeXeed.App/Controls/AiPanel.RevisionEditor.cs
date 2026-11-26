@@ -41,7 +41,7 @@ public partial class AiPanel
             }
             Add(source is null ? "整理这一轮" : "整理这一段", turn => OpenRevisionEditor(turn, source));
             Add("请 AI 改这一轮", turn => RequestAiRevision(turn));
-            Add("编辑历史", ShowRevisionHistory);
+            Add("编辑历史", turn => ShowRevisionHistory(turn));
         }
         menu.Opened += Opened;
     }
@@ -158,14 +158,15 @@ public partial class AiPanel
             MessagesScroll.ScrollToVerticalOffset(offset);
         }
     }
-    private void ShowRevisionHistory(AiTurn turn)
+    private void ShowRevisionHistory(AiTurn turn, string? versionId = null, int? turnNumber = null, string? rowId = null)
     {
         var versions = turn.RevisionHistory ?? [new AiTurnRevision("original", "ai", turn.AnsweredAt ?? turn.CreatedAt, BeginRevision(turn).Rows)
             { Sources = AiRevisionText.Segments(turn).ToDictionary(s => s.Id, s => s.Text) }];
         var layout = new DockPanel { Margin = new Thickness(16) };
         var list = new ComboBox { Margin = new Thickness(0, 0, 0, 10) };
         DockPanel.SetDock(list, Dock.Top); layout.Children.Add(list);
-        var viewer = new MarkdownView { ChatMode = true, TurnNumber = _book.Turns.IndexOf(turn) + 1,
+        var number = turnNumber ?? _book.Turns.IndexOf(turn) + 1;
+        var viewer = new MarkdownView { ChatMode = true, TurnNumber = number, TrackHistoryRows = rowId is not null,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto, ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project) };
         layout.Children.Add(viewer);
         var chronological = versions.AsEnumerable().Reverse().ToArray();
@@ -179,11 +180,20 @@ public partial class AiPanel
             if (list.SelectedIndex < 0) return;
             var version = chronological[list.SelectedIndex];
             var source = version.Sources.Count > 0 ? string.Join("\n\n", version.Sources.Values) : AiRevisionText.Source(version.Rows);
-            viewer.SetHistorySource(source, revision: version.Id != "original");
+            viewer.SetHistorySource(source, revision: version.Id != "original", version.EquationPreviews);
             viewer.ScrollToHome();
         };
-        list.SelectedIndex = 0;
-        var history = new Window { Title = $"第 {_book.Turns.IndexOf(turn) + 1} 轮 · 编辑历史",
+        list.SelectedIndex = Math.Max(0, Array.FindIndex(chronological, v => v.Id == versionId));
+        if (rowId is not null) viewer.Loaded += async (_, _) =>
+        {
+            await viewer.RenderTask;
+            await viewer.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            if (!viewer.IsLoaded || list.SelectedIndex < 0 || chronological[list.SelectedIndex] is not { } selected || selected.Id != versionId) return;
+            viewer.UpdateLayout();
+            if (viewer.RevisionRowStart(selected.Rows, rowId) is { } pointer && viewer.BookmarkPoint(pointer) is { } at)
+                viewer.ScrollToVerticalOffset(Math.Max(0, viewer.VerticalOffset + at.Y - viewer.ViewportHeight / 2));
+        };
+        var history = new Window { Title = $"第 {number} 轮 · 编辑历史",
             Owner = Window.GetWindow(this), Content = layout, Width = 720, Height = 560, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         history.SetResourceReference(BackgroundProperty, "EditorBackground"); history.Show();
     }

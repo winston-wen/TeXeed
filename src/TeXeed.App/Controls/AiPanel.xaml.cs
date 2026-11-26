@@ -406,7 +406,12 @@ public partial class AiPanel : UserControl, IDisposable
             if (!AiEffort.Choices(selectedModel).Any(item => item.Value == requestedEffort))
             { StatusText.Text = "当前会话的推理强度暂不可用，请重新选择。"; return; }
         }
-        var revision = retry is null ? AiAnswerRevision.Resolve(prompt, _book.Turns, submittedForms, sentAnnotations) : retry.RevisionRequest;
+        var (revision, revisionNotice) = retry is null
+            ? AiAnswerRevision.ResolveSubmission(prompt, _book.Turns, submittedForms, sentAnnotations, _book)
+            : (retry.RevisionRequest, retry.RevisionRequest == null ? AiAnswerRevision.ResolveSubmission(prompt,
+                _book.Turns.TakeWhile(turn => turn.Id != retry.Id).ToArray(), submittedForms, sentAnnotations, _book).Notice : null);
+        if (revision is { Cancelled: false } && _book.Active.Permission == AiPermission.ReadOnly)
+            revisionNotice = "当前会话为只读。可以讨论改稿内容，原回答尚未写回。";
         var waitingForRevisionReply = false;
         var revisionRunner = revision is { Cancelled: false } && _book.Active.Permission != AiPermission.ReadOnly
             ? CreateRevisionRunner(revision, waiting => waitingForRevisionReply = waiting) : null;
@@ -441,7 +446,7 @@ public partial class AiPanel : UserControl, IDisposable
             LiveQuestion.LocalLink = key =>
             {
                 if (key.StartsWith("snapshot-", StringComparison.Ordinal) && int.TryParse(key.AsSpan("snapshot-".Length), out var n) && n > 0 && n <= sentAnnotations.Count)
-                    OpenAnswerReference(sentAnnotations[n - 1]);
+                    OpenAnswerReference(sentAnnotations[n - 1], pendingTurn);
             };
             var liveReferences = AiReferencePresentation.Markup(sentAnnotations);
             LiveQuestion.Markdown = sentAnnotations.Count == 0 ? question : (string.IsNullOrWhiteSpace(prompt) ? "" : prompt + "\n\n") + liveReferences;
@@ -550,7 +555,7 @@ public partial class AiPanel : UserControl, IDisposable
                     }, permission: permission, usage: measured => Dispatcher.BeginInvoke(() =>
                     {
                         if (_generation == generation && !_disposed) { book.Active.ContextUsage = measured; UpdateContextUsage(); }
-                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null, steering: _steering, formSourceIds: book.Turns.Select(turn => turn.Id).ToHashSet(StringComparer.Ordinal), formCurrentSubmissions: submittedForms, formCurrentSubmissionId: pendingTurn.Id, formGradingAvailable: ids => allowedGradingSources = ids.ToHashSet(StringComparer.Ordinal), revisionRunner: revisionRunner), token);
+                    }), contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, compacted: state => Dispatcher.Invoke(() => { if (_generation == generation && !_disposed) book.Active.ContextMemory = state; }), proofread: AiMathProofreading.CheckAsync, resuming: retry is not null, isBranch: book.Active.ParentConversationId is not null, steering: _steering, formSourceIds: book.Turns.Select(turn => turn.Id).ToHashSet(StringComparer.Ordinal), formCurrentSubmissions: submittedForms, formCurrentSubmissionId: pendingTurn.Id, formGradingAvailable: ids => allowedGradingSources = ids.ToHashSet(StringComparer.Ordinal), revisionRunner: revisionRunner, revisionNotice: revisionNotice), token);
                 answeredAt = DateTimeOffset.Now;
                 renderTimer.Stop(); Flush();
                 foreach (var entry in selected.Where(entry => !book.Entries.Contains(entry))) { entry.State = "已完成"; entry.Selected = false; }

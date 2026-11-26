@@ -172,6 +172,7 @@ async function checkCaretBlink(page,editor,dir){
   page.setDefaultTimeout(5500);
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.message);});
   await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
+  await require('./annotation-revision-browser.cjs')(page);
   await checkEditedStrong(page);
   await checkRevisionFinish(page);
   const original='# 密钥恢复\n\n先算接收值，再核对。\n\n## 进一步计算\n\n复查结论。\n\n行内 $x+1$ 仍在。\n\n$$w=x+1$$\n\n| 输入 | 输出 |\n| --- | --- |\n| 1 | 2 |';

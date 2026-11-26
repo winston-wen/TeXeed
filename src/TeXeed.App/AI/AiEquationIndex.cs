@@ -88,12 +88,21 @@ internal static class AiEquationIndex
         }
     }
 
-    internal static AiEquationTarget? Resolve(AiTurn turn, string localKey)
+    // Unqualified names are scoped to the displayed Markdown segment. Qualified references
+    // share a turn-wide namespace, including old numerical aliases in multi-segment answers.
+    internal static string BindingKey(string reference, string? segmentId) =>
+        TrySplit(reference, out _, out _) ? reference : segmentId + "\n" + reference;
+
+    internal static string EffectiveKey(AiTurn? owner, string reference, string localKey, string? segmentId = null) =>
+        owner?.EquationReferenceAliases is { } aliases && aliases.TryGetValue(BindingKey(reference, segmentId), out var key) ? key : localKey;
+
+    internal static AiEquationTarget? Resolve(AiTurn turn, string localKey, string? segmentId = null)
     {
         AiEquationTarget? found = null;
         var graded = AiFormGrading.IsApplied(turn);
         foreach (var segment in AiRevisionText.Segments(turn))
         {
+            if (segmentId is not null && segment.Id != segmentId) continue;
             var source = graded ? AiFormGrading.DisplayText(segment.Text) : segment.Text;
             if (Index(source) is not { } index || !index.Keys.TryGetValue(localKey, out var token)) continue;
             if (token is null || found is not null) return null;

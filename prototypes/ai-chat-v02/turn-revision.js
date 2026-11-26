@@ -917,13 +917,19 @@
    const box=make('dialog','revision-dialog');box.setAttribute('aria-label',name);const head=make('header');
    head.append(make('h2','',name),button('关闭',()=>box.close()));box.append(head);document.body.append(box);box.onclose=()=>box.remove();return box;
  }
- function showHistory(turn){
+ function showHistory(turn,version,anchor){
    const dialog=modal('本轮版本历史'),select=make('select'),preview=make('article','revision-history-body');select.setAttribute('aria-label','选择本轮版本');
    const revisions=turn.readingRevisions||[];
    select.add(new Option('原答 · AI','0'));
    revisions.forEach((v,i)=>select.add(new Option((i+1)+' · '+v.author+' · '+time(v.at),String(i+1))));
-   select.value=String(revisions.length);
+   select.value=String(version??revisions.length);
    function display(){const i=Number(select.value);preview.innerHTML=i?html(turn,revisions[i-1].rows):svgHtml(turn);const nums=Array(6).fill(0);for(const h of preview.querySelectorAll('h1,h2,h3,h4,h5,h6')){const depth=Number(h.tagName[1]);nums[depth-1]++;nums.fill(0,depth);h.prepend(make('span','revision-number','['+(current().turns.indexOf(turn)+1)+':'+nums.slice(0,depth).join('.')+'] '));}
+   if(anchor&&i===version){
+     const passage=[...preview.querySelectorAll('.passage')].find(el=>el.id===anchor.rowId);
+     const formula=anchor.formula&&[...preview.querySelectorAll('.equation .math')].find(el=>el.dataset.tex===anchor.formula.tex&&(!passage||passage.contains(el)));
+     const target=formula?.closest('.equation')||passage;
+     if(target){target.classList.add('citation-history-target');requestAnimationFrame(()=>{if(dialog.open)target.scrollIntoView({block:'center'});});}
+   }
    preview.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));preview.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);}
    select.onchange=display;display();dialog.append(select,preview);dialog.showModal();
  }
@@ -950,6 +956,9 @@
      let parts=[],first=true;
      function append(){
        if(!parts.length)return;
+       if(!first&&refs(parts).length===parts.length&&parts.every(p=>!atomic(p.ref))&&rows.at(-1).parts.some(p=>p.displaySource)){
+         rows.at(-1).parts.push(...parts);parts=[];return;
+       }
        const next=first?{...row,parts}:newRow(parts);
        if(protectedBlock(next))next.level=0;
        rows.push(next);parts=[];first=false;
@@ -972,10 +981,64 @@
    const doc=rootOf(html(turn,rows));
    return equationIndex(turn.id,doc.querySelectorAll('.equation .math'));
  }
- function prepareAiEdits(turn,rows,before,captured){
+ const formulaLabel=tex=>/\\label\{([^{}]+)\}/.exec(tex)?.[1];
+ function citationAt(ctx){
+   const turn=current().turns.find(t=>t.id===ctx.turn);
+   if(!turn)return;
+   const anchor={turnId:turn.id,rowId:ctx.revisionBlock,version:turn.readingRevisions?.length||0};
+   if(ctx.equationId){
+     const equation=publishedEquationIndex(turn).entries.find(eq=>eq.id===ctx.equationId);
+     if(equation){
+       const tex=equation.math.dataset.tex;
+       anchor.formula={label:formulaLabel(tex),tex,tag:equation.tag};
+     }
+   }
+   return anchor;
+ }
+ function citationEquation(turn,anchor){
+   const index=publishedEquationIndex(turn),label=anchor.formula.label;
+   const named=label&&index.find(label);
+   if(named)return named;
+   const candidates=index.entries.filter(eq=>eq.math.closest('.passage')?.id===anchor.rowId);
+   return candidates.length===1?candidates[0]:null;
+ }
+ function citationRow(turn,entry,replyId){
+   const rows=live(turn)??catalog(turn).rows,ref=replyId&&'turn:'+replyId+':'+entry.id;
+   const moved=ref&&live(turn)&&rows.find(row=>row.parts.some(part=>part.ref===ref));
+   return moved||rows.find(row=>row.id===entry.citation.rowId);
+ }
+ function citationChanged(entry,replyId){
+   const anchor=entry.citation,turn=anchor&&current().turns.find(t=>t.id===anchor.turnId);
+   if(!turn||anchor.version===(turn.readingRevisions?.length||0))return false;
+   if(anchor.formula)return citationEquation(turn,anchor)?.math.dataset.tex!==anchor.formula.tex;
+   const row=citationRow(turn,entry,replyId);
+   return !row||!textOf(aiSourceRows(turn,[row])[0].parts).includes(entry.quote.trim());
+ }
+ function openCitation(entry,historical,replyId){
+   const anchor=entry.citation,turn=current().turns.find(t=>t.id===anchor?.turnId);
+   if(!turn)return status('来源轮次已不存在。');
+   if(historical)return showHistory(turn,anchor.version,anchor);
+   if(anchor.formula){
+     const equation=citationEquation(turn,anchor);
+     if(!equation)return status('当前稿中无法唯一确定这道公式，可查看批注时版本。');
+     jumpToEquation({dataset:{equationTurn:turn.id,equationRef:equation.id}});return;
+   }
+   if(revealFoldedTurn(turn))renderTurns();
+   const id=citationRow(turn,entry,replyId)?.id,row=readingRow(id),passage=row?.closest('.passage');
+   if(!passage)return status('当前稿中的段落已变化，可查看批注时版本。');
+   let parents=[];
+   for(const item of passage.closest('.answer').querySelectorAll(':scope>.passage')){
+     const h=item.querySelector('h1,h2,h3,h4,h5,h6');
+     if(h){const level=Number(h.tagName[1]);parents=parents.filter(p=>p.level<level);parents.push({level,id:item.id});}
+     if(item===passage)break;
+   }
+   if(parents.some(p=>turn.sections?.[p.id])){for(const p of parents)turn.sections[p.id]=false;renderTurns();}
+   scrollToReadingTarget(readingRow(id),'center');saveReading();
+ }
+ function prepareAiEdits(turn,rows,before,captured,reviewEquation){
    const errors=checkFormulas(rows,before,true);
    if(errors.length)throw Error('替换内容中的公式未通过 KaTeX 校验。'+errors[0].error.slice(0,180));
-   const edits=[{turn,rows:aiPublishedRows(turn,rows,captured,before)}],pending=new Set();
+   const edits=[{turn,rows:aiPublishedRows(turn,rows,captured,before)}],pending=new Set(),review=new Set();
    const oldIndex=publishedEquationIndex(turn),newIndex=revisionEquationIndex(turn,edits[0].rows);
    const rowOf=eq=>eq.math.closest('.passage').id;
    const retained=new Map(newIndex.entries.map(eq=>[rowOf(eq),eq]));
@@ -987,8 +1050,13 @@
        const match=/^([1-9]\d*):(.+)$/u.exec(part.label);
        const prior=resolveEquationReference(part.label,source.id,original);
        if(!prior||prior.turnId!==turn.id)return part;
+       if(source!==turn&&prior.id===reviewEquation?.id){
+         const containsMath=row.parts.some(p=>typeof p==='string'&&revisionFormulaSpans(p).length);
+         if(containsMath)review.add(current().turns.indexOf(source)+1);
+       }
        const key=match?match[2]:part.label;
-       const same=newIndex.find(key),dest=retained.get(rowOf(prior));
+       const same=newIndex.find(key),oldLabel=formulaLabel(prior.math.dataset.tex);
+       const dest=(oldLabel&&newIndex.find(oldLabel))||retained.get(rowOf(prior));
        if(same&&(dest?rowOf(same)===rowOf(dest):key===/\\label\{([^{}]+)\}/.exec(same.math.dataset.tex)?.[1]))return part;
        if(!dest){pending.add(current().turns.indexOf(source)+1);return part;}
        const label=/\\label\{([^{}]+)\}/.exec(dest.math.dataset.tex)?.[1]||'eq-'+dest.tag;
@@ -1013,35 +1081,88 @@
      const fixed=fixReferences(other,capture(other));
      if(fixed)edits.push({turn:other,rows:fixed});
    }
-   return {edits,pending};
+   return {edits,pending,review};
  }
- function askAi(turn,prompt){
+ function askAi(turn,prompt,requestedBinding){
    const conversation=current();
-   if(conversation.permission==='只读'||turn.readingRevisionDraft){status(conversation.permission==='只读'?'当前为只读，改稿未写入。':'本轮有手动草稿，请先完成或取消整理。');return;}
-   const dialog=modal('AI 改稿 · 原型模拟'),label=make('label'),input=make('textarea'),feedback=make('p','revision-feedback');
    const prior=turn.readingAiTask;
-   let task=prior??{turnId:turn.id,phase:'request',messages:[]};
+   const binding=requestedBinding||prior?.binding;
+   const reply=binding&&conversation.turns.find(t=>t.id===binding.replyId);
+   const entry=(reply?.request?.annotations??reply?.annotations)?.find(a=>a.id===binding.entryId&&a.citation?.turnId===turn.id);
+   function setReply(text){
+     if(reply){reply.answer=text;delete reply.answerHtml;}
+   }
+   function report(text){
+     setReply(reply?.annotationEdits?.length?reply.answer+' '+text:text);if(reply){persist();renderTurns();}status(text);
+   }
+   if(binding&&!entry){report('无法确定这条批注的来源，请重新选择原文。');return;}
+   if(entry&&citationChanged(entry,reply.id)){report('所选原文已更新，请核对最新版本后重新批注。');return;}
+   if(conversation.permission==='只读'||turn.readingRevisionDraft){report(conversation.permission==='只读'?'当前为只读，改稿未写入。':'本轮有手动草稿，请先完成或取消整理。');return;}
+   const namedTurn=entry?.question.match(/(?:改写|修改|重写|整理|改|把|将)\s*第\s*(\d+)\s*轮/u)?.[1];
+   if(namedTurn&&Number(namedTurn)!==conversation.turns.indexOf(turn)+1){report('批注所选的轮次和指令不同。请重新选择要修改的原文。');return;}
+   const namedFormula=entry?.question.normalize('NFKC')
+     .match(/^(?:请(?:你)?(?:帮我)?|帮我|麻烦你)?\s*(?:直接|就地|原地)?\s*(?:修改|改写|改|重写|整理|把|将|给)\s*(?:第\s*\d+\s*轮的?)?\s*(?:这个|这条|该)?(?:公式|式子|等式)\s*\(?\s*(\d+(?:\s*:\s*\d+)*)/u)?.[1].replace(/\s/g,'');
+   if(namedFormula&&entry.citation.formula&&!([entry.citation.formula.tag,(conversation.turns.indexOf(turn)+1)+':'+entry.citation.formula.tag].includes(namedFormula))){
+     report('批注所选的公式和指令中的编号不同。请重新选择要修改的公式。');return;
+   }
+   if(entry?.endBlock&&entry.endBlock!==entry.block&&entry.endBlock!==entry.citation.rowId){
+     report('这条批注跨越多个段落，请分别选中要修改的内容。');return;
+   }
+   const dialog=modal('AI 改稿 · 原型模拟'),label=make('label'),input=make('textarea'),feedback=make('p','revision-feedback');
+   let task=(!requestedBinding&&prior)||{turnId:turn.id,phase:'request',messages:[],binding};
    const messages={request:'希望 AI 怎样修改本轮？',source:'请指出要改写的原句。',replacement:'这处换成什么文字？'};
+   if(entry?.citation.formula)messages.replacement='这道公式应改成什么？请输入新的 TeX 公式。';
    label.textContent=messages[task.phase];input.placeholder=task.phase==='request'?'例如：把「原句」改为「新句」':'';label.append(input);
    const send=button('提交',()=>{
       const text=input.value.trim();if(!text){input.focus();return;}
       const captured=capture(turn),rows=aiSourceRows(turn,captured),before=structuredClone(rows);
+      let scope,excerpt;
+      if(entry){
+        const anchor=entry.citation,eq=anchor.formula&&citationEquation(turn,anchor);
+        scope=rows.find(row=>row.id===(eq?.math.closest('.passage')?.id??citationRow(turn,entry,reply.id)?.id));
+        const value=scope&&textOf(scope.parts);
+        excerpt=anchor.formula&&eq&&value?revisionFormulaSpans(value).find(f=>f.display&&f.closed)?.raw:entry.quote.trim();
+        if(!scope||!excerpt||(anchor.formula&&!eq)||!value.includes(excerpt)){
+          feedback.textContent='无法把批注唯一定位到当前稿，请在最新段落重新批注。';return;
+        }
+      }
       task={...task,messages:[...task.messages,{author:'用户',text}]};
       if(task.phase==='request'){
         const match=/(?:把|将)?\s*[「“『]([^」”』]+)[」”』]\s*(?:改[成为]|替换[成为])\s*[「“『]([^」”』]*)[」”』]/u.exec(text);
         if(match){task.from=match[1];task.to=match[2];}
+        else if(entry){task.from=excerpt;task.phase='replacement';}
         else task.phase='source';
       }else if(task.phase==='source'){task.from=text;task.phase='replacement';}
       else task.to=text==='删除'?'':text;
       if(task.from!==undefined){
+        if(entry&&!excerpt.includes(task.from)){
+          feedback.textContent='替换原句超出了这条批注选中的内容。请在选区内指定修改。';delete task.from;delete task.to;task.phase='source';
+          label.firstChild.textContent=messages.source;input.value='';input.focus();return;
+        }
         const found=[];
         for(const [i,row] of rows.entries()){
+          if(scope&&row.id!==scope.id)continue;
           const visible=row.parts.map(p=>isText(p)?p:atomic(p.ref)?'\ufffc':'').join('');
           for(let at=visible.indexOf(task.from);at>=0;at=visible.indexOf(task.from,at+1))found.push({i,at});
         }
         if(found.length!==1){delete task.from;delete task.to;task.phase='source';feedback.textContent=found.length?'多处文字相同，请补充相邻文字。':'没找到这句，请从当前稿复制原句。';}
         else if(task.to!==undefined){
           const {i,at}=found[0],row=rows[i];
+          if(entry?.citation.formula&&task.from===excerpt){
+            let replacement=task.to.trim();
+            if(replacement&&!revisionFormulaSpans(replacement).some(f=>f.display))replacement='$$'+replacement+'$$';
+            const equations=revisionFormulaSpans(replacement).filter(f=>f.display&&f.closed);
+            const oldLabel=formulaLabel(excerpt);
+            if(!equations.length||(equations.length>1&&(!oldLabel||equations.filter(f=>formulaLabel(f.raw)===oldLabel).length!==1))){
+              feedback.textContent='删除或拆分后，哪道公式承接原来的引用？请给出完整公式，并在承接公式上保留原标签。';
+              task.from=excerpt;delete task.to;task.phase='replacement';label.firstChild.textContent=messages.replacement;input.value='';input.focus();return;
+            }
+            if(equations.length===1&&oldLabel&&!formulaLabel(replacement)){
+              const f=equations[0],end=f.end-2;
+              replacement=replacement.slice(0,end)+'\\label{'+oldLabel+'}'+replacement.slice(end);
+            }
+            task.to=replacement;
+          }
           let pos=0,offset=0,begin,end;
           for(const p of row.parts){if(!isText(p)){if(atomic(p.ref))offset++;pos++;continue;}
             if(begin===undefined&&at>=offset&&at<offset+p.length)begin=pos+at-offset;
@@ -1053,29 +1174,55 @@
           row.parts=compact([...slice(row.parts,0,begin),task.to,...refs(slice(row.parts,begin,end)),...slice(row.parts,end)]);
           if(blank(textOf(row.parts))&&!refs(row.parts).some(p=>atomic(p.ref))){const links=refs(row.parts);if(i>0){rows[i-1].parts.push(...links);rows.splice(i,1);}else if(!links.length)rows.splice(i,1);}
           let plan;
-          try{plan=prepareAiEdits(turn,rows,before,captured);}
+          try{
+            const inspect=entry?.citation.formula&&/(?:前后文|上下文|统一.{0,12}(?:符号|术语)|不一致的(?:符号|术语))/u.test(entry.question);
+            plan=prepareAiEdits(turn,rows,before,captured,inspect?citationEquation(turn,entry.citation):null);
+            if(entry&&plan.pending.size){plan=null;throw Error('仍有引用无法确定目标。请保留所引公式的标签，或给出它的替代公式。');}
+          }
           catch(error){
             feedback.textContent=error.message;
             delete task.to;task.phase='replacement';
           }
           if(plan){
             const {edits,pending}=plan,versions=edits.map(({turn})=>turn.readingRevisions?.at(-1));
+            const numbers=edits.map(item=>conversation.turns.indexOf(item.turn)+1);
+            const previousEdits=reply?.annotationEdits??[],change={entryId:entry?.id,numbers};
+            if(entry?.citation.formula){
+              const index=revisionEquationIndex(turn,edits[0].rows),oldLabel=entry.citation.formula.label;
+              const rowTargets=index.entries.filter(eq=>eq.math.closest('.passage')?.id===scope.id);
+              const eq=(oldLabel&&index.find(oldLabel))||(rowTargets.length===1&&rowTargets[0]);
+              if(!eq){feedback.textContent='请明确哪道公式承接原来的引用。';input.value='';return;}
+              change.reference='\\eqref{'+numbers[0]+':'+(formulaLabel(eq.math.dataset.tex)||'eq-'+eq.tag)+'}';
+            }
+            const allEdits=[...previousEdits,change];
+            const revisedTurns=[...new Set(allEdits.flatMap(edit=>edit.numbers))].sort((a,b)=>a-b);
+            const references=[...new Set(allEdits.map(edit=>edit.reference).filter(Boolean))];
+            let receipt='已修改第 '+revisedTurns.join('、')+' 轮。'+(references.length?'见公式 '+references.join('、')+'。':'');
+            if(plan.review.size)receipt+='第 '+[...plan.review].join('、')+' 轮引用这道公式，段中的符号也需核对。';
+            if(entry&&state.conversations.some(c=>c.branchSource?.parentId===conversation.id&&edits.some(e=>e.turn.id===c.branchSource.turn)))
+              receipt+='相关分支保留了分叉时的引文。';
             function apply(){
               if(current()!==conversation||conversation.permission==='只读'||edits.some(({turn},i)=>
                 !conversation.turns.includes(turn)||turn.readingRevisionDraft||versions[i]!==turn.readingRevisions?.at(-1))){
                 dialog.close();status('会话、稿件或权限已变化，请重新核对。');return;
               }
-              if(!commitBatch(edits,'AI'))return;
+              const previousReply=reply?.answer;
+              if(reply){reply.annotationEdits=allEdits;setReply(receipt);}
+              if(!commitBatch(edits,'AI')){if(reply){reply.annotationEdits=previousEdits;setReply(previousReply);}return;}
               delete turn.readingAiTask;persist();dialog.close();
               renderTurns();
               const related=edits.slice(1).map(item=>conversation.turns.indexOf(item.turn)+1);
               status('AI 模拟改稿已保存。'+(related.length?'已同步第 '+related.join('、')+' 轮的引用。':'')+
                 (pending.size?'第 '+[...pending].join('、')+' 轮引用的公式已删除，请核对。':''));
+              if(binding?.remaining?.length){
+                const [next,...remaining]=binding.remaining,note=reply.annotations.find(e=>e.id===next);
+                if(note)askAi(turn,note.question,{replyId:reply.id,entryId:next,remaining});
+              }
             }
             if(conversation.permission==='执行前询问'){
               label.hidden=true;send.hidden=true;
               feedback.textContent='允许 AI 修改第 '+edits.map(item=>conversation.turns.indexOf(item.turn)+1).join('、')+' 轮吗？';
-              dialog.append(button('同意修改',apply,'revision-primary'),button('拒绝',()=>{dialog.close();status('已拒绝改稿。');}));
+              dialog.append(button('同意修改',apply,'revision-primary'),button('拒绝',()=>{dialog.close();delete turn.readingAiTask;report('已拒绝改稿。');}));
             }else apply();
             return;
           }
@@ -1097,7 +1244,7 @@
    closePopups();begin(turn,savedId,readingRow(savedId));
  },true);
  window.addEventListener('pagehide',()=>{if(active?.root.isConnected)persist();});
- window.turnRevision={html,snapshot,askAi,focusState:()=>active?.root.isConnected?active.focusState():null,resume(focus){
+ window.turnRevision={html,snapshot,askAi,citationAt,citationChanged,openCitation,focusState:()=>active?.root.isConnected?active.focusState():null,resume(focus){
    if(!active||active.root.isConnected)return;
    active.endCaret();
    if(current().turns.includes(active.turn)&&document.getElementById(active.turn.id)?.querySelector('.answer'))begin(active.turn,focus?.id,null,focus);

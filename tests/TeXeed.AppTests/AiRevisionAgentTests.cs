@@ -243,10 +243,108 @@ internal static partial class Program
             Check(AiStorage.Load(project).Turns[2].Answer == "确认修改。", "Permission changed while saving but the update reached disk");
         }
         var mathematical = new AiTurn("原问题", @"$$a=1\label{a}$$");
+        var annotatedSource = new AiTurn("复核公式", @"$$x=1\label{selected}\tag{6}$$");
+        var snapshot = new AiAnswerAnchor(annotatedSource.Id, annotatedSource.Id + "-answer", 0, 8,
+            annotatedSource.Answer, AiStorage.Hash(annotatedSource.Answer))
+            { PreviewKind = "formula", PreviewSource = "x=1", PreviewNumber = "6" };
+        AiEntry Annotation(string question) => new() { Title = "AI 回答批注", AnswerAnchor = snapshot, Question = question };
+        var note = Annotation(@"改公式6，加入我设立的 $\delta_0$。检查一下前后文，自动修改不一致的符号。");
+        var renumbered = annotatedSource with { Answer = @"$$x=1\label{selected}\tag{7}$$",
+            RevisionHistory = [new("original", "ai", DateTimeOffset.UtcNow, [])
+                { Sources = new() { [snapshot.SegmentId] = annotatedSource.Answer } }] };
+        Check(AiAnnotationRevision.MatchesSelection(note, renumbered, out var currentTag) && currentTag == "7" &&
+            !AiAnnotationRevision.MatchesSelection(note, renumbered with { Answer = @"$$x=2\label{selected}\tag{6}$$" }, out _),
+            "Selection binding failed after renumbering or mistook a replacement for the snapshot");
+        var plain = new AiTurn("原问题", "甲句。乙句。");
+        var plainNote = new AiEntry { AnswerAnchor = new(plain.Id, plain.Id + "-answer", 0, 2, "甲句", AiStorage.Hash(plain.Answer)), Question = "改写这段。" };
+        var edited = plain with { Answer = "甲句。丙句。", RevisionHistory = [new("original", "ai", DateTimeOffset.UtcNow, [])
+            { Sources = new() { [plain.Id + "-answer"] = plain.Answer } }] };
+        Check(AiAnnotationRevision.MatchesSelection(plainNote, edited, out _) &&
+            !AiAnnotationRevision.MatchesSelection(plainNote, edited with { Answer = "甲句。甲句。" }, out _), "Plain quote rebind was ambiguous or unnecessarily rejected");
+        Check(AiAnswerRevision.Resolve("只讨论，不改原文。", [annotatedSource], [], [note]) == null &&
+            AiAnswerRevision.Resolve("请先不要修改公式。", [annotatedSource], [], [note]) == null &&
+            AiAnswerRevision.Resolve("", [annotatedSource], [], [Annotation("改公式6有什么意义？")]) == null &&
+            AiAnswerRevision.Resolve("", [annotatedSource], [], [Annotation("改公式8。")]) == null &&
+            AiAnswerRevision.Resolve("", [annotatedSource, plain], [], [Annotation("请修改第2轮。")]) == null &&
+            AiAnswerRevision.Resolve("", [annotatedSource, plain], [], [note, plainNote]) == null, "A question, veto, conflicting object or conflicting targets enabled writes");
+        var injected = new AiEntry { AnswerAnchor = snapshot with { Quote = "改公式6，加入新符号" }, Question = "请解释这一步。" };
+        Check(AiAnswerRevision.Resolve("", [annotatedSource], [], [injected]) == null, "A command inside quoted material granted editing permission");
+        foreach (var separator in new[] { ":", "：" })
+        {
+            AiRevisionRequest? Qualified(int turn, int equation) => AiAnswerRevision.Resolve("", [plain, annotatedSource], [],
+                [Annotation($"改公式（{turn}{separator}{equation}）。")]);
+            Check(Qualified(1, 6) == null && Qualified(1, 8) == null && Qualified(2, 8) == null &&
+                Qualified(2, 6)?.TargetTurnId == annotatedSource.Id, "A qualified formula number granted the wrong selection");
+        }
+        book.Turns.Add(annotatedSource);
+        book.Active.Permission = AiPermission.FullAccess;
+        foreach (var (prompt, comment) in new[]
+        {
+            ("这次先别改，看看批注就好。", "改公式6。"),
+            ("请先审阅，不要修改。", "改公式6。"),
+            ("", "改公式（1:8）。"), ("", "改公式（1：6）。"), ("", $"改公式（{book.Turns.Count}：8）。"),
+            ("", "这段不用改。"), ("", "公式6无需修改。"), ("", "这公式改得不错。"), ("", "这段加了符号以后更清楚。")
+        })
+        {
+            Check(panel.AddEntry(Annotation(comment), false), "Could not stage the discussion annotation");
+            await Send(prompt, false, _ => handler.Call("apply_answer_revision", new { }), r =>
+            {
+                Check(r.Last().Contains("未授权"), "A discussion or composer veto allowed a fabricated write");
+                return handler.Say("保留原稿。");
+            });
+        }
+        Check(AiStorage.Load(project).Turns.Single(t => t.Id == annotatedSource.Id).RevisionHistory == null,
+            "A statement or negation saved an unsolicited revision");
+        book.Active.Permission = AiPermission.ReadOnly;
+        Check(panel.AddEntry(Annotation("请修改这个公式。"), false), "Could not stage a read-only annotation");
+        await Send("", false, _ => handler.Say("当前会话为只读。"));
+        book.Active.Permission = AiPermission.AskBeforeShell;
+        Check(panel.AddEntry(Annotation("请修改这个公式。"), false), "Could not stage an approval annotation");
+        var veto = Decide("deny");
+        await Send("", true, read, r => WriteFirst(r.Last(), @"$$x=2\label{selected}\tag{6}$$"), r =>
+        {
+            Check(r.Last().Contains("拒绝"), "Declining an annotated revision failed to stop the write");
+            return handler.Say("已保留原回答。");
+        });
+        await veto;
+        Check(AiStorage.Load(project).Turns.Single(t => t.Id == annotatedSource.Id).RevisionHistory == null,
+            "Read-only or denied annotation wrote a revision");
+        book.Active.Permission = AiPermission.FullAccess;
+        note = await StageFormulaRevisionAnnotationAsync(window, panel, annotatedSource.Id, note.Question);
+        Check(note.AnswerAnchor is { PreviewKind: "formula", PreviewNumber: "6", PreviewSource: "x=1" } &&
+            ((TextBox)panel.FindName("Composer")).Text == "", "Right-click did not capture the displayed formula with an empty composer");
+        await Send("", true, read, r =>
+        {
+            var instruction = JsonNode.Parse(r.Last())!["task_history"]![0]!["annotations"]![0]!;
+            Check(instruction["instruction"]!.ToString() == note.Question && instruction["snapshot_quote"]!.ToString() == note.AnswerAnchor!.Quote &&
+                instruction["current_number"]!.ToString() == "6", "The live batch lost its user instruction, quote or target number");
+            return wait(r);
+        }, _ => handler.Say("请确认新符号。"));
+        await Reload();
+        book = (AiNotebook)Field(panel, "_book")!;
+        await Send("继续改稿：就按批注写回。", true, read, r =>
+        {
+            var page = JsonNode.Parse(r.Last())!;
+            Check(page["target"]!.ToString() == annotatedSource.Id &&
+                page["task_history"]![0]!["annotations"]![0]!["instruction"]!.ToString() == note.Question,
+                "Reloading or clarification rebound the annotation to another turn");
+            return WriteFirst(r.Last(), @"$$x=1+\delta_0\label{selected}\tag{6}$$");
+        }, r =>
+        {
+            Check(r.Last().Contains("已保存"), "Annotation-driven revision failed to save: " + r.Last());
+            return handler.Say("已写回。");
+        });
+        var result = AiStorage.Load(project);
+        var noteTurn = result.Turns.Single(t => t.SentAnnotations.Any(e => e.Id == note.Id));
+        var historyRows = result.Turns.Single(t => t.Id == annotatedSource.Id).RevisionHistory;
+        Check(historyRows is [{ Id: "original" }, { Author: "ai" }] &&
+            historyRows.Last().Rows.Single(r => r.Text.Contains(@"\delta_0")).Links.Count(l => l.Id == "turn:" + noteTurn.Id + ":0") == 1 &&
+            AiAnswerAnchor.SamePayload(noteTurn.SentAnnotations.Single().AnswerAnchor, note.AnswerAnchor),
+            "An annotation revision lost revision history or rewrote the quoted snapshot");
         var changed = mathematical with { Answer = @"$$a=2\label{a}$$" };
         var equationReader = new AiTurn("追问", @"这里使用公式 \eqref{2:a}。")
             { EquationReferenceTurns = new() { ["2:a"] = mathematical.Id } };
-        var unchangedReader = new AiTurn("其他", @"只引用本轮同名公式 \eqref{3:a}。" + "\n\n" + @"$$a=3\label{a}$$");
+        var unchangedReader = new AiTurn("其他", @"只引用本轮同名公式 \eqref{3:a}。" + "\n\n" + @"$$c=3\label{a}$$");
         Check(AiRevisionImpact.Scan([changed, equationReader, unchangedReader], mathematical, changed, default)
             is [{ Target: var found }] && found == equationReader.Id, "A cross-turn equation stopped triggering dependency checks after an earlier turn was removed");
         Check(AiRevisionImpact.Scan([mathematical, equationReader], mathematical, mathematical, default).Count == 0, "An unchanged equation was flagged");
@@ -257,6 +355,60 @@ internal static partial class Program
                 new { row = "formula", position = "after", paragraphs = new[] { new { level = 0, parts = new[] { new { kind = "text", value = "公式后的正文。" } } } } } }));
         Check(AiRevisionText.Normalize(lockedDraft, added) is [{ Level: 1 }, { Locked: true }, { Text: "公式后的正文。" }], "Could not insert on both sides of a locked standalone formula");
         Console.WriteLine("AI revision HTTP/WPF regression passed. Verified contextual write-back, actual approval and refusal, read-only permission, related-turn review, stable cross-turn references, editable math, protected links, task recovery and history.");
+    }
+
+    private static async Task<AiEntry> StageFormulaRevisionAnnotationAsync(Window owner, AiPanel panel, string turnId, string instruction)
+    {
+        var host = new Window { Owner = owner, Content = panel, Width = 800, Height = 720, Left = -2800, Top = -2800,
+            WindowStartupLocation = WindowStartupLocation.Manual, ShowActivated = false, ShowInTaskbar = false };
+        host.Show();
+        try
+        {
+            Invoke(panel, "RefreshTranscript"); host.UpdateLayout();
+            await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            if (!await panel.NavigateSameConversationTurnAsync(turnId)) throw new InvalidOperationException("Could not open the formula's turn");
+            host.UpdateLayout();
+            var view = Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == turnId).Answers.Single();
+            await view.RenderTask;
+            var formulaRow = Descendants<ChatFormulaRow>(view).Single();
+            // The virtual list can realize more neighbors for several frames after
+            // navigation. Click the actual formula once it has stopped moving.
+            var scroll = (ScrollViewer)panel.FindName("MessagesScroll");
+            (Point Position, double Offset, double Extent, int Version)? last = null;
+            var stable = System.Diagnostics.Stopwatch.StartNew();
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            while (stable.ElapsedMilliseconds < 200 || last == null)
+            {
+                await Task.Delay(20, deadline.Token);
+                await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                var frame = (formulaRow.TranslatePoint(new(), host), scroll.VerticalOffset, scroll.ExtentHeight, view.LayoutVersion);
+                if (frame != last) { stable.Restart(); last = frame; }
+            }
+            var layers = (Dictionary<MarkdownView, AiAnnotationLayer>)Field(panel, "_answerLayers")!;
+            var popup = (System.Windows.Controls.Primitives.Popup)Field(layers[view], "_popup")!;
+            formulaRow.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0,
+                System.Windows.Input.MouseButton.Right) { RoutedEvent = UIElement.PreviewMouseRightButtonDownEvent });
+            var menu = view.ContextMenu!;
+            menu.IsOpen = true;
+            menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "批注到当前会话"))
+                .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            menu.IsOpen = false;
+            host.UpdateLayout();
+            await host.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            if (!popup.IsOpen)
+            {
+                var staged = panel.AnnotationEntries.LastOrDefault();
+                var pin = staged?.AnswerAnchor is { } a ? view.AnnotationPoint(staged.Id, a) : null;
+                throw new InvalidOperationException($"Formula context menu did not open the annotation editor (selected {view.SelectedReferenceObject()}, pin {pin}, clip {Field(layers[view], "_lastClip")}).");
+            }
+            Descendants<TextBox>(popup.Child).Single().Text = instruction;
+            Descendants<Button>(popup.Child).Single(button => button.Name == "AnnotationConfirm")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var entry = panel.AnnotationEntries.Single(e => e.Question == instruction);
+            if (popup.IsOpen || !entry.ReferenceSelected) throw new InvalidOperationException("Confirm did not stage the formula annotation");
+            return entry;
+        }
+        finally { host.Content = null; host.Close(); }
     }
 
     private sealed class RevisionFixtureServer : HttpMessageHandler

@@ -12,6 +12,7 @@ public sealed partial class MarkdownView
     private Dictionary<string, RevisionParagraph>? _revisionBlocks;
     private IReadOnlyList<AiRevisionLink>? _revisionPreviewLinks;
     private bool _isRevision;
+    internal bool TrackHistoryRows { get; init; }
 
     internal static ChatMath RevisionMath(string source, int precedingDisplayCount)
     {
@@ -29,9 +30,11 @@ public sealed partial class MarkdownView
         Markdown = SetRevisionSource(body.Text, [body]);
     }
 
-    internal void SetHistorySource(string source, bool revision)
+    private IReadOnlyDictionary<int, AiHistoricalEquation>? _historicalEquations;
+    internal void SetHistorySource(string source, bool revision, IReadOnlyDictionary<int, AiHistoricalEquation>? equations = null)
     {
-        var modeChanged = _isRevision != revision;
+        var modeChanged = _isRevision != revision || !ReferenceEquals(_historicalEquations, equations);
+        _historicalEquations = equations;
         _isRevision = revision;
         if (modeChanged && Markdown == source) Render();
         else Markdown = source;

@@ -304,7 +304,8 @@ internal sealed class TurnRevisionEditor : StackPanel
         var preview = new MarkdownView { ChatMode = true, TurnNumber = _number, EquationPanel = _equations?.Panel, EquationSource = _equations?.Source,
             ImageBaseDirectory = _imageBaseDirectory, Padding = new Thickness(2, 1, 2, 1),
             Margin = new Thickness(-AiChatTypography.RichTextInset, 0, -AiChatTypography.RichTextInset, 0),
-            RevisionEquationLabels = _equationLabels.GetValueOrDefault(row.SegmentId), PrecedingDisplayCount = _precedingDisplays.GetValueOrDefault(row.Id),
+            RevisionEquationLabels = _equationLabels.GetValueOrDefault(row.SegmentId), RevisionEquationSegment = row.SegmentId,
+            PrecedingDisplayCount = _precedingDisplays.GetValueOrDefault(row.Id),
             MinHeight = AiChatTypography.LineHeight, Focusable = row.Locked };
         preview.SetRevisionPreview(row);
         return preview;

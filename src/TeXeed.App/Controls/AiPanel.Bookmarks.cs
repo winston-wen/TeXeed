@@ -191,6 +191,8 @@ public partial class AiPanel
         if (!_bookmarkQuestions.Add(view)) return;
         view.EquationSource = AnswerTurn(view);
         view.EquationPanel = this;
+        view.SnapshotHistory = entry => SnapshotHistoryAction(entry, view.EquationSource ?? _foldingLiveTurn);
+        view.RefreshSnapshotOrigins();
         view.RefreshEquationReferences();
         RefreshBookmarkMarker(view, true);
         var menu = new ContextMenu();

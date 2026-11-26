@@ -78,9 +78,11 @@ public sealed partial class MarkdownView
             var token = _math.Tokens[match.Value];
             if (token.Reference is { } reference)
             {
-                var number = EquationNumber(reference);
-                target.Add(token.Parenthesize || AiEquationIndex.TrySplit(reference, out _, out _)
-                    ? new EquationReference(this, reference, number, token.Parenthesize) : EquationLink(reference, number));
+                var frozen = (_tableOwner ?? this)._historicalEquations?.GetValueOrDefault(token.OriginalOffset);
+                if (frozen?.Reference != reference) frozen = null;
+                var number = frozen?.Caption ?? EquationNumber(reference);
+                target.Add(frozen is not null || token.Parenthesize || AiEquationIndex.TrySplit(reference, out _, out _)
+                    ? new EquationReference(this, reference, number, token.Parenthesize, frozen) : EquationLink(reference, number));
             }
             else target.Add(FormulaInline(token));
             offset = match.Index + match.Length;
@@ -95,7 +97,15 @@ public sealed partial class MarkdownView
             var target = panel.ResolveEquation(owner.EquationSource, reference, key, out var number);
             return target is null ? reference + " ?" : target.TurnId == owner.EquationSource?.Id ? target.Equation.Number! : $"{number}:{target.Equation.Number}";
         }
-        return RevisionEquationLabels?.GetValueOrDefault(reference) ?? _math.Labels.GetValueOrDefault(reference, reference + " ?");
+        var local = LocalEquationKey(reference);
+        return RevisionEquationLabels?.GetValueOrDefault(local) ?? _math.Labels.GetValueOrDefault(local, reference + " ?");
+    }
+    internal string? RevisionEquationSegment { get; set; }
+    private string LocalEquationKey(string reference)
+    {
+        var owner = _tableOwner ?? this;
+        return AiEquationIndex.EffectiveKey(owner.EquationSource, reference, reference,
+            owner.RevisionEquationSegment ?? (owner.DataContext as AiSegment)?.Id);
     }
     internal string ReferenceText(string label, bool parenthesize) =>
         parenthesize ? "(" + EquationNumber(label) + ")" : EquationNumber(label);
@@ -161,7 +171,7 @@ public sealed partial class MarkdownView
             else
             {
                 var owner = _tableOwner ?? this;
-                if (owner._equations.TryGetValue(label, out var target)) owner.NavigateEquation(target);
+                if (owner._equations.TryGetValue(LocalEquationKey(label), out var target)) owner.NavigateEquation(target);
                 else link.ToolTip = "未找到公式：" + label;
             }
             e.Handled = true;

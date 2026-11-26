@@ -60,6 +60,7 @@ public sealed record AiAnswerAnchor(string TurnId, string SegmentId, int Offset,
 {
     // Semantic text offset survives responsive columns changing the FlowDocument structure.
     public int TextOffset { get; init; } = -1;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? CapturedRevisionId { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewKind { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewSource { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? PreviewImageUri { get; init; }
@@ -184,6 +185,9 @@ public sealed record AiTurn(string Question, string Answer)
     public string? FoldGroup { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, string>? EquationReferenceTurns { get; set; }
+    // A pre-existing numerical reference may follow a different displayed number after an insertion.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? EquationReferenceAliases { get; set; }
     public Dictionary<string, bool> CollapsedSections { get; init; } = [];
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";
@@ -198,8 +202,10 @@ public sealed record AiTurn(string Question, string Answer)
         Segments = Segments.Select(segment => segment.Snapshot()).ToList(),
         CollapsedSections = new(CollapsedSections),
         EquationReferenceTurns = EquationReferenceTurns is null ? null : new(EquationReferenceTurns),
+        EquationReferenceAliases = EquationReferenceAliases is null ? null : new(EquationReferenceAliases),
         RevisionHistory = RevisionHistory?.Select(revision => revision with
-            { Rows = AiRevisionText.Clone(revision.Rows), Sources = new(revision.Sources) }).ToList(),
+            { Rows = AiRevisionText.Clone(revision.Rows), Sources = new(revision.Sources),
+              EquationPreviews = revision.EquationPreviews is null ? null : new(revision.EquationPreviews) }).ToList(),
         UserRevisionDraft = UserRevisionDraft is { } draft ? draft with { Rows = AiRevisionText.Clone(draft.Rows) } : null
     };
     [JsonIgnore] public IReadOnlyList<AiSegment> DisplaySegments

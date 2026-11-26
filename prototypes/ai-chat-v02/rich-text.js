@@ -7,7 +7,7 @@
  function math(tex,display,raw,closed=true){
   try{
    if(!closed)throw new Error('Unclosed math delimiter');
-   return compile(tex,display);
+   return compile(display?tex.replace(/\\label\{[^{}]+\}/g,''):tex,display);
   }catch{return code(raw,display);}
  }
  function closing(source,delimiter,start){

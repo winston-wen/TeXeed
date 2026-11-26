@@ -46,7 +46,9 @@
       if (remaining <= 0) { truncated = true; break; }
       if (part.math !== undefined) {
         try {
-          const rendered = root.katex.renderToString(part.math, { displayMode: false, throwOnError: true, trust: false, strict: 'ignore', maxExpand: 1000, maxSize: 20 });
+          const display = part.raw.startsWith('$$') || part.raw.startsWith('\\[');
+          const tex = display ? part.math.replace(/\\(?:label|tag\*?)\{[^{}]+\}/g, '') : part.math;
+          const rendered = root.katex.renderToString(tex, { displayMode: false, throwOnError: true, trust: false, strict: 'ignore', maxExpand: 1000, maxSize: 20 });
           out.push('<span class="quote-math-window" role="math" aria-label="' + escape(part.math) + '">' + rendered + '</span><span class="quote-math-more" aria-hidden="true" hidden>…</span>');
         } catch { out.push(escape(part.raw)); }
         remaining -= Math.min(20, Array.from(part.math).length); continue;

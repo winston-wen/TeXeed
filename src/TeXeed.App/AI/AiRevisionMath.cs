@@ -54,9 +54,14 @@ internal static class AiRevisionMath
                     if (AiEquationIndex.TrySplit(key, out _, out var localKey))
                     {
                         var target = AiEquationIndex.TargetTurn(conversation.Turns, source, key);
-                        if (target is not null && AiEquationIndex.Resolve(target.Id == source.Id ? source : target, localKey) is not null) continue;
+                        var bound = AiEquationIndex.EffectiveKey(source, key, localKey);
+                        if (target is not null && AiEquationIndex.Resolve(target.Id == source.Id ? source : target, bound) is not null) continue;
                     }
-                    else if (items.Count(item => item.Display && (item.Label == key || "eq-" + item.Number == key)) == 1) continue;
+                    else
+                    {
+                        var bound = AiEquationIndex.EffectiveKey(source, key, key, segment.Id);
+                        if (items.Count(item => item.Display && (item.Label == bound || "eq-" + item.Number == bound)) == 1) continue;
+                    }
                     missing[(segment.Id, key)] = references.Count();
                 }
             }

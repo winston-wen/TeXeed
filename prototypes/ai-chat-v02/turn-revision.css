@@ -4,6 +4,9 @@
 .revision-menu { inset:auto;margin:0;color:inherit }
 .revision-menu [aria-haspopup=menu]::after { content:'';float:right;width:.4em;height:.4em;margin:.4em .15em;border:solid currentColor;border-width:1px 1px 0 0;transform:rotate(45deg) }
 .revision-menu [aria-checked=true] { color:var(--accent) }
+.sent-summary:has(+ .source-updated) { display:inline-block }
+.sent-summaries .source-updated { margin-inline-start:.6em;padding:0 .25em;border:0;background:transparent;color:var(--quiet);font:inherit;font-size:.8em;white-space:nowrap }
+.source-updated:hover,.source-updated:focus-visible { text-decoration:underline;color:var(--ink) }
 .revision-dialog header { display:flex;align-items:center;gap:8px;flex-wrap:wrap }
 .revision-dialog button,.revision-dialog select { font-family:inherit;font-size:14px;color:inherit;background:transparent;border:1px solid #827777;border-radius:4px;padding:4px 8px;cursor:pointer }
 .revision-dialog option { color:CanvasText;background:Canvas }
@@ -30,5 +33,7 @@
 .revision-history-body { font:var(--reading-font)/var(--reading-line) var(--reading-face);font-synthesis:none;font-feature-settings:'ss04' 1 }
 .revision-history-body :is(h1,h2,h3,h4,h5,h6,p) { font:inherit;margin:0 }
 .revision-history-body .passage { margin-block:0 .55em }
+.revision-history-body:has(.citation-history-target) { max-height:56vh;overflow:auto }
+.citation-history-target { padding-inline-start:.5em;border-inline-start:2px solid var(--accent) }
 .revision-history-body .same-turn-link { font:inherit;border:0;padding:0;background:transparent;opacity:.85 }
 .revision-dialog > select { width:min(100%,25em);max-width:100% }

@@ -85,7 +85,7 @@ function requestFixture(mode){
  const timers=[],cancelled=[],records=[];
  const noop=()=>{};
  const runtime=vm.createContext({
-  running:null,requests:new Map(),state:{active:conversation.id},activeView:'conversation',
+  running:null,editing:null,requests:new Map(),state:{active:conversation.id},activeView:'conversation',
   current:()=>conversation,$:id=>nodes[id],clone:value=>JSON.parse(JSON.stringify(value)),
   DATA:{prompts:{answer:'合成说明',title:'合成标题'},playback:{answer:'第二次飞得更远。',answerHtml:'<p>第二次飞得更远。</p>'}},
   closePopups:noop,refreshEditors:noop,renderTabs:noop,status:noop,setBusy:noop,renderTurns:noop,scrollEnd:noop,persist:()=>true,

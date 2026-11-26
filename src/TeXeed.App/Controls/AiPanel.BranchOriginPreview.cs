@@ -66,8 +66,7 @@ public partial class AiPanel
         Typography.SetStylisticSet4(document, true);
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink");
         var paragraph = new Paragraph { Margin = new Thickness(0) };
-        IReadOnlyList<AiReferencePresentation.ExcerptPart> parts = anchor.PreviewParts is { Count: > 0 }
-            ? AiReferencePresentation.Excerpt(anchor) : [new AiReferencePresentation.ExcerptPart(anchor.Quote)];
+        var parts = AiReferencePresentation.Excerpt(anchor);
         foreach (var part in parts)
         {
             if (part.Formula && !string.IsNullOrWhiteSpace(part.Text))

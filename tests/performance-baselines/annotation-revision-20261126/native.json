@@ -1,0 +1,95 @@
+{
+  "fixture": "16 WPF turns, change the equation in turn 9 while its annotation in turn 16 is visible",
+  "beforeVersion": "0.6.8+224a263",
+  "beforeAssembly": "7EEE66CCDE6BDBF452770429E24927E44305E5428026135C63C6CA5D386872E8",
+  "afterVersion": "0.6.9",
+  "afterAssembly": "96158DD4A4BA97F056FF7EA398BE88EF22F4E4C434755B458A2C7A8A8808ADB8",
+  "before": [
+    {
+      "milliseconds": 1267.5019,
+      "bytes": 1650776,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 29.8075,
+      "bytes": 1130992,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 29.1127,
+      "bytes": 1185976,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 23.084,
+      "bytes": 1156592,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 24.8027,
+      "bytes": 1191112,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 23.1646,
+      "bytes": 1141080,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 25.0868,
+      "bytes": 1195136,
+      "visibleControls": 37,
+      "historyLinks": 0
+    }
+  ],
+  "after": [
+    {
+      "milliseconds": 1506.9886,
+      "bytes": 1802536,
+      "visibleControls": 37,
+      "historyLinks": 1
+    },
+    {
+      "milliseconds": 34.656,
+      "bytes": 1237568,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 39.7943,
+      "bytes": 1327336,
+      "visibleControls": 37,
+      "historyLinks": 1
+    },
+    {
+      "milliseconds": 32.4511,
+      "bytes": 1263776,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 30.6182,
+      "bytes": 1334528,
+      "visibleControls": 37,
+      "historyLinks": 1
+    },
+    {
+      "milliseconds": 35.3352,
+      "bytes": 1249656,
+      "visibleControls": 37,
+      "historyLinks": 0
+    },
+    {
+      "milliseconds": 33.6721,
+      "bytes": 1337176,
+      "visibleControls": 37,
+      "historyLinks": 1
+    }
+  ]
+}

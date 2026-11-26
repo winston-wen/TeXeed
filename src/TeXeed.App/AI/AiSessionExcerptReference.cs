@@ -66,7 +66,8 @@ internal static class AiSessionExcerptReferences
         source = null; before = null; after = null;
         if (entry.AnswerAnchor is not { } anchor) return false;
         bool Contains(AiConversation conversation) => conversation.Turns.Any(turn => turn.Id == anchor.TurnId &&
-            turn.DisplaySegments.Any(segment => segment.Id == anchor.SegmentId));
+            (turn.Segments.Count == 0 ? anchor.SegmentId == turn.Id + "-answer" :
+                turn.Segments.Any(segment => segment.Id == anchor.SegmentId && segment.Id != "request" && !segment.IsTransientStatus)));
         if (entry.AdditionalData?.ContainsKey(MetadataKey) == true)
         {
             if (!TryRead(entry, out var reference)) return false;

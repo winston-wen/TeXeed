@@ -279,7 +279,13 @@ internal static partial class Program
                 if (args.Contains("--ai-revision-source-only"))
                 {
                     await CheckRevisionSourcesAsync(window, output);
+                    await CheckSnapshotHistoryAsync(window, output);
                     await CloseAndObserveAsync(window, "AI revised sources"); result = 0; return;
+                }
+                if (args.Contains("--snapshot-history-measure"))
+                {
+                    await CheckSnapshotHistoryAsync(window, output, measureOnly: true);
+                    await CloseAndObserveAsync(window, "Snapshot history measurements"); result = 0; return;
                 }
                 if (args.Contains("--ai-branches-only"))
                 {

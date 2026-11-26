@@ -179,7 +179,7 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _qualifiedReferences?.Clear(); _formControls.Clear(); _formFeedbackHosts.Clear(); _formBlockWidths.Clear(); _formCellCandidates.Clear(); _formCellColumns.Clear(); _branchLinkBlocks.Clear(); _branchLineModes.Clear(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _foldBodies.Clear(); _foldHints.Clear(); InvalidateBranchText(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); ClearMedia(); ClearCodeSurfaces(); }
+    { _snapshotOrigins?.Clear(); _qualifiedReferences?.Clear(); _formControls.Clear(); _formFeedbackHosts.Clear(); _formBlockWidths.Clear(); _formCellCandidates.Clear(); _formCellColumns.Clear(); _branchLinkBlocks.Clear(); _branchLineModes.Clear(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _foldBodies.Clear(); _foldHints.Clear(); InvalidateBranchText(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); ClearMedia(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
         ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));
@@ -307,7 +307,8 @@ public sealed partial class MarkdownView : RichTextBox
             case LeafBlock leaf:
                 target.Add(Paragraph(leaf.Inline, depth)); break;
         }
-        if (block is LeafBlock && target.LastBlock is Paragraph rendered && (_tableOwner ?? this).DataContext is AiSegment)
+        if (block is LeafBlock && target.LastBlock is Paragraph rendered &&
+            ((_tableOwner ?? this).DataContext is AiSegment || (_tableOwner ?? this).TrackHistoryRows))
             rendered.SetValue(ParagraphSourcePositionProperty, block.Span.Start);
         if (_revisionRanges is not null) TrackRevisionBlock(block, target.LastBlock);
     }
@@ -359,9 +360,11 @@ public sealed partial class MarkdownView : RichTextBox
                     {
                         var key = Uri.UnescapeDataString(link.Url[1..]);
                         var local = EquationLink(key, null);
-                        if (!TryRenderSnapshotLink(local, link, key)) AddInlines(local.Inlines, link, depth + 1);
+                        var snapshot = RenderSnapshotLink(local, link, key);
+                        if (snapshot is null) AddInlines(local.Inlines, link, depth + 1);
                         RestoreLinkEmphasisColor(local.Inlines);
                         target.Add(local);
+                        if (snapshot?.AnswerAnchor is not null) TrackSnapshotOrigin(snapshot, target, local);
                     }
                     else if (!link.IsImage && Uri.TryCreate(link.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
                     {

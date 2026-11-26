@@ -21,12 +21,52 @@ public partial class MarkdownView
     private readonly List<ReadySnapshotFormula> _readySnapshotFormulas = [];
     private bool _snapshotFlushQueued;
 
-    private bool TryRenderSnapshotLink(Hyperlink link, LinkInline source, string key)
+    private sealed record SnapshotOrigin(AiEntry Entry, InlineCollection Inlines, Hyperlink Link)
+    {
+        internal Hyperlink? HistoryLink;
+    }
+    private List<SnapshotOrigin>? _snapshotOrigins;
+    internal Func<AiEntry, Action?>? SnapshotHistory { get; set; }
+
+    private void TrackSnapshotOrigin(AiEntry entry, InlineCollection inlines, Hyperlink link)
+    {
+        var origin = new SnapshotOrigin(entry, inlines, link);
+        (_snapshotOrigins ??= []).Add(origin);
+        UpdateSnapshotOrigin(origin);
+    }
+
+    internal void RefreshSnapshotOrigins(string? changedTurn = null)
+    {
+        if (_snapshotOrigins is null) return;
+        foreach (var origin in _snapshotOrigins)
+            if (changedTurn is null || origin.Entry.AnswerAnchor?.TurnId == changedTurn) UpdateSnapshotOrigin(origin);
+    }
+
+    private void UpdateSnapshotOrigin(SnapshotOrigin origin)
+    {
+        var show = SnapshotHistory?.Invoke(origin.Entry);
+        if ((show is null) == (origin.HistoryLink is null)) return;
+        if (IsLoaded) NotifyAsyncLayoutChanging();
+        if (show is null)
+        {
+            origin.Inlines.Remove(origin.HistoryLink!);
+            origin.HistoryLink = null;
+            return;
+        }
+        var history = new Hyperlink(new Run("　原文已更新")) { FontSize = AiChatTypography.MetadataFontSize,
+            TextDecorations = null, ToolTip = "查看批注时的版本", Tag = new SnapshotCopy("") };
+        history.SetResourceReference(TextElement.ForegroundProperty, "Muted");
+        history.Click += (_, _) => SnapshotHistory?.Invoke(origin.Entry)?.Invoke();
+        origin.Inlines.InsertAfter(origin.Link, history);
+        origin.HistoryLink = history;
+    }
+
+    private AiEntry? RenderSnapshotLink(Hyperlink link, LinkInline source, string key)
     {
         if (SnapshotEntries is not { } entries || !key.StartsWith("snapshot-", StringComparison.Ordinal) ||
             !int.TryParse(key.AsSpan("snapshot-".Length), out var number) || number <= 0 || number > entries.Count ||
             source.FirstChild is not LiteralInline literal || literal.NextSibling is not null ||
-            literal.Content.ToString() != AiReferencePresentation.PlaceholderPrefix + number) return false;
+            literal.Content.ToString() != AiReferencePresentation.PlaceholderPrefix + number) return null;
         link.Name = "SnapshotReference";
         link.TextDecorations = null;
         var entry = entries[number - 1];
@@ -39,7 +79,7 @@ public partial class MarkdownView
         {
             AddSnapshotExcerpt(link, key, parts);
             if (!string.IsNullOrWhiteSpace(entry.Question)) link.Inlines.Add(new Run(" · " + AiTurnView.AnnotationSummary(entry)));
-            return true;
+            return entry;
         }
         var summary = anchor is { PreviewKind: "formula" or "image" } ? AiPanel.ReferencePreviewFallback(anchor) : AiTurnView.AnnotationSummary(entry);
         if (formula && (string.IsNullOrWhiteSpace(summary) || summary == anchor!.Quote)) summary = "公式";
@@ -55,7 +95,7 @@ public partial class MarkdownView
             visual.MouseLeftButtonUp += (_, e) => { LocalLink?.Invoke(key); e.Handled = true; };
             _ = CompleteSnapshotFormulaAsync(link, text, visual, anchor.Quote, _renderVersion);
         }
-        return true;
+        return entry;
     }
 
     private void AddSnapshotExcerpt(Hyperlink link, string key, IReadOnlyList<AiReferencePresentation.ExcerptPart> parts)

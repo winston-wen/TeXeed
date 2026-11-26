@@ -217,10 +217,12 @@ public partial class AiPanel
         var table = view.SelectedReferenceTableMarkdown();
         var entry = new AiEntry { Title = "AI 回答批注", AnswerAnchor = new(turn.Id, segment.Id,
             selection.Offset, selection.Length, quote, view.Revision)
-            { TextOffset = selection.TextOffset, PreviewKind = preview.Kind, PreviewSource = preview.Source,
+            { TextOffset = selection.TextOffset, CapturedRevisionId = turn.RevisionHistory?.LastOrDefault()?.Id ?? "original",
+              PreviewKind = preview.Kind, PreviewSource = preview.Source,
               PreviewImageUri = preview.Kind == "image" ? view.SelectedReferenceImageUri() : null, PreviewTableMarkdown = table,
               PreviewParts = preview.Kind is null && table is null ? view.SelectedReferenceParts() : null,
               PreviewNumber = preview.Number, PreviewBefore = context.Before, PreviewAfter = context.After } };
+        AiSessionExcerptReferences.SetMetadata(entry, _book.Active.Id, context.Before, context.After, protectOrigin: false);
         if (AddEntry(entry, false)) layer.Edit(entry);
     }
 }

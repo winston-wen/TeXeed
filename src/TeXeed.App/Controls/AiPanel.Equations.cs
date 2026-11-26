@@ -7,7 +7,7 @@ public partial class AiPanel
     internal AiEquationTarget? ResolveEquation(AiTurn? source, string reference, string localKey, out int turnNumber)
     {
         var turn = AiEquationIndex.TargetTurn(_book.Turns, source, reference, out turnNumber);
-        return turn is null ? null : AiEquationIndex.Resolve(turn, localKey);
+        return turn is null ? null : AiEquationIndex.Resolve(turn, AiEquationIndex.EffectiveKey(source, reference, localKey));
     }
 
     private void RefreshConversationEquationReferences()

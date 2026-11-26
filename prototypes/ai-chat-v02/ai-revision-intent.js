@@ -23,3 +23,18 @@ function prototypeRevisionRequest(prompt, turns) {
   const target = turns[number-1];
   return target && !target.incomplete ? {target,number,instruction} : null;
 }
+
+function annotationRevisionRequests(prompt,entries,turns){
+  const veto=text=>/(?:不必|不需要|无需|不用|不要|先不|暂不|禁止|别)(?:直接|实际)?(?:写回|修改|改|重写|保存|执行|动原文)|只(?:要|需)?(?:解释|讨论|审阅|分析|看看|给建议)|[?？]\s*$/u.test(
+    text.replace(/「[^」]*」|“[^”]*”|『[^』]*』/gu,''));
+  if(veto(prompt))return [];
+  const commands=[];
+  for(const entry of entries){
+    const note=entry.question?.trim()||'',anchor=entry.citation;
+    if(!anchor||entry.sourceLocked||veto(note)||/(?:怎么|如何|能否|是否)(?:改|写)/u.test(note))continue;
+    if(!/^(?:请(?:你)?(?:帮我)?|帮我|麻烦你)?\s*(?:直接|就地|原地)?\s*(?:改(?:写|动|为|成|公式|这|此)|修改|重写|润色|精简|删除|删掉|补上|加入|把[^。！？\n]{1,200}?(?:改|替换|写回)|将[^。！？\n]{1,200}?(?:改|替换|写回))/u.test(note))continue;
+    const target=turns.find(turn=>turn.id===anchor.turnId);
+    if(target&&!target.incomplete)commands.push({target,number:turns.indexOf(target)+1,instruction:note,entry});
+  }
+  return commands;
+}

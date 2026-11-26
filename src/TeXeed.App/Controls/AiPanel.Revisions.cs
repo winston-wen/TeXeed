@@ -62,6 +62,22 @@ public partial class AiPanel
         var after = reference.After ?? anchor.PreviewAfter ?? "";
         var joined = string.Join("\n\n", candidates.Select(r => r.Text));
         var sourceOffset = Math.Clamp(Math.Max(0, anchor.TextOffset), 0, joined.Length);
+        var end = !reference.Id.StartsWith("bookmark:", StringComparison.Ordinal);
+        if (anchor is { PreviewKind: "formula", PreviewSource.Length: > 0 })
+        {
+            // The copied TeX can contain an automatic tag that is absent from the source.
+            var matches = AiEquationIndex.Read(joined).Where(t => t.Display && t.Source == anchor.PreviewSource).ToArray();
+            var exact = matches.Length == 1 ? matches : matches.Where(t => t.Number == anchor.PreviewNumber).ToArray();
+            if (exact.Length == 1)
+            {
+                var position = exact[0].OriginalOffset + (end ? exact[0].OriginalLength : 0);
+                foreach (var candidate in candidates)
+                {
+                    if (position <= candidate.Text.Length) return (candidate, Math.Max(0, position));
+                    position -= candidate.Text.Length + 2;
+                }
+            }
+        }
         int Match(string text)
         {
             var best = -1; var score = -1; var nearest = int.MaxValue;
@@ -76,7 +92,6 @@ public partial class AiPanel
             }
             return best;
         }
-        var end = !reference.Id.StartsWith("bookmark:", StringComparison.Ordinal);
         var found = Match(joined);
         if (found < 0 || joined.Contains("](", StringComparison.Ordinal) || joined.Contains("][", StringComparison.Ordinal))
         {
@@ -111,6 +126,7 @@ public partial class AiPanel
         var store = _store;
         AiTurn? replaced = null;
         AiTurn? updated = null;
+        IReadOnlyList<AiRevisionEquationLinks.AliasChange> aliases = [];
         var at = -1;
         var previousTime = conversation.UpdatedAt;
         var writer = author.ToLowerInvariant();
@@ -145,7 +161,8 @@ public partial class AiPanel
             bool Same(IEnumerable<AiRevisionRow> left, IEnumerable<AiRevisionRow> right) =>
                 left.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))).SequenceEqual(
                     right.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))));
-            if (Same(draft.Rows, normalized) && (writer != "user" || original.UserRevisionDraft is null)) return;
+            var revised = !Same(draft.Rows, normalized);
+            if (!revised && (writer != "user" || original.UserRevisionDraft is null)) return;
             var segments = AiRevisionText.Segments(original).ToArray();
             var sources = segments.ToDictionary(s => s.Id, s => s.Text);
             var current = new Dictionary<string, string>(sources);
@@ -162,23 +179,32 @@ public partial class AiPanel
                 }
             }
             var history = original.RevisionHistory?.ToList() ?? [];
-            if (history.Count == 0) history.Add(new("original", "ai", original.AnsweredAt ?? original.CreatedAt, AiRevisionText.Clone(draft.Rows)) { Sources = sources });
+            if (history.Count == 0) history.Add(new("original", "ai", original.AnsweredAt ?? original.CreatedAt, AiRevisionText.Clone(draft.Rows))
+                { Sources = sources, EquationPreviews = AiRevisionEquationLinks.Capture(conversation, original) });
             var now = DateTimeOffset.UtcNow;
-            if (!Same(draft.Rows, normalized)) history.Add(new(Guid.NewGuid().ToString("N"), writer, now, normalized) { Sources = current, OperationId = operationId });
+            if (revised) history.Add(new(Guid.NewGuid().ToString("N"), writer, now, normalized) { Sources = current, OperationId = operationId });
             var newSegments = (original.Segments.Count == 0 ? segments.AsEnumerable() : original.Segments)
                 .Select(s => { var copy = s.Snapshot(); if (current.TryGetValue(s.Id, out var text)) copy.Text = text; return copy; }).ToList();
             var textChanged = current.Any(item => item.Value != sources[item.Key]);
             var answer = textChanged ? string.Join("\n\n", newSegments.Where(s => current.ContainsKey(s.Id) && s.Text.Length > 0).Select(s => s.Text)) : original.Answer;
             updated = original with { Answer = answer, Segments = newSegments, RevisionHistory = history.Count > 1 ? history : original.RevisionHistory,
                 CollapsedSections = RevisionFoldKeys(original, segments, draft.Rows, normalized, current), UserRevisionDraft = null, Incomplete = original.IsIncomplete };
-            if (writer == "ai" && textChanged) AiRevisionMath.CheckReferences(conversation, original, updated);
+            if (textChanged)
+            {
+                aliases = AiRevisionEquationLinks.Prepare(conversation, original, updated);
+                if (writer == "ai") AiRevisionMath.CheckReferences(conversation, original, updated);
+            }
+            if (revised)
+                history[^1] = history[^1] with { EquationPreviews = AiRevisionEquationLinks.Capture(conversation, updated) };
             replaced = original; previousTime = conversation.UpdatedAt;
             conversation.Turns[at] = updated; conversation.UpdatedAt = now;
+            foreach (var change in aliases) change.Owner.EquationReferenceAliases = change.After;
         }
         void Rollback()
         {
             if (replaced is null || at < 0 || at >= conversation.Turns.Count || !ReferenceEquals(conversation.Turns[at], updated)) return;
             conversation.Turns[at] = replaced; conversation.UpdatedAt = previousTime;
+            foreach (var change in aliases) change.Owner.EquationReferenceAliases = change.Before;
         }
         if (store is not null) await store.SaveWithMutationAsync(Apply, Rollback);
         else
@@ -198,6 +224,7 @@ public partial class AiPanel
         }
         if (updated is null || _book.Active != conversation || _disposed) return;
         InvalidateSameConversationLinks(); SyncTranscriptRows(); RefreshMessageMatches(); RefreshVisibleBranchLinks();
+        foreach (var view in _bookmarkQuestions) view.RefreshSnapshotOrigins(turnId);
     }
 
     private static Dictionary<string, bool> RevisionFoldKeys(AiTurn original, AiSegment[] segments,

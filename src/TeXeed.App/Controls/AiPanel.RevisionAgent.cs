@@ -55,14 +55,29 @@ public partial class AiPanel
             var id = name == "read_answer_revision" ? request.TargetTurnId : args.GetProperty("target").GetString();
             var operationId = name == "apply_answer_revision" ? request.TaskId + "/" + AiStorage.Hash(arguments) : null;
             var target = conversation.Turns.FirstOrDefault(t => t.Id == id && !t.IsIncomplete);
-            string SavedResult() => "已保存。已扫描本会话其他已完成轮次。\n" +
-                (candidates.Count == 0 ? "未发现需要复核的引用或相关段落。" :
-                "请逐项复核以下相关轮次，仅在需要时连带修改。\n" + JsonSerializer.Serialize(candidates.Values.OrderBy(c => c.Turn), RevisionToolJson));
+            string SavedResult()
+            {
+                var branches = AiRevisionImpact.Branches(_book.Conversations, conversation, target!.Id);
+                var result = $"已保存到第 {conversation.Turns.IndexOf(target) + 1} 轮。已扫描本会话其他已完成轮次。\n" +
+                    (candidates.Count == 0 ? "未发现需要复核的引用或相关段落。" :
+                    "请逐项复核以下相关轮次，仅在需要时连带修改。\n" + JsonSerializer.Serialize(candidates.Values.OrderBy(c => c.Turn), RevisionToolJson));
+                return branches.Length == 0 ? result : result + "\n下游会话保留追问时的引文，可提醒用户复核：" +
+                    JsonSerializer.Serialize(branches, RevisionToolJson);
+            }
             if (operationId is not null && target?.RevisionHistory?.Any(r => r.OperationId == operationId) == true) return SavedResult();
             if (id is null || id != request.TargetTurnId && (!candidates.ContainsKey(id) ||
                 name == "apply_answer_revision" && !reviewed.Contains(id)))
                 throw new InvalidOperationException("提交目标与用户选定的轮次不符；连带改稿须先读取扫描列出的相关轮次。");
             if (target is null) throw new InvalidOperationException("找不到授权改稿的轮次。");
+            var taskTurns = conversation.Turns.Where(t => t.RevisionRequest?.TaskId == request.TaskId).ToList();
+            if (_foldingLiveTurn is { } live && live.RevisionRequest?.TaskId == request.TaskId && taskTurns.All(t => t.Id != live.Id))
+                taskTurns.Add(live);
+            var annotations = taskTurns.SelectMany(t => t.SentAnnotations)
+                .Where(e => request.AnnotationIds?.Contains(e.Id) == true).DistinctBy(e => e.Id).ToDictionary(e => e.Id);
+            if (request.AnnotationIds is { Length: > 0 } requested && id == request.TargetTurnId &&
+                target.RevisionHistory?.LastOrDefault()?.OperationId?.StartsWith(request.TaskId + "/", StringComparison.Ordinal) != true &&
+                requested.Any(key => !annotations.TryGetValue(key, out var entry) || !AiAnnotationRevision.MatchesSelection(entry, target, out _)))
+                throw new InvalidOperationException(AiAnnotationRevision.StaleNotice);
             var draft = BeginRevision(target);
             if (name is "read_answer_revision" or "read_related_answer_revision")
             {
@@ -70,11 +85,17 @@ public partial class AiPanel
                 var count = args.GetProperty("max_rows").GetInt32();
                 if (start < 0 || start > draft.Rows.Count || count is < 1 or > 40)
                     throw new InvalidOperationException("start_row 从 0 开始，max_rows 介于 1 与 40 之间。");
-                var prior = start == 0 ? conversation.Turns.Where(t => t.RevisionRequest?.TaskId == request.TaskId).ToArray() : [];
-                var taskTurns = prior.Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
-                var taskHistory = prior.Select(t => new { instruction = t.Prompt,
+                var taskTurnIds = taskTurns.Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
+                var taskHistory = taskTurns.Where(_ => start == 0).Select(t => new { instruction = t.Prompt,
+                    annotations = t.SentAnnotations.Where(e => annotations.ContainsKey(e.Id)).Select(e =>
+                    {
+                        var anchor = e.AnswerAnchor!;
+                        AiAnnotationRevision.MatchesSelection(e, target, out var currentNumber);
+                        return new { instruction = e.Question, snapshot_quote = anchor.Quote, segment = anchor.SegmentId,
+                            formula_source = anchor.PreviewSource, original_number = anchor.PreviewNumber, current_number = currentNumber };
+                    }),
                     clarification = t.RevisionRequest!.AwaitingReply ? t.Answer : null,
-                    replies = AiForms.AllFromTurn(t).Where(form => taskTurns.Contains(form.TurnId)).Select(form => form.Values) });
+                    replies = AiForms.AllFromTurn(t).Where(form => taskTurnIds.Contains(form.TurnId)).Select(form => form.Values) });
                 if (start < draft.Rows.Count) reviewed.Add(target.Id);
                 return JsonSerializer.Serialize(new { target = target.Id, turn = conversation.Turns.IndexOf(target) + 1, version = draft.Version, total_rows = draft.Rows.Count,
                     potentially_affected = candidates.Values.OrderBy(c => c.Turn),
@@ -184,7 +205,8 @@ public partial class AiPanel
                         throw new InvalidOperationException("保护对象须按原顺序逐一保留。");
                     atoms.Add(buffer.Atoms[expected++] with { At = text.Length }); text.Append(RevisionBuffer.Marker);
                 }
-                var updated = first ? row with { Level = level } : new AiRevisionRow(Guid.NewGuid().ToString("N"), row.SegmentId, "", level, false, []);
+                var updated = first ? row with { Level = level } : new AiRevisionRow(Guid.NewGuid().ToString("N"), row.SegmentId, "", level, false, [])
+                    { SplitFromRow = replace ? original.Id : null };
                 updated = new RevisionBuffer(text.ToString(), atoms).Apply(updated);
                 Append(updated with { Locked = AiRevisionText.IsDisplayFormula(updated.Text) });
                 first = false;

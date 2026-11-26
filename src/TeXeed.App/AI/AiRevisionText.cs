@@ -12,6 +12,8 @@ namespace TeXeed.App.AI;
 public sealed record AiRevisionLink(string Id, int Offset, string Label);
 public sealed record AiRevisionRow(string Id, string SegmentId, string Text, int Level, bool Locked, List<AiRevisionLink> Links)
 {
+    // Provenance for this pending one-to-many replacement, never part of saved markup.
+    [JsonIgnore] internal string? SplitFromRow { get; init; }
     public string Before { get; init; } = "\n\n";
     public string? DocumentPrefix { get; init; }
     public string? DocumentSuffix { get; init; }
@@ -24,9 +26,12 @@ public sealed record AiRevisionDraft(string TurnId, string Version, List<AiRevis
 public sealed record AiTurnRevision(string Id, string Author, DateTimeOffset At, List<AiRevisionRow> Rows)
 {
     public Dictionary<string, string> Sources { get; init; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<int, AiHistoricalEquation>? EquationPreviews { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? OperationId { get; init; }
     [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalData { get; init; }
 }
+public sealed record AiHistoricalEquation(string Reference, string Caption, string? Source, int? LocalOffset);
 
 internal enum RevisionMathScope { Preserve, Inline, All }
 

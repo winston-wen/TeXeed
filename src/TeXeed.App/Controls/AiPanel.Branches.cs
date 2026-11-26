@@ -140,7 +140,8 @@ public partial class AiPanel
         var context = view.BookmarkSelectionContext();
         var table = view.SelectedReferenceTableMarkdown();
         var anchor = new AiAnswerAnchor(turn.Id, segment.Id, selection.Offset, selection.Length, quote, view.Revision)
-        { TextOffset = selection.TextOffset, PreviewKind = preview.Kind, PreviewSource = preview.Source, PreviewImageUri = preview.Kind == "image" ? view.SelectedReferenceImageUri() : null, PreviewTableMarkdown = table,
+        { TextOffset = selection.TextOffset, CapturedRevisionId = turn.RevisionHistory?.LastOrDefault()?.Id ?? "original",
+          PreviewKind = preview.Kind, PreviewSource = preview.Source, PreviewImageUri = preview.Kind == "image" ? view.SelectedReferenceImageUri() : null, PreviewTableMarkdown = table,
           PreviewParts = preview.Kind is null && table is null ? view.SelectedReferenceParts() : null,
           PreviewNumber = preview.Number, PreviewBefore = context.Before, PreviewAfter = context.After };
         await SaveAsync();
@@ -159,21 +160,15 @@ public partial class AiPanel
         OpenRelatedConversation(branch.Id);
     }
 
-    private bool OpenAnswerReference(AiEntry entry)
+    private bool OpenAnswerReference(AiEntry entry, AiTurn citingTurn)
     {
         if (entry.AnswerAnchor is not { } anchor ||
             !AiSessionExcerptReferences.TryResolve(_book, entry, out var source, out var before, out var after) || source is null) return false;
         var active = _book.Active;
         if (source.Id == active.Id)
         {
-            string? sourceId = null;
-            foreach (var turn in active.Turns)
-            {
-                var index = turn.SentAnnotations.FindIndex(item => item.Id == entry.Id);
-                if (index < 0) continue;
-                sourceId = "turn:" + turn.Id + ":" + index;
-                break;
-            }
+            var index = citingTurn.SentAnnotations.FindIndex(item => item.Id == entry.Id);
+            var sourceId = index < 0 ? null : "turn:" + citingTurn.Id + ":" + index;
             _ = NavigateAnswerReferenceAsync(anchor, before, after, sourceId);
             return true;
         }

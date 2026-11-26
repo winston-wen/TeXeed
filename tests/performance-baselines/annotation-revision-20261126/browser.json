@@ -1,0 +1,281 @@
+{
+  "baseline": "510a528",
+  "chrome": "158.0.8127.38",
+  "viewport": [
+    1280,
+    900
+  ],
+  "fixture": "36 turns, 12 inline expressions per turn, six edited spans across eqref and inline math in turn 18",
+  "before": {
+    "render": [
+      {
+        "ms": 133.3,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 117.4,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 133.4,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 99.9,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 116.6,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 133.8,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 99.9,
+        "nodes": 10954,
+        "visible": 8
+      }
+    ],
+    "open": [
+      {
+        "ms": 30.3,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 29.8,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 28.3,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 31,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 27.8,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10942,
+        "visible": 8
+      }
+    ],
+    "save": [
+      {
+        "ms": 30,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 29.8,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 30.7,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 30.7,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 28.8,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 33.4,
+        "nodes": 10954,
+        "visible": 10
+      }
+    ],
+    "renderSampledAllocationBytes": 2358184,
+    "openSampledAllocationBytes": 139516,
+    "saveSampledAllocationBytes": 2210756,
+    "settledAllocation": {
+      "open": [
+        122540,
+        124364,
+        123484,
+        137036,
+        115496
+      ],
+      "save": [
+        2216600,
+        2219012,
+        2225700,
+        2227900,
+        2237208
+      ]
+    },
+    "editorControls": {
+      "visibleButtonsAndSelectors": 0,
+      "toolbarHeight": 0
+    }
+  },
+  "after": {
+    "render": [
+      {
+        "ms": 83.3,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 103.6,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 100,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 100,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 103.7,
+        "nodes": 10954,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10954,
+        "visible": 8
+      }
+    ],
+    "open": [
+      {
+        "ms": 31,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 26.2,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 30.5,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 27.1,
+        "nodes": 10942,
+        "visible": 8
+      },
+      {
+        "ms": 31.3,
+        "nodes": 10942,
+        "visible": 8
+      }
+    ],
+    "save": [
+      {
+        "ms": 31.2,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 31,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 30.7,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 30.7,
+        "nodes": 10954,
+        "visible": 10
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10954,
+        "visible": 10
+      }
+    ],
+    "renderSampledAllocationBytes": 2348952,
+    "openSampledAllocationBytes": 133788,
+    "saveSampledAllocationBytes": 2209960,
+    "settledAllocation": {
+      "open": [
+        124900,
+        123804,
+        112040,
+        116440,
+        122140
+      ],
+      "save": [
+        2215012,
+        2194964,
+        2236268,
+        2241960,
+        2248360
+      ]
+    },
+    "editorControls": {
+      "visibleButtonsAndSelectors": 0,
+      "toolbarHeight": 0
+    }
+  }
+}

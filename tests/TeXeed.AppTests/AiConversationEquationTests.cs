@@ -102,6 +102,13 @@ internal static partial class Program
             await SettleFoldLayoutAsync(host);
             Require(Link(view, "(2:2)") == ((Paragraph)view.Document.Blocks.FirstBlock!).Inlines.OfType<Hyperlink>().First(),
                 "Visible symbolic link retained the old number after revision");
+            var numbers = ((Paragraph)view.Document.Blocks.FirstBlock!).Inlines.OfType<Hyperlink>().Take(3)
+                .Select(link => ((Run)link.Inlines.FirstInline!).Text);
+            Require(numbers.SequenceEqual(["(2:2)", "(2:3)", "(2:3)"]), "Visible numerical aliases switched to a different equation");
+            var readerDraft = panel.BeginRevision(origin);
+            var revisedReader = readerDraft.Rows.Select((r, i) => i == 0 ? r with { Text = r.Text + "已校对。" } : r).ToList();
+            await panel.CommitRevisionAsync(origin.Id, readerDraft.Version, revisedReader, "ai");
+            var readerText = book.Turns[^1].Answer;
             await panel.SaveAsync(); await panel.SetProjectAsync(project);
             view = await OpenSource();
             var renewed = ((Paragraph)view.Document.Blocks.FirstBlock!).Inlines.OfType<Hyperlink>().First();
@@ -109,12 +116,30 @@ internal static partial class Program
             ClickEquation(renewed); await SettleFoldLayoutAsync(host);
             Require(Field(view, "_equationPreview") is Popup { Child: { } reopened } &&
                 Descendants<ChatFormula>(reopened).Single().Source == single, "Reopened label lost its exact target");
+            ClickEquation(Link(view, "(2:3)")); await SettleFoldLayoutAsync(host);
+            Require(Field(view, "_equationPreview") is Popup { Child: { } numerical } &&
+                Descendants<ChatFormula>(numerical).Single().Source == multi, "Reopened numeric reference preview retargeted");
             book = (AiNotebook)Field(panel, "_book")!;
             await panel.DeleteTurnAsync(book.Turns[0].Id);
             await panel.SetProjectAsync(project);
             view = await OpenSource();
             Require(Link(view, "(1:2)") == ((Paragraph)view.Document.Blocks.FirstBlock!).Inlines.OfType<Hyperlink>().First() &&
-                view.Markdown == origin.Answer, "Deleting a preceding turn rewrote the source or changed the referenced object after reopening");
+                view.Markdown == readerText, "Deleting a preceding turn rewrote the source or changed the referenced object after reopening");
+            var savedReader = ((AiNotebook)Field(panel, "_book")!).Turns.Single(t => t.Id == origin.Id);
+            var readerNumber = ((AiNotebook)Field(panel, "_book")!).Turns.FindIndex(t => t.Id == origin.Id) + 1;
+            Invoke(panel, "ShowRevisionHistory", savedReader, "original", readerNumber, null!);
+            var historical = host.OwnedWindows.OfType<Window>().Single(w => w.Title.Contains("编辑历史"));
+            try
+            {
+                var historyView = Descendants<MarkdownView>(historical).Single();
+                await historyView.RenderTask; await SettleFoldLayoutAsync(historical);
+                var frozen = Link(historyView, "(2:3)");
+                ClickEquation(frozen); await SettleFoldLayoutAsync(historical);
+                Require(Field(historyView, "_equationPreview") is Popup { Child: { } historicalPreview } &&
+                    Descendants<ChatFormula>(historicalPreview).Single().Source == multi,
+                    "Historical reader reinterpreted a saved number against today's turn or formula ordering");
+            }
+            finally { historical.Close(); }
             await panel.DeleteTurnAsync(target.Id);
             view = await OpenSource();
             var orphan = Link(view, "(2:eq:decode ?)");
