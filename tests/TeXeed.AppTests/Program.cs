@@ -64,6 +64,11 @@ internal static partial class Program
             try
             {
                 await Task.Delay(200);
+                if (args.Contains("--ai-reader-resize-only"))
+                {
+                    await CheckReaderViewportResizeAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI reader viewport resizing"); result = 0; return;
+                }
                 if (args.Contains("--ai-turn-fold-only"))
                 {
                     await CheckAiTurnFoldingAsync(window, output);

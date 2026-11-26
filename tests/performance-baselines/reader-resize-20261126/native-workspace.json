@@ -1,0 +1,474 @@
+{
+  "date": "2026-11-26",
+  "environment": {
+    "platform": "Windows WPF x64 Release",
+    "dpiScale": 2,
+    "windowHeightDip": 1025,
+    "initialViewportWidthDip": 1808,
+    "narrowedViewportWidthsDip": [
+      1378,
+      928,
+      678,
+      478
+    ]
+  },
+  "method": {
+    "fixture": "Isolated 14-turn workspace. Restore a lower turn with a partially folded long answer above it. Then measure the upper turn at the initial width, return to the lower turn and shrink the window.",
+    "slotSource": "LayoutInformation.GetLayoutSlot on adjacent generated ContentPresenters after restore.",
+    "events": "Routed Ctrl+F and Esc; samples before the shortcut, at first layout and after settling. Correlations compare settled frames against the pre-shortcut image.",
+    "imaging": "Windows Graphics Capture targets the isolated HWND through DWM. PrintWindow with flags 3 independently captures the client. For each API match the same body region to its own pre-shortcut frame.",
+    "pixelRegion": "Grayscale template region in physical pixels [220, width-160) by [480,1390). Best normalized cross correlation over vertical translations of -100 to +100 px.",
+    "unmatchedInk": "Post-shortcut pixels above luminance 130 absent within 2 pixels of any pre-shortcut ink following alignment.",
+    "wheel": "Three up/down sweeps with routed wheel deltas of ±240 across the original adjacent slot seam. Geometry sampled at render and at each wheel step.",
+    "scope": "The reported doubled glyphs did not reproduce in these isolated captures. A stale offscreen layout gap and the on-screen text displacement did reproduce in the two older versions."
+  },
+  "runs": [
+    {
+      "version": "0.6.2",
+      "upperSlot": {
+        "topDip": -9411.972279,
+        "heightDip": 3091.31,
+        "desiredHeightDip": 3091.31,
+        "renderHeightDip": 3091.31
+      },
+      "followingSlot": {
+        "topDip": -944.945613,
+        "heightDip": 58.125,
+        "desiredHeightDip": 58.125,
+        "renderHeightDip": 58.125
+      },
+      "restoredSlotGapDip": 5375.716666,
+      "wheel": {
+        "samples": 502,
+        "seamCrossings": 6,
+        "maxVisibleOverlapDip": 0.0,
+        "maxVisibleSeamGapDip": 0.0,
+        "maxUncoveredViewportDip": 0.0
+      },
+      "widthMeasurements": [
+        {
+          "viewportWidthDip": 1378,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9274217,
+              "unmatchedInkPixels": 25,
+              "inkPixels": 101852
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 101248
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.929301,
+              "unmatchedInkPixels": 24,
+              "inkPixels": 104263
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 103646
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 928,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 77,
+              "correlation": 0.9184955,
+              "unmatchedInkPixels": 4,
+              "inkPixels": 79642
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 79745
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 77,
+              "correlation": 0.9208258,
+              "unmatchedInkPixels": 3,
+              "inkPixels": 81176
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 0.9999999,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 81279
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 678,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9632311,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 74788
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 74661
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9625622,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 76145
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 76011
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 478,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9087551,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 64002
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 64212
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9101687,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 65112
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 65321
+            }
+          }
+        }
+      ]
+    },
+    {
+      "version": "0.6.4",
+      "upperSlot": {
+        "topDip": -9411.972279,
+        "heightDip": 3091.31,
+        "desiredHeightDip": 3091.31,
+        "renderHeightDip": 3091.31
+      },
+      "followingSlot": {
+        "topDip": -944.945613,
+        "heightDip": 58.125,
+        "desiredHeightDip": 58.125,
+        "renderHeightDip": 58.125
+      },
+      "restoredSlotGapDip": 5375.716666,
+      "wheel": {
+        "samples": 518,
+        "seamCrossings": 6,
+        "maxVisibleOverlapDip": 0.0,
+        "maxVisibleSeamGapDip": 0.0,
+        "maxUncoveredViewportDip": 0.0
+      },
+      "widthMeasurements": [
+        {
+          "viewportWidthDip": 1378,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9274217,
+              "unmatchedInkPixels": 25,
+              "inkPixels": 101852
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 101248
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.929301,
+              "unmatchedInkPixels": 24,
+              "inkPixels": 104263
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 103646
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 928,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9440858,
+              "unmatchedInkPixels": 3,
+              "inkPixels": 80613
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 80354
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9460558,
+              "unmatchedInkPixels": 3,
+              "inkPixels": 82708
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 82445
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 678,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9632311,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 74788
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 74661
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9625622,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 76145
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 76011
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 478,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9087551,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 64002
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 64212
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 76,
+              "correlation": 0.9101687,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 65112
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 65321
+            }
+          }
+        }
+      ]
+    },
+    {
+      "version": "0.6.5",
+      "upperSlot": {
+        "topDip": -4036.255613,
+        "heightDip": 3091.31,
+        "desiredHeightDip": 3091.31,
+        "renderHeightDip": 3091.31
+      },
+      "followingSlot": {
+        "topDip": -944.945613,
+        "heightDip": 58.125,
+        "desiredHeightDip": 58.125,
+        "renderHeightDip": 58.125
+      },
+      "restoredSlotGapDip": 0.0,
+      "wheel": {
+        "samples": 509,
+        "seamCrossings": 6,
+        "maxVisibleOverlapDip": 0.0,
+        "maxVisibleSeamGapDip": 0.0,
+        "maxUncoveredViewportDip": 0.0
+      },
+      "widthMeasurements": [
+        {
+          "viewportWidthDip": 1378,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 0.9999995,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 95902
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 95903
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 0.9999998,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 97315
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 97316
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 928,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 79745
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 79745
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 81279
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 0.9999999,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 81279
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 678,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 74661
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 74661
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 0.9999999,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 76011
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 76011
+            }
+          }
+        },
+        {
+          "viewportWidthDip": 478,
+          "windowsGraphicsCapture": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 0.9999999,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 64215
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 64212
+            }
+          },
+          "printWindow": {
+            "ctrlF": {
+              "verticalDisplacementPx": 0,
+              "correlation": 0.9999998,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 65324
+            },
+            "escape": {
+              "verticalDisplacementPx": 0,
+              "correlation": 1.0,
+              "unmatchedInkPixels": 0,
+              "inkPixels": 65321
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

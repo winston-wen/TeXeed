@@ -66,6 +66,11 @@ public partial class AiPanel : UserControl, IDisposable
         LiveSentTime.KeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Space) { if (!e.IsRepeat) ToggleLiveTurn(); e.Handled = true; } };
         History.ApplyTemplate();
         MessagesScroll = (ChatScrollViewer)History.Template.FindName("MessagesScroll", History);
+        ChatRoot.ReadingViewport = ReadingArea;
+        ChatRoot.ViewportMoved = delta =>
+        {
+            if (!_restoringReading && !_disposed) MessagesScroll.KeepContentPosition(delta);
+        };
         MessagesScroll.TextNavigationStarting = () => { CancelLayoutAnchor(); CancelReadingRestore(); };
         MessagesScroll.AddHandler(MarkdownView.AsyncLayoutChangingEvent, new RoutedEventHandler(AsyncLayoutChanging));
         AddHandler(PreviewMouseDownEvent, new MouseButtonEventHandler(NavigationMouseDown), true);

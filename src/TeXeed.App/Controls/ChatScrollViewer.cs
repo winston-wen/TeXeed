@@ -13,6 +13,15 @@ public sealed class ChatScrollViewer : ScrollViewer
     private DispatcherOperation? _focusReveal;
     internal Action? TextNavigationStarting { get; set; }
 
+    internal void KeepContentPosition(double viewportMovement)
+    {
+        // Apply to the layout's current offset before rendering. A queued scroll command
+        // could run after an explicit search result or the user's next wheel gesture.
+        if (ScrollInfo is not { VerticalOffset: > 0, ViewportHeight: > 0 } info) return;
+        var limit = Math.Max(0, info.ExtentHeight - info.ViewportHeight);
+        info.SetVerticalOffset(Math.Clamp(info.VerticalOffset + viewportMovement, 0, limit));
+    }
+
     static ChatScrollViewer()
     {
         EventManager.RegisterClassHandler(typeof(ChatScrollViewer), RequestBringIntoViewEvent,
