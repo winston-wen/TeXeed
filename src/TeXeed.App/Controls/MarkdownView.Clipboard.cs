@@ -6,6 +6,8 @@ namespace TeXeed.App.Controls;
 
 public sealed partial class MarkdownView
 {
+    private static readonly DependencyProperty ParagraphSourcePositionProperty = DependencyProperty.RegisterAttached(
+        "ParagraphSourcePosition", typeof(int), typeof(MarkdownView), new PropertyMetadata(-1));
     private (MarkdownView View, Paragraph Paragraph)? _contextParagraph;
 
     internal void PrepareContextSelection(Point point)
@@ -38,17 +40,25 @@ public sealed partial class MarkdownView
         _contextParagraph = paragraph is null ? null : (target, paragraph);
     }
 
+    internal void CaptureKeyboardContextParagraph()
+    {
+        var target = SelectionView();
+        _contextParagraph = target.CaretPosition.Paragraph is { } paragraph ? (target, paragraph) : null;
+    }
+
     internal bool HasContextParagraph => _contextParagraph is { } context &&
         context.Paragraph.ContentStart.IsInSameDocument(context.View.Document.ContentStart);
 
-    internal (string Text, int Offset, double Y)? RevisionContext(FrameworkElement viewport)
+    internal (string Text, int Offset, int SourceOffset, double Y)? RevisionContext(FrameworkElement viewport)
     {
         if (!HasContextParagraph || _contextParagraph is not { } context || !context.View.IsVisible) return null;
         var start = context.Paragraph.ContentStart;
         var bounds = start.GetCharacterRect(LogicalDirection.Forward);
         if (bounds.IsEmpty) return null;
+        var prepared = (int)context.Paragraph.GetValue(ParagraphSourcePositionProperty);
+        var sourceOffset = prepared < 0 ? -1 : context.View._math.OriginalPosition(prepared);
         return (context.View.CopySource(start, context.Paragraph.ContentEnd).Trim(),
-            context.View.CopySourceLength(context.View.Document.ContentStart, start),
+            sourceOffset < 0 ? context.View.CopySourceLength(context.View.Document.ContentStart, start) : sourceOffset, sourceOffset,
             context.View.TranslatePoint(bounds.TopLeft, viewport).Y);
     }
 

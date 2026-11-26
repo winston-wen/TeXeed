@@ -77,7 +77,7 @@ public sealed partial class MarkdownView
             var token = _math.Tokens[match.Value];
             if (token.Reference is { } reference)
             {
-                var number = _math.Labels.GetValueOrDefault(reference, reference + " ?");
+                var number = EquationNumber(reference);
                 target.Add(token.Parenthesize ? new EquationReference(this, reference, number) : EquationLink(reference, number));
             }
             else target.Add(FormulaInline(token));
@@ -85,6 +85,10 @@ public sealed partial class MarkdownView
         }
         AddEmojiText(target, text[offset..]);
     }
+    private string EquationNumber(string reference) =>
+        RevisionEquationLabels?.GetValueOrDefault(reference) ?? _math.Labels.GetValueOrDefault(reference, reference + " ?");
+    internal string ReferenceText(string label, bool parenthesize) =>
+        parenthesize ? "(" + EquationNumber(label) + ")" : EquationNumber(label);
     private void AddEmojiText(InlineCollection target, string text)
     {
         if (!text.Any(c => char.IsSurrogate(c) || c is '\uFE0F' or '\u20E3'))

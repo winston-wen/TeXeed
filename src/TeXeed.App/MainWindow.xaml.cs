@@ -822,11 +822,14 @@ public partial class MainWindow : Window
         { SetAiMarking(false); e.Handled = true; return; }
         if (e.Key == Key.Escape && (FileTabs.IsDraggingTab || RightFileTabs.IsDraggingTab))
         { FileTabs.CancelDrag(); RightFileTabs.CancelDrag(); DockDropCue.Visibility = Visibility.Collapsed; e.Handled = true; return; }
+        if (e.Key == Key.Escape && AiPanel.IsRevisionInput(e.OriginalSource as DependencyObject)) return;
         if (HandleMenuKeyDown(e)) return;
         await HandleShortcutAsync(e, Keyboard.Modifiers);
     }
     private async Task HandleShortcutAsync(KeyEventArgs e, ModifierKeys modifiers)
     {
+        if (e.Key == Key.S && modifiers == ModifierKeys.Control &&
+            AiPanel.IsRevisionInput(e.OriginalSource as DependencyObject ?? Keyboard.FocusedElement as DependencyObject)) return;
         // Let the chat handle Ctrl+Enter before the window's compile shortcut.
         if (e.Key == Key.Enter && modifiers == ModifierKeys.Control && (_aiPanel.IsKeyboardFocusWithin || AiPanel.IsAnnotationInput(e.OriginalSource as IInputElement) || AiPanel.IsAnnotationInput(Keyboard.FocusedElement))) return;
         if (e.Key == Key.P && modifiers is ModifierKeys.Control or (ModifierKeys.Control | ModifierKeys.Shift))

@@ -21,6 +21,7 @@
     "ChatDivider": "#443A36",
     "ChatThinking": "#80C693",
     "ChatFocus": "#C9798C",
+    "RevisionCaret": "#62E5FF",
     "EditorForeground": "#D8CCC8",
     "CurrentLine": "#383030",
     "Disabled": "#938889",

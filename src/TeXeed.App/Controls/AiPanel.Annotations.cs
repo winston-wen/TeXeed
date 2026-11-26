@@ -192,6 +192,8 @@ public partial class AiPanel
     { if (!IsVisible) CancelAnswerMarking(); }
     private void Answer_KeyDown(object sender, KeyEventArgs e)
     {
+        if (sender is MarkdownView view && (e.Key == Key.Apps || e.Key == Key.F10 && Keyboard.Modifiers == ModifierKeys.Shift))
+            view.CaptureKeyboardContextParagraph();
         if (!_answerMarking || e.Key != Key.Escape) return;
         SetAnswerMarking(false); e.Handled = true;
     }

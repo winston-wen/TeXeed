@@ -11,6 +11,18 @@ internal sealed record RevisionAtom(int At, string Source, IReadOnlyList<AiRevis
 internal sealed record RevisionBuffer(string Display, IReadOnlyList<RevisionAtom> Atoms)
 {
     internal const char Marker = '\ufffc';
+    internal int DisplayOffset(int sourceOffset)
+    {
+        var shift = 0;
+        foreach (var atom in Atoms)
+        {
+            var sourceStart = atom.At - shift;
+            if (sourceOffset <= sourceStart) break;
+            if (sourceOffset < sourceStart + atom.Source.Length) return atom.End;
+            shift += atom.Length - atom.Source.Length;
+        }
+        return Math.Clamp(sourceOffset + shift, 0, Display.Length);
+    }
     internal static RevisionBuffer From(AiRevisionRow row, bool editableInlineMath = false)
     {
         var spans = AiRevisionText.ProtectedSpans(row.Text, editableInlineMath);

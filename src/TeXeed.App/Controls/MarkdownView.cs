@@ -63,6 +63,8 @@ public sealed partial class MarkdownView : RichTextBox
     internal bool LinkListNumbers { get; set; }
     public bool UseSystemFont { get; set; }
     internal Func<string, bool, ChatSvg?>? FormulaAsset { get; set; }
+    internal IReadOnlyDictionary<string, string>? RevisionEquationLabels { get; init; }
+    internal int PrecedingDisplayCount { get; init; }
     public MarkdownView()
     {
         IsReadOnly = true; IsReadOnlyCaretVisible = false; IsDocumentEnabled = true; IsUndoEnabled = false;
@@ -163,10 +165,11 @@ public sealed partial class MarkdownView : RichTextBox
         else
         {
             var document = NewDocument(); ClearRichState(); _math = new ChatMath();
-            try { var blocks = ChatMarkdown.Parse(_math.Prepare(source, Pipeline), Pipeline, out _restoringSpacedEmphasis); AddBlocks(document.Blocks, blocks, 0); }
+            try { var blocks = ChatMarkdown.Parse(_math.Prepare(source, Pipeline, PrecedingDisplayCount), Pipeline, out _restoringSpacedEmphasis); AddBlocks(document.Blocks, blocks, 0); }
             catch (Exception ex) when (ex is not OutOfMemoryException) { CodeFallback(document, source); }
             if (_tableViews.Count == 0) _math.ReleaseOriginalSource();
             TrimAnswerEnd(document); ApplyFolding(document); Document = document; RenderTask = Task.CompletedTask;
+            PlaceRevisionPreviewLinks();
         }
     }
     private FlowDocument NewDocument()
@@ -195,7 +198,7 @@ public sealed partial class MarkdownView : RichTextBox
         {
             var prepared = await Task.Run(() =>
             {
-                var math = new ChatMath(); var text = math.Prepare(source, Pipeline);
+                var math = new ChatMath(); var text = math.Prepare(source, Pipeline, PrecedingDisplayCount);
                 var blocks = ChatMarkdown.Parse(text, Pipeline, out var repaired);
                 return (Math: math, Blocks: blocks, Repaired: repaired);
             });
@@ -219,7 +222,7 @@ public sealed partial class MarkdownView : RichTextBox
         if (_tableViews.Count == 0) _math.ReleaseOriginalSource();
         NotifyAsyncLayoutChanging();
         _renderPending = false; _annotationPointers.Clear(); LayoutVersion++;
-        Document = document; InvalidateMeasure();
+        Document = document; PlaceRevisionPreviewLinks(); InvalidateMeasure();
     }
 
     private void AddBlocks(BlockCollection target, ContainerBlock source, int depth)
@@ -304,6 +307,8 @@ public sealed partial class MarkdownView : RichTextBox
             case LeafBlock leaf:
                 target.Add(Paragraph(leaf.Inline, depth)); break;
         }
+        if (block is LeafBlock && target.LastBlock is Paragraph rendered && (_tableOwner ?? this).DataContext is AiSegment)
+            rendered.SetValue(ParagraphSourcePositionProperty, block.Span.Start);
         if (_revisionRanges is not null) TrackRevisionBlock(block, target.LastBlock);
     }
 

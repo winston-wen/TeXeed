@@ -24,13 +24,13 @@ internal sealed class ChatMath
     internal bool HasUnclosedMath { get; private set; }
     private static readonly Regex Formula = new(@"(?<!\\)(?:\\\[(?<display>[\s\S]*?)\\\]|\\\((?<inline>[\s\S]*?)\\\)|\$\$(?<display>[\s\S]*?)\$\$|\$(?!\s)(?<inline>[^$\r\n]*?\S)\$|\\begin\{(?<env>equation\*?|align\*?)\}(?<environment>[\s\S]*?)\\end\{\k<env>\}|\\(?<ref>eqref|ref)\{(?<key>[^{}\r\n]+)\})", RegexOptions.Compiled, TimeSpan.FromMilliseconds(500));
     private static readonly Regex Metadata = new(@"\\(?<kind>label|tag\*?)\{(?<value>[^{}]+)\}", RegexOptions.Compiled);
-    internal string Prepare(string markdown, MarkdownPipeline pipeline)
+    internal string Prepare(string markdown, MarkdownPipeline pipeline, int precedingDisplayCount = 0)
     {
         _originalText = markdown;
         var parsed = Markdig.Markdown.Parse(markdown, pipeline);
         var protectedSpans = parsed.Descendants().Where(b => b is CodeBlock).Select(b => b.Span)
             .Concat(parsed.Descendants<LeafBlock>().Where(b => b.Inline is not null).SelectMany(b => b.Inline!.Descendants<CodeInline>()).Select(i => i.Span)).OrderBy(s => s.Start).ToArray();
-        var output = new StringBuilder(); int copied = 0, spanIndex = 0, number = 0;
+        var output = new StringBuilder(); int copied = 0, spanIndex = 0, number = precedingDisplayCount;
         var numberedReferences = markdown.Contains(@"\eqref{eq-", StringComparison.Ordinal) || markdown.Contains(@"\ref{eq-", StringComparison.Ordinal);
         var unresolved = markdown.ToCharArray();
         foreach (var span in protectedSpans)

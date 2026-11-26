@@ -1,0 +1,279 @@
+{
+  "baseline": "6fadcbd",
+  "chrome": "158.0.8127.38",
+  "viewport": [
+    1280,
+    900
+  ],
+  "fixture": "36 turns, seven passages each, 12 inline expressions per turn",
+  "before": {
+    "render": [
+      {
+        "ms": 99.9,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 117,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 116.7,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 116.4,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 99.9,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 104.8,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 99.9,
+        "nodes": 10908,
+        "visible": 8
+      }
+    ],
+    "open": [
+      {
+        "ms": 30.7,
+        "nodes": 10652,
+        "visible": 8
+      },
+      {
+        "ms": 30.2,
+        "nodes": 10652,
+        "visible": 8
+      },
+      {
+        "ms": 31,
+        "nodes": 10652,
+        "visible": 8
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10652,
+        "visible": 8
+      },
+      {
+        "ms": 31,
+        "nodes": 10652,
+        "visible": 8
+      },
+      {
+        "ms": 24.7,
+        "nodes": 10652,
+        "visible": 8
+      },
+      {
+        "ms": 30.1,
+        "nodes": 10652,
+        "visible": 8
+      }
+    ],
+    "save": [
+      {
+        "ms": 32.1,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 30.3,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 31.7,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 28.8,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 30.6,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 37,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 31.8,
+        "nodes": 10908,
+        "visible": 9
+      }
+    ],
+    "renderSampledAllocationBytes": 2250836,
+    "openSampledAllocationBytes": 83212,
+    "saveSampledAllocationBytes": 3049148
+  },
+  "after": {
+    "render": [
+      {
+        "ms": 83.4,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.4,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.4,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 116.7,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.4,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.4,
+        "nodes": 10908,
+        "visible": 8
+      }
+    ],
+    "open": [
+      {
+        "ms": 30.6,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.3,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 32.7,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.3,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10911,
+        "visible": 8
+      }
+    ],
+    "save": [
+      {
+        "ms": 31,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.3,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 28.3,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.2,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.2,
+        "nodes": 10908,
+        "visible": 10
+      }
+    ],
+    "renderSampledAllocationBytes": 2324676,
+    "openSampledAllocationBytes": 107676,
+    "saveSampledAllocationBytes": 3073908,
+    "formula": [
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.4,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 33.1,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 32.9,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 30.5,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 34.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.4,
+        "nodes": 10908,
+        "visible": 10
+      }
+    ],
+    "formulaSampledAllocationBytes": 3196692
+  }
+}

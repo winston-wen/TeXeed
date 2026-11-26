@@ -10,6 +10,31 @@ public sealed partial class MarkdownView
     private List<RevisionBlockRange>? _revisionRanges;
     private Dictionary<string, int>? _revisionLinks;
     private Dictionary<string, RevisionParagraph>? _revisionBlocks;
+    private IReadOnlyList<AiRevisionLink>? _revisionPreviewLinks;
+
+    internal static ChatMath RevisionMath(string source, int precedingDisplayCount)
+    {
+        var math = new ChatMath();
+        math.Prepare(source, Pipeline, precedingDisplayCount);
+        return math;
+    }
+
+    internal void SetRevisionPreview(AiRevisionRow row)
+    {
+        // The heading number is supplied by the containing row. The reader maps
+        // saved link offsets against the title text itself.
+        var body = row with { Level = 0, OriginalMarkup = null };
+        _revisionPreviewLinks = body.Links;
+        Markdown = SetRevisionSource(body.Text, [body]);
+    }
+
+    private void PlaceRevisionPreviewLinks()
+    {
+        if (_revisionPreviewLinks is not { Count: > 0 }) return;
+        foreach (var link in _revisionPreviewLinks.Where(link => !RevisionBuffer.IsBookmark(link)))
+            if (RevisionPointer(link.Id, reveal: false) is { } at)
+                InsertBranchLink(link.Id, link.Label, at, this, () => { });
+    }
 
     internal string SetRevisionSource(string markdown, IEnumerable<AiRevisionRow> sourceRows)
     {

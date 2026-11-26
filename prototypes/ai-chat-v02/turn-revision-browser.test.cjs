@@ -17,6 +17,11 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
     renderConversation();persist();
   },original);
   async function edit(){await page.locator('[data-revise="up"]').click();await page.waitForSelector('.revision-editor');}
+  async function editAt(target){
+    await target.scrollIntoViewIfNeeded();await page.waitForFunction(()=>!restoring);
+    await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
+    await target.click({button:'right'});await page.getByRole('button',{name:'整理这一段',exact:true}).click();
+  }
   const row=id=>page.locator('.revision-row[data-id="'+id+'"] .words');
   const save=()=>page.getByRole('button',{name:'完成整理',exact:true}).click();
   async function caret(locator,side,selectAll=false){await locator.evaluate((el,{side,selectAll})=>{
@@ -31,7 +36,9 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await page.locator('#branch-conversation').click();const child=await page.evaluate(()=>current().id);
   await page.locator('#branch-origin-return').click();assert.equal(await source.locator('.same-turn-link').count(),2);
   const baseSnapshot=await page.evaluate(()=>structuredClone(state.conversations.at(-1).inheritedContext));
-  await edit();const first=row('up-p1');
+  await editAt(source);
+  const first=row('up-p1');
+  assert.equal(await first.evaluate(el=>el===document.activeElement),true);
   assert.equal(await first.locator('[contenteditable=false]').count(),2);
   await first.evaluate(el=>{const ref=el.querySelector('[data-open-child]');el.focus();const r=document.createRange();r.setStartAfter(ref);r.collapse(true);const s=getSelection();s.removeAllRanges();s.addRange(r);});
   await page.keyboard.insertText('顺序');assert.match(await first.innerText(),/顺序/);
@@ -48,7 +55,11 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await caret(row('up-p0'),'end');await page.keyboard.press('Enter');await page.keyboard.insertText('恢复条件');
   const newId=await page.evaluate(()=>document.activeElement.closest('.revision-row').dataset.id);
   await page.getByLabel('段落样式').selectOption('2');
-  assert.equal(await page.locator('.revision-row[data-id="'+newId+'"] .revision-number').innerText(),'[1:1.1] ');
+  const editedHeading=page.locator('.revision-row[data-id="'+newId+'"] .revision-number');
+  assert.equal(await editedHeading.textContent(),'## ');
+  assert.equal(await row(newId).textContent(),'恢复条件','标题层级标记由界面绘制，独立于可编辑正文');
+  await page.keyboard.press('Escape');
+  assert.equal(await editedHeading.textContent(),'[1:1.1] ');
   await caret(row(newId),'end');await page.keyboard.press('Shift+Enter');await page.keyboard.insertText('按提示恢复。');
   await caret(row('up-p3'),'start');await page.keyboard.press('Backspace');
   assert.equal(await row('up-p3').count(),0);
@@ -60,6 +71,8 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   assert.equal(await page.locator('.revision-editor .math').count(),1);
   assert.equal(await row('up-p4').count(),0);
   await page.getByRole('button',{name:'撤销',exact:true}).click();
+  assert.equal(await row('up-p4').locator('.math').getAttribute('data-tex'),'x+1');
+  await row('up-p4').focus();
   assert.match(await row('up-p4').textContent(),/\$x\+1\$/);
   const dir=process.env.TEXEED_REVISION_ARTIFACTS;if(dir){fs.mkdirSync(dir,{recursive:true});await page.locator('.revision-editor').screenshot({path:path.join(dir,'editing.png')});}
   await save();
@@ -100,7 +113,9 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await page.evaluate(()=>{
     const c=current();c.turns.push({id:'edges',question:'边界输入',answer:'# 第一节\n相邻正文\n## 子节\n\n中段文字\n\n末段文字',segments:[]});renderTurns();
   });
-  await page.locator('[data-revise="edges"]').click();const edgeEditor=page.locator('#edges .revision-editor'),words=edgeEditor.locator('.words');
+  await editAt(page.locator('#edges-p0 h2'));
+  const edgeEditor=page.locator('#edges .revision-editor'),words=edgeEditor.locator('.words');
+  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'子节','同一 Markdown 块中右键子标题应编辑该小段');
   assert.equal(await words.count(),5,'相邻 Markdown 标题与段落均可整理');
   await caret(words.first(),'start');await page.keyboard.press('Enter');
   await caret(words.first(),'start');await page.keyboard.press('Backspace');assert.equal(await words.count(),6,'首空段 Backspace 保留');
@@ -112,7 +127,9 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await caret(words.nth(1),'end');await page.keyboard.press('Delete');assert.equal(await words.count(),4);
   assert.equal(await page.evaluate(()=>document.activeElement.textContent),'相邻正文子节');
   assert.equal(await page.evaluate(()=>getSelection().anchorOffset),'相邻正文'.length,'合并后光标停在接缝');
-  await caret(words.last(),'end');await page.keyboard.insertText('新增草稿');
+  await caret(words.last(),'end');await page.keyboard.insertText('新增草稿');await page.keyboard.press('Control+s');
+  assert.equal(await edgeEditor.locator('.revision-notice').textContent(),'整理草稿已保存。');
+  assert.equal(await page.evaluate(()=>current().turns.at(-1).readingRevisions?.length||0),0);
   await page.reload();await page.locator('[data-revise="edges"]').click();assert.match(await words.last().textContent(),/新增草稿/);
   await save();
   if(dir)await page.locator('#edges').screenshot({path:path.join(dir,'reading.png')});
@@ -131,6 +148,8 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await editTex();
   assert.match(await formula.textContent(),/\$x\+1\$.*\\\(y-2\\\)/, 'Original inline delimiters are preserved in the editor');
   assert.equal(await formula.locator('.math').count(),0);
+  await row('tex-edit-p1').focus();
+  assert.equal(await formula.locator('.math').count(),2,'离开段落后两种 TeX 定界符都恢复排版');
   const refs=row('tex-edit-p1').locator('.revision-equation-ref');
   assert.equal(await refs.count(),2);
   assert.deepEqual(await refs.allTextContents(),['\\eqref{editable-eq}','\\ref{editable-eq}']);
@@ -146,7 +165,7 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await caret(row('tex-edit-p1'),'start',true);await page.keyboard.insertText('保留两个引用。');
   assert.equal(await refs.count(),2,'Deleting across references must retain both protected tokens');
   await measureCompiles();
-  await formula.fill('计算 $x+2$，再核对 \\(y-2\\)。');await save();
+  await formula.focus();await formula.fill('计算 $x+2$，再核对 \\(y-2\\)。');await save();
   assert.deepEqual(await page.evaluate(()=>window.validationCalls),['x+2'],'A valid edit is compiled once; the untouched expression is reused');
   assert.match(await page.locator('#tex-edit-p0 .math').first().getAttribute('data-tex'),/^x\+2$/);
   assert.equal(await page.locator('#tex-edit .equation-ref').count(),2);
@@ -171,6 +190,64 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   assert.equal(await page.locator('#tex-edit-p0 .math').getAttribute('data-tex'),'z^2');
   assert.equal(await page.locator('#tex-edit .equation-ref').count(),2);
   if(dir)await page.locator('#tex-edit .answer').screenshot({path:path.join(dir,'inline-rendered.png')});
+  await page.evaluate(()=>{
+    current().turns.push({id:'focus',question:'怎样检查每一段的计算？',segments:[],
+      answer:'# 校验步骤\n\n先计算 $x_1$，再核对**符号**。\n\n从 $x_2$ 开始，然后检查**下标**。\n\n结束时确认 $x_3$。'});
+    renderTurns();
+  });
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await editAt(page.locator('#focus-p2 p'));
+  const editor=page.locator('#focus .revision-editor'),fields=editor.locator('.words[contenteditable=true]');
+  async function onlySource(id){
+    assert.deepEqual(await fields.evaluateAll(nodes=>nodes.map(node=>[node.parentElement.dataset.id,node===document.activeElement])),[[id,true]]);
+  }
+  await onlySource('focus-p2');
+  assert.equal(await row('focus-p2').textContent(),'从 $x_2$ 开始，然后检查**下标**。');
+  assert.equal(await row('focus-p1').locator('strong').innerText(),'符号');
+  await caret(row('focus-p2'),'start');await page.keyboard.press('ArrowLeft');await onlySource('focus-p1');
+  await page.keyboard.press('ArrowRight');await onlySource('focus-p2');
+  await page.keyboard.press('Backspace');await onlySource('focus-p1');
+  await page.keyboard.press('Control+z');await onlySource('focus-p2');
+  assert.equal(await page.evaluate(()=>getSelection().anchorOffset),0,'撤销段首合并应回到原来段首');
+  // Even a browser edit that empties the source node must activate the new caret owner.
+  await caret(row('focus-p2'),'start',true);await page.keyboard.press('Backspace');
+  await onlySource('focus-p1');
+  assert.equal(await page.evaluate(()=>getSelection().anchorOffset),'先计算 $x_1$，再核对**符号**。'.length);
+  await editor.getByRole('button',{name:'撤销',exact:true}).click();await onlySource('focus-p2');
+  assert.equal(await page.evaluate(()=>getSelection().toString()),'从 $x_2$ 开始，然后检查**下标**。','工具栏撤销应恢复被删段落的选区');
+  await page.keyboard.press('Backspace');await onlySource('focus-p1');
+  await page.keyboard.insertText('已核对。');
+  await page.keyboard.press('Escape');assert.equal(await fields.count(),0);
+  assert.equal(await row('focus-p1').locator('strong').innerText(),'符号');
+  assert.equal(await row('focus-p1').locator('.math').getAttribute('data-tex'),'x_1');
+  await page.keyboard.press('Control+s');
+  assert.deepEqual(await page.evaluate(()=>{
+    const turn=JSON.parse(localStorage.getItem(KEY)).conversations.find(c=>c.id===current().id).turns.at(-1);
+    return [turn.readingRevisions?.length||0,turn.readingRevisionDraft.rows.map(r=>r.id),turn.readingRevisionDraft.rows[1].parts];
+  }),[0,['focus-p0','focus-p1','focus-p3'],['先计算 $x_1$，再核对**符号**。已核对。']]);
+  const point=await row('focus-p1').locator('strong').evaluate(el=>{
+    const r=document.createRange();r.setStart(el.firstChild,1);r.setEnd(el.firstChild,2);const box=r.getBoundingClientRect();
+    return {x:box.left+1,y:box.top+box.height/2};
+  });
+  await page.mouse.click(point.x,point.y);
+  await onlySource('focus-p1');
+  assert.equal(await page.evaluate(()=>getSelection().anchorOffset),'先计算 $x_1$，再核对**符'.length,'点击强调字应映射到该字的源码偏移');
+  await page.evaluate(()=>renderTurns());await onlySource('focus-p1');
+  assert.equal(await page.evaluate(()=>getSelection().anchorOffset),'先计算 $x_1$，再核对**符'.length,'同会话更新不应抢走编辑段的光标');
+  await page.waitForFunction(()=>document.querySelector('#focus .revision-caret')?.getBoundingClientRect().width===3);
+  const geometry=await editor.locator('.revision-caret').evaluate(el=>{
+    const caret=el.getBoundingClientRect(),range=getSelection().getRangeAt(0).getBoundingClientRect();
+    return {x:Math.abs(caret.x-range.x),mid:Math.abs((caret.top+caret.bottom-range.top-range.bottom)/2),color:getComputedStyle(el).backgroundColor};
+  });
+  assert(geometry.x<1&&geometry.mid<1&&geometry.color==='rgb(98, 229, 255)',JSON.stringify(geometry));
+  if(dir)await editor.screenshot({path:path.join(dir,'focused-paragraph.png')});
+  await page.locator('#composer').focus();assert.equal(await fields.count(),0);
+  await page.evaluate(()=>renderTurns());assert.equal(await fields.count(),0);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'composer');
+  assert.equal(await editor.locator('.revision-caret').count(),0);assert.equal(await editor.locator('.math').count(),2);
+  await page.reload();await page.locator('[data-revise="focus"]').click();
+  assert.match(await row('focus-p1').textContent(),/已核对/);
+  await save();assert.deepEqual(await page.evaluate(()=>current().turns.at(-1).readingRevisions.map(v=>v.author)),['用户']);
   assert.deepEqual(errors,[]);
   console.log('PASS 原位整理、标题编号、跨段合并、撤销、受保护的公式表格和多个引用、最新稿回源、草稿与历史恢复、跨轮模拟 AI 改稿');
  }finally{await browser.close();}

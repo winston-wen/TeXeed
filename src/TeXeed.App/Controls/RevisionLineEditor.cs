@@ -46,10 +46,49 @@ internal sealed class RevisionLineEditor : TextEditor
         }
         TextArea.ReadOnlySectionProvider = new ProtectedSections(this);
         TextArea.TextView.ElementGenerators.Insert(0, new AtomRenderer(this));
+        TextArea.Caret.CaretBrush = Brushes.Transparent;
+        var caret = new SourceCaret(TextArea);
+        TextArea.TextView.InsertLayer(caret, KnownLayer.Caret, LayerInsertionPosition.Above);
         Document.UndoStack.SizeLimit = 0;
         Document.UpdateFinished += (_, _) => Changed?.Invoke();
         TextArea.AddHandler(CommandManager.PreviewExecutedEvent, new ExecutedRoutedEventHandler(RunCommand), true);
         PreviewDragOver += (_, e) => { e.Effects = DragDropEffects.None; e.Handled = true; };
+    }
+
+    // The input caret still belongs to AvalonEdit (including IME positioning).
+    // Paint its bounds at a readable width without changing the system-wide caret.
+    internal sealed class SourceCaret : FrameworkElement
+    {
+        private readonly TextArea _area;
+        internal Brush Fill => (Brush)GetValue(System.Windows.Shapes.Shape.FillProperty);
+        internal Rect InkBounds
+        {
+            get
+            {
+                if (!_area.IsKeyboardFocusWithin || !_area.Selection.IsEmpty || !_area.TextView.VisualLinesValid) return Rect.Empty;
+                var rect = _area.Caret.CalculateCaretRectangle();
+                if (rect.IsEmpty) return rect;
+                rect.Offset(-_area.TextView.ScrollOffset.X, -_area.TextView.ScrollOffset.Y);
+                rect.Width = Math.Max(3, rect.Width);
+                return rect;
+            }
+        }
+        internal SourceCaret(TextArea area)
+        {
+            _area = area;
+            IsHitTestVisible = false;
+            SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "RevisionCaret");
+            area.Caret.PositionChanged += (_, _) => InvalidateVisual();
+            area.SelectionChanged += (_, _) => InvalidateVisual();
+            area.IsKeyboardFocusWithinChanged += (_, _) => InvalidateVisual();
+            area.TextView.VisualLinesChanged += (_, _) => InvalidateVisual();
+            area.TextView.ScrollOffsetChanged += (_, _) => InvalidateVisual();
+        }
+        protected override void OnRender(DrawingContext drawingContext)
+        {
+            var bounds = InkBounds;
+            if (!bounds.IsEmpty) drawingContext.DrawRectangle(Fill, null, bounds);
+        }
     }
 
     private void RunCommand(object sender, ExecutedRoutedEventArgs e)

@@ -25,7 +25,7 @@ async function run(browser,folder,isNew){
     if(op==='render')renderTurns();
     if(op==='open')document.querySelector('[data-revise="perf-17"]').click();
     if(op==='save'||op==='formula'){
-      const field=document.querySelector('.revision-row[data-id="perf-17-'+(withInlineFormulas?'p1':'p0')+'"] [contenteditable=true]');
+      const field=document.querySelector('.revision-row[data-id="perf-17-'+(withInlineFormulas?'p1':'p0')+'"] .words');
       field.focus();
       if(op==='formula'){
         const range=document.createRange();range.selectNodeContents(field);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);
@@ -43,8 +43,10 @@ async function run(browser,folder,isNew){
   for(let i=-1;i<7;i++)for(const op of ops){const result=await page.evaluate(op=>perform(op),op);if(i>=0)(records[op]??=[]).push(result);}
   for(const op of ops){
    if(op==='save')await page.evaluate(()=>perform('open'));
+   await page.waitForTimeout(300); // Settle writes scheduled by the preceding action.
    await c.send('HeapProfiler.collectGarbage');await c.send('HeapProfiler.startSampling',{samplingInterval:1024,includeObjectsCollectedByMajorGC:true,includeObjectsCollectedByMinorGC:true});
-   await page.evaluate(op=>perform(op),op);const {profile}=await c.send('HeapProfiler.stopSampling');records[op+'SampledAllocationBytes']=profile.samples.reduce((n,s)=>n+s.size,0);
+   await page.evaluate(op=>perform(op),op);await page.waitForTimeout(300);
+   const {profile}=await c.send('HeapProfiler.stopSampling');records[op+'SampledAllocationBytes']=profile.samples.reduce((n,s)=>n+s.size,0);
   }
   if(isNew&&withInlineFormulas){
    records.formula=[];
@@ -53,8 +55,10 @@ async function run(browser,folder,isNew){
     if(i>=0)records.formula.push(sample);
    }
    await page.evaluate(()=>perform('open'));
+   await page.waitForTimeout(300);
    await c.send('HeapProfiler.collectGarbage');await c.send('HeapProfiler.startSampling',{samplingInterval:1024,includeObjectsCollectedByMajorGC:true,includeObjectsCollectedByMinorGC:true});
-   await page.evaluate(()=>perform('formula'));const {profile}=await c.send('HeapProfiler.stopSampling');records.formulaSampledAllocationBytes=profile.samples.reduce((n,s)=>n+s.size,0);
+   await page.evaluate(()=>perform('formula'));await page.waitForTimeout(300);
+   const {profile}=await c.send('HeapProfiler.stopSampling');records.formulaSampledAllocationBytes=profile.samples.reduce((n,s)=>n+s.size,0);
   }
   return records;
  }finally{await page.close();}

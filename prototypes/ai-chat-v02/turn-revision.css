@@ -1,15 +1,20 @@
 .revision-open { margin-inline-start:1em; color:inherit; background:transparent; border:0; padding:0 .3em; font:inherit; cursor:pointer }
 .revision-open:hover,.revision-open:focus-visible { color:var(--text,inherit); text-decoration:underline }
-.revision-editor { font:inherit; color:inherit; line-height:inherit }
+.revision-editor { --revision-caret:light-dark(#005fcc,#62e5ff); font:inherit; color:inherit; line-height:inherit; outline:0 }
 .revision-toolbar,.revision-dialog header { display:flex;align-items:center;gap:8px;flex-wrap:wrap }
 .revision-toolbar { position:sticky;top:0;z-index:2;background:var(--panel,#2c2728);border-block:1px solid var(--border,#5e5454);padding:7px 3px;margin-bottom:.75em }
 .revision-toolbar button,.revision-toolbar select,.revision-dialog button,.revision-dialog select { font-family:inherit;font-size:14px;color:inherit;background:transparent;border:1px solid #827777;border-radius:4px;padding:4px 8px;cursor:pointer }
 .revision-toolbar button:disabled { opacity:.4;cursor:default }
 .revision-toolbar select option,.revision-dialog option { color:CanvasText;background:Canvas }
 .revision-toolbar .revision-primary,.revision-dialog .revision-primary { color:#231d18;background:#e2c492;border-color:#e2c492;margin-inline-start:auto }
-.revision-row { margin:0 0 .55em; line-height:inherit }
+.revision-row { position:relative; margin:0 0 .55em; line-height:inherit }
 .revision-row .words { white-space:pre-wrap;min-height:1lh;outline-offset:3px;outline:none;overflow-wrap:anywhere;cursor:text }
-.revision-row .words:focus-visible { box-shadow:inset 2px 0 #b59872;padding-inline-start:6px }
+.revision-row .words[contenteditable] { caret-color:var(--revision-caret) }
+.revision-row .words.drawn-caret { caret-color:transparent }
+.revision-caret { position:absolute; width:3px; background:var(--revision-caret); pointer-events:none; animation:revision-blink 1.1s steps(1,end) infinite }
+@keyframes revision-blink { 0%,60% {opacity:1} 61%,100% {opacity:0} }
+@media (prefers-reduced-motion:reduce) { .revision-caret {animation:none} }
+@media (forced-colors:active) { .revision-caret {background:Highlight;forced-color-adjust:none} }
 .revision-number { color:var(--gold,#d9b883) }
 .revision-choice { cursor:pointer;border-radius:3px }
 .revision-choice[aria-pressed=true] { background:color-mix(in srgb,currentColor 14%,transparent);outline:1px solid #ae9675 }

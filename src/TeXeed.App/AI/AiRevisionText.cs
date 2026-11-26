@@ -135,7 +135,7 @@ internal static class AiRevisionText
 
     // Old excerpts contain displayed text. Markdig spans let us recover the original
     // Markdown offset even when a selection crosses emphasis, a link or inline TeX.
-    internal static (string Text, List<int> Starts, List<int> Ends) SelectionText(string raw)
+    internal static (string Text, List<int> Starts, List<int> Ends) SelectionText(string raw, Func<string, bool, string>? referenceText = null)
     {
         var math = new ChatMath();
         var prepared = math.Prepare(raw, Pipeline);
@@ -166,7 +166,7 @@ internal static class AiRevisionText
                 if (next == value.Length) break;
                 var end = value.IndexOf("END", next + math.Prefix.Length, StringComparison.Ordinal);
                 if (end < 0 || !math.Tokens.TryGetValue(value[next..(end + 3)], out var token)) break;
-                var visible = token.Reference != null ? token.Reference : token.Display ? "$$" + token.Source +
+                var visible = token.Reference != null ? referenceText?.Invoke(token.Reference, token.Parenthesize) ?? token.Reference : token.Display ? "$$" + token.Source +
                     (token.Label is null ? "" : @"\label{" + token.Label + "}") + @"\tag{" + token.Number + "}$$" : "$" + token.Source + "$";
                 Append(visible, token.OriginalOffset, token.OriginalOffset + token.OriginalLength, true);
                 position = end + 3;

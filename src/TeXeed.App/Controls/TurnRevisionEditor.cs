@@ -13,7 +13,10 @@ internal sealed class TurnRevisionEditor : StackPanel
     private readonly int _number;
     private readonly string? _imageBaseDirectory;
     private readonly Action<AiRevisionDraft> _saveDraft;
+    private readonly Func<Task>? _persistDraft;
     private readonly Func<IReadOnlyList<AiRevisionRow>, Task> _finish;
+    private readonly Dictionary<string, Dictionary<string, string>> _equationLabels = [];
+    private readonly Dictionary<string, int> _precedingDisplays = [];
     private List<AiRevisionRow> _rows;
     private readonly Stack<(List<AiRevisionRow> Rows, string Id, int Caret)> _undo = new();
     private readonly HashSet<string> _selected = [];
@@ -26,12 +29,33 @@ internal sealed class TurnRevisionEditor : StackPanel
     private readonly TextBlock _notice = new() { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
     private bool _selecting, _painting, _updatingLevel;
     private string _active = "";
+    private int _lastCaret;
+    private Window? _window;
+    private ToolTip? _savedTip;
 
     internal TurnRevisionEditor(AiRevisionDraft draft, int number, string? imageBaseDirectory, Action<AiRevisionDraft> saveDraft,
-        Func<IReadOnlyList<AiRevisionRow>, Task> finish, Func<Task> cancel)
+        Func<IReadOnlyList<AiRevisionRow>, Task> finish, Func<Task> cancel, Func<Task>? persistDraft = null)
     {
         _original = draft; _rows = [.. draft.Rows]; _number = number; _imageBaseDirectory = imageBaseDirectory;
-        _saveDraft = saveDraft; _finish = finish;
+        _saveDraft = saveDraft; _finish = finish; _persistDraft = persistDraft;
+        Focusable = true;
+        KeyboardNavigation.SetIsTabStop(this, false);
+        Loaded += (_, _) =>
+        {
+            _window = Window.GetWindow(this);
+            if (_window == null) return;
+            _window.PreviewMouseDown += WindowMouseDown;
+            _window.Deactivated += WindowDeactivated;
+        };
+        Unloaded += (_, _) =>
+        {
+            if (_savedTip != null) _savedTip.IsOpen = false;
+            if (_window == null) return;
+            _window.PreviewMouseDown -= WindowMouseDown;
+            _window.Deactivated -= WindowDeactivated;
+            _window = null;
+        };
+        IndexEquations();
         var tools = new WrapPanel { Margin = new Thickness(0, 4, 0, 6) };
         Children.Add(tools);
         Button Add(string title, RoutedEventHandler click)
@@ -51,19 +75,69 @@ internal sealed class TurnRevisionEditor : StackPanel
             if (_updatingLevel || _painting || _level.SelectedIndex < 0) return;
             var index = Index(_active);
             if (index < 0 || _rows[index].Locked || _rows[index].Level == _level.SelectedIndex) return;
-            var caret = _lines.GetValueOrDefault(_active)?.CaretOffset ?? 0;
+            var caret = _lines.GetValueOrDefault(_active)?.CaretOffset ?? _lastCaret;
             Remember(_active, caret); _rows[index] = _rows[index] with { Level = _level.SelectedIndex };
             Changed(); Paint(_active, caret);
         };
         tools.Children.Add(_level);
         Children.Add(_notice); Children.Add(_passages);
         _notice.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-        AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler((_, e) =>
+        AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(async (_, e) =>
         {
             if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control) { e.Handled = true; Undo(); }
-            if (e.Key == Key.Escape && _selecting) { e.Handled = true; _pick.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); }
+            if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control && _persistDraft != null)
+            {
+                e.Handled = true;
+                try { await _persistDraft(); await ShowSavedTipAsync(); }
+                catch (Exception ex) { _notice.Text = "草稿保存失败：" + ex.Message; _notice.Visibility = Visibility.Visible; }
+            }
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                if (_selecting) _pick.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                _level.IsDropDownOpen = false;
+                Focus();
+            }
         }));
         EnsureRow(); _active = _rows.FirstOrDefault(r => !r.Locked)?.Id ?? ""; Paint();
+    }
+
+    private void WindowMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // Non-focusable whitespace normally leaves WPF's keyboard focus on the
+        // previous editor. Capture the active host before the click is dispatched.
+        if (e.ChangedButton != MouseButton.Left || !IsKeyboardFocusWithin ||
+            _displayed.GetValueOrDefault(_active)?.Host is not { IsKeyboardFocusWithin: true } host || host.IsMouseOver) return;
+        if (_passages.IsMouseOver && _displayed.Values.Any(view => view.Host?.IsMouseOver == true)) return;
+        Focus();
+    }
+
+    private async Task ShowSavedTipAsync()
+    {
+        if (!IsLoaded || !IsKeyboardFocusWithin) return;
+        if (_savedTip != null) _savedTip.IsOpen = false;
+        var tip = new ToolTip { Content = "草稿已保存", PlacementTarget = _level,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        if (_lines.GetValueOrDefault(_active) is { IsKeyboardFocusWithin: true } line)
+        {
+            var view = line.TextArea.TextView;
+            var at = line.TextArea.Caret.CalculateCaretRectangle();
+            tip.PlacementTarget = view;
+            at.Offset(-view.ScrollOffset.X, -view.ScrollOffset.Y);
+            tip.PlacementRectangle = at;
+        }
+        _savedTip = tip;
+        tip.IsOpen = true;
+        await Task.Delay(1600);
+        tip.IsOpen = false;
+        if (ReferenceEquals(_savedTip, tip)) _savedTip = null;
+    }
+
+    private void WindowDeactivated(object? sender, EventArgs e)
+    {
+        if (!IsKeyboardFocusWithin) return;
+        Keyboard.ClearFocus();
+        FocusManager.SetFocusedElement(FocusManager.GetFocusScope(this), this);
     }
 
     private async Task RunAsync(Func<Task> action, Button? saveButton = null)
@@ -78,20 +152,29 @@ internal sealed class TurnRevisionEditor : StackPanel
             IsEnabled = true;
         }
     }
-    internal FrameworkElement? AtReadingPosition(string segmentId, string text, int offset)
+    internal void FocusFirstParagraph() => _displayed.Values.FirstOrDefault(view => view.Host != null)?.Host?.FocusSource(0);
+
+    internal FrameworkElement? AtReadingPosition(string segmentId, string text, int offset, bool activate = false, string? rowId = null)
     {
         var position = 0;
         var best = int.MaxValue;
-        RowView? match = null;
-        foreach (var row in _rows.Where(row => row.SegmentId == segmentId))
+        RowView? match = rowId == null ? null : _displayed.GetValueOrDefault(rowId);
+        if (match == null)
         {
-            if (row.Text.Contains(text, StringComparison.Ordinal) || text.Contains(row.Text, StringComparison.Ordinal))
+            foreach (var row in _rows.Where(row => row.SegmentId == segmentId))
             {
-                var distance = Math.Abs(position - offset);
-                if (distance < best) { best = distance; match = _displayed[row.Id]; }
+                var visible = row.Text;
+                if (!visible.Contains(text, StringComparison.Ordinal) && !text.Contains(visible, StringComparison.Ordinal))
+                    visible = AiRevisionText.SelectionText(row.Text).Text;
+                if (visible.Length > 0 && (visible.Contains(text, StringComparison.Ordinal) || text.Contains(visible, StringComparison.Ordinal)))
+                {
+                    var distance = Math.Abs(position - offset);
+                    if (distance < best) { best = distance; match = _displayed[row.Id]; }
+                }
+                position += row.Text.Length + 2;
             }
-            position += row.Text.Length + 2;
         }
+        if (activate && match != null) FocusRow(match, 0);
         return match?.Container;
     }
     private int Index(string id) => _rows.FindIndex(row => row.Id == id);
@@ -102,7 +185,13 @@ internal sealed class TurnRevisionEditor : StackPanel
     }
     private List<AiRevisionRow> KeptRows() => _rows.Where(row => row.Locked || row.Links.Count > 0 || !string.IsNullOrWhiteSpace(row.Text)).ToList();
     private void Remember(string id, int caret) => _undo.Push((new List<AiRevisionRow>(_rows), id, caret));
-    private void Changed() { _saveDraft(_original with { Rows = [.. _rows] }); Controls(); }
+    private void Changed()
+    {
+        if (_savedTip != null) _savedTip.IsOpen = false;
+        _notice.Visibility = Visibility.Collapsed;
+        _saveDraft(_original with { Rows = [.. _rows] });
+        Controls();
+    }
     private void Undo()
     {
         if (!_undo.TryPop(out var previous)) return;
@@ -140,7 +229,11 @@ internal sealed class TurnRevisionEditor : StackPanel
                 var row = _rows[i];
                 var fresh = !_displayed.TryGetValue(row.Id, out var previous) || !ReferenceEquals(previous.Row, row) || previous.Selecting != _selecting;
                 var view = fresh ? BuildRow(row, i) : previous!;
-                if (view.Marker != null) view.Marker.Text = $"[{_number}:{headings.Next(row.Level)}] ";
+                if (view.Marker is { } marker)
+                {
+                    marker.Tag = $"[{_number}:{headings.Next(row.Level)}] ";
+                    marker.Text = view.Host?.IsKeyboardFocusWithin == true ? new string('#', row.Level) + " " : (string)marker.Tag;
+                }
                 if (view.Host?.Editor is { } realized) _lines[row.Id] = realized;
                 if (i >= _passages.Children.Count || !ReferenceEquals(_passages.Children[i], view.Container))
                 {
@@ -154,17 +247,62 @@ internal sealed class TurnRevisionEditor : StackPanel
             Controls();
         }
         finally { _painting = false; }
-        if (focus == null || !_displayed.TryGetValue(focus, out var focused)) return;
-        if (focused.Host is { } lineHost)
-        {
-            var target = lineHost.Activate();
-            target.Focus(); target.TextArea.Focus(); target.CaretOffset = Math.Clamp(caret, 0, target.Document.TextLength);
-        }
+        if (focus != null && _displayed.TryGetValue(focus, out var focused)) FocusRow(focused, caret);
+    }
+
+    private static void FocusRow(RowView focused, int caret)
+    {
+        if (focused.Host is { } lineHost) lineHost.FocusSource(caret);
         else if (focused.Container is DockPanel block && block.Children.OfType<StackPanel>().FirstOrDefault()?.Children.OfType<MarkdownView>().FirstOrDefault() is { } locked)
         {
             locked.Focus(); locked.CaretPosition = caret == 0 ? locked.Document.ContentStart : locked.Document.ContentEnd;
         }
     }
+
+    private void IndexEquations()
+    {
+        // Rows retain their segment order. Plain paragraphs need no Markdown pass.
+        string? segment = null;
+        var count = 0;
+        foreach (var row in _rows)
+        {
+            if (row.SegmentId != segment) { segment = row.SegmentId; count = 0; }
+            if (!row.Text.Contains("$$", StringComparison.Ordinal) && !row.Text.Contains(@"\[", StringComparison.Ordinal) &&
+                !row.Text.Contains(@"\begin{", StringComparison.Ordinal)) continue;
+            var math = MarkdownView.RevisionMath(row.Text, count);
+            _precedingDisplays[row.Id] = count;
+            foreach (var token in math.Tokens.Values.Where(token => token.Display))
+            {
+                count++;
+                if (!_equationLabels.TryGetValue(row.SegmentId, out var labels)) _equationLabels[row.SegmentId] = labels = [];
+                labels.TryAdd("eq-" + token.Number, token.Number!);
+                if (token.Label is { } label) labels.TryAdd(label, token.Number!);
+            }
+        }
+    }
+
+    private FrameworkElement RenderRow(AiRevisionRow row)
+    {
+        if (!row.Locked && row.Links.Count == 0 && row.Text.AsSpan().IndexOfAny(MarkupCharacters) < 0 &&
+            !row.Text.Contains("www.", StringComparison.OrdinalIgnoreCase) && !(row.Text.Length > 0 && char.IsAsciiDigit(row.Text[0]) && row.Text.Contains('.')) &&
+            !row.Text.StartsWith("    ", StringComparison.Ordinal) && !row.Text.Any(char.IsSurrogate))
+        {
+            var text = new TextBlock { Text = row.Text, FontFamily = ChatReadingTypography.Family, FontSize = AiChatTypography.FontSize,
+                TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.LineHeight, Padding = new Thickness(2, 1, 2, 1),
+                MinHeight = AiChatTypography.LineHeight, Background = Brushes.Transparent };
+            System.Windows.Documents.Typography.SetStylisticSet4(text, true);
+            text.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+            return text;
+        }
+        var preview = new MarkdownView { ChatMode = true, ImageBaseDirectory = _imageBaseDirectory, Padding = new Thickness(2, 1, 2, 1),
+            Margin = new Thickness(-AiChatTypography.RichTextInset, 0, -AiChatTypography.RichTextInset, 0),
+            RevisionEquationLabels = _equationLabels.GetValueOrDefault(row.SegmentId), PrecedingDisplayCount = _precedingDisplays.GetValueOrDefault(row.Id),
+            MinHeight = AiChatTypography.LineHeight, Focusable = row.Locked };
+        preview.SetRevisionPreview(row);
+        return preview;
+    }
+    private static readonly System.Buffers.SearchValues<char> MarkupCharacters =
+        System.Buffers.SearchValues.Create("*_~$\\`[<>#-+!|:&{\n\r\t)@^=\uFE0F\u20E3");
 
     private RowView BuildRow(AiRevisionRow row, int index)
     {
@@ -180,11 +318,16 @@ internal sealed class TurnRevisionEditor : StackPanel
         if (row.Locked || _selecting)
         {
             if (_selecting && !row.Locked)
-                block.Children.Add(new RevisionLineEditor(RevisionBuffer.From(row, editableInlineMath: true), _imageBaseDirectory) { Focusable = false, IsReadOnly = true, IsHitTestVisible = false });
+            {
+                var reading = RenderRow(row);
+                reading.IsHitTestVisible = false;
+                block.Children.Add(reading);
+            }
             else
             {
-                var preview = new MarkdownView { ChatMode = true, ImageBaseDirectory = _imageBaseDirectory, Markdown = row.Text, Padding = new Thickness(2),
-                    ToolTip = "回车在其后分段，Shift+Enter 在其前分段" };
+                var preview = (MarkdownView)RenderRow(row);
+                preview.ToolTip = "回车在其后分段，Shift+Enter 在其前分段";
+                preview.GotKeyboardFocus += (_, _) => { _active = row.Id; Controls(); };
                 preview.PreviewKeyDown += (_, e) =>
                 {
                     if (_selecting || e.Key != Key.Enter || Keyboard.Modifiers is not (ModifierKeys.None or ModifierKeys.Shift)) return;
@@ -197,27 +340,33 @@ internal sealed class TurnRevisionEditor : StackPanel
                 };
                 if (_selecting) preview.IsHitTestVisible = false;
                 var locked = new StackPanel(); locked.Children.Add(preview);
-                foreach (var link in row.Links.Where(link => !link.Id.StartsWith("bookmark:", StringComparison.Ordinal)))
-                {
-                    var label = new TextBlock { Text = "🗨️ " + link.Label };
-                    label.SetResourceReference(TextBlock.ForegroundProperty, "Accent"); locked.Children.Add(label);
-                }
                 block.Children.Add(locked);
             }
         }
         else
         {
-            host = new RevisionLineHost(RevisionBuffer.From(row, editableInlineMath: true), _imageBaseDirectory, line =>
+            host = new RevisionLineHost(row, _imageBaseDirectory, RenderRow, line =>
             {
                 _lines[row.Id] = line;
-                line.GotKeyboardFocus += (_, _) => { _active = row.Id; Controls(); };
+                line.GotKeyboardFocus += (_, _) =>
+                {
+                    _active = row.Id;
+                    if (marker != null) marker.Text = new string('#', row.Level) + " ";
+                    Controls();
+                };
                 line.Changed = () => TextChanged(row.Id, line);
-                line.LostKeyboardFocus += (_, _) => CleanupAbandonedEmpty(row.Id, line);
                 line.PasteText = value => Replace(row.Id, line, value);
                 line.UndoEdit = Undo;
                 line.PreviewKeyDown += (_, e) => KeyDownInLine(row.Id, line, e);
+            }, line =>
+            {
+                if (_active == row.Id) _lastCaret = line.CaretOffset;
+                if (marker?.Tag is string number) marker.Text = number;
+                if (ReferenceEquals(_lines.GetValueOrDefault(row.Id), line)) _lines.Remove(row.Id);
+                if (!_painting && host != null) CleanupAbandonedEmpty(row.Id, host);
             });
             block.Children.Add(host);
+            if (marker != null) marker.MouseLeftButtonDown += (_, e) => { host.FocusSource(0); e.Handled = true; };
         }
         if (_selecting && !row.Locked)
         {
@@ -235,16 +384,17 @@ internal sealed class TurnRevisionEditor : StackPanel
         return new(row, _selecting, block, marker, host);
     }
 
-    private void CleanupAbandonedEmpty(string id, RevisionLineEditor line)
+    private void CleanupAbandonedEmpty(string id, RevisionLineHost host)
     {
         if (_painting) return;
         var index = Index(id);
-        if (index < 0 || !string.IsNullOrWhiteSpace(_rows[index].Text) || _rows[index].Links.Count != 0) return;
+        if (index < 0 || !ReferenceEquals(_displayed.GetValueOrDefault(id)?.Host, host) ||
+            !string.IsNullOrWhiteSpace(_rows[index].Text) || _rows[index].Links.Count != 0) return;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
             var i = Index(id);
             if (_rows.Count < 2 || i < 0 || _rows[i].Links.Count > 0 || !string.IsNullOrWhiteSpace(_rows[i].Text) ||
-                line.IsKeyboardFocusWithin || !_passages.IsKeyboardFocusWithin || !ReferenceEquals(_lines.GetValueOrDefault(id), line)) return;
+                !ReferenceEquals(_displayed.GetValueOrDefault(id)?.Host, host) || host.IsKeyboardFocusWithin || !_passages.IsKeyboardFocusWithin) return;
             _rows.RemoveAt(i); Changed(); Paint();
         }));
     }
@@ -257,7 +407,7 @@ internal sealed class TurnRevisionEditor : StackPanel
         var next = line.Buffer.Apply(old);
         if (old.Text == next.Text && old.Links.SequenceEqual(next.Links)) return;
         Remember(id, line.CaretOffset);
-        _rows[i] = next; _displayed[id] = _displayed[id] with { Row = next }; Changed();
+        _rows[i] = next; _displayed[id] = _displayed[id] with { Row = next }; _displayed[id].Host!.Row = next; Changed();
         if (!string.IsNullOrWhiteSpace(old.Text) && string.IsNullOrWhiteSpace(next.Text))
         {
             // Let native text input (including an IME commit) finish updating its caret first.
@@ -312,6 +462,28 @@ internal sealed class TurnRevisionEditor : StackPanel
         if (e.Handled || e.Key == Key.ImeProcessed) return;
         var i = Index(id); if (i < 0) return;
         if (e.Key == Key.Enter) { e.Handled = true; Replace(id, line, "\n"); return; }
+        if (line.SelectionLength == 0 && Keyboard.Modifiers == ModifierKeys.None && e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
+        {
+            var movingForward = e.Key is Key.Right or Key.Down;
+            if (e.Key is Key.Left or Key.Right && line.CaretOffset != (movingForward ? line.Document.TextLength : 0)) return;
+            if (e.Key is Key.Up or Key.Down)
+            {
+                var view = line.TextArea.TextView;
+                if (!view.VisualLinesValid || view.VisualLines.Count == 0) return;
+                var edge = movingForward ? view.VisualLines[^1] : view.VisualLines[0];
+                var caret = line.TextArea.Caret;
+                if (caret.Line < edge.FirstDocumentLine.LineNumber || caret.Line > edge.LastDocumentLine.LineNumber ||
+                    edge.GetTextLine(caret.VisualColumn, caret.Position.IsAtEndOfLine) != (movingForward ? edge.TextLines[^1] : edge.TextLines[0])) return;
+            }
+            var adjacent = i + (movingForward ? 1 : -1);
+            if (adjacent >= 0 && adjacent < _rows.Count)
+            {
+                var row = _rows[adjacent];
+                e.Handled = true;
+                FocusRow(_displayed[row.Id], movingForward ? 0 : EndOfText(row));
+            }
+            return;
+        }
         if (e.Key is not (Key.Back or Key.Delete) || Keyboard.Modifiers != ModifierKeys.None) return;
         var forward = e.Key == Key.Delete;
         if (line.SelectionLength > 0) { e.Handled = true; Replace(id, line, ""); return; }

@@ -167,9 +167,9 @@ function transcriptHtml(turns){
 }
 function renderTurns(){
  closeEquationPreview();
- const pos=$('reader').scrollTop;
+ const pos=$('reader').scrollTop,revisionFocus=window.turnRevision?.focusState();
  $('thread').innerHTML=current().turns.length?transcriptHtml(current().turns):current().branchSource?branchOriginHtml(current().branchSource):'<div class="empty"><h2>AI 对话</h2><p>从一个问题，或一处圈点开始。</p></div>';
- enhanceAnswers();addSameTurnLinks();window.alignReadingMedia?.($('thread'));alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;window.turnRevision?.resume();renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
+ enhanceAnswers();addSameTurnLinks();window.alignReadingMedia?.($('thread'));alignReadingInk();alignPendingIndicator();$('reader').scrollTop=pos;window.turnRevision?.resume(revisionFocus);renderBubbles();window.refreshUserBookmarkMarkers?.();refreshReferenceClips();
 }
 function sourceTextNodes(root){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode()){const node=walker.currentNode;if(!node.parentElement.closest('.same-turn-link,.heading-marker,.margin-notes,.math,svg'))nodes.push(node);}return nodes;}
 function sourceText(root){return sourceTextNodes(root).map(node=>node.nodeValue).join('');}
@@ -363,7 +363,9 @@ function targetContext(target,event){
  if(!quote.trim())quote=serialize(body).trim();
  if(media&&body?.contains(media)&&(!selected||endInMedia)){endBlock=p.id;endMediaIndex=[...body.querySelectorAll('.math,img,table')].indexOf(media);}
  const preview=media?.matches('.math')?{kind:'formula',tex:media.dataset.tex||'',display:media.dataset.display==='true'}:media?.matches('img')?{kind:'image',alt:media.alt||'',src:media.getAttribute('src')||''}:media?.matches('table')?{kind:'table',rows:[...media.rows].map(row=>[...row.cells].map(cell=>cell.querySelector('input,textarea,select')?.value??cell.textContent))}:null;
- return {block:startBlock,quote,selected:selected||!!media,turn:answer.dataset.turn,endBlock,endTextOffset,endMediaIndex,paragraph,preview};
+ const child=target.closest('.passage-body > *'),index=Array.from(body.children).indexOf(child);
+ const revisionBlock=index>0?p.id+'-sub'+index:p.id;
+ return {block:startBlock,revisionBlock,quote,selected:selected||!!media,turn:answer.dataset.turn,endBlock,endTextOffset,endMediaIndex,paragraph,preview};
 }
 function addAnnotation(ctx){if(!ctx?.selected||!ctx.quote.trim())return;const c=current();const e={id:'a'+Date.now(),number:c.next++,title:'AI 回答批注',question:'',selected:true,state:'待提交',sources:[],pdf:[],block:ctx.block,endBlock:ctx.endBlock,endTextOffset:ctx.endTextOffset,endMediaIndex:ctx.endMediaIndex,quote:ctx.quote};c.entries.push(e);renderEntries();record('add-answer-annotation',{number:e.number,quote:e.quote});openEditor(e.id);}
 let answerMarking=false;

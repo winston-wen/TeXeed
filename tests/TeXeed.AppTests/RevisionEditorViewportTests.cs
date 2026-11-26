@@ -47,7 +47,7 @@ internal static partial class Program
             if (before < 20 || before > scroll.ViewportHeight - 20) throw new Exception($"Long editor fixture target was not visible: {before}");
             answer.CaptureContextParagraph(new Point(point.X + 6, point.Y + 8));
             var menu = answer.ContextMenu!; menu.PlacementTarget = answer; menu.IsOpen = true; await Idle();
-            var open = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "整理这一轮"));
+            var open = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "整理这一段"));
             menu.IsOpen = false;
             var start = Stopwatch.GetTimestamp(); var allocated = GC.GetAllocatedBytesForCurrentThread();
             open.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent)); await Idle();
@@ -58,7 +58,9 @@ internal static partial class Program
             var active = lines[rowIndex]; var guard = lines[rowIndex - 1];
             var entered = active.TranslatePoint(new Point(), scroll).Y;
             if (Math.Abs(entered - before) > 4) throw new Exception($"Opening the editor lost the clicked paragraph: {before:F1} -> {entered:F1}");
-            active.Focus(); var line = active.Editor!; line.TextArea.Focus(); line.CaretOffset = 4;
+            if (initialEditors != 1 || active.Editor is not { IsKeyboardFocusWithin: true } line)
+                throw new Exception("The contextual command did not move the only source caret into the clicked paragraph");
+            line.CaretOffset = 4;
             var splitAt = Stopwatch.GetTimestamp(); var splitAllocated = GC.GetAllocatedBytesForCurrentThread();
             line.TextArea.RaiseEvent(CreateKey(host, Key.Enter, Keyboard.PreviewKeyDownEvent));
             await Idle();

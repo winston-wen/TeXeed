@@ -73,6 +73,7 @@ internal static partial class Program
                 {
                     await CheckRevisionEditorAsync(window, output);
                     await CheckRevisionEditorViewportAsync(window, output);
+                    await CheckRevisionDraftShortcutAsync(window, output);
                     await CloseAndObserveAsync(window, "turn revision editor"); result = 0; return;
                 }
                 if (args.Contains("--workspace-chrome-native"))
