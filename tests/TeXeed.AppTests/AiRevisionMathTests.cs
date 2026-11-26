@@ -44,14 +44,14 @@ internal static partial class Program
             saved.RevisionHistory!.Last().Author == "ai" && AiEquationIndex.Resolve(saved, "eq:new") is not null &&
             AiEquationIndex.Resolve(saved, "eq:old") is null, "AI did not save typesettable Markdown and actual resolvable labels");
         var beforeReject = panel.BeginRevision(conversation.Turns[1]);
-        foreach (var bad in new[] { @"$x$", @"公式 \eqref{missing}", @"公式 \eqref{77:eq:up}", @"公式 \eqref{eq:new", @"公式 $\eqref{eq:new}$",
+        foreach (var bad in new[] { inline, @"公式 \eqref{missing}", @"公式 \eqref{77:eq:up}", @"公式 \eqref{eq:new", @"公式 $\eqref{eq:new}$",
             "$x^", realTex ? "$x^2^3$" : @"$\frca{x}{y}$" })
         {
-            var item = bad == "$x$" ? equation.Id : draft.Rows[0].Id;
+            var item = bad == inline ? equation.Id : draft.Rows[0].Id;
             var invalid = AiPanel.ApplyRevisionChanges(beforeReject, JsonSerializer.SerializeToElement(new[] { Change(item, bad) }));
             rejected = false;
             try { await panel.CommitRevisionAsync(edited.Id, beforeReject.Version, invalid, "ai"); }
-            catch (InvalidOperationException) { rejected = true; }
+            catch (InvalidOperationException ex) when (bad != inline || ex.Message.Contains("仍引用公式")) { rejected = true; }
             Require(rejected && AiStorage.Load(project).Active.Turns[1].Answer == saved.Answer,
                 "Broken formula or reference partially persisted: " + bad);
         }

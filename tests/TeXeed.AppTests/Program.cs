@@ -279,7 +279,7 @@ internal static partial class Program
                 if (args.Contains("--ai-revision-source-only"))
                 {
                     await CheckRevisionSourcesAsync(window, output);
-                    await CheckSnapshotHistoryAsync(window, output);
+                    await CheckSnapshotHistoryAsync(window, output, realTex: args.Contains("--real-tex"));
                     await CloseAndObserveAsync(window, "AI revised sources"); result = 0; return;
                 }
                 if (args.Contains("--snapshot-history-measure"))
@@ -485,7 +485,7 @@ internal static partial class Program
                 }
                 if (args.Contains("--ai-revision-agent-only"))
                 {
-                    await CheckRevisionAgentAsync(window, output);
+                    await CheckRevisionAgentAsync(window, output, args.Contains("--real-tex"));
                     await CloseAndObserveAsync(window, "AI answer revision regression"); result = 0; return;
                 }
                 if (args.Contains("--ai-agent-only"))

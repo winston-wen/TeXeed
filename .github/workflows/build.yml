@@ -84,6 +84,7 @@ jobs:
             artifacts/ci-workspace-restore-check/*.png
             artifacts/ci-turn-fold-check/*.png
             artifacts/ci-preview-eye-check/*.png
+            artifacts/ci-revision-sources/*.png
             artifacts/ci-revision-editor/*.png
           if-no-files-found: ignore
       - run: ./scripts/publish.ps1 -SkipShortcuts -NoRestore

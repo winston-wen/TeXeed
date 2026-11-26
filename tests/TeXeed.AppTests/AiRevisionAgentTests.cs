@@ -12,9 +12,14 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
-    private static async Task CheckRevisionAgentAsync(MainWindow window, string output)
+    private static async Task CheckRevisionAgentAsync(MainWindow window, string output, bool realTex)
     {
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        if (!realTex)
+        {
+            SeedRevisionFormula("x=1");
+            SeedRevisionFormula(@"x=1+\delta_0");
+        }
         var folder = Path.Combine(output, "agent-project");
         Directory.CreateDirectory(folder);
         var project = Path.Combine(folder, "revision-agent.tex");
@@ -371,6 +376,10 @@ internal static partial class Program
             var view = Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == turnId).Answers.Single();
             await view.RenderTask;
             var formulaRow = Descendants<ChatFormulaRow>(view).Single();
+            var rendered = Descendants<ChatFormula>(formulaRow).Single();
+            await rendered.RenderTask;
+            if (rendered.Source != "x=1" || rendered.Error != null || !File.Exists(rendered.SvgPath))
+                throw new InvalidOperationException("The annotated formula did not render its TeX SVG: " + rendered.Error);
             // The virtual list can realize more neighbors for several frames after
             // navigation. Click the actual formula once it has stopped moving.
             var scroll = (ScrollViewer)panel.FindName("MessagesScroll");

@@ -11,10 +11,26 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
-    private static async Task CheckSnapshotHistoryAsync(MainWindow owner, string output, bool measureOnly = false)
+    private static void SeedRevisionFormula(string tex, bool display = true)
+    {
+        var key = ChatTexRenderer.CacheFileName(tex, display);
+        using var rendered = typeof(Program).Assembly.GetManifestResourceStream("TeXeed.AppTests.Fixtures.revision." + key)
+            ?? throw new FileNotFoundException("Missing compiled SVG for " + tex, key);
+        var cache = Directory.CreateDirectory(Path.Combine(AiStorage.Home, "math-svg"));
+        using var cached = File.Create(Path.Combine(cache.FullName, key));
+        rendered.CopyTo(cached);
+    }
+
+    private static async Task CheckSnapshotHistoryAsync(MainWindow owner, string output, bool measureOnly = false, bool realTex = false)
     {
         static void Require(bool condition, string message) { if (!condition) throw new Exception(message); }
         const string tex = @"w'-w_0=\delta";
+        const string revisedTex = @"\delta_0=w'-w_0=\delta_1";
+        if (!measureOnly && !realTex)
+        {
+            SeedRevisionFormula(tex);
+            SeedRevisionFormula(revisedTex);
+        }
         var source = string.Concat(Enumerable.Repeat("先看两个差值。", measureOnly ? 1 : 200)) +
             "\n\n$$" + tex + @"\label{difference}\tag{6}$$" + "\n\n这是后文。";
         var project = Path.Combine(output, "snapshot-history.tex");
@@ -67,7 +83,7 @@ internal static partial class Program
             var measurements = new List<object>();
             for (var i = 0; i < (measureOnly ? 7 : 1); i++)
             {
-                var next = i % 2 == 0 ? source.Replace(tex, @"\delta_0=w'-w_0=\delta_1") : source;
+                var next = i % 2 == 0 ? source.Replace(tex, revisedTex) : source;
                 var clock = Stopwatch.StartNew();
                 var allocated = GC.GetAllocatedBytesForCurrentThread();
                 await Edit(1, next.Split("\n\n")[1]);
