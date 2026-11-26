@@ -17,12 +17,13 @@ const {chromium} = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright');
       newConversation();
       current().turns = Array.from({length:48}, (_, i) => ({
         id:'reading-'+i, question:'第 '+(i+1)+' 轮讨论', answeredAt:'2026-11-26T09:00:00Z',
-        collapsed:[17,18,20,21,22,23].includes(i), foldGroup:i===22||i===23?'stored':undefined,
+        collapsed:[17,18,20,21,22,23,42,43].includes(i), foldGroup:i===22||i===23?'stored':i===42||i===43?'other':undefined,
         answer:'本轮讨论第 '+(i+1)+' 项条件。' + '\n\n' + ('内容与公式 $q^2$。'.repeat(8))
       }));
       current().turns[19].answer = '# 推导\n\n'+Array.from({length:20},(_,n)=>'第 '+n+' 段推导，说明变量并给出近似条件。').join('\n\n')+
         '\n\n$$\\begin{aligned}f(x)&=x^2+1,\\\\g(x)&=2x.\\end{aligned}$$\n\n在这个位置继续阅读。';
       current().turns[22].answer = '唯一搜索命中样本';
+      current().turns[42].answer = '最后一组查找目标';
       current().draft = '保留这里的草稿';
       $('composer').value = current().draft;
       renderTurns();
@@ -181,13 +182,25 @@ const {chromium} = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright');
     await page.locator('#status').waitFor({state:'hidden',timeout:6000});
     await stable('message-closed');
 
-    await page.keyboard.press('Control+f');
-    await page.locator('#search-input').fill('唯一搜索命中样本');
-    await page.waitForFunction(()=>!current().turns[22].collapsed);
-    await settle(); const result=await frame();
-    const found=await page.locator('#reading-22 .question').boundingBox();
-    assert(found.y>=result.top-1&&found.y+found.height<=result.bottom+1,'Search did not reveal its compacted target');
-    assert(await page.evaluate(()=>current().turns[23].collapsed));
+    async function checkSearchResult(index,phase){
+      await page.waitForFunction(i=>!current().turns[i].collapsed,index);
+      await settle();
+      const result=await frame(),found=await page.locator('#reading-'+index+' .question').boundingBox();
+      const visible=found&&found.y>=result.top-1&&found.y+found.height<=result.bottom+1;
+      if(!visible&&dir)await page.screenshot({path:path.join(dir,'search-navigation-'+phase+'-failed.png')});
+      assert(visible,'Search did not reveal its compacted target '+JSON.stringify({phase,index,viewport:result,target:found}));
+      assert(await page.evaluate(i=>current().turns[i+1].collapsed,index));
+    }
+    await page.keyboard.press('Control+f');await settle();
+    await page.locator('#search-input').fill('唯一搜索命中样本');await checkSearchResult(22,'settled');
+    await page.keyboard.press('Escape');await settle();
+    // Chrome can deliver input after opening the bar but before the resize callback.
+    await page.evaluate(()=>{
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true,cancelable:true}));
+      const input=document.getElementById('search-input');
+      input.value='最后一组查找目标';input.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    await checkSearchResult(42,'same-frame');
     assert.equal(await page.locator('#composer').inputValue(),'保留这里的草稿');
     assert.deepEqual(errors,[]);
     console.log('PASS: Ctrl+F, escaping, opening and dismissing annotation status preserve painted math, text and adjacent folded turn boundaries. Search still reaches a compacted result.');

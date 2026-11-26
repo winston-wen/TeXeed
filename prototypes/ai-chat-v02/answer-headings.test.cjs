@@ -52,12 +52,13 @@ const text=value=>({nodeType:3,nodeValue:value}),element=(name,classes,children)
 const heading=element('h6',[],[element('button',[],[element('span',['heading-marker'],[text('[4:1.1.1.1.1.1]')]),element('span',['heading-label'],[text('Deep title')])])]);
 assert.equal(context.serialize(heading),'Deep title\n');assert.equal(context.serialize({nodeType:11,childNodes:[heading]}),'Deep title\n');
 
-const formulaTarget={passage:renderedAnswer.passages[11],scrollIntoView(){},classList:{add(){}}};
+const formulaTarget={passage:renderedAnswer.passages[11],closest:selector=>selector==='.answer'?renderedAnswer:null,scrollIntoView(){},classList:{add(){}}};
 renderedAnswer=answer();formulaTarget.passage=renderedAnswer.passages[11];
-context.$=()=>formulaTarget;context.renderTurns=()=>{};context.closeEquationPreview=()=>{};context.cancelReadingRestore=()=>{};context.requestAnimationFrame=callback=>callback();context.saveReading=()=>{};
+context.$=()=>formulaTarget;context.renderTurns=()=>{};context.scrollToReadingTarget=(el,block)=>el.scrollIntoView({block});context.closeEquationPreview=()=>{};context.cancelReadingRestore=()=>{};context.requestAnimationFrame=callback=>callback();context.saveReading=()=>{};
+vm.runInContext(app.slice(app.indexOf('function revealFoldedTurn('),app.indexOf('function changeFoldRun(')),context);
 const formulaStart=app.indexOf('function jumpToEquation(');
 vm.runInContext(app.slice(formulaStart,app.indexOf('let equationPreviewLink',formulaStart)),context);
 turn.sections={p0:true,p2:true,p4:true,p6:true,p8:true,p10:true,p12:true};
-const link={dataset:{equationRef:'third-eq-1'},closest:selector=>selector==='.turn'?{id:turn.id}:renderedAnswer};context.jumpToEquation(link);
+const link={dataset:{equationRef:'third-eq-1',equationTurn:turn.id}};context.jumpToEquation(link);
 for(const key of ['p0','p2','p4','p6','p8','p10'])assert.equal(turn.sections[key],false);assert.equal(turn.sections.p12,true);
 console.log('Answer headings: real h1–h6, legacy cache anchors, dynamic ordinals, nested folds, copy text and formula ancestor restoration passed.');

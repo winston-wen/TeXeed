@@ -599,6 +599,13 @@ function readingPosition(){const area=$('reader'),top=area.getBoundingClientRect
 function saveReading(){if(!restoring&&!$('chat').hidden){current().reading=readingPosition();persist();}}
 function restoreReading(pos,version){if(version!==readingRestoreVersion)return;const area=$('reader');restoring=true;area.scrollTop=pos?.top??area.scrollHeight;if(pos?.anchor){const anchor=readingAnchor(pos.anchor);if(anchor?.getClientRects().length)area.scrollTop+=anchor.getBoundingClientRect().top-area.getBoundingClientRect().top-pos.offset;}requestAnimationFrame(()=>{if(version!==readingRestoreVersion)return;lastReaderBounds=area.getBoundingClientRect();readerRounding=0;restoring=false;positionEditor();});}
 function cancelReadingRestore(){readingRestoreVersion++;restoring=false;}
+function scrollToReadingTarget(target,block){
+ if(!target)return;
+ cancelReadingRestore();
+ // This navigation uses the current viewport, even if ResizeObserver has not delivered its new bounds yet.
+ lastReaderBounds=readingViewport.getBoundingClientRect();readerRounding=0;chromeScrollOffset=null;
+ target.scrollIntoView({block});
+}
 function turnAnnotations(t){return (t.annotations||[]).map((e,i)=>({...e,number:i+1}));}
 function questionHtml(t,index){
  const annotations=turnAnnotations(t),prompt=annotations.length?t.prompt||'':t.question;
@@ -616,7 +623,7 @@ function showSnapshot(link){
  preview.querySelector('.preview-label').textContent='原文 · '+number;
  preview.querySelector('.snapshot-scroll').innerHTML=snapshotHtml(entry)||'<p class="muted">此条没有保存原文。</p>';
  preview.dataset.number=String(number);preview.hidden=false;link.setAttribute('aria-expanded','true');
- requestAnimationFrame(()=>{preview.scrollIntoView({block:'nearest'});preview.querySelector('.snapshot-scroll').focus({preventScroll:true});});
+ requestAnimationFrame(()=>{scrollToReadingTarget(preview,'nearest');preview.querySelector('.snapshot-scroll').focus({preventScroll:true});});
 }
 function installImageViewer(){
  const dialog=$('image-viewer'),viewport=$('image-viewport'),preview=$('image-preview');let source=null,zoom=1,fitMode=true;
@@ -942,7 +949,7 @@ function returnBranchOrigin(){
  const child=current(),source=child.branchSource,parent=source&&state.conversations.find(c=>c.id===source.parentId),turn=parent?.turns.find(t=>t.id===source.turn);if(!parent||!turn){status('原会话或来源已不存在。');return;}
  revealFoldedTurn(turn,parent.turns);openConversation(parent.id);cancelReadingRestore();const marker=()=>document.querySelector('[data-revision-ref="'+CSS.escape('branch:'+child.id)+'"]'),owner=()=>marker()?.closest('.passage')||$(source.block);let target=owner(),answer=target?.closest('.answer'),stack=[];
  if(answer)for(const p of answer.querySelectorAll(':scope>.passage')){const h=p.querySelector('h1,h2,h3,h4,h5,h6');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}if(p===target){for(const item of stack)if(turn.sections)turn.sections[item.id]=false;break;}}
- renderTurns();target=marker()||owner();target?.scrollIntoView({block:'center'});saveReading();
+ renderTurns();target=marker()||owner();scrollToReadingTarget(target,'center');saveReading();
 }
 let annotationPosition=null,annotationDrag=null,annotationCanDrag=false,annotationDeleteArmed=false;
 function resetAnnotationDelete(){annotationDeleteArmed=false;$('annotation-delete-hint').hidden=true;}
@@ -994,7 +1001,7 @@ function send(retryTurn=null){
 function stopConversation(id=state.active){const job=requests.get(id);if(!job)return;job.timers.forEach(clearTimeout);job.turn.incomplete=true;job.turn.endReason='user';job.turn.endedAt=new Date().toISOString();job.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:job.turn.endedAt});requests.delete(id);if(id===state.active){running=null;setBusy(false);renderTurns();status('已停止；本轮已保留，可继续提问。');}record('stop',{id});}
 function newConversation(){saveReading();const c={id:crypto.randomUUID(),title:'新对话',updatedAt:new Date().toISOString(),turns:[],entries:[],next:1,draft:'',permission:'完全访问',model:defaultModel(),effort:defaultEffort()};state.conversations.push(c);openConversation(c.id);record('new-conversation');$('composer').focus();}
 function search(){const q=$('search-input').value.trim().toLowerCase();matches=q?current().turns.filter(t=>(t.question+' '+t.answer).toLowerCase().includes(q)):[];matchIndex=0;showMatch();}
-function showMatch(){if(!matches.length){$('search-count').textContent='0';return;}matchIndex=(matchIndex+matches.length)%matches.length;$('search-count').textContent=(matchIndex+1)+'/'+matches.length;const turn=matches[matchIndex];if(revealFoldedTurn(turn))renderTurns();$(turn.id)?.scrollIntoView({block:'start'});saveReading();}
+function showMatch(){if(!matches.length){$('search-count').textContent='0';return;}matchIndex=(matchIndex+matches.length)%matches.length;$('search-count').textContent=(matchIndex+1)+'/'+matches.length;const turn=matches[matchIndex];if(revealFoldedTurn(turn))renderTurns();scrollToReadingTarget($(turn.id),'start');saveReading();}
 function tabTitle(title){const chars=[...new Intl.Segmenter('zh',{granularity:'grapheme'}).segment(title)].map(x=>x.segment);return chars.slice(0,15).join('')+(chars.length>15?'…':'');}
 function renderTabs(){
  state.openTabs=openTabs;const root=$('workspace-tabs');
@@ -1190,7 +1197,7 @@ $('thread').addEventListener('keydown',event=>{
  const t=current().turns.find(t=>t.id===id);
  if(t)toggleTurn(t,event.target)?.focus({preventScroll:true});
 });
-$('thread').addEventListener('click',event=>{const link=event.target.closest('[data-open-turn]');if(!link)return;const turn=current().turns.find(t=>t.id===link.dataset.openTurn);if(!turn)return;if(revealFoldedTurn(turn))renderTurns();$(turn.id)?.scrollIntoView({block:'center'});saveReading();});
+$('thread').addEventListener('click',event=>{const link=event.target.closest('[data-open-turn]');if(!link)return;const turn=current().turns.find(t=>t.id===link.dataset.openTurn);if(!turn)return;if(revealFoldedTurn(turn))renderTurns();scrollToReadingTarget($(turn.id),'center');saveReading();});
 $('thread').addEventListener('click',event=>{const link=event.target.closest('[data-snapshot-turn]');if(link){event.preventDefault();showSnapshot(link);return;}const close=event.target.closest('[data-close-preview]');if(close){const preview=$(close.dataset.closePreview+'-preview'),number=preview.dataset.number;hideSnapshot(preview);document.querySelector('[data-snapshot-turn="'+close.dataset.closePreview+'"][data-snapshot-number="'+number+'"]').focus({preventScroll:true});}});
 $('thread').addEventListener('keydown',event=>{if(event.key==='Escape'){const preview=event.target.closest('.snapshot-preview');if(preview){event.preventDefault();preview.querySelector('[data-close-preview]').click();}}});
 // Keep formula clicks in the reading surface.
@@ -1290,7 +1297,7 @@ function jumpToEquation(b){const id=b.dataset.equationRef,turn=current().turns.f
   if(p.contains(target)){for(const h of stack)if(turn.sections?.[h.id]){turn.sections[h.id]=false;changed=true;}break;}
  }
  if(changed)renderTurns();
- requestAnimationFrame(()=>{const target=$(id);if(target){target.scrollIntoView({block:'center'});target.classList.add('equation-target');saveReading();}});
+ requestAnimationFrame(()=>{const target=$(id);if(target){scrollToReadingTarget(target,'center');target.classList.add('equation-target');saveReading();}});
 }
 let equationPreviewLink=null;
 function closeEquationPreview(){

@@ -56,6 +56,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node prototypes/ai-chat-v02/equation-reference-browser.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:TEXEED_READER_CHROME_SCREENSHOTS = 'artifacts/ci-browser-reader'
           node prototypes/ai-chat-v02/reader-chrome-browser.test.cjs
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-turn-fold-only --offscreen --output artifacts/ci-turn-fold-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --preview-close-restore-only --offscreen --output artifacts/ci-preview-eye-check
@@ -78,6 +79,7 @@ jobs:
             artifacts/ci-ai-eqref-check/*.png
             artifacts/ci-ai-reader-resize-check/*.png
             artifacts/ci-ai-reader-resize-check/*.log
+            artifacts/ci-browser-reader/*.png
             artifacts/ci-ai-relations-check/*.png
             artifacts/ci-workspace-restore-check/*.png
             artifacts/ci-turn-fold-check/*.png
