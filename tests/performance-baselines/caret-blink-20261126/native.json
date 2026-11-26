@@ -1,0 +1,229 @@
+{
+  "baselineCommit": "3286e0839ad1f24f2becc98fdb4edf5a5ad0e685",
+  "baselineFixture": "../paragraph-focus-20261126/native.json",
+  "command": "--revision-editor-only --offscreen --output <isolated-folder>",
+  "environment": "Windows x64, Release, WPF. Performance runs use the same 0.6.5 TeXeed.AppTests.dll and swap the product assembly. Small fixture has 5 editable rows, one active editor, and five warm open samples per run. Long fixture has 40 turns, 70 editable rows in the target turn, one active editor. Timings end after dispatcher idle and layout. UI-thread bytes include delayed work drained before sampling.",
+  "renderedPixels": {
+    "method": "Sample the color actually rendered in the parent TextView. Poll at 25 ms; seven consecutive light/dark transitions. Time zero is immediately after positioning the insertion caret.",
+    "0.6.5": {
+      "observedSeconds": 4,
+      "transitionsMs": []
+    },
+    "0.6.6": {
+      "transitionsMs": [
+        282.7215,
+        499.9888,
+        749.5787,
+        1029.504,
+        1277.4073,
+        1527.2988,
+        1772.7274
+      ],
+      "medianBrightMs": 247.9,
+      "medianDarkMs": 249.9,
+      "medianPeriodMs": 497.8
+    }
+  },
+  "performanceRuns": [
+    {
+      "version": "0.6.5",
+      "batch": "a",
+      "small": {
+        "firstMenuMs": 69.6254,
+        "firstOpenMs": 126.6966,
+        "firstOpenUiAllocatedBytes": 3564104,
+        "editableRows": 5,
+        "initialNativeEditors": 1,
+        "warm": [
+          {
+            "menuMs": 13.462,
+            "openMs": 69.8821,
+            "openUiAllocatedBytes": 3021184
+          },
+          {
+            "menuMs": 13.866,
+            "openMs": 49.6821,
+            "openUiAllocatedBytes": 3025832
+          },
+          {
+            "menuMs": 26.099,
+            "openMs": 73.3282,
+            "openUiAllocatedBytes": 3032312
+          },
+          {
+            "menuMs": 18.0689,
+            "openMs": 118.0179,
+            "openUiAllocatedBytes": 3049968
+          },
+          {
+            "menuMs": 15.0337,
+            "openMs": 72.8707,
+            "openUiAllocatedBytes": 3006368
+          }
+        ]
+      },
+      "long": {
+        "turns": 40,
+        "editableRows": 70,
+        "initialNativeEditors": 1,
+        "openMs": 65.4696,
+        "openUiAllocatedBytes": 3959624,
+        "splitMs": 27.9587,
+        "splitUiAllocatedBytes": 895672,
+        "screenYBefore": 149.99999999999977,
+        "screenYAfter": 150,
+        "neighboringEditorReused": true
+      }
+    },
+    {
+      "version": "0.6.5",
+      "batch": "b",
+      "small": {
+        "firstMenuMs": 75.7728,
+        "firstOpenMs": 155.6159,
+        "firstOpenUiAllocatedBytes": 3564064,
+        "editableRows": 5,
+        "initialNativeEditors": 1,
+        "warm": [
+          {
+            "menuMs": 22.6935,
+            "openMs": 74.8646,
+            "openUiAllocatedBytes": 3021608
+          },
+          {
+            "menuMs": 20.8722,
+            "openMs": 80.6692,
+            "openUiAllocatedBytes": 3026256
+          },
+          {
+            "menuMs": 23.6612,
+            "openMs": 73.0767,
+            "openUiAllocatedBytes": 3032736
+          },
+          {
+            "menuMs": 22.0137,
+            "openMs": 121.7245,
+            "openUiAllocatedBytes": 3052464
+          },
+          {
+            "menuMs": 18.4663,
+            "openMs": 63.3099,
+            "openUiAllocatedBytes": 3006512
+          }
+        ]
+      },
+      "long": {
+        "turns": 40,
+        "editableRows": 70,
+        "initialNativeEditors": 1,
+        "openMs": 73.5934,
+        "openUiAllocatedBytes": 3960032,
+        "splitMs": 14.7545,
+        "splitUiAllocatedBytes": 895552,
+        "screenYBefore": 149.99999999999977,
+        "screenYAfter": 150,
+        "neighboringEditorReused": true
+      }
+    },
+    {
+      "version": "0.6.6",
+      "batch": "a",
+      "small": {
+        "firstMenuMs": 68.0118,
+        "firstOpenMs": 142.9257,
+        "firstOpenUiAllocatedBytes": 3567192,
+        "editableRows": 5,
+        "initialNativeEditors": 1,
+        "warm": [
+          {
+            "menuMs": 17.2631,
+            "openMs": 51.3923,
+            "openUiAllocatedBytes": 3023624
+          },
+          {
+            "menuMs": 17.6195,
+            "openMs": 53.6265,
+            "openUiAllocatedBytes": 3028272
+          },
+          {
+            "menuMs": 19.2931,
+            "openMs": 60.7402,
+            "openUiAllocatedBytes": 3034752
+          },
+          {
+            "menuMs": 23.3552,
+            "openMs": 86.9726,
+            "openUiAllocatedBytes": 3054432
+          },
+          {
+            "menuMs": 16.1703,
+            "openMs": 57.624,
+            "openUiAllocatedBytes": 3008528
+          }
+        ]
+      },
+      "long": {
+        "turns": 40,
+        "editableRows": 70,
+        "initialNativeEditors": 1,
+        "openMs": 91.7681,
+        "openUiAllocatedBytes": 3961504,
+        "splitMs": 17.9821,
+        "splitUiAllocatedBytes": 898576,
+        "screenYBefore": 149.99999999999977,
+        "screenYAfter": 150,
+        "neighboringEditorReused": true
+      }
+    },
+    {
+      "version": "0.6.6",
+      "batch": "b",
+      "small": {
+        "firstMenuMs": 82.723,
+        "firstOpenMs": 144.6745,
+        "firstOpenUiAllocatedBytes": 3566968,
+        "editableRows": 5,
+        "initialNativeEditors": 1,
+        "warm": [
+          {
+            "menuMs": 23.1539,
+            "openMs": 68.1605,
+            "openUiAllocatedBytes": 3023352
+          },
+          {
+            "menuMs": 17.3568,
+            "openMs": 66.1707,
+            "openUiAllocatedBytes": 3028000
+          },
+          {
+            "menuMs": 37.6772,
+            "openMs": 87.899,
+            "openUiAllocatedBytes": 3034480
+          },
+          {
+            "menuMs": 20.8789,
+            "openMs": 133.0201,
+            "openUiAllocatedBytes": 3054208
+          },
+          {
+            "menuMs": 20.5873,
+            "openMs": 69.7393,
+            "openUiAllocatedBytes": 3008256
+          }
+        ]
+      },
+      "long": {
+        "turns": 40,
+        "editableRows": 70,
+        "initialNativeEditors": 1,
+        "openMs": 97.8811,
+        "openUiAllocatedBytes": 3961232,
+        "splitMs": 17.6108,
+        "splitUiAllocatedBytes": 898304,
+        "screenYBefore": 149.99999999999977,
+        "screenYAfter": 150,
+        "neighboringEditorReused": true
+      }
+    }
+  ]
+}

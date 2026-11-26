@@ -1,0 +1,371 @@
+{
+  "baseline": "3286e08",
+  "chrome": "158.0.8127.38",
+  "viewport": [
+    1280,
+    900
+  ],
+  "fixture": "36 turns, seven passages each, 12 inline expressions per turn",
+  "before": {
+    "render": [
+      {
+        "ms": 84.1,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 100.1,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.2,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 100,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 100.6,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      }
+    ],
+    "open": [
+      {
+        "ms": 29.8,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 26.7,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 28.6,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.4,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 28.1,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10911,
+        "visible": 8
+      }
+    ],
+    "save": [
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.4,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.6,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 32,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31,
+        "nodes": 10908,
+        "visible": 10
+      }
+    ],
+    "renderSampledAllocationBytes": 1353792,
+    "openSampledAllocationBytes": 1067744,
+    "saveSampledAllocationBytes": 2083140,
+    "formula": [
+      {
+        "ms": 30.9,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      }
+    ],
+    "formulaSampledAllocationBytes": 2185560,
+    "settledAllocation": {
+      "open": [
+        107348,
+        135680,
+        113764,
+        111340,
+        129040
+      ],
+      "save": [
+        3183080,
+        3195808,
+        3218828,
+        3198984,
+        3219284
+      ]
+    },
+    "idle": {
+      "observedMs": 1602,
+      "layoutPasses": 0,
+      "styleRecalculations": 4,
+      "layoutMs": 0,
+      "caretCount": 1,
+      "animations": 1
+    }
+  },
+  "after": {
+    "render": [
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 100.1,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 116.8,
+        "nodes": 10908,
+        "visible": 8
+      },
+      {
+        "ms": 83.3,
+        "nodes": 10908,
+        "visible": 8
+      }
+    ],
+    "open": [
+      {
+        "ms": 31.1,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 30.9,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.4,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10911,
+        "visible": 8
+      },
+      {
+        "ms": 31.3,
+        "nodes": 10911,
+        "visible": 8
+      }
+    ],
+    "save": [
+      {
+        "ms": 31.2,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.3,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.2,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.2,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.2,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.5,
+        "nodes": 10908,
+        "visible": 10
+      }
+    ],
+    "renderSampledAllocationBytes": 1303648,
+    "openSampledAllocationBytes": 1082172,
+    "saveSampledAllocationBytes": 2080968,
+    "formula": [
+      {
+        "ms": 31.1,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 9
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 30.8,
+        "nodes": 10908,
+        "visible": 10
+      },
+      {
+        "ms": 31.1,
+        "nodes": 10908,
+        "visible": 10
+      }
+    ],
+    "formulaSampledAllocationBytes": 2218928,
+    "settledAllocation": {
+      "open": [
+        139720,
+        114772,
+        114824,
+        115948,
+        115680
+      ],
+      "save": [
+        3196848,
+        3201660,
+        3232644,
+        3221152,
+        3213448
+      ]
+    },
+    "idle": {
+      "observedMs": 1609,
+      "layoutPasses": 0,
+      "styleRecalculations": 6,
+      "layoutMs": 0,
+      "caretCount": 1,
+      "animations": 1
+    }
+  },
+  "candidate": "0.6.6",
+  "method": {
+    "timing": "One warm-up and seven measurements per action through two requestAnimationFrames on the paragraph-focus-20261126 fixture.",
+    "settledAllocation": "Five paired open/save sequences; CDP V8 sampled allocation at 512 bytes, including collected samples, after allowing 350 ms for the previous action and 350 ms for delayed work.",
+    "idle": "Compare CDP Performance.getMetrics counters across 1600 ms with a focused editable paragraph and the blinking caret. Three CSS pixels wide; one visible indicator."
+  }
+}

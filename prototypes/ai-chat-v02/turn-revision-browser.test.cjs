@@ -2,6 +2,67 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'), path=require('node:path'), {pathToFileURL}=require('node:url');
 const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
+
+async function checkCaretBlink(page,editor,dir){
+ const indicator=editor.locator('.revision-caret');
+ const cycle=await indicator.evaluate(async caret=>{
+   const animation=caret.getAnimations()[0];
+   if(!animation)throw new Error('Focused paragraph has no caret animation');
+   const duration=animation.effect.getTiming().duration;
+   const edges=[];let previous;
+   const start=performance.now();
+   do{
+     await new Promise(requestAnimationFrame);
+     const time=animation.currentTime;
+     const visible=getComputedStyle(caret).opacity==='1';
+     if(visible!==previous){edges.push({time,visible});previous=visible;}
+   }while(edges.length<6&&performance.now()-start<4000);
+   return {duration,edges};
+ });
+ assert.equal(cycle.duration,500);
+ assert(cycle.edges.length>=5,'Fewer than two complete caret blinks observed');
+ for(const {time,visible} of cycle.edges.slice(1)){
+   const phase=time%500;
+   if(Math.min(phase,Math.abs(phase-250),500-phase)>1)
+     assert.equal(visible,phase<250,'Rendered opacity should change with each 250 ms half-cycle');
+ }
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ assert.equal(await indicator.evaluate(el=>el.getAnimations()[0].effect.getTiming().duration),500);
+ // Inspect opposite phases of that same animation without racing a screenshot against the next frame.
+ const setPhase=async time=>indicator.evaluate((caret,time)=>{
+   const animation=caret.getAnimations()[0];animation.pause();animation.currentTime=time;
+   return Number(getComputedStyle(caret).opacity);
+ },time);
+ for(const [time,expected] of [[0,1],[249,1],[250,0],[499,0],[500,1]])
+   assert.equal(await setPhase(time),expected,'Unexpected caret opacity at '+time+' ms');
+ assert.equal(await setPhase(125),1);
+ if(dir)await editor.screenshot({path:path.join(dir,'focused-paragraph.png')});
+ const bright=await indicator.screenshot();
+ assert.equal(await setPhase(375),0);
+ if(dir)await editor.screenshot({path:path.join(dir,'caret-off.png')});
+ const dark=await indicator.screenshot();
+ assert(!bright.equals(dark),'Painted caret pixels should change between bright and dark phases');
+ await page.keyboard.press('ArrowLeft');
+ await page.waitForFunction(()=>getComputedStyle(document.querySelector('#focus .revision-caret')).opacity==='1');
+ assert.equal(await setPhase(375),0);
+ await page.keyboard.insertText('再');
+ await page.waitForFunction(()=>getComputedStyle(document.querySelector('#focus .revision-caret')).opacity==='1');
+ await page.keyboard.press('Backspace');
+ await page.keyboard.press('Shift+ArrowRight');
+ await indicator.waitFor({state:'hidden'});
+ assert.equal(await indicator.evaluate(caret=>caret.getAnimations().length),0);
+ await page.keyboard.press('ArrowLeft');
+ await indicator.waitFor({state:'visible'});
+ const ime=await page.context().newCDPSession(page);
+ try{
+   await ime.send('Input.imeSetComposition',{text:'校',selectionStart:1,selectionEnd:1});
+   await indicator.waitFor({state:'hidden'});
+   await ime.send('Input.imeSetComposition',{text:'',selectionStart:0,selectionEnd:0});
+   await indicator.waitFor({state:'visible'});
+ }finally{await ime.detach();}
+ console.log('Caret half-cycle transitions (ms):',cycle.edges.slice(1).map(x=>Math.round(x.time)));
+}
+
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.TEXEED_BROWSER_PATH?{executablePath:process.env.TEXEED_BROWSER_PATH}:{})});
  try{
@@ -240,7 +301,7 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
     return {x:Math.abs(caret.x-range.x),mid:Math.abs((caret.top+caret.bottom-range.top-range.bottom)/2),color:getComputedStyle(el).backgroundColor};
   });
   assert(geometry.x<1&&geometry.mid<1&&geometry.color==='rgb(98, 229, 255)',JSON.stringify(geometry));
-  if(dir)await editor.screenshot({path:path.join(dir,'focused-paragraph.png')});
+  await checkCaretBlink(page,editor,dir);
   await page.locator('#composer').focus();assert.equal(await fields.count(),0);
   await page.evaluate(()=>renderTurns());assert.equal(await fields.count(),0);
   assert.equal(await page.evaluate(()=>document.activeElement.id),'composer');

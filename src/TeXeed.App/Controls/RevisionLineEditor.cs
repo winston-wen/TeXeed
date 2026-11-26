@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Documents;
 using Markdig;
 using System.Windows.Media;
+using System.Windows.Threading;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
@@ -59,13 +60,17 @@ internal sealed class RevisionLineEditor : TextEditor
     // Paint its bounds at a readable width without changing the system-wide caret.
     internal sealed class SourceCaret : FrameworkElement
     {
+        private const int HalfPeriodMilliseconds = 250;
         private readonly TextArea _area;
+        private readonly DispatcherTimer _blink;
+        private long _blinkStart;
+        private bool HasInsertionPoint => _area.IsKeyboardFocusWithin && _area.Selection.IsEmpty;
         internal Brush Fill => (Brush)GetValue(System.Windows.Shapes.Shape.FillProperty);
         internal Rect InkBounds
         {
             get
             {
-                if (!_area.IsKeyboardFocusWithin || !_area.Selection.IsEmpty || !_area.TextView.VisualLinesValid) return Rect.Empty;
+                if (!HasInsertionPoint || !_area.TextView.VisualLinesValid) return Rect.Empty;
                 var rect = _area.Caret.CalculateCaretRectangle();
                 if (rect.IsEmpty) return rect;
                 rect.Offset(-_area.TextView.ScrollOffset.X, -_area.TextView.ScrollOffset.Y);
@@ -77,12 +82,42 @@ internal sealed class RevisionLineEditor : TextEditor
         {
             _area = area;
             IsHitTestVisible = false;
+            _blink = new DispatcherTimer(DispatcherPriority.Render, Dispatcher) { Interval = TimeSpan.FromMilliseconds(HalfPeriodMilliseconds) };
+            _blink.Tick += Blink;
             SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "RevisionCaret");
-            area.Caret.PositionChanged += (_, _) => InvalidateVisual();
-            area.SelectionChanged += (_, _) => InvalidateVisual();
-            area.IsKeyboardFocusWithinChanged += (_, _) => InvalidateVisual();
+            area.Caret.PositionChanged += (_, _) => UpdatePosition();
+            area.SelectionChanged += (_, _) => UpdatePosition();
+            area.IsKeyboardFocusWithinChanged += (_, _) => UpdatePosition();
+            area.Document.TextChanged += (_, _) => RestartBlink();
+            Loaded += (_, _) => RestartBlink();
+            Unloaded += (_, _) => StopBlink();
+            IsVisibleChanged += (_, _) => RestartBlink();
             area.TextView.VisualLinesChanged += (_, _) => InvalidateVisual();
             area.TextView.ScrollOffsetChanged += (_, _) => InvalidateVisual();
+        }
+        private void UpdatePosition()
+        {
+            InvalidateVisual();
+            RestartBlink();
+        }
+        private void RestartBlink()
+        {
+            if (!IsLoaded || !IsVisible || !HasInsertionPoint) { StopBlink(); return; }
+            _blinkStart = Environment.TickCount64;
+            Opacity = 1;
+            _blink.Start();
+        }
+        private void StopBlink()
+        {
+            _blink.Stop();
+            Opacity = 0;
+        }
+        private void Blink(object? sender, EventArgs e)
+        {
+            // Keep the phase tied to the last edit even if a busy dispatcher delivers a late tick.
+            var elapsed = Environment.TickCount64 - _blinkStart;
+            Opacity = elapsed / HalfPeriodMilliseconds % 2 == 0 ? 1 : 0;
+            _blink.Interval = TimeSpan.FromMilliseconds(HalfPeriodMilliseconds - elapsed % HalfPeriodMilliseconds);
         }
         protected override void OnRender(DrawingContext drawingContext)
         {

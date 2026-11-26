@@ -453,7 +453,7 @@
     }
     const start=point(at);getSelection().setBaseAndExtent(...start,...(at===end?start:point(end)));
     if(reveal)words.scrollIntoView({block:'nearest',inline:'nearest'});
-    queueCaret();
+    restartCaret();
   }
   function paintWords(words,parts){
     words.replaceChildren(...parts.map(p=>isText(p)?document.createTextNode(p):linkFor(p.ref)));
@@ -488,16 +488,19 @@
   // The browser paints its usual caret whenever the IME or a selection owns it.
   const caret=make('span','revision-caret');
   caret.setAttribute('aria-hidden','true');
-  let sourceWords=null,caretFrame=0;
+  let sourceWords=null,caretFrame=0,resetBlink=false;
   function queueCaret(){
     if(sourceWords&&!caretFrame)caretFrame=requestAnimationFrame(updateCaret);
+  }
+  function restartCaret(){
+    resetBlink=true;queueCaret();
   }
   function updateCaret(){
     caretFrame=0;
     const words=sourceWords,selection=getSelection();
     if(!words)return;
     const row=words.parentElement;
-    let valid=words.isConnected&&document.activeElement===words&&!words.classList.contains('composing')&&selection.isCollapsed&&selection.rangeCount&&words.contains(selection.anchorNode);
+    let valid=words.isConnected&&document.hasFocus()&&document.activeElement===words&&!words.classList.contains('composing')&&selection.isCollapsed&&selection.rangeCount&&words.contains(selection.anchorNode);
     if(valid){
       const range=selection.getRangeAt(0),box=row.getBoundingClientRect(),rect=range.getBoundingClientRect();
       const style=getComputedStyle(words),height=parseFloat(style.fontSize)*1.15;
@@ -511,17 +514,22 @@
         else valid=false;
       }
       if(valid){
+        if(resetBlink&&caret.parentNode===row&&!caret.hidden){
+          const blink=caret.getAnimations()[0];
+          if(blink)blink.currentTime=0;
+        }
         caret.style.left=(left-box.left)+'px';caret.style.top=(top-box.top)+'px';caret.style.height=height+'px';
         if(caret.parentNode!==row)row.append(caret);
       }
     }
-    caret.hidden=!valid;words.classList.toggle('drawn-caret',!!valid);
+    resetBlink=false;caret.hidden=!valid;words.classList.toggle('drawn-caret',!!valid);
   }
   const resized=new ResizeObserver(queueCaret);
   function endCaret(){
     if(!sourceWords)return;
     sourceWords.classList.remove('drawn-caret','composing');sourceWords=null;
-    document.removeEventListener('selectionchange',queueCaret);resized.disconnect();
+    document.removeEventListener('selectionchange',restartCaret);resized.disconnect();
+    window.removeEventListener('blur',queueCaret);window.removeEventListener('focus',restartCaret);
     cancelAnimationFrame(caretFrame);caretFrame=0;caret.remove();
   }
   function caretIn(i,at){setCaret(body.querySelectorAll('.words')[i],at)}
@@ -558,7 +566,8 @@
       endCaret();activeId=id;words.contentEditable='true';paintWords(words,row.parts);
       const number=words.parentElement.querySelector('.revision-number');
       if(number)number.textContent='#'.repeat(row.level)+' ';
-      sourceWords=words;resized.observe(words.parentElement);document.addEventListener('selectionchange',queueCaret);
+      sourceWords=words;resized.observe(words.parentElement);document.addEventListener('selectionchange',restartCaret);
+      window.addEventListener('blur',queueCaret);window.addEventListener('focus',restartCaret);
       setCaret(words,0,false);controls();
     };
     words.onmousedown=e=>{
@@ -689,7 +698,7 @@
         else if(e.inputType.startsWith('insert')){e.preventDefault();replace(...pos,e.data??e.dataTransfer?.getData('text/plain')??'')}
       }
     };
-    words.oninput=e=>{if(!e.isComposing)sync()};
+    words.oninput=e=>{if(!e.isComposing){sync();restartCaret();}};
     words.addEventListener('compositionstart',()=>{
       words.classList.add('composing');queueCaret();
       normalizeSelection(words);

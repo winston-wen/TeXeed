@@ -16,6 +16,73 @@ using TeXeed.App.Services;
 
 internal static partial class Program
 {
+    // Sample the rendered TextView, including the opacity of its caret layer.
+    private static bool RevisionCaretPainted(RevisionLineEditor line)
+    {
+        var caret = Descendants<RevisionLineEditor.SourceCaret>(line).Single();
+        var bounds = caret.InkBounds;
+        if (bounds.IsEmpty) return false;
+        var view = line.TextArea.TextView;
+        var center = caret.TranslatePoint(new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2), view);
+        var brush = new VisualBrush(view)
+        {
+            ViewboxUnits = BrushMappingMode.Absolute,
+            Viewbox = new Rect(Math.Floor(center.X), Math.Floor(center.Y), 1, 1),
+            Stretch = Stretch.Fill
+        };
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen()) dc.DrawRectangle(brush, null, new Rect(0, 0, 1, 1));
+        var image = new RenderTargetBitmap(1, 1, 96, 96, PixelFormats.Pbgra32);
+        image.Render(visual);
+        var pixel = new byte[4];
+        image.CopyPixels(pixel, 4, 0);
+        var expected = ThemeManager.Brush("RevisionCaret").Color;
+        return pixel[0] == expected.B && pixel[1] == expected.G && pixel[2] == expected.R;
+    }
+
+    private static async Task CheckRevisionCaretBlinkAsync(Window host, RevisionLineEditor line, string output)
+    {
+        var start = line.CaretOffset;
+        line.CaretOffset = 0;
+        line.CaretOffset = start;
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        var transitions = new List<double>();
+        var elapsed = Stopwatch.StartNew();
+        var lit = RevisionCaretPainted(line);
+        if (!lit) throw new Exception("A recently moved insertion caret is not painted");
+        while (transitions.Count < 7 && elapsed.Elapsed.TotalSeconds < 4)
+        {
+            await Task.Delay(25);
+            var next = RevisionCaretPainted(line);
+            if (lit == next) continue;
+            transitions.Add(elapsed.Elapsed.TotalMilliseconds);
+            lit = next;
+        }
+        File.WriteAllText(Path.Combine(output, "revision-caret-transitions-ms.json"), JsonSerializer.Serialize(transitions));
+        if (transitions.Count < 7)
+            throw new Exception($"Only {transitions.Count} rendered caret transitions in {elapsed.Elapsed.TotalSeconds:F1}s.");
+        // Compare full cycles and both half-cycles. Median tolerates an occasional busy dispatcher frame.
+        var bright = new List<double>(); var dark = new List<double>(); var periods = new List<double>();
+        for (var i = 1; i < transitions.Count; i++)
+        {
+            (i % 2 == 0 ? bright : dark).Add(transitions[i] - transitions[i - 1]);
+            if (i >= 2) periods.Add(transitions[i] - transitions[i - 2]);
+        }
+        static double Median(List<double> values) => values.Order().ElementAt(values.Count / 2);
+        if (Median(periods) is < 425 or > 595 || Median(bright) is < 175 or > 337 || Median(dark) is < 175 or > 337)
+            throw new Exception($"Unexpected bright/dark durations or period: {string.Join(", ", transitions.Select(t => t.ToString("F0")))} ms");
+        Console.WriteLine($"Caret pixels: bright {Median(bright):F0} ms, dark {Median(dark):F0} ms, full period {Median(periods):F0} ms.");
+        Capture(host, Path.Combine(output, "revision-paragraph-ristretto-off.png"));
+        line.CaretOffset--;
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        if (!RevisionCaretPainted(line)) throw new Exception("Moving during the dark phase did not light the caret");
+        line.Select(0, 2);
+        if (RevisionCaretPainted(line)) throw new Exception("Selection still paints an insertion caret");
+        line.Select(2, 0);
+        await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        if (!RevisionCaretPainted(line)) throw new Exception("Collapsing a selection did not light the caret");
+    }
+
     private static async Task CheckRevisionEditorAsync(MainWindow owner, string output)
     {
         static void Check(bool ok, string reason) { if (!ok) throw new Exception(reason); }
@@ -128,7 +195,7 @@ internal static partial class Program
                 foreach (var theme in new[] { "ristretto", "github-light-default" })
                 {
                     ThemeManager.Apply(theme);
-                    var focused = ActiveLine(1); focused.CaretOffset = 2;
+                    var focused = ActiveLine(1); focused.CaretOffset = 0; focused.CaretOffset = 2;
                     await Idle();
                     var caret = Descendants<RevisionLineEditor.SourceCaret>(focused).Single();
                     var ink = caret.InkBounds;
@@ -143,16 +210,28 @@ internal static partial class Program
                     var expected = ThemeManager.Brush("RevisionCaret").Color;
                     Check(pixel[0] == expected.B && pixel[1] == expected.G && pixel[2] == expected.R,
                         $"The {theme} caret at {center} painted #{pixel[2]:X2}{pixel[1]:X2}{pixel[0]:X2}, expected {expected}");
+                    if (theme == "ristretto") await CheckRevisionCaretBlinkAsync(host, focused, output);
                 }
             }
             finally { ThemeManager.Apply(originalTheme); }
+            var previousCaret = Descendants<RevisionLineEditor.SourceCaret>(ActiveLine(1)).Single();
             await KeyIn(1, Key.Right, ActiveLine(1).Text.Length);
             Check(ActiveLine(2).CaretOffset == 0, "Right at the end of a paragraph did not switch its neighbour into source");
+            Check(RevisionCaretPainted(ActiveLine(2)), "Newly focused paragraph did not paint its insertion caret");
+            var inactive = Stopwatch.StartNew();
+            while (inactive.ElapsedMilliseconds < 600)
+            {
+                Check(!previousCaret.IsLoaded && previousCaret.Opacity == 0,
+                    "The previous paragraph's caret continued blinking after it was detached");
+                await Task.Delay(40);
+            }
             await KeyIn(2, Key.Left, 0);
             Check(ActiveLine(1).CaretOffset == Rows()[1].Text.Length, "Left at the start did not restore the previous paragraph and caret");
             await KeyIn(1, Key.Enter, ActiveLine(1).Text.Length);
             var oneCharacter = ActiveLine(2);
+            await WaitUntilAsync(() => !RevisionCaretPainted(oneCharacter), "The empty paragraph's caret did not blink");
             Type(oneCharacter, "甲"); await Idle();
+            Check(RevisionCaretPainted(oneCharacter), "Typing during the dark phase did not light the caret");
             Check(oneCharacter.SelectionLength == 0 && oneCharacter.CaretOffset == 1, "Single-character deletion fixture has an unexpected selection");
             var hwnd = new WindowInteropHelper(host).Handle;
             var backspace = KeyInterop.VirtualKeyFromKey(Key.Back);

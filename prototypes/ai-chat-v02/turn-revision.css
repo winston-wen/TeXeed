@@ -11,9 +11,8 @@
 .revision-row .words { white-space:pre-wrap;min-height:1lh;outline-offset:3px;outline:none;overflow-wrap:anywhere;cursor:text }
 .revision-row .words[contenteditable] { caret-color:var(--revision-caret) }
 .revision-row .words.drawn-caret { caret-color:transparent }
-.revision-caret { position:absolute; width:3px; background:var(--revision-caret); pointer-events:none; animation:revision-blink 1.1s steps(1,end) infinite }
-@keyframes revision-blink { 0%,60% {opacity:1} 61%,100% {opacity:0} }
-@media (prefers-reduced-motion:reduce) { .revision-caret {animation:none} }
+.revision-caret { position:absolute; width:3px; background:var(--revision-caret); pointer-events:none; animation:revision-blink 500ms step-end infinite }
+@keyframes revision-blink { 0% {opacity:1} 50%,100% {opacity:0} }
 @media (forced-colors:active) { .revision-caret {background:Highlight;forced-color-adjust:none} }
 .revision-number { color:var(--gold,#d9b883) }
 .revision-choice { cursor:pointer;border-radius:3px }
