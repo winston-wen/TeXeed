@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 using TeXeed.App.AI;
 using TeXeed.App.Controls;
@@ -16,6 +17,27 @@ internal static partial class Program
     [DllImport("user32.dll")] private static extern bool ReleaseCapture();
     [DllImport("user32.dll")] private static extern bool GetKeyboardState([Out] byte[] state);
     [DllImport("user32.dll")] private static extern bool SetKeyboardState(byte[] state);
+    private static GlyphRun EquationNumberGlyphs(Visual element, string expected)
+    {
+        var runs = GlyphRuns(VisualTreeHelper.GetDrawing(element)).ToArray();
+        if (runs.Length == 0) throw new Exception("No painted equation number " + expected);
+        var first = runs[0];
+        if (runs.Any(run => run.GlyphTypeface.FontUri != first.GlyphTypeface.FontUri || run.FontRenderingEmSize != first.FontRenderingEmSize) ||
+            !runs.SelectMany(run => run.GlyphIndices).SequenceEqual(expected.Select(c => first.GlyphTypeface.CharacterToGlyphMap[c])))
+            throw new Exception("Wrong equation number glyphs: " + expected);
+        return first;
+    }
+
+    private static void CheckEquationNumberFace(GlyphRun preview, ChatFormula formula, string number)
+    {
+        DependencyObject? node = formula;
+        while (node is not null && node is not ChatFormulaRow) node = VisualTreeHelper.GetParent(node);
+        var body = EquationNumberGlyphs((ChatFormulaRow)node!, number);
+        if (preview.GlyphTypeface.FontUri != body.GlyphTypeface.FontUri || preview.GlyphTypeface.Weight != body.GlyphTypeface.Weight ||
+            preview.GlyphTypeface.StyleSimulations != body.GlyphTypeface.StyleSimulations || preview.FontRenderingEmSize != body.FontRenderingEmSize ||
+            !body.GlyphTypeface.FamilyNames.Values.Contains("Times New Roman") || body.FontRenderingEmSize != 13 || body.GlyphTypeface.Weight != FontWeights.Normal)
+            throw new Exception($"Preview and display number use different fonts, weights or sizes: {preview.GlyphTypeface.FontUri} {preview.FontRenderingEmSize} / {body.GlyphTypeface.FontUri} {body.FontRenderingEmSize}");
+    }
     private static void DoubleClickEquation(Hyperlink link)
     {
         var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
@@ -138,6 +160,7 @@ internal static partial class Program
                     folds.Count(p => p.Value) != foldsBefore || Math.Abs(scroll.VerticalOffset - viewPosition) > .5 || Math.Abs(before.Y-after.Y) > .5)
                     throw new Exception($"Incorrect or clipped preview, changed folds or lost position for {fixture.Name}: {shown.ActualWidth}×{shown.ActualHeight}, Δscroll {scroll.VerticalOffset-viewPosition}");
                 SaveLiteralVisual(surface, Path.Combine(output, "eqref-preview-" + fixture.Name + ".png"));
+                var numberGlyphs = EquationNumberGlyphs(Descendants<ChatEquationNumber>(surface).Single(), fixture.Label);
                 if (windowMouse)
                 {
                     await Task.Delay((int)GetDoubleClickTime() + 40);
@@ -146,6 +169,7 @@ internal static partial class Program
                 else DoubleClickEquation(link);
                 await Layout();
                 var target = Descendants<ChatFormula>(view).First(f => f.Source == fixture.Tex);
+                CheckEquationNumberFace(numberGlyphs, target, fixture.Label);
                 var y = target.TranslatePoint(new Point(), scroll).Y;
                 if (popup.IsOpen || y < -1 || y + target.ActualHeight > scroll.ViewportHeight + 1 || !target.IsVisible ||
                     folds.Count(p => p.Value) != (fixture.Name == "aligned" ? 0 : foldsBefore))
@@ -185,5 +209,6 @@ internal static partial class Program
             Console.WriteLine("PASS: single- and two-line equations preview in place and double-click the exact target, including folded parents and numbered aliases.");
         }
         finally { host.Close(); }
+        await CheckConversationEquationReferencesAsync(owner, output, single, multi, windowMouse);
     }
 }

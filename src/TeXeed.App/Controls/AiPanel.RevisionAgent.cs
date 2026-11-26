@@ -22,18 +22,49 @@ public partial class AiPanel
     private AiRevisionRunner CreateRevisionRunner(AiRevisionRequest request, Action<bool> setWaiting)
     {
         var conversation = _book.Active;
+        var requestedApproval = conversation.Permission == AiPermission.AskBeforeShell;
+        var reviewed = new HashSet<string>();
+        var candidates = new Dictionary<string, AiRelatedRevision>();
+        var denied = false;
+        void ScanVersion(AiTurn current, AiTurnRevision prior, CancellationToken token)
+        {
+            foreach (var related in AiRevisionImpact.Scan(conversation.Turns, AiRevisionImpact.AtVersion(current, prior), current, token))
+                if (related.Target != request.TargetTurnId) candidates[related.Target] = related;
+        }
+        var restored = false;
         return (name, arguments, token) => Dispatcher.InvokeAsync(async () =>
         {
             token.ThrowIfCancellationRequested();
             if (_disposed || !ReferenceEquals(conversation, _book.Active))
                 throw new InvalidOperationException("改稿会话已经切换。");
-            var target = conversation.Turns.FirstOrDefault(t => t.Id == request.TargetTurnId && !t.IsIncomplete)
-                ?? throw new InvalidOperationException("找不到授权改稿的轮次。");
+            if (conversation.Permission == AiPermission.ReadOnly) throw new UnauthorizedAccessException("当前会话为只读。");
+            if (denied) return "用户已拒绝本次改稿，未执行后续写入。";
             if (name == "await_revision_reply") { setWaiting(true); return "已保留改稿任务，请在本轮答复中给出澄清问题。"; }
             using var json = JsonDocument.Parse(arguments);
             var args = json.RootElement;
+            if (!restored)
+            {
+                foreach (var saved in conversation.Turns.Where(t => t.RevisionHistory?.Count > 1))
+                {
+                    var history = saved.RevisionHistory!;
+                    var i = history.FindIndex(r => r.OperationId?.StartsWith(request.TaskId + "/", StringComparison.Ordinal) == true);
+                    if (i > 0) ScanVersion(saved, history[i - 1], token);
+                }
+                restored = true;
+            }
+            var id = name == "read_answer_revision" ? request.TargetTurnId : args.GetProperty("target").GetString();
+            var operationId = name == "apply_answer_revision" ? request.TaskId + "/" + AiStorage.Hash(arguments) : null;
+            var target = conversation.Turns.FirstOrDefault(t => t.Id == id && !t.IsIncomplete);
+            string SavedResult() => "已保存。已扫描本会话其他已完成轮次。\n" +
+                (candidates.Count == 0 ? "未发现需要复核的引用或相关段落。" :
+                "请逐项复核以下相关轮次，仅在需要时连带修改。\n" + JsonSerializer.Serialize(candidates.Values.OrderBy(c => c.Turn), RevisionToolJson));
+            if (operationId is not null && target?.RevisionHistory?.Any(r => r.OperationId == operationId) == true) return SavedResult();
+            if (id is null || id != request.TargetTurnId && (!candidates.ContainsKey(id) ||
+                name == "apply_answer_revision" && !reviewed.Contains(id)))
+                throw new InvalidOperationException("提交目标与用户选定的轮次不符；连带改稿须先读取扫描列出的相关轮次。");
+            if (target is null) throw new InvalidOperationException("找不到授权改稿的轮次。");
             var draft = BeginRevision(target);
-            if (name == "read_answer_revision")
+            if (name is "read_answer_revision" or "read_related_answer_revision")
             {
                 var start = args.GetProperty("start_row").GetInt32();
                 var count = args.GetProperty("max_rows").GetInt32();
@@ -44,27 +75,45 @@ public partial class AiPanel
                 var taskHistory = prior.Select(t => new { instruction = t.Prompt,
                     clarification = t.RevisionRequest!.AwaitingReply ? t.Answer : null,
                     replies = AiForms.AllFromTurn(t).Where(form => taskTurns.Contains(form.TurnId)).Select(form => form.Values) });
-                return JsonSerializer.Serialize(new { target = target.Id, version = draft.Version, total_rows = draft.Rows.Count,
+                if (start < draft.Rows.Count) reviewed.Add(target.Id);
+                return JsonSerializer.Serialize(new { target = target.Id, turn = conversation.Turns.IndexOf(target) + 1, version = draft.Version, total_rows = draft.Rows.Count,
+                    potentially_affected = candidates.Values.OrderBy(c => c.Turn),
                     next_row = start + count < draft.Rows.Count ? (int?)(start + count) : null,
                     task_history = taskHistory, rows = draft.Rows.Skip(start).Take(count).Select(DescribeRevisionRow) }, RevisionToolJson);
             }
-            if (args.GetProperty("target").GetString() != target.Id) throw new InvalidOperationException("提交目标与用户选定的轮次不符。");
             var version = args.GetProperty("version").GetString();
             var changes = args.GetProperty("changes");
-            var operationId = request.TaskId + "/" + AiStorage.Hash(arguments);
-            if (target.RevisionHistory?.Any(r => r.OperationId == operationId) == true) return "这次改稿已保存。";
             if (version != draft.Version) throw new InvalidOperationException("稿件版本已变化，请读取最新版后核对。");
+            if (target.UserRevisionDraft is not null) throw new InvalidOperationException("该轮有未完成的手动整理，请先保存或取消手动整理。");
             var rows = ApplyRevisionChanges(draft, changes);
-            await CommitRevisionAsync(target.Id, draft.Version, rows, "ai", operationId);
+            var needsApproval = requestedApproval || conversation.Permission == AiPermission.AskBeforeShell;
+            if (needsApproval)
+            {
+                var owner = System.Windows.Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow;
+                var number = conversation.Turns.IndexOf(target) + 1;
+                var question = id == request.TargetTurnId ? $"AI 请求把整理稿保存到第 {number} 轮。" : $"AI 请求连带修改第 {number} 轮。{string.Join("，", candidates[id].Reasons)}。";
+                var choice = await AiShellApproval.ShowAsync(owner, "允许修改会话正文？", question,
+                    [("拒绝", "deny"), ("同意修改", "once")], token, AiRevisionText.Source(rows), "查看拟保存的正文");
+                if (choice.Choice == "feedback") return "尚未保存。请根据用户的意见调整后重新提交：" + choice.Feedback;
+                if (choice.Choice != "once") { denied = true; setWaiting(false); return "用户已拒绝本次改稿，原文已保留。"; }
+                if (_disposed || conversation != _book.Active || conversation.Permission == AiPermission.ReadOnly)
+                    throw new InvalidOperationException("会话或改稿权限已经变化，请重新发起改稿。");
+            }
+            await CommitRevisionAsync(target.Id, draft.Version, rows, "ai", operationId, token, approved: needsApproval);
             setWaiting(false);
-            return "已保存到指定轮次。";
+            var updated = conversation.Turns.First(t => t.Id == id);
+            if (ReferenceEquals(target, updated)) return "本轮正文已经符合此次提交，无需修改。";
+            foreach (var related in AiRevisionImpact.Scan(conversation.Turns, target, updated, token))
+                if (related.Target != request.TargetTurnId) candidates[related.Target] = related;
+            candidates.Remove(id);
+            return SavedResult();
         }).Task.Unwrap();
     }
 
     private static object DescribeRevisionRow(AiRevisionRow row)
     {
-        if (row.Locked) return new { id = row.Id, level = row.Level, locked = true, source = row.Text };
-        var buffer = RevisionBuffer.From(row);
+        if (row.Locked && !AiRevisionText.IsDisplayFormula(row.Text)) return new { id = row.Id, level = row.Level, locked = true, source = row.Text };
+        var buffer = RevisionBuffer.From(row, RevisionMathScope.All);
         var parts = new List<object>();
         var start = 0;
         for (var i = 0; i < buffer.Atoms.Count; i++)
@@ -72,7 +121,7 @@ public partial class AiPanel
             var atom = buffer.Atoms[i];
             if (atom.At > start) parts.Add(new { kind = "text", value = buffer.Display[start..atom.At] });
             parts.Add(new { kind = "keep", value = i.ToString(CultureInfo.InvariantCulture), source = atom.Source, references = atom.Links.Select(l => l.Label) });
-            start = atom.At + 1;
+            start = atom.End;
         }
         if (buffer.Display.Length > start) parts.Add(new { kind = "text", value = buffer.Display[start..] });
         return new { id = row.Id, level = row.Level, locked = false, parts };
@@ -109,11 +158,11 @@ public partial class AiPanel
             var replace = position == "replace";
             if (!edits.Remove((original.Id, position), out var paragraphs)) { if (replace) rows.Add(original); return; }
             var row = replace ? original : new AiRevisionRow(Guid.NewGuid().ToString("N"), original.SegmentId, "", 0, false, []);
-            if (row.Locked) throw new InvalidOperationException("该段包含受保护的对象，无法改写。");
-            var buffer = RevisionBuffer.From(row);
+            if (row.Locked && !AiRevisionText.IsDisplayFormula(row.Text)) throw new InvalidOperationException("该段包含受保护的对象，无法改写。");
+            var buffer = RevisionBuffer.From(row, RevisionMathScope.All);
             if (paragraphs.GetArrayLength() == 0 && buffer.Atoms.All(a => a.Source.Length == 0))
             {
-                Append(row with { Text = "", Links = row.Links.Select(l => l with { Offset = 0 }).ToList() });
+                Append(row with { Text = "", Level = 0, Locked = false, Links = row.Links.Select(l => l with { Offset = 0 }).ToList() });
                 return;
             }
             var expected = 0; var first = true;
@@ -128,7 +177,6 @@ public partial class AiPanel
                     var value = part.GetProperty("value").GetString() ?? throw new InvalidOperationException("请提供文字或对象编号。");
                     if (kind == "text")
                     {
-                        if (value.Contains('\r') || value.Contains('\n')) throw new InvalidOperationException("每个段落独立提交，请将换行拆成多个段落。");
                         text.Append(value);
                         continue;
                     }
@@ -137,9 +185,11 @@ public partial class AiPanel
                     atoms.Add(buffer.Atoms[expected++] with { At = text.Length }); text.Append(RevisionBuffer.Marker);
                 }
                 var updated = first ? row with { Level = level } : new AiRevisionRow(Guid.NewGuid().ToString("N"), row.SegmentId, "", level, false, []);
-                Append(new RevisionBuffer(text.ToString(), atoms).Apply(updated)); first = false;
+                updated = new RevisionBuffer(text.ToString(), atoms).Apply(updated);
+                Append(updated with { Locked = AiRevisionText.IsDisplayFormula(updated.Text) });
+                first = false;
             }
-            if (expected != buffer.Atoms.Count) throw new InvalidOperationException("改稿缺少原段落中的公式或引用。");
+            if (expected != buffer.Atoms.Count) throw new InvalidOperationException("改稿缺少原段落中受保护的对象或会话引用。");
         }
         foreach (var row in draft.Rows) { ApplyAt(row, "before"); ApplyAt(row, "replace"); ApplyAt(row, "after"); }
         if (edits.Count != 0) throw new InvalidOperationException("指定的段落不属于当前稿件。");

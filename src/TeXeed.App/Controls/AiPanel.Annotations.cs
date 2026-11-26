@@ -51,7 +51,10 @@ public partial class AiPanel
     {
         if (sender is not MarkdownView view || _answerLayers.ContainsKey(view)) return;
         view.ChatMode = true;
-        view.TurnNumber = AnswerTurn(view) is { } answerTurn ? _book.Turns.IndexOf(answerTurn) + 1 : _book.Turns.Count + 1;
+        view.EquationSource = AnswerTurn(view);
+        view.TurnNumber = view.EquationSource is { } answerTurn ? _book.Turns.IndexOf(answerTurn) + 1 : _book.Turns.Count + 1;
+        view.EquationPanel = this;
+        view.RefreshEquationReferences();
         view.ImageBaseDirectory = System.IO.Path.GetDirectoryName(_project);
         if (AnswerTurn(view) is { } formTurn) ConfigureAnswerForms(view, formTurn);
         var layer = new AiAnnotationLayer(view, () => AnnotationEntries, entry =>

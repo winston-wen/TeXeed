@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Windows;
 using System.Windows.Controls;
 using TeXeed.App;
 using TeXeed.App.AI;
@@ -19,10 +20,11 @@ internal static partial class Program
         var project = Path.Combine(folder, "revision-agent.tex");
         File.WriteAllText(project, "\\documentclass{article}\n\\begin{document}Revision fixture.\\end{document}");
         var seed = new AiNotebook();
-        seed.Active.Permission = AiPermission.ReadOnly;
+        seed.Active.Permission = AiPermission.FullAccess;
         var target = new AiTurn("原题", "先写一句。再用 $x$ 作说明。\n\n多余段。");
         var other = new AiTurn("另一个问题", "另一轮的原文。");
-        seed.Active.Turns.AddRange([target, other]);
+        var related = new AiTurn("依据哪一轮？", "第1轮沿用了原先的表述。");
+        seed.Active.Turns.AddRange([target, other, related]);
         var anchor = new AiAnswerAnchor(target.Id, target.Id + "-answer", 0, 4, "先写一句", AiStorage.Hash(target.Answer));
         var branch = new AiConversation { ParentConversationId = seed.Active.Id, BranchAnchor = anchor, Title = "分叉提问" };
         seed.Conversations.Add(branch);
@@ -43,7 +45,7 @@ internal static partial class Program
         await Reload();
         async Task Send(string text, bool authorized, params Func<string[], JsonObject>[] responses)
         {
-            handler.Steps = new(responses); handler.Authorized = authorized; handler.Failure = null;
+            handler.Steps = new(responses); handler.Authorized = authorized; handler.Permission = panel.Permission; handler.Failure = null;
             ((TextBox)panel.FindName("Composer")).Text = text;
             await panel.SubmitAsync().WaitAsync(TimeSpan.FromSeconds(25));
             if (handler.Failure is { } error) throw new InvalidOperationException("Revision HTTP fixture failed", error);
@@ -60,17 +62,19 @@ internal static partial class Program
                 return handler.Say(ignored);
             });
         Check(AiStorage.Load(project).Turns[0].RevisionHistory is null, "An ordinary discussion changed a turn");
-        foreach (var text in new[] { "不要整理第1轮", "「请改写第1轮」是什么意思？", "请解释如何改写第1轮", "请改写第1轮是什么意思？", "改写第1轮会影响分叉吗？", "请改写第1轮和第2轮" })
+        foreach (var text in new[] { "不要整理第1轮", "「请改写第1轮」是什么意思？", "请解释如何改写第1轮", "请改写第1轮是什么意思？", "改写第1轮会影响分叉吗？", "请改写第1轮和第2轮", "请把第1轮里的原文改成两段，只给建议", "把第1轮的表述改成三段好吗？" })
             Check(AiAnswerRevision.Resolve(text, seed.Turns, []) is null, "Granted an ambiguous/quoted request: " + text);
-        Check(AiAnswerRevision.Resolve("把上一轮回答改成三段", seed.Turns, [])?.TargetTurnId == other.Id, "Previous-turn command selected wrong target");
+        Check(AiAnswerRevision.Resolve("把上一轮回答改成三段", seed.Turns, [])?.TargetTurnId == related.Id, "Previous-turn command selected wrong target");
         Check(AiAnswerRevision.Resolve("请改写第二轮的回答", seed.Turns, [])?.TargetTurnId == other.Id, "Chinese ordinal selected wrong target");
+        Check(AiAnswerRevision.Resolve("请把第1轮里计算结果后面的引用改成跨轮引用", seed.Turns, [])?.TargetTurnId == target.Id, "Scoped natural-language instruction missed");
+        Check(AiAnswerRevision.Resolve("把选中的段落改为两段", seed.Turns, [], [new() { AnswerAnchor = anchor }])?.TargetTurnId == target.Id, "Selected paragraph didn't bind the requested turn");
 
         await Send("请改写第 1 轮：请先问我该保留哪一部分。", true, read, results =>
         {
             var draft = JsonNode.Parse(results.Last())!;
             Check(draft["target"]!.ToString() == target.Id, "Read touched the wrong turn");
             var objects = draft["rows"]![0]!["parts"]!.AsArray().Where(p => p!["kind"]!.ToString() == "keep").ToArray();
-            Check(objects.Length == 2 && objects[0]!["references"]![0]!.ToString() == branch.Title && objects[1]!["source"]!.ToString() == "$x$", "Formula or in-paragraph branch anchor absent from tool result");
+            Check(objects.Length == 1 && objects[0]!["references"]![0]!.ToString() == branch.Title && draft["rows"]![0]!["parts"]!.AsArray().Any(p => p!["kind"]!.ToString() == "text" && p["value"]!.ToString().Contains("$x$")), "Editable math or protected in-paragraph branch anchor absent from tool result");
             return wait(results);
         }, _ => handler.Say("要保留哪部分？ {{text:keep}}"));
         await Reload();
@@ -108,7 +112,7 @@ internal static partial class Program
         {
             Check(results.Last().Contains("缺少原段落"), "A proposal could drop immutable content");
             var good = Apply(target.Id, version, row, [new { kind = "text", value = "新说明" }, new { kind = "keep", value = "0" },
-                new { kind = "text", value = "保留 " }, new { kind = "keep", value = "1" }, new { kind = "text", value = "。" }], unwanted);
+                new { kind = "text", value = "保留 $x$。" }], unwanted);
             application = good["arguments"]!.ToString(); return good;
         }, results =>
         {
@@ -126,6 +130,13 @@ internal static partial class Program
         Check(history.Last().Rows.Single().Links.Single() is { Offset: 3 } link && link.Id == branch.Id, "Relocated branch link was lost or duplicated");
         Check(saved.Turns[1].Answer == other.Answer && saved.Turns.Skip(1).All(t => t.RevisionHistory is null), "History was saved on a question or clarification turn");
         Check(saved.Turns.Last().RevisionRequest is { AwaitingReply: false } finished && finished.TaskId == first.RevisionRequest!.TaskId, "Task identity changed or permission stayed open");
+        await Reload();
+        book = (AiNotebook)Field(panel, "_book")!;
+        var resume = (AiRevisionRunner)typeof(AiPanel).GetMethod("CreateRevisionRunner", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(panel, [first.RevisionRequest!, (Action<bool>)(_ => { })])!;
+        var replayed = await resume("apply_answer_revision", application!, default);
+        Check(replayed.Contains("已保存") && replayed.Contains(related.Id) && !replayed.Contains(other.Id) &&
+            AiStorage.Load(project).Turns[0].RevisionHistory!.Count == 2, "Replay after reopening duplicated a save or lost the related-turn scan");
         await Send("继续改稿：测试任务已经结束。", false, _ => handler.Say(ignored));
 
         await Send("把第 2 轮回答改成一句话", true, read, results =>
@@ -161,19 +172,98 @@ internal static partial class Program
         await Send("请改写第1轮：请先向我确认。", true, wait, _ => handler.Say("请回复想保留的内容。"));
         await Send("取消这次改稿。", false, _ => handler.Say("已取消。"));
         await Send("继续改稿：这次已经取消。", false, _ => handler.Say(ignored));
+        await Send("第1轮才是文字所在轮次，无需另加前缀。", false, _ => handler.Say("对应段落可写成一行。"));
+        JsonObject WriteFirst(string result, string text, bool keep = true)
+        {
+            var page = JsonNode.Parse(result)!;
+            var firstRow = page["rows"]![0]!;
+            var parts = new List<object> { new { kind = "text", value = text } };
+            if (keep) parts.AddRange(firstRow["parts"]!.AsArray().Where(p => p!["kind"]!.ToString() == "keep")
+                .Select(p => new { kind = "keep", value = p!["value"]!.ToString() }));
+            return Apply(page["target"]!.ToString(), page["version"]!.ToString(), firstRow["id"]!.ToString(), [.. parts]);
+        }
+        await Send("你倒是写过去啊", true, _ => handler.Say("建议换一种表述。"), read, r => WriteFirst(r.Last(), "写回第一个回答。"), r =>
+        {
+            Check(r.Last().Contains(related.Id) && !r.Last().Contains(other.Id), "Related-turn scan missed a dependency or granted an unrelated turn");
+            return handler.Call("read_related_answer_revision", new { target = related.Id, start_row = 0, max_rows = 2 });
+        }, r => WriteFirst(r.Last(), "第1轮采用了新的表述。"), _ => handler.Say("已写回。"));
+        Check(AiStorage.Load(project).Turns[2].RevisionHistory is [{ Id: "original" }, { Author: "ai" }] &&
+            AiStorage.Load(project).Turns[2].Answer == "第1轮采用了新的表述。", "Dependent answer was not saved to its own revision history");
+
+        async Task Decide(string choice)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            Window? dialog;
+            while ((dialog = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.Title == "允许修改会话正文？")) is null)
+                await Task.Delay(20, timeout.Token);
+            dialog.UpdateLayout();
+            Check(Descendants<Expander>(dialog).Any(e => Equals(e.Header, "查看拟保存的正文")), "Approval did not show the proposed answer");
+            Descendants<Button>(dialog).Single(b => Equals(b.Tag, choice)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }
+        book.Active.Permission = AiPermission.AskBeforeShell;
+        var previousCount = book.Turns[2].RevisionHistory!.Count;
+        var denied = Decide("deny");
+        await Send("请改写第3轮。", true, read, r => WriteFirst(r.Last(), "拒绝本次应用。"), r =>
+        {
+            Check(r.Last().Contains("拒绝"), "Refusal didn't reach the model");
+            return handler.Call("apply_answer_revision", new { });
+        }, r => { Check(r.Last().Contains("拒绝"), "Tool replay bypassed refusal"); return handler.Say("已保留原文。"); });
+        await denied;
+        Check(AiStorage.Load(project).Turns[2].RevisionHistory!.Count == previousCount, "Refusal wrote history");
+        var allowed = Decide("once");
+        await Send("请改写第3轮。", true, read, r => WriteFirst(r.Last(), "确认修改。"), _ => handler.Say("已修改。"));
+        await allowed;
+        Check(AiStorage.Load(project).Turns[2].Answer == "确认修改。", "Approved proposal wasn't saved");
+        book.Active.Permission = AiPermission.ReadOnly;
+        await Send("请改写第3轮。", false, _ => handler.Call("apply_answer_revision", new { }), r =>
+        {
+            Check(r.Last().Contains("未授权"), "Read-only permission granted a revision");
+            return handler.Say("此会话为只读。");
+        });
+        Check(AiStorage.Load(project).Turns[2].RevisionHistory!.Count == previousCount + 1, "Read-only permission changed history");
+        // A second panel can tighten permissions while this panel is waiting for
+        // the shared store's ordered writer, after completing its formula checks.
+        var sharedStore = (AiWorkspaceStore)Field(panel, "_store")!;
+        var writerGate = (SemaphoreSlim)Field(sharedStore, "_gate")!;
+        foreach (var restricted in new[] { AiPermission.AskBeforeShell, AiPermission.ReadOnly })
+        {
+            book.Active.Permission = AiPermission.FullAccess;
+            var current = panel.BeginRevision(book.Turns[2]);
+            await writerGate.WaitAsync();
+            Task write;
+            try
+            {
+                write = panel.CommitRevisionAsync(related.Id, current.Version, [current.Rows[0] with { Text = "过期权限的写入。" }], "ai");
+                Check(!write.IsCompleted, "Concurrent permission fixture did not reach the pending write");
+                book.Active.Permission = restricted;
+            }
+            finally { writerGate.Release(); }
+            try { await write; throw new InvalidOperationException("A pending commit bypassed tightened permissions"); }
+            catch (UnauthorizedAccessException) { }
+            Check(AiStorage.Load(project).Turns[2].Answer == "确认修改。", "Permission changed while saving but the update reached disk");
+        }
+        var mathematical = new AiTurn("原问题", @"$$a=1\label{a}$$");
+        var changed = mathematical with { Answer = @"$$a=2\label{a}$$" };
+        var equationReader = new AiTurn("追问", @"这里使用公式 \eqref{2:a}。")
+            { EquationReferenceTurns = new() { ["2:a"] = mathematical.Id } };
+        var unchangedReader = new AiTurn("其他", @"只引用本轮同名公式 \eqref{3:a}。" + "\n\n" + @"$$a=3\label{a}$$");
+        Check(AiRevisionImpact.Scan([changed, equationReader, unchangedReader], mathematical, changed, default)
+            is [{ Target: var found }] && found == equationReader.Id, "A cross-turn equation stopped triggering dependency checks after an earlier turn was removed");
+        Check(AiRevisionImpact.Scan([mathematical, equationReader], mathematical, mathematical, default).Count == 0, "An unchanged equation was flagged");
         var locked = new AiRevisionRow("formula", "s", "$$x=1$$", 0, true, []);
         var lockedDraft = new AiRevisionDraft("turn", "version", [locked]);
         var added = AiPanel.ApplyRevisionChanges(lockedDraft, JsonSerializer.SerializeToElement(
             new[] { new { row = "formula", position = "before", paragraphs = new[] { new { level = 1, parts = new[] { new { kind = "text", value = "公式前的标题" } } } } },
                 new { row = "formula", position = "after", paragraphs = new[] { new { level = 0, parts = new[] { new { kind = "text", value = "公式后的正文。" } } } } } }));
         Check(AiRevisionText.Normalize(lockedDraft, added) is [{ Level: 1 }, { Locked: true }, { Text: "公式后的正文。" }], "Could not insert on both sides of a locked standalone formula");
-        Console.WriteLine("AI revision HTTP/WPF regression passed. Verified ordinary chat, binding, clarification after reopening, form-only replies, protected formula/reference, history, duplicate execution, concurrent saves and manual drafts.");
+        Console.WriteLine("AI revision HTTP/WPF regression passed. Verified contextual write-back, actual approval and refusal, read-only permission, related-turn review, stable cross-turn references, editable math, protected links, task recovery and history.");
     }
 
     private sealed class RevisionFixtureServer : HttpMessageHandler
     {
         internal Queue<Func<string[], JsonObject>> Steps = new();
         internal bool Authorized;
+        internal AiPermission Permission;
         internal Exception? Failure;
         private int _callId;
         internal JsonObject Call(string name, object? args) => new() { ["type"] = "function_call", ["name"] = name,
@@ -186,8 +276,8 @@ internal static partial class Program
             {
                 if (request.RequestUri!.AbsolutePath != "/v1/responses") throw new InvalidOperationException("Unexpected network endpoint");
                 var payload = JsonNode.Parse(await request.Content!.ReadAsStringAsync(token))!;
-                if (payload["tools"]!.ToJsonString().Contains("replace_source") || !payload["tools"]!.ToJsonString().Contains("ask_user"))
-                    throw new InvalidOperationException("The request didn't exercise the native read-only workspace permission.");
+                if (payload["tools"]!.ToJsonString().Contains("replace_source") != (Permission != AiPermission.ReadOnly) || !payload["tools"]!.ToJsonString().Contains("ask_user"))
+                    throw new InvalidOperationException("The request didn't exercise the selected native workspace permission.");
                 if (payload["tools"]!.ToJsonString().Contains("read_answer_revision") != Authorized ||
                     payload["instructions"]!.ToString().Contains(AiAnswerRevision.Instructions) != Authorized)
                     throw new InvalidOperationException("Revision schema and instructions disagreed with user authorization.");

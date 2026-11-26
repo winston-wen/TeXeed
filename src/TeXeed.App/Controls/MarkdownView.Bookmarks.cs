@@ -10,7 +10,7 @@ namespace TeXeed.App.Controls;
 
 internal enum AiBookmarkKind { Heading, Equation, User }
 internal sealed record AiBookmarkTarget(string Id, string Label, string Description, string TurnId, string SegmentId,
-    AiBookmarkKind Kind, int TurnIndex, int SegmentIndex, int Position, AiAnswerAnchor? Anchor);
+    AiBookmarkKind Kind, int TurnIndex, int SegmentIndex, int Position, AiAnswerAnchor? Anchor, ChatMath.Token? Equation = null);
 internal sealed record AiBookmarkSelection(string ConversationId, AiAnswerAnchor Anchor, IReadOnlyList<string> FoldKeys, string? ContextBefore = null, string? ContextAfter = null);
 internal sealed record AiBookmarkFragment(AiBookmarkKind Kind, string Number, string Description, int Position);
 
@@ -101,6 +101,14 @@ public sealed partial class MarkdownView
         if (!blocks.TryGetValue(position, out var block)) return null;
         Reveal(block);
         return block;
+    }
+
+    internal FrameworkContentElement? EquationBlock(ChatMath.Token expected)
+    {
+        // Empty rows carrying a saved branch link may shift every subsequent source offset.
+        var token = _math.Tokens.Values.FirstOrDefault(t => t.Display && t.Label == expected.Label &&
+            t.Number == expected.Number && t.Source == expected.Source);
+        return token is null ? null : BookmarkBlock(AiBookmarkKind.Equation, token.PreparedOffset);
     }
 
     internal TextPointer? BookmarkPointer(string id, AiAnswerAnchor anchor) => AnnotationPointer(id, anchor);

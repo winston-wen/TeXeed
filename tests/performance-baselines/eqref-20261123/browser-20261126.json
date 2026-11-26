@@ -1,0 +1,768 @@
+{
+  "chrome": "158.0.8127.38",
+  "platform": "win32",
+  "node": "v24.22.3",
+  "viewport": {
+    "width": 920,
+    "height": 760
+  },
+  "fixture": "55fd0240b2f2cdf6076c908487dacab625a5a8971450d71aadf5dbb504838f19",
+  "samples": [
+    {
+      "round": 0,
+      "index": 0,
+      "action": "preview",
+      "indexHash": "fed005ec30cac9f116d3ac8c7e31d960bffc5b6a62bd761d14a9390983a55acc",
+      "measures": [
+        {
+          "sync": 1.4000000059604645,
+          "completeMs": 238.40000000596046,
+          "idle": 231,
+          "correctedMs": 7.4000000059604645,
+          "delta": 0,
+          "retainedBytes": 4564,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.5,
+          "completeMs": 240.90000000596046,
+          "idle": 231.5,
+          "correctedMs": 9.400000005960464,
+          "delta": 0,
+          "retainedBytes": 0,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.699999988079071,
+          "completeMs": 237.09999999403954,
+          "idle": 215.19999998807907,
+          "correctedMs": 21.900000005960464,
+          "delta": 0,
+          "retainedBytes": 2188,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.3999999910593033,
+          "completeMs": 234,
+          "idle": 213.70000000298023,
+          "correctedMs": 20.299999997019768,
+          "delta": 0,
+          "retainedBytes": 3160,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.7000000029802322,
+          "completeMs": 222.20000000298023,
+          "idle": 212.59999999403954,
+          "correctedMs": 9.600000008940697,
+          "delta": 0,
+          "retainedBytes": 3160,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "index": 0,
+      "action": "jump",
+      "indexHash": "fed005ec30cac9f116d3ac8c7e31d960bffc5b6a62bd761d14a9390983a55acc",
+      "measures": [
+        {
+          "sync": 2.7000000029802322,
+          "completeMs": 240.59999999403954,
+          "idle": 233.70000000298023,
+          "correctedMs": 6.899999991059303,
+          "delta": 379,
+          "retainedBytes": 1036,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.9000000059604645,
+          "completeMs": 235.1000000089407,
+          "idle": 213.8999999910593,
+          "correctedMs": 21.200000017881393,
+          "delta": 379,
+          "retainedBytes": 2104,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.5,
+          "completeMs": 244.20000000298023,
+          "idle": 212.5,
+          "correctedMs": 31.700000002980232,
+          "delta": 379,
+          "retainedBytes": 3248,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.5,
+          "completeMs": 246.20000000298023,
+          "idle": 215.40000000596046,
+          "correctedMs": 30.799999997019768,
+          "delta": 379,
+          "retainedBytes": 3140,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.2000000029802322,
+          "completeMs": 240.29999999701977,
+          "idle": 229.09999999403954,
+          "correctedMs": 11.200000002980232,
+          "delta": 379,
+          "retainedBytes": 0,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "index": 1,
+      "action": "preview",
+      "indexHash": "42c8459d7e72ddbf3fc59341c656bdf23396794a07fee208c3792425effd1899",
+      "measures": [
+        {
+          "sync": 1,
+          "completeMs": 232.79999999701977,
+          "idle": 217.09999999403954,
+          "correctedMs": 15.700000002980232,
+          "delta": 0,
+          "retainedBytes": 4192,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1,
+          "completeMs": 235.5,
+          "idle": 216.09999999403954,
+          "correctedMs": 19.400000005960464,
+          "delta": 0,
+          "retainedBytes": 1040,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.4000000059604645,
+          "completeMs": 234.5,
+          "idle": 215.69999998807907,
+          "correctedMs": 18.80000001192093,
+          "delta": 0,
+          "retainedBytes": 3624,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.7000000029802322,
+          "completeMs": 233.6000000089407,
+          "idle": 218.40000000596046,
+          "correctedMs": 15.200000002980232,
+          "delta": 0,
+          "retainedBytes": 3220,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 4,
+          "completeMs": 226.09999999403954,
+          "idle": 215.59999999403954,
+          "correctedMs": 10.5,
+          "delta": 0,
+          "retainedBytes": 1064,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "index": 1,
+      "action": "jump",
+      "indexHash": "42c8459d7e72ddbf3fc59341c656bdf23396794a07fee208c3792425effd1899",
+      "measures": [
+        {
+          "sync": 2.0999999940395355,
+          "completeMs": 244.19999998807907,
+          "idle": 230.8999999910593,
+          "correctedMs": 13.299999997019768,
+          "delta": 379,
+          "retainedBytes": 1200,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.7999999970197678,
+          "completeMs": 240.70000000298023,
+          "idle": 216,
+          "correctedMs": 24.700000002980232,
+          "delta": 379,
+          "retainedBytes": 1040,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.9000000059604645,
+          "completeMs": 236.1000000089407,
+          "idle": 213.70000000298023,
+          "correctedMs": 22.400000005960464,
+          "delta": 379,
+          "retainedBytes": 3152,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.9000000059604645,
+          "completeMs": 230.79999999701977,
+          "idle": 214.8999999910593,
+          "correctedMs": 15.900000005960464,
+          "delta": 379,
+          "retainedBytes": 0,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 3.7000000029802322,
+          "completeMs": 231.79999999701977,
+          "idle": 215.6000000089407,
+          "correctedMs": 16.19999998807907,
+          "delta": 379,
+          "retainedBytes": 3276,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "index": 1,
+      "action": "preview",
+      "indexHash": "42c8459d7e72ddbf3fc59341c656bdf23396794a07fee208c3792425effd1899",
+      "measures": [
+        {
+          "sync": 1,
+          "completeMs": 243.70000000298023,
+          "idle": 215.5,
+          "correctedMs": 28.200000002980232,
+          "delta": 0,
+          "retainedBytes": 4516,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 0.7999999970197678,
+          "completeMs": 246.09999999403954,
+          "idle": 216,
+          "correctedMs": 30.099999994039536,
+          "delta": 0,
+          "retainedBytes": 2104,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.3999999910593033,
+          "completeMs": 244.19999998807907,
+          "idle": 214.59999999403954,
+          "correctedMs": 29.599999994039536,
+          "delta": 0,
+          "retainedBytes": 1280,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.2999999970197678,
+          "completeMs": 245.40000000596046,
+          "idle": 217.80000001192093,
+          "correctedMs": 27.599999994039536,
+          "delta": 0,
+          "retainedBytes": 3184,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.2000000029802322,
+          "completeMs": 230.70000000298023,
+          "idle": 216,
+          "correctedMs": 14.700000002980232,
+          "delta": 0,
+          "retainedBytes": 1064,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "index": 1,
+      "action": "jump",
+      "indexHash": "42c8459d7e72ddbf3fc59341c656bdf23396794a07fee208c3792425effd1899",
+      "measures": [
+        {
+          "sync": 2.9000000059604645,
+          "completeMs": 230.79999999701977,
+          "idle": 231.6000000089407,
+          "correctedMs": -0.800000011920929,
+          "delta": 379,
+          "retainedBytes": 2264,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.800000011920929,
+          "completeMs": 243.70000000298023,
+          "idle": 214.69999998807907,
+          "correctedMs": 29.00000001490116,
+          "delta": 379,
+          "retainedBytes": 2100,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 2,
+          "completeMs": 241.8999999910593,
+          "idle": 230.09999999403954,
+          "correctedMs": 11.799999997019768,
+          "delta": 379,
+          "retainedBytes": 0,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.7999999970197678,
+          "completeMs": 237.5,
+          "idle": 215.09999999403954,
+          "correctedMs": 22.400000005960464,
+          "delta": 379,
+          "retainedBytes": 5356,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 2.1000000089406967,
+          "completeMs": 233.5,
+          "idle": 229,
+          "correctedMs": 4.5,
+          "delta": 379,
+          "retainedBytes": 0,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "index": 0,
+      "action": "preview",
+      "indexHash": "fed005ec30cac9f116d3ac8c7e31d960bffc5b6a62bd761d14a9390983a55acc",
+      "measures": [
+        {
+          "sync": 1.5999999940395355,
+          "completeMs": 236.59999999403954,
+          "idle": 215.09999999403954,
+          "correctedMs": 21.5,
+          "delta": 0,
+          "retainedBytes": 4184,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.2000000029802322,
+          "completeMs": 233.5,
+          "idle": 214.1000000089407,
+          "correctedMs": 19.399999991059303,
+          "delta": 0,
+          "retainedBytes": 0,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.2999999970197678,
+          "completeMs": 241.29999999701977,
+          "idle": 213.59999999403954,
+          "correctedMs": 27.700000002980232,
+          "delta": 0,
+          "retainedBytes": 3360,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.8999999910593033,
+          "completeMs": 238.5,
+          "idle": 216.8999999910593,
+          "correctedMs": 21.600000008940697,
+          "delta": 0,
+          "retainedBytes": 2096,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.4000000059604645,
+          "completeMs": 244.20000000298023,
+          "idle": 218.09999999403954,
+          "correctedMs": 26.100000008940697,
+          "delta": 0,
+          "retainedBytes": 3204,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "index": 0,
+      "action": "jump",
+      "indexHash": "fed005ec30cac9f116d3ac8c7e31d960bffc5b6a62bd761d14a9390983a55acc",
+      "measures": [
+        {
+          "sync": 2.2000000029802322,
+          "completeMs": 232.3999999910593,
+          "idle": 231.59999999403954,
+          "correctedMs": 0.7999999970197678,
+          "delta": 379,
+          "retainedBytes": 2188,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 1.7000000029802322,
+          "completeMs": 244.40000000596046,
+          "idle": 213.5,
+          "correctedMs": 30.900000005960464,
+          "delta": 379,
+          "retainedBytes": 0,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 1.8999999910593033,
+          "completeMs": 242.19999998807907,
+          "idle": 214.90000000596046,
+          "correctedMs": 27.299999982118607,
+          "delta": 379,
+          "retainedBytes": 2588,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.5,
+          "completeMs": 236.09999999403954,
+          "idle": 229.09999999403954,
+          "correctedMs": 7,
+          "delta": 379,
+          "retainedBytes": 1036,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.699999988079071,
+          "completeMs": 232.79999999701977,
+          "idle": 217.29999999701977,
+          "correctedMs": 15.5,
+          "delta": 379,
+          "retainedBytes": 3164,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "index": 0,
+      "action": "preview",
+      "indexHash": "fed005ec30cac9f116d3ac8c7e31d960bffc5b6a62bd761d14a9390983a55acc",
+      "measures": [
+        {
+          "sync": 0.7999999970197678,
+          "completeMs": 237,
+          "idle": 214,
+          "correctedMs": 23,
+          "delta": 0,
+          "retainedBytes": 1040,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.7999999970197678,
+          "completeMs": 239.70000000298023,
+          "idle": 218.8999999910593,
+          "correctedMs": 20.80000001192093,
+          "delta": 0,
+          "retainedBytes": 1064,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.6000000089406967,
+          "completeMs": 235.1000000089407,
+          "idle": 213.8999999910593,
+          "correctedMs": 21.200000017881393,
+          "delta": 0,
+          "retainedBytes": 2184,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.7999999970197678,
+          "completeMs": 228.59999999403954,
+          "idle": 213.5,
+          "correctedMs": 15.099999994039536,
+          "delta": 0,
+          "retainedBytes": 2160,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.3999999910593033,
+          "completeMs": 235.5,
+          "idle": 215.5,
+          "correctedMs": 20,
+          "delta": 0,
+          "retainedBytes": 1032,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "index": 0,
+      "action": "jump",
+      "indexHash": "fed005ec30cac9f116d3ac8c7e31d960bffc5b6a62bd761d14a9390983a55acc",
+      "measures": [
+        {
+          "sync": 2.7000000029802322,
+          "completeMs": 243.79999999701977,
+          "idle": 230.30000001192093,
+          "correctedMs": 13.499999985098839,
+          "delta": 379,
+          "retainedBytes": 1040,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 1.7999999970197678,
+          "completeMs": 240,
+          "idle": 230.1000000089407,
+          "correctedMs": 9.899999991059303,
+          "delta": 379,
+          "retainedBytes": 1148,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 1.699999988079071,
+          "completeMs": 233.3999999910593,
+          "idle": 213.1000000089407,
+          "correctedMs": 20.299999982118607,
+          "delta": 379,
+          "retainedBytes": 3652,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.3999999910593033,
+          "completeMs": 245.09999999403954,
+          "idle": 215,
+          "correctedMs": 30.099999994039536,
+          "delta": 379,
+          "retainedBytes": 0,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        },
+        {
+          "sync": 2.0999999940395355,
+          "completeMs": 237.5,
+          "idle": 227.5,
+          "correctedMs": 10,
+          "delta": 379,
+          "retainedBytes": 1040,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 25
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "index": 1,
+      "action": "preview",
+      "indexHash": "42c8459d7e72ddbf3fc59341c656bdf23396794a07fee208c3792425effd1899",
+      "measures": [
+        {
+          "sync": 1.1000000089406967,
+          "completeMs": 236.20000000298023,
+          "idle": 215,
+          "correctedMs": 21.200000002980232,
+          "delta": 0,
+          "retainedBytes": 4516,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.0999999940395355,
+          "completeMs": 235.5,
+          "idle": 215.6000000089407,
+          "correctedMs": 19.899999991059303,
+          "delta": 0,
+          "retainedBytes": 0,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.0999999940395355,
+          "completeMs": 230,
+          "idle": 214.70000000298023,
+          "correctedMs": 15.299999997019768,
+          "delta": 0,
+          "retainedBytes": 3336,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.5999999940395355,
+          "completeMs": 233.70000000298023,
+          "idle": 217.90000000596046,
+          "correctedMs": 15.799999997019768,
+          "delta": 0,
+          "retainedBytes": 1148,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        },
+        {
+          "sync": 1.300000011920929,
+          "completeMs": 238.1000000089407,
+          "idle": 218.29999999701977,
+          "correctedMs": 19.80000001192093,
+          "delta": 0,
+          "retainedBytes": 2072,
+          "preview": true,
+          "targetVisible": false,
+          "visibleControls": 23
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "index": 1,
+      "action": "jump",
+      "indexHash": "42c8459d7e72ddbf3fc59341c656bdf23396794a07fee208c3792425effd1899",
+      "measures": [
+        {
+          "sync": 1.7999999970197678,
+          "completeMs": 239,
+          "idle": 247.19999998807907,
+          "correctedMs": -8.199999988079071,
+          "delta": 379,
+          "retainedBytes": 1200,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.7000000029802322,
+          "completeMs": 240.6000000089407,
+          "idle": 218.5,
+          "correctedMs": 22.100000008940697,
+          "delta": 379,
+          "retainedBytes": 1064,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 2.0999999940395355,
+          "completeMs": 244.09999999403954,
+          "idle": 202.90000000596046,
+          "correctedMs": 41.19999998807907,
+          "delta": 379,
+          "retainedBytes": 1148,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.7999999970197678,
+          "completeMs": 242,
+          "idle": 232,
+          "correctedMs": 10,
+          "delta": 379,
+          "retainedBytes": 1040,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        },
+        {
+          "sync": 1.800000011920929,
+          "completeMs": 240.1000000089407,
+          "idle": 215.90000000596046,
+          "correctedMs": 24.200000002980232,
+          "delta": 379,
+          "retainedBytes": 0,
+          "preview": false,
+          "targetVisible": true,
+          "visibleControls": 26
+        }
+      ]
+    }
+  ]
+}

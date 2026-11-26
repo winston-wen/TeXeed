@@ -103,7 +103,8 @@ public partial class AiPanel
         return (candidates[^1], candidates[^1].Text.Length);
     }
 
-    internal async Task CommitRevisionAsync(string turnId, string expectedRevision, IReadOnlyList<AiRevisionRow> rows, string author, string? operationId = null)
+    internal async Task CommitRevisionAsync(string turnId, string expectedRevision, IReadOnlyList<AiRevisionRow> rows, string author, string? operationId = null,
+        CancellationToken cancellationToken = default, bool approved = false)
     {
         var conversation = _book.Active;
         var project = _project;
@@ -114,18 +115,25 @@ public partial class AiPanel
         var previousTime = conversation.UpdatedAt;
         var writer = author.ToLowerInvariant();
         if (writer is not ("ai" or "user")) throw new ArgumentException("修订需标记作者。", nameof(author));
-        if (writer == "user")
-        {
-            var original = conversation.Turns.FirstOrDefault(t => t.Id == turnId)
-                ?? throw new InvalidOperationException("找不到指定轮次。");
-            var draft = BeginRevision(original);
-            if (draft.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
-            var proposed = AiRevisionText.Normalize(draft, rows, editableInlineMath: true);
-            rows = await AiRevisionInlineMath.ValidateAsync(draft.Rows, proposed, RepairRevisionInlineMathAsync, _lifetime.Token);
-        }
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        var token = lifetime.Token;
+        token.ThrowIfCancellationRequested();
+        var startingTurn = conversation.Turns.FirstOrDefault(t => t.Id == turnId)
+            ?? throw new InvalidOperationException("找不到指定轮次。");
+        if (!string.IsNullOrEmpty(operationId) && startingTurn.RevisionHistory?.Any(rev => rev.OperationId == operationId) == true) return;
+        var initial = BeginRevision(startingTurn);
+        if (initial.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
+        var mathScope = writer == "user" ? RevisionMathScope.Inline : RevisionMathScope.All;
+        var proposed = AiRevisionText.Normalize(initial, rows, mathScope);
+        if (writer == "user") rows = await AiRevisionInlineMath.ValidateAsync(initial.Rows, proposed, RepairRevisionInlineMathAsync, token);
+        else await AiRevisionMath.CheckAsync(initial.Rows, proposed, token);
         void Apply()
         {
+            token.ThrowIfCancellationRequested();
             if (_book.Active != conversation || _project != project) throw new InvalidOperationException("会话已经切换。");
+            if (writer == "ai" && (conversation.Permission == AiPermission.ReadOnly ||
+                conversation.Permission == AiPermission.AskBeforeShell && !approved))
+                throw new UnauthorizedAccessException("当前权限不允许保存这次改稿，请根据现有权限重新提交。");
             at = conversation.Turns.FindIndex(t => t.Id == turnId);
             if (at < 0) throw new InvalidOperationException("找不到指定轮次。");
             var original = conversation.Turns[at];
@@ -133,7 +141,7 @@ public partial class AiPanel
             if (writer == "ai" && original.UserRevisionDraft is not null) throw new InvalidOperationException("该轮有未完成的手动整理，请先保存或取消手动整理。");
             var draft = BeginRevision(original);
             if (draft.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
-            var normalized = AiRevisionText.Normalize(draft, rows, editableInlineMath: writer == "user");
+            var normalized = AiRevisionText.Normalize(draft, rows, mathScope);
             bool Same(IEnumerable<AiRevisionRow> left, IEnumerable<AiRevisionRow> right) =>
                 left.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))).SequenceEqual(
                     right.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))));
@@ -163,6 +171,7 @@ public partial class AiPanel
             var answer = textChanged ? string.Join("\n\n", newSegments.Where(s => current.ContainsKey(s.Id) && s.Text.Length > 0).Select(s => s.Text)) : original.Answer;
             updated = original with { Answer = answer, Segments = newSegments, RevisionHistory = history.Count > 1 ? history : original.RevisionHistory,
                 CollapsedSections = RevisionFoldKeys(original, segments, draft.Rows, normalized, current), UserRevisionDraft = null, Incomplete = original.IsIncomplete };
+            if (writer == "ai" && textChanged) AiRevisionMath.CheckReferences(conversation, original, updated);
             replaced = original; previousTime = conversation.UpdatedAt;
             conversation.Turns[at] = updated; conversation.UpdatedAt = now;
         }

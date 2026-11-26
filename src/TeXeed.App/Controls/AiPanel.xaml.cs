@@ -401,9 +401,10 @@ public partial class AiPanel : UserControl, IDisposable
             if (!AiEffort.Choices(selectedModel).Any(item => item.Value == requestedEffort))
             { StatusText.Text = "当前会话的推理强度暂不可用，请重新选择。"; return; }
         }
-        var revision = retry is null ? AiAnswerRevision.Resolve(prompt, _book.Turns, submittedForms) : retry.RevisionRequest;
+        var revision = retry is null ? AiAnswerRevision.Resolve(prompt, _book.Turns, submittedForms, sentAnnotations) : retry.RevisionRequest;
         var waitingForRevisionReply = false;
-        var revisionRunner = revision is { Cancelled: false } ? CreateRevisionRunner(revision, waiting => waitingForRevisionReply = waiting) : null;
+        var revisionRunner = revision is { Cancelled: false } && _book.Active.Permission != AiPermission.ReadOnly
+            ? CreateRevisionRunner(revision, waiting => waitingForRevisionReply = waiting) : null;
         var followUpTurnSucceeded = false;
         var followUpBook = _book;
         await RunOperationAsync(async token =>

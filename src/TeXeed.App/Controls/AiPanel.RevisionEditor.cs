@@ -76,7 +76,7 @@ public partial class AiPanel
                     try { await SaveAsync(); }
                     catch { turn.UserRevisionDraft = previous; throw; }
                     CloseRevisionEditor(turn.Id);
-                }, SaveAsync);
+                }, SaveAsync, (this, turn));
             _revisionEditors[turn.Id] = editor;
         }
         view.SetRevisionEditor(editor);

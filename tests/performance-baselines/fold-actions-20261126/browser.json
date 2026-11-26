@@ -1,0 +1,443 @@
+{
+  "baseline": "42ba0da",
+  "chrome": "158.0.8127.38",
+  "viewport": {
+    "width": 800,
+    "height": 920
+  },
+  "fixture": "12 turns, collapse sixth turn in gap between two folded ranges",
+  "afterSingleFold": {
+    "baseline": [
+      {
+        "handlerMs": 2.7,
+        "twoFramesMs": 20.6,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 143500
+      },
+      {
+        "handlerMs": 3.9,
+        "twoFramesMs": 14.9,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 121672
+      },
+      {
+        "handlerMs": 3.2,
+        "twoFramesMs": 20.6,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 129484
+      },
+      {
+        "handlerMs": 2.9,
+        "twoFramesMs": 22,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 121180
+      },
+      {
+        "handlerMs": 3,
+        "twoFramesMs": 22.8,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 122908
+      },
+      {
+        "handlerMs": 2.7,
+        "twoFramesMs": 21.9,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 117520
+      },
+      {
+        "handlerMs": 3,
+        "twoFramesMs": 22.9,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 119088
+      }
+    ],
+    "candidate": [
+      {
+        "handlerMs": 3.8,
+        "twoFramesMs": 20.3,
+        "elements": 136,
+        "visibleControls": 15,
+        "labels": [
+          "[3]",
+          "[4]",
+          "[5]",
+          "[6]",
+          "[7]",
+          "[8]"
+        ],
+        "transientHeapBytes": 157416
+      },
+      {
+        "handlerMs": 3.2,
+        "twoFramesMs": 21.1,
+        "elements": 136,
+        "visibleControls": 15,
+        "labels": [
+          "[3]",
+          "[4]",
+          "[5]",
+          "[6]",
+          "[7]",
+          "[8]"
+        ],
+        "transientHeapBytes": 132340
+      },
+      {
+        "handlerMs": 3.1,
+        "twoFramesMs": 21.2,
+        "elements": 136,
+        "visibleControls": 15,
+        "labels": [
+          "[3]",
+          "[4]",
+          "[5]",
+          "[6]",
+          "[7]",
+          "[8]"
+        ],
+        "transientHeapBytes": 140440
+      },
+      {
+        "handlerMs": 2.9,
+        "twoFramesMs": 20.8,
+        "elements": 136,
+        "visibleControls": 15,
+        "labels": [
+          "[3]",
+          "[4]",
+          "[5]",
+          "[6]",
+          "[7]",
+          "[8]"
+        ],
+        "transientHeapBytes": 131808
+      },
+      {
+        "handlerMs": 2.9,
+        "twoFramesMs": 21.9,
+        "elements": 136,
+        "visibleControls": 15,
+        "labels": [
+          "[3]",
+          "[4]",
+          "[5]",
+          "[6]",
+          "[7]",
+          "[8]"
+        ],
+        "transientHeapBytes": 127756
+      },
+      {
+        "handlerMs": 3.2,
+        "twoFramesMs": 21.9,
+        "elements": 136,
+        "visibleControls": 15,
+        "labels": [
+          "[3]",
+          "[4]",
+          "[5]",
+          "[6]",
+          "[7]",
+          "[8]"
+        ],
+        "transientHeapBytes": 127860
+      },
+      {
+        "handlerMs": 2.9,
+        "twoFramesMs": 22.3,
+        "elements": 136,
+        "visibleControls": 15,
+        "labels": [
+          "[3]",
+          "[4]",
+          "[5]",
+          "[6]",
+          "[7]",
+          "[8]"
+        ],
+        "transientHeapBytes": 130248
+      }
+    ]
+  },
+  "compactResult": {
+    "baseline": [
+      {
+        "handlerMs": 2.4,
+        "twoFramesMs": 22.8,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 118100
+      },
+      {
+        "handlerMs": 2.6,
+        "twoFramesMs": 22.8,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 117376
+      },
+      {
+        "handlerMs": 2.6,
+        "twoFramesMs": 23.6,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 120420
+      },
+      {
+        "handlerMs": 2.6,
+        "twoFramesMs": 23,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 116340
+      },
+      {
+        "handlerMs": 2.8,
+        "twoFramesMs": 23,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 116288
+      },
+      {
+        "handlerMs": 3.2,
+        "twoFramesMs": 21.1,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 116628
+      },
+      {
+        "handlerMs": 2.9,
+        "twoFramesMs": 22.8,
+        "elements": 117,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 117456
+      }
+    ],
+    "candidate": [
+      {
+        "handlerMs": 4.1,
+        "twoFramesMs": 20.7,
+        "elements": 119,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 149800
+      },
+      {
+        "handlerMs": 3.9,
+        "twoFramesMs": 20.6,
+        "elements": 119,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 149160
+      },
+      {
+        "handlerMs": 3.8,
+        "twoFramesMs": 20,
+        "elements": 119,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 151364
+      },
+      {
+        "handlerMs": 3.5,
+        "twoFramesMs": 23.2,
+        "elements": 119,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 154616
+      },
+      {
+        "handlerMs": 3.7,
+        "twoFramesMs": 20.9,
+        "elements": 119,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 148828
+      },
+      {
+        "handlerMs": 4.6,
+        "twoFramesMs": 20.2,
+        "elements": 119,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 148484
+      },
+      {
+        "handlerMs": 3.9,
+        "twoFramesMs": 21.1,
+        "elements": 119,
+        "visibleControls": 10,
+        "labels": [
+          "[3 ~ 8]"
+        ],
+        "transientHeapBytes": 148512
+      }
+    ]
+  },
+  "restoreIndividuals": [
+    {
+      "handlerMs": 1,
+      "twoFramesMs": 17.1,
+      "elements": 136,
+      "visibleControls": 15,
+      "labels": [
+        "[3]",
+        "[4]",
+        "[5]",
+        "[6]",
+        "[7]",
+        "[8]"
+      ],
+      "transientHeapBytes": 59264
+    },
+    {
+      "handlerMs": 1.3,
+      "twoFramesMs": 31.3,
+      "elements": 136,
+      "visibleControls": 15,
+      "labels": [
+        "[3]",
+        "[4]",
+        "[5]",
+        "[6]",
+        "[7]",
+        "[8]"
+      ],
+      "transientHeapBytes": 59532
+    },
+    {
+      "handlerMs": 1.2,
+      "twoFramesMs": 30.6,
+      "elements": 136,
+      "visibleControls": 15,
+      "labels": [
+        "[3]",
+        "[4]",
+        "[5]",
+        "[6]",
+        "[7]",
+        "[8]"
+      ],
+      "transientHeapBytes": 60652
+    },
+    {
+      "handlerMs": 1.2,
+      "twoFramesMs": 17.3,
+      "elements": 136,
+      "visibleControls": 15,
+      "labels": [
+        "[3]",
+        "[4]",
+        "[5]",
+        "[6]",
+        "[7]",
+        "[8]"
+      ],
+      "transientHeapBytes": 59604
+    },
+    {
+      "handlerMs": 0.9,
+      "twoFramesMs": 18.6,
+      "elements": 136,
+      "visibleControls": 15,
+      "labels": [
+        "[3]",
+        "[4]",
+        "[5]",
+        "[6]",
+        "[7]",
+        "[8]"
+      ],
+      "transientHeapBytes": 60724
+    },
+    {
+      "handlerMs": 1,
+      "twoFramesMs": 16.7,
+      "elements": 136,
+      "visibleControls": 15,
+      "labels": [
+        "[3]",
+        "[4]",
+        "[5]",
+        "[6]",
+        "[7]",
+        "[8]"
+      ],
+      "transientHeapBytes": 59264
+    },
+    {
+      "handlerMs": 1.5,
+      "twoFramesMs": 30.2,
+      "elements": 136,
+      "visibleControls": 15,
+      "labels": [
+        "[3]",
+        "[4]",
+        "[5]",
+        "[6]",
+        "[7]",
+        "[8]"
+      ],
+      "transientHeapBytes": 60652
+    }
+  ]
+}

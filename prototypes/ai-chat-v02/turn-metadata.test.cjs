@@ -93,6 +93,7 @@ function requestFixture(mode){
   setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>cancelled.push(id)
  });
  vm.runInContext(app.slice(app.indexOf('function defaultModel('),app.indexOf('function selectStoredValue(')),runtime);
+ vm.runInContext(fs.readFileSync(__dirname+'/ai-revision-intent.js','utf8'),runtime);
  vm.runInContext(app.slice(app.indexOf('function setPendingStatus('),app.indexOf('function alignReadingInk(')),runtime);
  vm.runInContext(app.slice(app.indexOf('function send('),app.indexOf('function newConversation(){')),runtime);
  runtime.send();

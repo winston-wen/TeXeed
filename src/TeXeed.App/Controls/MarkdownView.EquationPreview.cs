@@ -4,34 +4,61 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
+using TeXeed.App.AI;
 
 namespace TeXeed.App.Controls;
 
 public sealed partial class MarkdownView
 {
     private Popup? _equationPreview;
+    internal AiPanel? EquationPanel { get; set; }
+    internal AiTurn? EquationSource { get; set; }
+    private List<EquationReference>? _qualifiedReferences;
+
+    internal void RefreshEquationReferences()
+    {
+        if (_qualifiedReferences is null) return;
+        foreach (var link in _qualifiedReferences) link.Refresh();
+    }
 
     private sealed class EquationReference : Hyperlink
     {
         private readonly MarkdownView _view;
         private readonly string _label;
+        private readonly bool _parenthesize;
         private Point? _pressPosition;
         private MarkdownView Owner => _view._tableOwner ?? _view;
+        internal string Number => _view.EquationNumber(_label);
 
         static EquationReference() => EventManager.RegisterClassHandler(typeof(EquationReference), ClickEvent,
             new RoutedEventHandler((sender, e) =>
             {
                 var link = (EquationReference)sender;
-                link._view.ShowEquationPreview(link, link.Owner._equations.GetValueOrDefault(link._label));
+                link.Preview();
                 e.Handled = true;
             }));
 
-        internal EquationReference(MarkdownView view, string label, string number) : base(new Run($"({number})"))
+        internal EquationReference(MarkdownView view, string label, string number, bool parenthesize) : base(new Run(parenthesize ? $"({number})" : number))
         {
-            _view = view; _label = label;
+            _view = view; _label = label; _parenthesize = parenthesize;
+            if (AiEquationIndex.TrySplit(label, out _, out _)) (Owner._qualifiedReferences ??= []).Add(this);
             ToolTip = "单击预览公式，双击跳转。Enter 预览，Ctrl+Enter 跳转。";
             AutomationProperties.SetHelpText(this, (string)ToolTip);
             SetResourceReference(ForegroundProperty, "Accent");
+        }
+
+        internal void Refresh()
+        {
+            var number = Number;
+            var text = _parenthesize ? $"({number})" : number;
+            if (Inlines.FirstInline is Run run && run.Text != text) run.Text = text;
+        }
+
+        private void Preview()
+        {
+            if (AiEquationIndex.TrySplit(_label, out _, out var key) && Owner.EquationPanel is { } panel)
+                _view.ShowEquationPreview(this, null, panel.ResolveEquation(Owner.EquationSource, _label, key, out _));
+            else _view.ShowEquationPreview(this, Owner._equations.GetValueOrDefault(_label));
         }
 
         protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
@@ -80,7 +107,13 @@ public sealed partial class MarkdownView
 
         private void Navigate()
         {
-            if (Owner._equations.TryGetValue(_label, out var target))
+            if (AiEquationIndex.TrySplit(_label, out _, out var key) && Owner.EquationPanel is { } panel)
+            {
+                if (panel.ResolveEquation(Owner.EquationSource, _label, key, out _) is not { } equation) { Preview(); return; }
+                if (_view._equationPreview is { } opened) opened.IsOpen = false;
+                panel.NavigateConversationEquation(equation);
+            }
+            else if (Owner._equations.TryGetValue(_label, out var target))
             {
                 if (_view._equationPreview is { } preview) preview.IsOpen = false;
                 Owner.NavigateEquation(target);
@@ -89,7 +122,7 @@ public sealed partial class MarkdownView
         }
     }
 
-    private void ShowEquationPreview(EquationReference link, Paragraph? target)
+    private void ShowEquationPreview(EquationReference link, Paragraph? target, AiEquationTarget? indexed = null)
     {
         if (_equationPreview is { IsOpen: true } old)
         {
@@ -104,14 +137,14 @@ public sealed partial class MarkdownView
             MaxWidth = Math.Max(100, Math.Min(window.ActualWidth - 16, ActualWidth)), MaxHeight = Math.Max(80, window.ActualHeight * .65) };
         surface.SetResourceReference(Border.BackgroundProperty, "EditorBackground");
         surface.SetResourceReference(Border.BorderBrushProperty, "Guide");
-        if (target?.Inlines.FirstInline is InlineUIContainer { Child: ChatFormulaRow { Child: ChatFormulaHost host } })
+        var local = (target?.Inlines.FirstInline as InlineUIContainer)?.Child is ChatFormulaRow { Child: ChatFormulaHost host } ? host.Formula : null;
+        var formula = local?.PreviewCopy() ?? (indexed is null ? null :
+            new ChatFormula(indexed.Equation.Source, true, asset: FormulaAsset?.Invoke(indexed.Equation.Source, true)));
+        if (formula is not null)
         {
-            var formula = host.Formula.PreviewCopy();
-            formula.SetValue(TextElement.FontSizeProperty, host.Formula.GetValue(TextElement.FontSizeProperty));
+            formula.SetValue(TextElement.FontSizeProperty, local?.GetValue(TextElement.FontSizeProperty) ?? FontSize);
             formula.SetResourceReference(TextElement.ForegroundProperty, "Ink");
-            var number = new TextBlock { Text = ((Run)link.Inlines.FirstInline!).Text, FontSize = 13,
-                Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            number.SetResourceReference(ForegroundProperty, "Muted");
+            var number = new ChatEquationNumber(link.Number) { Margin = new Thickness(12, 0, 0, 0) };
             var row = new DockPanel();
             DockPanel.SetDock(number, Dock.Right); row.Children.Add(number);
             row.Children.Add(new ScrollViewer { Content = formula, Focusable = false,

@@ -46,8 +46,12 @@ public partial class AiPanel
     internal async Task DeleteTurnAsync(string id)
     {
         if (_operation is not null) return;
-        if (_book.Turns.FirstOrDefault(t => t.Id == id) is { } removedTurn)
-            AiForms.PreserveBeforeRemoving(_book.Active, removedTurn);
+        var removedIndex = _book.Turns.FindIndex(t => t.Id == id);
+        if (removedIndex >= 0)
+        {
+            AiForms.PreserveBeforeRemoving(_book.Active, _book.Turns[removedIndex]);
+            AiEquationIndex.BindBeforeRemoval(_book.Turns, removedIndex);
+        }
         if (_book.Turns.RemoveAll(t => t.Id == id) > 0)
             _book.Active.Bookmarks.RemoveAll(b => b.Anchor?.TurnId == id);
         _book.Active.UpdatedAt = DateTimeOffset.UtcNow;

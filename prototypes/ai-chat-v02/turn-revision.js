@@ -72,11 +72,11 @@
        block.childNodes.forEach(visit);rows.push({id,level,parts:compact(parts)});
      }
    }
-   const result={answer:turn.answer,atoms,rows,sources,inlineSources,inlineMarkup,equations};catalogs.set(turn,result);return result;
+   const result={turn,answer:turn.answer,atoms,rows,sources,inlineSources,inlineMarkup,equations};catalogs.set(turn,result);return result;
  }
  const protectedBlock=row=>row?.parts.some(p=>!textPart(p)&&p.ref.startsWith('block:'));
  const equationText=(part,cat)=>{
-   const tag=cat.equations.get(part.label);
+   const tag=resolveEquationReference(part.label,cat.turn.id,publishedEquationIndex(cat.turn))?.tag;
    return tag===undefined?part.equation:part.parentheses?'（'+tag+'）':tag;
  };
  function editableRows(rows,cat){
@@ -100,7 +100,7 @@
      return {...row,parts:compact(parts)};
    });
  }
- function checkFormulas(rows,original){
+ function checkFormulas(rows,original,allowDisplay=false){
    const existing=new Map(),failures=[],cache=new Map();
    for(const row of original)for(const part of row.parts)if(isText(part))
      for(const formula of revisionFormulaSpans(part))existing.set(formula.raw,(existing.get(formula.raw)||0)+1);
@@ -110,15 +110,16 @@
        const count=existing.get(formula.raw)||0;
        if(count){existing.set(formula.raw,count-1);continue;}
        let error;
-       if(formula.display)error='行间公式在整理区中保留为只读。';
-       else if(!formula.closed)error='行内公式的结束定界符缺失。';
+       if(formula.display&&!allowDisplay)error='行间公式在整理区中保留为只读。';
+       else if(!formula.closed)error='公式的结束定界符缺失。';
        else{
-         if(!cache.has(formula.tex)){
+         if(!cache.has(formula.raw)){
            let failure='';
-           try{compileRevisionFormula(formula.tex);}catch(e){failure=e.message;}
-           cache.set(formula.tex,failure);
+           const source=formula.display?formula.tex.replace(/\\(?:label|tag\*?)\{[^{}]+\}/g,''):formula.tex;
+           try{compileRevisionFormula(source,formula.display);}catch(e){failure=e.message;}
+           cache.set(formula.raw,failure);
          }
-         error=cache.get(formula.tex);
+         error=cache.get(formula.raw);
        }
        if(error)failures.push({rowIndex,partIndex,formula,error});
      }
@@ -176,6 +177,13 @@
  function partNode(part,cat,editing){
    // Never load markup from a revision. Rich tokens resolve against the unmodified original.
    if(textPart(part))return editing?document.createTextNode(part):proseWithMath(part,cat);
+   if(part.displaySource){
+     const wrapper=make('div'),equation=make('div','equation');
+     const formula=revisionFormulaSpans(part.displaySource)[0];
+     if(!formula?.closed||!formula.display)return wrapper;
+     equation.append(rootOf(renderRevisionFormula(formula)),make('span','equation-number'));
+     wrapper.append(equation);return wrapper;
+   }
    if(part.ref.startsWith('equation-ref:')){
      if(!editing)return document.createTextNode(part.equation);
      const atom=make('span','revision-object revision-equation-ref',part.equation);
@@ -219,6 +227,7 @@
    const cat=catalog(turn);
    return live(turn).map(row=>(row.level?'#'.repeat(row.level)+' ':'')+row.parts.map(part=>{
      if(textPart(part))return part;
+     if(part.displaySource)return part.displaySource;
      if(part.equation!==undefined)return part.equation;
      if(cat.sources.has(part.ref))return cat.sources.get(part.ref);
      const node=cat.atoms.get(part.ref);if(!node)return '';
@@ -370,7 +379,10 @@
    const drop=button('删除所选',deleteSelected);
    const saveButton=button('完成整理',()=>finish(),'revision-primary');
    const hist=button('版本历史',()=>showHistory(turn));
-   const ai=button('AI 改稿',()=>{if(finish())askAi(turn);});
+   const ai=button('AI 改稿',()=>{
+     if(turn.readingRevisionDraft){notice.textContent='本轮有手动草稿，请先完成或取消整理。';return;}
+     active.pause();askAi(turn);
+   });
    tools.append(selector,undo,pick,drop,hist,ai,saveButton);root.append(tools,body,notice);
    const readingTop=restoredFocus?null:(readingAnchor||document.getElementById(sourceId))?.getBoundingClientRect().top;
    entry.replaceChildren(root);
@@ -835,11 +847,17 @@
    else if(restoredFocus.within)root.focus({preventScroll:true});
  }
  function commit(turn,rows,author){
-   const prev=turn.readingRevisions;
-   if(prev!==undefined&&!Array.isArray(prev)){status('该轮的版本记录来自其他版本，无法保存。');return false;}
-   turn.readingRevisions=[...(prev||[]),{id:crypto.randomUUID(),author,at:new Date().toISOString(),rows:structuredClone(rows)}];
+   return commitBatch([{turn,rows}],author);
+ }
+ function commitBatch(edits,author){
+   const previous=edits.map(({turn})=>turn.readingRevisions);
+   if(previous.some(history=>history!==undefined&&(!Array.isArray(history)||history.some(version=>!Array.isArray(version?.rows))))){
+     status('该轮的版本记录来自其他版本，无法保存。');return false;
+   }
+   for(const {turn,rows} of edits)turn.readingRevisions=[...(turn.readingRevisions||[]),
+     {id:crypto.randomUUID(),author,at:new Date().toISOString(),rows:structuredClone(rows)}];
    if(persist())return true;
-   if(prev===undefined)delete turn.readingRevisions;else turn.readingRevisions=prev;
+   edits.forEach(({turn},i)=>{if(previous[i]===undefined)delete turn.readingRevisions;else turn.readingRevisions=previous[i];});
    return false;
  }
  function modal(name){
@@ -856,7 +874,97 @@
    preview.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));preview.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);}
    select.onchange=display;display();dialog.append(select,preview);dialog.showModal();
  }
- function askAi(turn){
+ // The prototype models an exact replacement. Give this writer the same TeX
+ // source as the native tool while leaving the human editor's atoms untouched.
+ function aiSourceRows(turn,captured){
+   const cat=catalog(turn);
+   return captured.map(row=>({...row,parts:compact(row.parts.map(part=>{
+     if(isText(part))return part;
+     if(part.equation!==undefined)return part.equation;
+     if(part.displaySource)return part.displaySource;
+     const math=cat.atoms.get(part.ref)?.querySelector(':scope > .equation > .math');
+     return math?(cat.sources.get(part.ref)??'$$'+math.dataset.tex+'$$'):part;
+   }))}));
+ }
+ function aiPublishedRows(turn,source,captured,before){
+   const rows=[];
+   const original=new Map(before.map((row,index)=>[row.id,{source:row,published:captured[index]}]));
+   for(const row of source){
+     const old=original.get(row.id);
+     if(old&&old.source.level===row.level&&JSON.stringify(old.source.parts)===JSON.stringify(row.parts)){
+       rows.push(old.published);continue;
+     }
+     let parts=[],first=true;
+     function append(){
+       if(!parts.length)return;
+       const next=first?{...row,parts}:newRow(parts);
+       if(protectedBlock(next))next.level=0;
+       rows.push(next);parts=[];first=false;
+     }
+     for(const part of row.parts){
+       if(!isText(part)){parts.push(part);continue;}
+       let start=0;
+       for(const formula of revisionFormulaSpans(part).filter(f=>f.display&&f.closed)){
+         const prefix=part.slice(start,formula.start);
+         if(prefix.trim())parts.push(prefix);
+         append();parts.push({ref:'block:'+row.id+':math:'+formula.start,displaySource:formula.raw});append();start=formula.end;
+       }
+       if(start<part.length&&(start===0||part.slice(start).trim()))parts.push(part.slice(start));
+     }
+     append();
+   }
+   return editableRows(rows,catalog(turn));
+ }
+ function revisionEquationIndex(turn,rows){
+   const doc=rootOf(html(turn,rows));
+   return equationIndex(turn.id,doc.querySelectorAll('.equation .math'));
+ }
+ function prepareAiEdits(turn,rows,before,captured){
+   const errors=checkFormulas(rows,before,true);
+   if(errors.length)throw Error('替换内容中的公式未通过 KaTeX 校验。'+errors[0].error.slice(0,180));
+   const edits=[{turn,rows:aiPublishedRows(turn,rows,captured,before)}],pending=new Set();
+   const oldIndex=publishedEquationIndex(turn),newIndex=revisionEquationIndex(turn,edits[0].rows);
+   const rowOf=eq=>eq.math.closest('.passage').id;
+   const retained=new Map(newIndex.entries.map(eq=>[rowOf(eq),eq]));
+   function fixReferences(source,sourceRows){
+     let changed=false;
+     const original=publishedEquationIndex(source);
+     const fixed=sourceRows.map(row=>({...row,parts:row.parts.map(part=>{
+       if(!part.equation)return part;
+       const match=/^([1-9]\d*):(.+)$/u.exec(part.label);
+       const prior=resolveEquationReference(part.label,source.id,original);
+       if(!prior||prior.turnId!==turn.id)return part;
+       const key=match?match[2]:part.label;
+       const same=newIndex.find(key),dest=retained.get(rowOf(prior));
+       if(same&&(dest?rowOf(same)===rowOf(dest):key===/\\label\{([^{}]+)\}/.exec(same.math.dataset.tex)?.[1]))return part;
+       if(!dest){pending.add(current().turns.indexOf(source)+1);return part;}
+       const label=/\\label\{([^{}]+)\}/.exec(dest.math.dataset.tex)?.[1]||'eq-'+dest.tag;
+       const qualified=(match?match[1]+':':'')+label;
+       changed=true;return {...part,label:qualified,equation:'\\'+(part.parentheses?'eqref':'ref')+'{'+qualified+'}'};
+     })}));
+     return changed?fixed:null;
+   }
+   edits[0].rows=fixReferences(turn,edits[0].rows)??edits[0].rows;
+   const existingMissing=new Map();
+   function check(rowList,local,old){
+     for(const row of rowList)for(const part of row.parts)if(part.equation&&!resolveEquationReference(part.label,turn.id,local)){
+       const count=existingMissing.get(part.label)||0;
+       if(old)existingMissing.set(part.label,count+1);
+       else if(count)existingMissing.set(part.label,count-1);
+       else throw Error('公式引用找不到目标：'+part.equation);
+     }
+   }
+   check(captured,oldIndex,true);check(edits[0].rows,newIndex,false);
+   for(const other of current().turns){
+     if(other===turn||other.incomplete||!snapshot(other)?.includes(':'))continue;
+     const fixed=fixReferences(other,capture(other));
+     if(fixed)edits.push({turn:other,rows:fixed});
+   }
+   return {edits,pending};
+ }
+ function askAi(turn,prompt){
+   const conversation=current();
+   if(conversation.permission==='只读'||turn.readingRevisionDraft){status(conversation.permission==='只读'?'当前为只读，改稿未写入。':'本轮有手动草稿，请先完成或取消整理。');return;}
    const dialog=modal('AI 改稿 · 原型模拟'),label=make('label'),input=make('textarea'),feedback=make('p','revision-feedback');
    const prior=turn.readingAiTask;
    let task=prior??{turnId:turn.id,phase:'request',messages:[]};
@@ -864,10 +972,10 @@
    label.textContent=messages[task.phase];input.placeholder=task.phase==='request'?'例如：把「原句」改为「新句」':'';label.append(input);
    const send=button('提交',()=>{
       const text=input.value.trim();if(!text){input.focus();return;}
-      const rows=capture(turn),before=structuredClone(rows);
+      const captured=capture(turn),rows=aiSourceRows(turn,captured),before=structuredClone(rows);
       task={...task,messages:[...task.messages,{author:'用户',text}]};
       if(task.phase==='request'){
-        const match=/把[「“]([^」”]+)[」”]改[成为][「“]([^」”]*)[」”]/u.exec(text);
+        const match=/(?:把|将)?\s*[「“『]([^」”』]+)[」”』]\s*(?:改[成为]|替换[成为])\s*[「“『]([^」”』]*)[」”』]/u.exec(text);
         if(match){task.from=match[1];task.to=match[2];}
         else task.phase='source';
       }else if(task.phase==='source'){task.from=text;task.phase='replacement';}
@@ -887,22 +995,43 @@
             if(at+task.from.length>offset&&at+task.from.length<=offset+p.length)end=pos+at+task.from.length-offset;
             pos+=p.length;offset+=p.length;
           }
-          if(begin===undefined||end===undefined){feedback.textContent='请选择公式或表格之外的文字。';return;}
+          if(begin===undefined||end===undefined){feedback.textContent='请选择正文、公式或公式引用。';return;}
+          if(refs(slice(row.parts,begin,end)).some(p=>atomic(p.ref))){feedback.textContent='选中的范围包含受保护的表格或其他对象。';return;}
           row.parts=compact([...slice(row.parts,0,begin),task.to,...refs(slice(row.parts,begin,end)),...slice(row.parts,end)]);
           if(blank(textOf(row.parts))&&!refs(row.parts).some(p=>atomic(p.ref))){const links=refs(row.parts);if(i>0){rows[i-1].parts.push(...links);rows.splice(i,1);}else if(!links.length)rows.splice(i,1);}
-          const final=editableRows(rows,catalog(turn)),errors=checkFormulas(final,before);
-          if(errors.length){
-            feedback.textContent='替换内容中的公式未通过 KaTeX 校验，请修改后再提交。'+errors[0].error.slice(0,180);
+          let plan;
+          try{plan=prepareAiEdits(turn,rows,before,captured);}
+          catch(error){
+            feedback.textContent=error.message;
             delete task.to;task.phase='replacement';
-          }else{
-            if(!commit(turn,final,'AI'))return;
-            delete turn.readingAiTask;persist();dialog.close();anchoredRefresh(turn.id);status('AI 模拟改稿已保存到该轮。');return;
+          }
+          if(plan){
+            const {edits,pending}=plan,versions=edits.map(({turn})=>turn.readingRevisions?.at(-1));
+            function apply(){
+              if(current()!==conversation||conversation.permission==='只读'||edits.some(({turn},i)=>
+                !conversation.turns.includes(turn)||turn.readingRevisionDraft||versions[i]!==turn.readingRevisions?.at(-1))){
+                dialog.close();status('会话、稿件或权限已变化，请重新核对。');return;
+              }
+              if(!commitBatch(edits,'AI'))return;
+              delete turn.readingAiTask;persist();dialog.close();
+              renderTurns();
+              const related=edits.slice(1).map(item=>conversation.turns.indexOf(item.turn)+1);
+              status('AI 模拟改稿已保存。'+(related.length?'已同步第 '+related.join('、')+' 轮的引用。':'')+
+                (pending.size?'第 '+[...pending].join('、')+' 轮引用的公式已删除，请核对。':''));
+            }
+            if(conversation.permission==='执行前询问'){
+              label.hidden=true;send.hidden=true;
+              feedback.textContent='允许 AI 修改第 '+edits.map(item=>conversation.turns.indexOf(item.turn)+1).join('、')+' 轮吗？';
+              dialog.append(button('同意修改',apply,'revision-primary'),button('拒绝',()=>{dialog.close();status('已拒绝改稿。');}));
+            }else apply();
+            return;
           }
         }
       }
       task.messages.push({author:'AI',text:messages[task.phase]});turn.readingAiTask=task;persist();label.firstChild.textContent=messages[task.phase];input.value='';input.placeholder='';input.focus();
    },'revision-primary');
    dialog.append(label,feedback,send);dialog.showModal();input.focus();
+   if(prompt){input.value=prompt;send.click();}
  }
  document.addEventListener('click',e=>{
    const open=e.target.closest('[data-revise],#revise-here');if(!open)return;
@@ -915,7 +1044,7 @@
    closePopups();begin(turn,savedId,anchor);
  },true);
  window.addEventListener('pagehide',()=>{if(active?.root.isConnected)persist();});
- window.turnRevision={html,snapshot,focusState:()=>active?.root.isConnected?active.focusState():null,resume(focus){
+ window.turnRevision={html,snapshot,askAi,focusState:()=>active?.root.isConnected?active.focusState():null,resume(focus){
    if(!active||active.root.isConnected)return;
    active.endCaret();
    if(current().turns.includes(active.turn)&&document.getElementById(active.turn.id)?.querySelector('.answer'))begin(active.turn,focus?.id,null,focus);

@@ -281,13 +281,23 @@ function toggleTurn(t,control){
  if(index<0||running?.turn.id===t.id)return;
  const expanding=t.collapsed;
  const offset=(control.closest('.fold-line')||control).getBoundingClientRect().top;
+ let first=index;
  if(expanding)revealFoldedTurn(t);
- else{t.collapsed=true;delete t.foldGroup;}
+ else{
+  const left=turns[index-1],right=turns[index+1];
+  const upper=left?.collapsed&&left.foldGroup&&turns[index-2]?.collapsed&&turns[index-2].foldGroup===left.foldGroup?left.foldGroup:null;
+  const lower=right?.collapsed&&right.foldGroup&&turns[index+2]?.collapsed&&turns[index+2].foldGroup===right.foldGroup?right.foldGroup:null;
+  t.collapsed=true;delete t.foldGroup;
+  if(upper||lower)t.foldGroup=upper||lower;
+  if(upper&&lower&&upper!==lower)
+   for(let i=index+1;turns[i]?.collapsed&&turns[i].foldGroup===lower;i++)turns[i].foldGroup=upper;
+  while(t.foldGroup&&turns[first-1]?.collapsed&&turns[first-1].foldGroup===t.foldGroup)first--;
+ }
  cancelReadingRestore();renderTurns();
- const anchor=expanding?$(t.id+'-question'):$(t.id+'-divider');
+ const anchor=expanding?$(t.id+'-question'):$(turns[first].id+'-divider');
  $('reader').scrollTop+=anchor.getBoundingClientRect().top-offset;
  saveReading();
- return expanding?anchor.nextElementSibling:anchor.querySelector('.fold-number');
+ return expanding?anchor.nextElementSibling:anchor.querySelector(t.foldGroup?'.fold-run-hint':'.fold-number');
 }
 function revealFoldedTurn(turn,turns=current().turns){
  if(!turn.collapsed)return false;
@@ -421,10 +431,18 @@ function send(retryTurn=null){
  if(!selected.length&&!prompt){status('请输入问题，或填写并勾选条目。');return;}
  if(!prompt&&selected.some(e=>!e.question.trim())){status('请在编辑栏描述要问的问题。');$('composer').focus();return;}
  if(selected.length>20){status('每批最多 20 个问题，请分批提交。');return;}
+ const revision=!retryTurn&&prototypeRevisionRequest(prompt,c.turns);
  const outgoing=clone(selected).map((e,i)=>({...e,number:i+1}));
  closePopups(true);const beforeSend={entries:c.entries,draft:c.draft,title:c.title,updatedAt:c.updatedAt,lastSentAt:c.lastSentAt};c.updatedAt=new Date().toISOString();const question=[prompt,...outgoing.map(e=>'#'+e.number+' · '+e.title+'：'+e.question)].filter(Boolean).join('\n');
  const annotations=outgoing.map(e=>({...e,summary:summarizeSnapshot(e),block:null}));
  const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),model:retryTurn?.request?.model||conversationModel(c),effort:retryTurn?.request?.effort||conversationEffort(c),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title,...(c.inheritedContext?{inheritedContext:clone(c.inheritedContext)}:{})},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[]};
+ if(revision){
+  Object.assign(t,{id:crypto.randomUUID(),incomplete:false,answeredAt:t.sentAt,answer:'已收到第 '+revision.number+' 轮的改稿请求。'});
+  c.turns.push(t);c.draft='';c.entries=c.entries.filter(e=>!selected.includes(e));c.lastSentAt=t.sentAt;
+  if(!persist()){c.turns.pop();Object.assign(c,beforeSend);return;}
+  $('composer').value='';refreshEditors();renderTurns();renderEntries();
+  window.turnRevision.askAi(revision.target,revision.instruction);return;
+ }
  c.lastSentAt=t.sentAt;c.turns.push(t);if(!retryTurn)c.entries=c.entries.filter(e=>!selected.includes(e));if(c.title==='新对话')c.title=shortTitle(question);if(!retryTurn)c.draft='';if(!persist()){c.turns.pop();Object.assign(c,beforeSend);return;}if(!retryTurn){$('composer').value='';refreshEditors();}if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');const job={turn:t,selected,timers:[]};requests.set(c.id,job);running=job;renderTabs();status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
  const mode=$('playback-mode').value;
  const finish=()=>{
@@ -624,16 +642,46 @@ window.addEventListener('resize',()=>{restoreComposerHeight();refreshEditors();a
 function shortTitle(value){return [...value.replace(/\s+/g,' ').trim()].slice(0,20).join('')||'新对话';}
 function migrateReadingDesign(){if(state.readingDesignVersion===4)return;for(const c of state.conversations){c.title=shortTitle(c.title);}state.readingDesignVersion=4;}
 function readingAnchor(id){let node=$(id);const seen=new Set();while(node?.dataset.joinedInto&&!seen.has(node.id)){seen.add(node.id);node=$(node.dataset.joinedInto);}return node;}
+function equationIndex(turnId,nodes){
+ const keys=new Map();
+ const entries=Array.from(nodes,(math,i)=>{
+  const source=math.dataset.tex||'',label=/\\label\{([^{}]+)\}/.exec(source)?.[1];
+  const tag=/\\tag\*?\{([^{}]+)\}/.exec(source)?.[1]||String(i+1);
+  const formula={id:turnId+'-eq-'+(i+1),turnId,tag,math};
+  for(const key of new Set([label,tag,'eq-'+tag]))if(key)keys.set(key,keys.has(key)?null:formula);
+  return formula;
+ });
+ return {entries,find(key){return keys.get(key);}};
+}
+// A folded turn has no DOM. Read its current published version only on a reference to it.
+const referencedEquationIndexes=new WeakMap();
+function publishedEquationIndex(turn){
+ const version=turn.readingRevisions?.at(-1);
+ const cached=referencedEquationIndexes.get(turn);
+ if(cached&&cached.version===version&&cached.answer===turn.answer)return cached.index;
+ const template=document.createElement('template');
+ template.innerHTML=window.turnRevision?.html(turn)??svgHtml(turn);
+ const index=equationIndex(turn.id,template.content.querySelectorAll('.equation .math'));
+ referencedEquationIndexes.set(turn,{version,answer:turn.answer,index});return index;
+}
+function resolveEquationReference(key,sourceId,local){
+ const qualified=/^([1-9]\d*):(.+)$/.exec(key);
+ if(!qualified)return local.find(key);
+ const turns=current().turns;
+ const bound=turns.find(t=>t.id===sourceId)?.equationReferenceTurns?.[key];
+ const destination=bound?turns.find(t=>t.id===bound):turns[Number(qualified[1])-1];
+ if(!destination)return null;
+ const same=destination.id===sourceId;
+ const found=(same?local:publishedEquationIndex(destination)).find(qualified[2]);
+ return found&&{...found,tag:same?found.tag:(turns.indexOf(destination)+1)+':'+found.tag};
+}
 function prepareReadingLayout(answer){
  const tid=answer.dataset.turn;
  const equations=answer.querySelectorAll('.equation'),bodySize=equations.length?parseFloat(getComputedStyle(answer).fontSize):0;
- const labels=new Map(),numbers=new Map();
+ const local=equationIndex(tid,Array.from(equations,eq=>eq.querySelector('.math')));
  for(const [i,eq] of equations.entries()){const number=eq.querySelector('.equation-number'),math=eq.querySelector('.math');
-  const source=math.dataset.tex,label=/\\label\{([^{}]+)\}/.exec(source)?.[1],tag=/\\tag\*?\{([^{}]+)\}/.exec(source)?.[1]||String(i+1);
-  const target={id:tid+'-eq-'+(i+1),tag};
+  const source=math.dataset.tex,target=local.entries[i],tag=target.tag;
   eq.id=target.id;number.textContent='('+tag+')';
-  if(label&&!labels.has(label))labels.set(label,target);
-  if(!numbers.has(tag))numbers.set(tag,target);
   if(math.querySelector('.render-fallback')&&/\\(?:label|tag\*?)\{/.test(source)){
    const clean=source.replace(/\\(?:label|tag\*?)\{[^{}]+\}/g,'').trim();
    math.innerHTML=renderRichText('$$'+clean+'$$',true);
@@ -646,8 +694,8 @@ function prepareReadingLayout(answer){
   else {const p=document.createElement('p');p.append(math);eq.replaceWith(p);}
  }
  answer.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
- if(!equations.length)return;
- const pattern=/(?<!\\)\\(eqref|ref)\{([^{}\r\n]+)\}|公式\s*[（(](\d+)[)）]/g;
+ if(!equations.length&&!/\\(?:eqref|ref)\{|公式\s*[（(]\d+:/.test(answer.textContent))return;
+ const pattern=/(?<!\\)\\(eqref|ref)\{([^{}\r\n]+)\}|公式\s*[（(](\d+(?::\d+)?)[)）]/g;
  const walker=document.createTreeWalker(answer,NodeFilter.SHOW_TEXT),nodes=[];
  while(walker.nextNode()){
   const node=walker.currentNode;
@@ -656,11 +704,10 @@ function prepareReadingLayout(answer){
  for(const node of nodes){
   const fragment=document.createDocumentFragment();let start=0;
   for(const match of node.data.matchAll(pattern)){
-   const key=match[2];
-   const target=match[3]?numbers.get(match[3]):labels.get(key)||(key.startsWith('eq-')&&numbers.get(key.slice(3)));
+   const target=resolveEquationReference(match[2]||match[3],tid,local);
    if(!target)continue;
    const link=document.createElement('button'),direct=match[1]!=='eqref';
-   link.type='button';link.className='equation-ref';link.dataset.equationRef=target.id;
+   link.type='button';link.className='equation-ref';link.dataset.equationRef=target.id;link.dataset.equationTurn=target.turnId;
    if(direct)link.dataset.direct='true';
    link.textContent=match[3]?match[0]:direct?target.tag:'（'+target.tag+'）';
    link.title=direct?'跳转到公式 '+target.tag:'单击预览公式，双击跳转。Enter 预览，Ctrl+Enter 跳转。';
@@ -670,14 +717,17 @@ function prepareReadingLayout(answer){
   if(start){fragment.append(node.data.slice(start));node.replaceWith(fragment);}
  }
 }
-function jumpToEquation(b){const id=b.dataset.equationRef,turn=current().turns.find(t=>t.id===b.closest('.turn').id);
- // Expand any collapsed heading that contains the target, without altering other headings.
- const answer=b.closest('.answer'),target=$(id);let stack=[],changed=revealFoldedTurn(turn);
+function jumpToEquation(b){const id=b.dataset.equationRef,turn=current().turns.find(t=>t.id===b.dataset.equationTurn);
+ if(!turn)return;
+ closeEquationPreview();cancelReadingRestore();
+ if(revealFoldedTurn(turn))renderTurns();
+ const target=$(id),answer=target?.closest('.answer');if(!answer)return;
+ let stack=[],changed=false;
  for(const p of answer.querySelectorAll(':scope>.passage')){
   const h=p.querySelector('h1,h2,h3,h4,h5,h6');if(h){const level=Number(h.tagName.slice(1));stack=stack.filter(x=>x.level<level);stack.push({level,id:p.id});}
   if(p.contains(target)){for(const h of stack)if(turn.sections?.[h.id]){turn.sections[h.id]=false;changed=true;}break;}
  }
- closeEquationPreview();cancelReadingRestore();if(changed)renderTurns();
+ if(changed)renderTurns();
  requestAnimationFrame(()=>{const target=$(id);if(target){target.scrollIntoView({block:'center'});target.classList.add('equation-target');saveReading();}});
 }
 let equationPreviewLink=null;
@@ -689,11 +739,14 @@ function closeEquationPreview(){
 function previewEquation(link){
  if(equationPreviewLink===link){closeEquationPreview();return;}
  closeEquationPreview();
- const target=$(link.dataset.equationRef),original=target?.matches('.math')?target:target?.querySelector('.math');
+ const target=$(link.dataset.equationRef),turn=current().turns.find(t=>t.id===link.dataset.equationTurn);
+ const original=(target?.matches('.math')?target:target?.querySelector('.math'))||
+  (turn&&publishedEquationIndex(turn).entries.find(eq=>eq.id===link.dataset.equationRef)?.math);
  if(!original)return;
  const popup=document.createElement('aside'),content=original.cloneNode(true);
  popup.id='equation-preview';popup.setAttribute('aria-label','公式预览');
  content.removeAttribute('id');content.removeAttribute('tabindex');content.dataset.display='true';
+ if(content.querySelector('.render-fallback'))content.innerHTML=renderRichText('$$'+content.dataset.tex.replace(/\\(?:label|tag\*?)\{[^{}]+\}/g,'').trim()+'$$',true);
  // SVG glyphs must resolve within the preview even when their original heading is folded.
  for(const def of content.querySelectorAll('svg [id]'))def.id='equation-preview-'+def.id;
  for(const use of content.querySelectorAll('svg use'))for(const attr of use.attributes)

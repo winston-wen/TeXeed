@@ -48,7 +48,7 @@ internal sealed class RevisionLineHost : Border
     internal RevisionLineEditor Activate()
     {
         if (Editor is { } current) return current;
-        var editor = new RevisionLineEditor(RevisionBuffer.From(Row, editableInlineMath: true), _imageBaseDirectory);
+        var editor = new RevisionLineEditor(RevisionBuffer.From(Row, RevisionMathScope.Inline), _imageBaseDirectory);
         Child = editor;
         _connected(editor);
         editor.ApplyTemplate();
@@ -81,7 +81,7 @@ internal sealed class RevisionLineHost : Border
             var visible = rich.CopySourceLength(rich.Document.ContentStart, position);
             var mapping = AiRevisionText.SelectionText(Row.Text, rich.ReferenceText);
             var raw = visible == 0 ? 0 : visible > mapping.Ends.Count ? Row.Text.Length : mapping.Ends[visible - 1];
-            offset = RevisionBuffer.From(Row, editableInlineMath: true).DisplayOffset(raw);
+            offset = RevisionBuffer.From(Row, RevisionMathScope.Inline).DisplayOffset(raw);
         }
         FocusSource(offset);
         e.Handled = true;

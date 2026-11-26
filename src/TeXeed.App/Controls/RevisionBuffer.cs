@@ -23,16 +23,16 @@ internal sealed record RevisionBuffer(string Display, IReadOnlyList<RevisionAtom
         }
         return Math.Clamp(sourceOffset + shift, 0, Display.Length);
     }
-    internal static RevisionBuffer From(AiRevisionRow row, bool editableInlineMath = false)
+    internal static RevisionBuffer From(AiRevisionRow row, RevisionMathScope mathScope = RevisionMathScope.Preserve)
     {
-        var spans = AiRevisionText.ProtectedSpans(row.Text, editableInlineMath);
+        var spans = AiRevisionText.ProtectedSpans(row.Text, mathScope);
         var links = row.Links.OrderBy(link => link.Offset).ToArray();
         var display = new StringBuilder();
         var atoms = new List<RevisionAtom>();
         var at = 0; var nextLink = 0; var nextSpan = 0;
         void AddAtom(string source, IReadOnlyList<AiRevisionLink> inside)
         {
-            var showSource = editableInlineMath && (source.StartsWith(@"\eqref{", StringComparison.Ordinal) ||
+            var showSource = mathScope == RevisionMathScope.Inline && (source.StartsWith(@"\eqref{", StringComparison.Ordinal) ||
                 source.StartsWith(@"\ref{", StringComparison.Ordinal));
             var showObject = !showSource || inside.Any(link => !IsBookmark(link));
             var start = display.Length;

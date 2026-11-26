@@ -137,7 +137,7 @@ public sealed class AiTurnView : StackPanel
         var row = new Grid { Background = Brushes.Transparent, Focusable = true, Cursor = Cursors.Hand,
             MinHeight = AiChatTypography.LineHeight, Margin = new Thickness(-12, 0, 4, 0), ToolTip = "双击或按 Enter、空格展开折叠轮次" };
         // A wide answer can leave the virtualized panel wider than the visible reader.
-        // Size the divider to the viewport so its action stays centered on screen.
+        // Keep the divider inside the visible reader.
         row.HorizontalAlignment = HorizontalAlignment.Left;
         row.SetBinding(WidthProperty, new Binding(nameof(ChatScrollViewer.ViewportWidth))
         {
@@ -169,11 +169,13 @@ public sealed class AiTurnView : StackPanel
     private Button AddFoldGroupHint()
     {
         var row = _foldedRow!;
-        row.Children.RemoveAt(1);
-        var divider = new Grid();
-        divider.ColumnDefinitions.Add(new ColumnDefinition());
-        divider.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        divider.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Insert(1, new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Insert(2, new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(row.Children[1], 3);
+        var lead = FoldLine();
+        lead.Width = 4 * AiChatTypography.FontSize;
+        Grid.SetColumn(lead, 1);
+        row.Children.Add(lead);
         var hint = new Button { Tag = row, Background = Brushes.Transparent, BorderThickness = new Thickness(0),
             Padding = new Thickness(8, 0, 8, 0), FontSize = AiChatTypography.FoldHintFontSize, Cursor = Cursors.Hand };
         hint.SetResourceReference(Control.ForegroundProperty, "Muted");
@@ -189,10 +191,8 @@ public sealed class AiTurnView : StackPanel
             if (!e.IsRepeat) FoldGroupRequested?.Invoke(hint);
         };
         hint.Click += (_, _) => FoldGroupRequested?.Invoke(hint);
-        var right = FoldLine();
-        Grid.SetColumn(hint, 1); Grid.SetColumn(right, 2);
-        divider.Children.Add(FoldLine()); divider.Children.Add(hint); divider.Children.Add(right);
-        Grid.SetColumn(divider, 1); row.Children.Add(divider);
+        Grid.SetColumn(hint, 2);
+        row.Children.Add(hint);
         return hint;
     }
     private void Build()

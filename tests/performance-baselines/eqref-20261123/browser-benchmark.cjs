@@ -17,7 +17,9 @@ const median = a => [...a].sort((x,y)=>x-y)[a.length>>1];
 const bytes = node => node.selfSize + node.children.reduce((sum,c)=>sum+bytes(c),0);
 const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 (async()=>{
-  const [out,...directories]=process.argv.slice(2);
+  const args=process.argv.slice(2);
+  const allPreview=args.includes('--all-preview');
+  const [out,...directories]=args.filter(arg=>arg!=='--all-preview');
   if(!out||directories.length<2)throw Error('Pass result.json, historical prototype directories, and the candidate prototype directory last.');
   const browser=await chromium.launch({headless:true,executablePath:process.env.TEXEED_BROWSER_PATH});
   const results={chrome:browser.version(),platform:process.platform,node:process.version,
@@ -26,10 +28,13 @@ const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex
     for(let round=0;round<3;round++){
       const order=directories.map((_,i)=>(round+i)%directories.length);
       for(const index of order){
-        const dir=resolve(directories[index]),currentBuild=index===directories.length-1;
+        const dir=resolve(directories[index]),currentBuild=allPreview||index===directories.length-1;
         const page=await browser.newPage({viewport:results.viewport});
         await page.goto(pathToFileURL(join(dir,'index.html')).href+'?test=1');
         await page.evaluate(()=>document.fonts.ready); await page.evaluate(seed);
+        // Finish the seeded conversation's queued restore before positioning the measured link.
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        await page.evaluate(()=>document.fonts.ready);
         const client=await page.context().newCDPSession(page);
         for(const action of (currentBuild?['preview','jump']:['jump'])){
          const measures=[];

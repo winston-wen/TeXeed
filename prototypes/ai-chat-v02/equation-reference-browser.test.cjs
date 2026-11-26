@@ -48,6 +48,9 @@ const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright')
     async function position(link) {
       return link.evaluate(el => [el.getBoundingClientRect().top, document.getElementById('reader').scrollTop]);
     }
+    function numberStyle(node) {
+      const s=getComputedStyle(node);return [s.fontFamily,s.fontSize,s.fontWeight,s.fontStyle,s.color];
+    }
     async function waitForTarget(id) {
       await page.waitForFunction(id => {
         const box=document.getElementById(id).getBoundingClientRect(), reader=document.getElementById('reader').getBoundingClientRect();
@@ -65,6 +68,9 @@ const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright')
       assert.equal(await popup.locator('.katex').count(), 1);
       assert.equal(await popup.locator('.render-fallback').count(), 0);
       assert.equal(await popup.locator('.equation-number').textContent(), index ? '(1)' : '(17)');
+      const displayed=await page.locator('#'+id+' .equation-number').evaluate(numberStyle);
+      assert.match(displayed[0],/Times New Roman/);
+      assert.deepEqual(await popup.locator('.equation-number').evaluate(numberStyle),displayed);
       assert.match(await popup.locator('.math').getAttribute('data-tex'), index ? /z=x\+y/ : /w_x.*w'/s);
       if (!index) {
         const out = process.env.TEXEED_EQREF_SCREENSHOT;
@@ -130,6 +136,52 @@ const { chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright')
       return href?.startsWith('#')&&svg.contains(document.getElementById(href.slice(1)));
     }));
     assert.ok(ids,'Bundled SVG glyph definitions should resolve inside the popup');
+    await page.evaluate(() => {
+      const c = current();
+      c.turns = [
+        {id:'target',question:'推导',collapsed:true,foldGroup:'pair',sections:{'target-p0':true,'target-p3':true},
+          answer:'# 定义\n\n$$a=b\\label{eq:a}$$\n\n$$\\begin{aligned}u&=x\\\\v&=y\\end{aligned}\\tag{17}\\label{eq:pair}$$\n\n# 附录\n\n补充。'},
+        {id:'neighbor',question:'旁例',answer:'$$w=0\\label{eq:a}$$',collapsed:true,foldGroup:'pair'},
+        {id:'source',question:'两式说明了什么？',answer:'见公式 \\eqref{1:eq:a}、\\eqref{1:eq:pair}。不存在的 \\eqref{4:eq:a} 和未指定轮次的 \\eqref{eq:a}。'},
+      ];
+      c.draft='跨轮阅读时的草稿'; renderConversation(); persist();
+    });
+    const cross = page.locator('#source .equation-ref');
+    assert.deepEqual(await cross.allTextContents(), ['（1:1）','（1:17）']);
+    for (const [i,tex] of [[0,/a=b/],[1,/begin\{aligned\}.*v&=y/]]) {
+      const link=cross.nth(i);
+      await place(link);
+      const before=await position(link);
+      await link.click();
+      const previewNumber=await page.locator('#equation-preview .equation-number').evaluate(numberStyle);
+      assert.match(await page.locator('#equation-preview .math').getAttribute('data-tex'),tex);
+      assert.equal(await page.locator('#equation-preview .katex').count(),1);
+      assert.equal(await page.locator('#target .answer').count(),0);
+      assert.deepEqual(await position(link),before);
+      await page.keyboard.press('Escape');
+      await link.dblclick();
+      await waitForTarget('target-eq-'+(i+1));
+      assert.deepEqual(await page.locator('#target-eq-'+(i+1)+' .equation-number').evaluate(numberStyle),previewNumber);
+      assert.equal(await page.evaluate(()=>current().turns[0].sections['target-p3']),true);
+      assert.equal(await page.locator('#neighbor .answer').count(),0);
+      await page.evaluate(()=>{
+        for(const t of current().turns.slice(0,2)){t.collapsed=true;t.foldGroup='pair';}
+        renderTurns();
+      });
+    }
+    await page.evaluate(()=>{
+      const [t,,s]=current().turns;
+      t.readingRevisions=[{id:'new-order',author:'用户',rows:[
+        {id:'one',level:0,parts:[{ref:'block:target-p2'}]},
+        {id:'two',level:0,parts:[{ref:'block:target-p1'}]},
+      ]}];
+      s.answer+='\n\n$$q=r\\label{eq:q}$$\n\n公式 \\eqref{3:eq:q}。';
+      delete s.answerHtml;
+      renderTurns();persist();
+    });
+    await page.reload();
+    assert.deepEqual(await cross.allTextContents(),['（1:2）','（1:17）','（1）']);
+    assert.equal(await page.locator('#composer').inputValue(),'跨轮阅读时的草稿');
     assert.deepEqual(errors, []);
     console.log('PASS: single and multiline formula previews preserve viewport, folds and draft; double click, direct ref and keyboard reach the target.');
   } finally {

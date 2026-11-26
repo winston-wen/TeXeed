@@ -174,6 +174,7 @@ public partial class AiPanel
                 pointer = view.ResolveUserBookmark(saved);
             }
         }
+        else if (bookmark.Equation is { } equation) pointer = (view.EquationBlock(equation) as TextElement)?.ContentStart;
         else pointer = view.BookmarkBlock(bookmark.Kind, bookmark.Position) is TextElement block ? block.ContentStart : null;
         if (pointer is null) return false;
         History.UpdateLayout();
@@ -188,6 +189,9 @@ public partial class AiPanel
     private void BookmarkQuestionLoaded(MarkdownView view)
     {
         if (!_bookmarkQuestions.Add(view)) return;
+        view.EquationSource = AnswerTurn(view);
+        view.EquationPanel = this;
+        view.RefreshEquationReferences();
         RefreshBookmarkMarker(view, true);
         var menu = new ContextMenu();
         var bookmark = new MenuItem { Header = "为所选内容添加标签" };

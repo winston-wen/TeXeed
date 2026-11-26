@@ -52,6 +52,8 @@ jobs:
           node prototypes/ai-chat-v02/turn-revision-browser.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node prototypes/ai-chat-v02/turn-fold-browser.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node prototypes/ai-chat-v02/equation-reference-browser.test.cjs
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-turn-fold-only --offscreen --output artifacts/ci-turn-fold-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --preview-close-restore-only --offscreen --output artifacts/ci-preview-eye-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-eqref-only --offscreen --output artifacts/ci-ai-eqref-check

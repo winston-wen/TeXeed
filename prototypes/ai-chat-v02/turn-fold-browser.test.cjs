@@ -39,11 +39,17 @@ async function run() {
     assert.deepEqual(await page.locator('[data-fold-run="compact"]').evaluateAll(hints => hints.map(h => h.closest('.turn').id)), ['fold-4', 'fold-7']);
     assert.equal(await hint(12).count(), 0, 'A single collapsed turn needs no run control');
     assert.equal(await hint(5).count(), 0, 'Intermediate lines need no run control');
-    const centerError = await hint(4).evaluate(button => {
-      const track = button.parentElement.getBoundingClientRect(), rect = button.getBoundingClientRect();
-      return Math.abs(rect.left + rect.width / 2 - track.left - track.width / 2);
-    });
-    assert(centerError < 1, 'Run action is centered on the divider');
+    const checkLead = button => {
+      const track = button.parentElement, style = getComputedStyle(track,'::before');
+      const length = button.getBoundingClientRect().left - track.getBoundingClientRect().left;
+      const gap = track.getBoundingClientRect().left - track.previousElementSibling.getBoundingClientRect().right;
+      return style.borderTopStyle === 'solid' && parseFloat(style.borderTopWidth) >= 1 &&
+        Math.abs(length - 4 * parseFloat(getComputedStyle(track).fontSize)) <= 1 && gap >= 4 && gap <= 20;
+    };
+    for (const width of [440, 1550, 830]) {
+      await page.setViewportSize({width,height:740});
+      assert(await hint(4).evaluate(checkLead), 'Four-character divider precedes run action at width ' + width);
+    }
     assert(Math.abs((await y('#fold-5-divider') - await y('#fold-4-divider')) -
       await line(4).evaluate(el => el.getBoundingClientRect().height)) < 1, 'Internal folded rows use one reading-line height');
     await line(4).scrollIntoViewIfNeeded();
@@ -56,6 +62,7 @@ async function run() {
     await hint(7).dblclick();
     assert.deepEqual(await numbers(), ['[5 ~ 8]', '[13]']);
     assert.equal(await hint(4).textContent(), '展开');
+    assert(await hint(4).evaluate(checkLead));
     assert(Math.abs(await y('#fold-4-divider') - tailY) < 2, 'Compacting from the last row keeps the action at its screen position');
     assert.equal(await page.evaluate(() => $('fold-3') === window.unchangedTurn), true, 'Compacting only replaces folded rows');
     if (screenshot) await page.screenshot({ path: path.join(screenshot, 'compact.png') });
@@ -98,8 +105,25 @@ async function run() {
     await hint(5).dblclick();
     assert.deepEqual(await page.locator('[data-fold-run="compact"]').evaluateAll(hints => hints.map(h => h.closest('.turn').id)), ['fold-4', 'fold-8'],
       'Restoring a range next to individual rows moves the hints to the new outer ends');
+    await page.evaluate(() => {
+      for (const [i,t] of current().turns.entries()) {
+        t.collapsed=[0,2,3,6,7,8].includes(i); delete t.foldGroup;
+        if (i===2||i===3) t.foldGroup='upper';
+        if (i===6||i===7) t.foldGroup='lower';
+      }
+      renderTurns();
+    });
+    for (const [i,expected] of [[1,'[2 ~ 4]'],[4,'[2 ~ 5]'],[5,'[2 ~ 8]']]) {
+      await line(i).scrollIntoViewIfNeeded(); await line(i).press('Space');
+      assert((await numbers()).includes(expected));
+    }
+    assert.deepEqual(await numbers(),['[1]','[2 ~ 8]','[9]']);
+    await page.reload(); await hint(1).waitFor();
+    assert.deepEqual(await numbers(),['[1]','[2 ~ 8]','[9]']);
+    await hint(1).dblclick();
+    assert.deepEqual(await numbers(),Array.from({length:9},(_,i)=>'['+(i+1)+']'));
     assert.deepEqual(errors, []);
-    console.log('PASS: three folding states, centered start/end hints, double-click and keyboard, single-turn peek, viewport, persistence and reference navigation.');
+    console.log('PASS: three folding states, nearby start/end hints, absorption and merge, double-click and keyboard, peek, viewport, persistence and navigation.');
   } finally {
     await browser.close();
   }

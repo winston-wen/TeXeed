@@ -248,6 +248,83 @@ const {chromium}=require(process.env.TEXEED_PLAYWRIGHT_PATH||'playwright');
   await page.reload();await page.locator('[data-revise="focus"]').click();
   assert.match(await row('focus-p1').textContent(),/已核对/);
   await save();assert.deepEqual(await page.evaluate(()=>current().turns.at(-1).readingRevisions.map(v=>v.author)),['用户']);
+  await page.evaluate(()=>{
+    current().turns=[
+      {id:'source-math',question:'定义',answer:'先计算。\n\n$$w=x\\label{eq:old}$$\n\n参见公式 \\eqref{eq:old}。',segments:[]},
+      {id:'uses-math',question:'复用',answer:'使用公式 \\eqref{1:eq:old}。',segments:[]},
+      {id:'unrelated',question:'其他',answer:'无关。',segments:[]}];
+    current().permission='完全访问';renderConversation();persist();
+  });
+  const startAi=async()=>{
+    await page.locator('[data-revise="source-math"]').click();
+    await page.getByRole('button',{name:'AI 改稿',exact:true}).click();
+  };
+  await startAi();
+  await dialog.locator('textarea').fill('把「$$w=x\\label{eq:old}$$」改为「$$\n\\begin{aligned}a&=b\\\\c&=d\\end{aligned}\\label{eq:new}\n$$」');
+  await dialog.getByRole('button',{name:'提交'}).click();
+  assert.equal(await dialog.count(),0,'完全访问直接保存');
+  assert.equal(await page.locator('#source-math .equation .katex').count(),1);
+  const sources=()=>page.evaluate(()=>current().turns.map(t=>window.turnRevision.snapshot(t)));
+  assert.match((await sources())[0],/\\eqref\{eq:new\}/);
+  assert.match((await sources())[1],/\\eqref\{1:eq:new\}/);
+  assert.deepEqual(await page.evaluate(()=>current().turns.map(t=>t.readingRevisions?.length??0)),[1,1,0]);
+  await page.locator('[data-revise="uses-math"]').click();
+  await page.keyboard.press('Escape');
+  assert.match(await page.locator('#uses-math .revision-editor .equation-ref').textContent(),/1:1/);
+  await save();
+  await page.locator('#permission').selectOption('执行前询问');
+  const askToReplace=async()=>{
+    await startAi();
+    await dialog.locator('textarea').fill('把「先计算。」改为「先计算 $w_1$，见公式 \\eqref{eq:new}。」');
+    await dialog.getByRole('button',{name:'提交'}).click();
+  };
+  await askToReplace();await dialog.getByRole('button',{name:'拒绝'}).click();
+  assert.doesNotMatch((await sources())[0],/\$w_1\$/);
+  await askToReplace();await dialog.getByRole('button',{name:'同意修改'}).click();
+  assert.equal(await page.locator('#source-math .math[data-display=false] .katex').count(),1);
+  await page.reload();
+  assert.match((await sources())[0],/\$w_1\$/);
+  assert.deepEqual(await page.evaluate(()=>current().turns.map(t=>t.readingRevisions?.length??0)),[2,1,0]);
+  await page.locator('#permission').selectOption('完全访问');
+  await startAi();
+  await dialog.locator('textarea').fill('把「\\label{eq:new}」改为「\\tag{17}\\label{eq:new}」');
+  await dialog.getByRole('button',{name:'提交'}).click();
+  const cross=page.locator('#uses-math .equation-ref');
+  assert.match(await cross.textContent(),/1:17/);
+  await cross.click();
+  assert.match(await page.locator('#equation-preview .math').getAttribute('data-tex'),/\\tag\{17\}/);
+  assert.equal(await page.locator('#equation-preview .katex').count(),1);
+  assert.deepEqual(await page.evaluate(()=>current().turns.map(t=>t.readingRevisions?.length??0)),[3,1,0],
+    '重排后仅刷新可见跨轮编号和预览，不必写入引用轮');
+  await page.evaluate(()=>{
+    newConversation();
+    state.reviewPinnedTurns=[];state.reviewTemporaryTurns=[];
+    current().turns=[
+      {id:'original',question:'原题',answer:'原句。',segments:[]},
+      {id:'discussion',question:'第 1 轮那句可以怎样改？',answer:'可以把「原句」改为「简明的 $x$」',segments:[]}
+    ];
+    current().permission='完全访问';renderConversation();persist();
+  });
+  const command=async text=>{await page.locator('#composer').fill(text);await page.locator('#send').click();};
+  await command('你倒是写过去啊');
+  assert.equal(await page.locator('#original .math .katex').count(),1,await page.evaluate(()=>JSON.stringify({
+    status:$('status').textContent,feedback:document.querySelector('.revision-feedback')?.textContent,
+    draft:current().draft,questions:current().turns.map(t=>t.question),answer:window.turnRevision.snapshot(current().turns[0])})));
+  assert.equal((await sources())[0],'简明的 $x$。');
+  assert.equal(await page.locator('#composer').inputValue(),'');
+  assert.equal(await page.evaluate(()=>current().turns.at(-1).question),'你倒是写过去啊');
+  await page.locator('#permission').selectOption('执行前询问');
+  await command('请改写第 1 轮，把「简明」改为「准确」');
+  await dialog.getByRole('button',{name:'拒绝'}).click();
+  assert.equal((await sources())[0],'简明的 $x$。');
+  await command('请改写第 1 轮，把「简明」改为「准确」');
+  await dialog.getByRole('button',{name:'同意修改'}).click();
+  await page.reload();
+  assert.equal((await sources())[0],'准确的 $x$。');
+  await page.locator('#permission').selectOption('只读');
+  await command('请改写第 1 轮，把「准确」改为「精确」');
+  assert.equal(await dialog.count(),0);
+  assert.equal((await sources())[0],'准确的 $x$。');
   assert.deepEqual(errors,[]);
   console.log('PASS 原位整理、标题编号、跨段合并、撤销、受保护的公式表格和多个引用、最新稿回源、草稿与历史恢复、跨轮模拟 AI 改稿');
  }finally{await browser.close();}

@@ -26,10 +26,10 @@ internal static partial class Program
             (_, _) => throw new Exception("Valid inline source should not call AI"), CancellationToken.None);
         Require(output.Single().Text == valid.Text, "Compilable edited formulas have to save unchanged");
         var draft = new AiRevisionDraft("turn", "rev", [before]);
-        Require(AiRevisionText.Normalize(draft, [valid], editableInlineMath: true).Single().Text == valid.Text,
+        Require(AiRevisionText.Normalize(draft, [valid], RevisionMathScope.Inline).Single().Text == valid.Text,
             "The manual save gate would reject valid inline edits");
         var modifiedEqref = false;
-        try { AiRevisionText.Normalize(draft, [valid with { Text = valid.Text.Replace("target", "other") }], editableInlineMath: true); }
+        try { AiRevisionText.Normalize(draft, [valid with { Text = valid.Text.Replace("target", "other") }], RevisionMathScope.Inline); }
         catch (InvalidOperationException) { modifiedEqref = true; }
         Require(modifiedEqref, "The manual save gate should still protect equation references");
         var broken = realTex ? "x^2^3" : @"\frca{a}{b}";
@@ -66,6 +66,7 @@ internal static partial class Program
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("定界范围", StringComparison.Ordinal)) { wrongBoundaries = true; }
         Require(wrongBoundaries, "Correction could change content outside the failing formula");
+        await CheckAiRevisionMathAsync(realTex);
         Console.WriteLine($"PASS: inline TeX ({(realTex ? "local LaTeX/dvisvgm" : "isolated cache and TeX input validation")}), repair, second check, preserved eqref and citation offsets.");
     }
 }

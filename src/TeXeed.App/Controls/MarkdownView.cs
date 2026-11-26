@@ -180,7 +180,7 @@ public sealed partial class MarkdownView : RichTextBox
         document.SetResourceReference(TextElement.ForegroundProperty, "Ink"); return document;
     }
     private void ClearRichState()
-    { _formControls.Clear(); _formFeedbackHosts.Clear(); _formBlockWidths.Clear(); _formCellCandidates.Clear(); _formCellColumns.Clear(); _branchLinkBlocks.Clear(); _branchLineModes.Clear(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _foldBodies.Clear(); _foldHints.Clear(); InvalidateBranchText(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); ClearMedia(); ClearCodeSurfaces(); }
+    { _qualifiedReferences?.Clear(); _formControls.Clear(); _formFeedbackHosts.Clear(); _formBlockWidths.Clear(); _formCellCandidates.Clear(); _formCellColumns.Clear(); _branchLinkBlocks.Clear(); _branchLineModes.Clear(); _equations.Clear(); _annotationPointers.Clear(); _clipboardMath.Clear(); _formulaWidths.Clear(); _revealSections.Clear(); _bookmarkSections.Clear(); _foldBodies.Clear(); _foldHints.Clear(); InvalidateBranchText(); _bookmarkHeadings.Clear(); _bookmarkFormulas.Clear(); _headingMarkers.Clear(); ResetHeadingNumbers(); ClearMedia(); ClearCodeSurfaces(); }
     private void CodeFallback(FlowDocument document, string source)
     {
         ClearRichState(); document.Blocks.Clear(); document.Blocks.Add(CodeParagraph(source));

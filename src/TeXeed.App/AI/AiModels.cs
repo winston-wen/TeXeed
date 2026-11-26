@@ -182,6 +182,8 @@ public sealed record AiTurn(string Question, string Answer)
     public bool Collapsed { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FoldGroup { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? EquationReferenceTurns { get; set; }
     public Dictionary<string, bool> CollapsedSections { get; init; } = [];
     public string Model { get; init; } = "";
     public string ReasoningEffort { get; init; } = "";
@@ -195,6 +197,7 @@ public sealed record AiTurn(string Question, string Answer)
         SentAnnotations = SentAnnotations.Select(entry => entry.Snapshot()).ToList(),
         Segments = Segments.Select(segment => segment.Snapshot()).ToList(),
         CollapsedSections = new(CollapsedSections),
+        EquationReferenceTurns = EquationReferenceTurns is null ? null : new(EquationReferenceTurns),
         RevisionHistory = RevisionHistory?.Select(revision => revision with
             { Rows = AiRevisionText.Clone(revision.Rows), Sources = new(revision.Sources) }).ToList(),
         UserRevisionDraft = UserRevisionDraft is { } draft ? draft with { Rows = AiRevisionText.Clone(draft.Rows) } : null

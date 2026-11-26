@@ -59,6 +59,7 @@ public partial class AiPanel
         for (var i = oldCount - suffix; i > prefix; i--) _transcriptItems.RemoveAt(i);
         for (var i = prefix; i < desired.Count - suffix; i++) _transcriptItems.Insert(i + 1, desired[i]);
         foreach (var view in _turnViews.Values) UpdateFoldedView(view);
+        RefreshConversationEquationReferences();
     }
 
     private void UpdateFoldedView(AiTurnView view)
@@ -103,9 +104,20 @@ public partial class AiPanel
             return;
         }
         var anchor = CaptureFoldAnchor(trigger);
-        turn.FoldGroup = null;
         turn.Collapsed = !turn.Collapsed;
-        FinishFoldChange(turn, anchor);
+        turn.FoldGroup = null;
+        if (turn.Collapsed)
+        {
+            var index = ReferenceEquals(turn, PendingLiveTurn) ? _book.Turns.Count : _book.Turns.IndexOf(turn);
+            var count = TranscriptTurnCount;
+            var left = index > 0 && TranscriptTurn(index - 1).Collapsed ? TranscriptTurn(index - 1).FoldGroup : null;
+            var right = index >= 0 && index + 1 < count && TranscriptTurn(index + 1).Collapsed ? TranscriptTurn(index + 1).FoldGroup : null;
+            turn.FoldGroup = left ?? right;
+            if (left is not null && right is not null && left != right)
+                for (var i = index + 1; i < count && TranscriptTurn(i) is { Collapsed: true } member && member.FoldGroup == right; i++)
+                    member.FoldGroup = left;
+        }
+        FinishFoldChange(FoldRepresentative(turn), anchor);
     }
 
     private void ChangeFoldGroup(AiTurn turn, FrameworkElement trigger)

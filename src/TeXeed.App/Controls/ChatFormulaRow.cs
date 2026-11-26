@@ -17,11 +17,10 @@ internal sealed class ChatFormulaRow : Decorator
     internal ChatFormulaRow(ChatFormula formula, string? number, double indent = 0, bool leftAligned = false)
     {
         formula.SetResourceReference(TextElement.ForegroundProperty, "Ink");
-        _number = "(" + number + ")"; _indent = indent; Child = new ChatFormulaHost(formula, leftAligned); ClipToBounds = true;
+        _number = ChatEquationNumber.Caption(number); _indent = indent; Child = new ChatFormulaHost(formula, leftAligned); ClipToBounds = true;
         SetResourceReference(TextElement.ForegroundProperty, "Muted");
     }
-    private FormattedText Label() => new(_number, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
-        new Typeface("Times New Roman"), 13, (Brush)GetValue(TextElement.ForegroundProperty), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+    private FormattedText Label() => ChatEquationNumber.Format(this, _number);
     protected override Size MeasureOverride(Size constraint)
     {
         _label = Label();
@@ -37,6 +36,30 @@ internal sealed class ChatFormulaRow : Decorator
     }
     protected override void OnRender(DrawingContext context)
     {
-        var label = Label(); context.DrawText(label, new Point(Math.Max(0, ActualWidth - label.Width), Math.Max(0, (ActualHeight - label.Height) / 2)));
+        ChatEquationNumber.Draw(context, RenderSize, Label());
     }
+}
+
+// The transcript draws directly into its formula row. Only the popup needs a separate layout element.
+internal sealed class ChatEquationNumber : FrameworkElement
+{
+    private static readonly Typeface Face = new(new FontFamily("Times New Roman"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+    private readonly string _number;
+    internal ChatEquationNumber(string number)
+    {
+        _number = Caption(number);
+        SetResourceReference(TextElement.ForegroundProperty, "Muted");
+    }
+    internal static string Caption(string? number) => "(" + number + ")";
+    internal static FormattedText Format(FrameworkElement element, string caption) => new(caption,
+        CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, Face, 13, (Brush)element.GetValue(TextElement.ForegroundProperty),
+        VisualTreeHelper.GetDpi(element).PixelsPerDip);
+    internal static void Draw(DrawingContext context, Size bounds, FormattedText label) =>
+        context.DrawText(label, new Point(Math.Max(0, bounds.Width - label.Width), Math.Max(0, (bounds.Height - label.Height) / 2)));
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var label = Format(this, _number);
+        return new(label.Width, label.Height);
+    }
+    protected override void OnRender(DrawingContext context) => Draw(context, RenderSize, Format(this, _number));
 }

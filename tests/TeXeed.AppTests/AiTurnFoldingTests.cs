@@ -46,15 +46,39 @@ internal static partial class Program
             await SettleFoldLayoutAsync(host);
             var reopened = Descendants<AiTurnView>(panel).Single(view => view.Turn.Id == book.Turns[3].Id);
             var narrowHint = FoldHint(reopened, "展开");
-            var visibleRules = Descendants<Border>(reopened.FoldTarget).Where(b => b.Height == 1 && b.ActualWidth > 1)
-                .Select(rule => VisibleBounds(rule, host)).Where(rect => rect.Width > 0).ToArray();
-            var apparentCenter = (visibleRules.Min(rect => rect.Left) + visibleRules.Max(rect => rect.Right)) / 2;
-            var narrowHintX = narrowHint.TranslatePoint(new Point(narrowHint.ActualWidth / 2, 0), host).X;
-            Check(Math.Abs(narrowHintX - apparentCenter) < 2,
-                $"The compact hint is centered at {narrowHintX:F1} DIP against the visible divider centre at {apparentCenter:F1} DIP");
+            var narrowX = narrowHint.TranslatePoint(new Point(), reopened.FoldTarget).X;
             Capture(host, Path.Combine(output, "ai-fold-light-narrow.png"));
+            host.Width = 1480;
+            await SettleFoldLayoutAsync(host);
+            var wideHint = FoldHint(reopened, "展开");
+            Check(Math.Abs(wideHint.TranslatePoint(new Point(), reopened.FoldTarget).X - narrowX) < 2,
+                "Resizing the reader moved the fold action away from the hanging number");
+            Capture(host, Path.Combine(output, "ai-fold-light-wide.png"));
             ThemeManager.Apply(theme);
             host.Width = 620;
+            book.Turns.Clear();
+            for (var n = 1; n <= 9; n++)
+                book.Turns.Add(new($"折叠第 {n} 轮", "正文") { Collapsed = n is 1 or 3 or 4 or 7 or 8 or 9,
+                    FoldGroup = n is 3 or 4 ? "upper" : n is 7 or 8 ? "lower" : null });
+            Invoke(panel, "RefreshTranscript");
+            async Task CollapseAndCheck(int n, string expected)
+            {
+                await panel.NavigateSameConversationTurnAsync(book.Turns[n - 1].Id);
+                await SettleFoldLayoutAsync(host);
+                var ownerView = Descendants<AiTurnView>(panel).Single(v => v.IsVisible && v.Turn.Id == book.Turns[n - 1].Id);
+                RaiseFoldClick(Descendants<AiReplyStatus>(ownerView).Single(), 2);
+                await SettleFoldLayoutAsync(host);
+                Check(Descendants<AiTurnView>(panel).Any(v => v.IsVisible && FoldOrdinal(v) == expected),
+                    $"Folding turn {n} did not produce {expected}");
+            }
+            await CollapseAndCheck(2, "[2 ~ 4]");
+            await CollapseAndCheck(5, "[2 ~ 5]");
+            await CollapseAndCheck(6, "[2 ~ 8]");
+            await panel.SaveAsync();
+            var stored = AiStorage.Load(project).Turns;
+            Check(stored.Skip(1).Take(7).All(t => t.Collapsed && t.FoldGroup == "upper") &&
+                stored[0].FoldGroup is null && stored[8].FoldGroup is null, "Bridge merge changed an exterior individual fold or lost its saved group");
+            Capture(host, Path.Combine(output, "ai-joined-folds.png"));
             book.Turns.Clear();
             var partial = new AiTurn("中断的回答", "留下的正文") { Collapsed = true, Incomplete = true };
             book.Turns.Add(new("第一轮", "正文")); book.Turns.Add(partial);
@@ -200,13 +224,16 @@ internal static partial class Program
             !Descendants<TextBlock>(hint).Any(t => t.IsVisible && t.Text.Contains(label, StringComparison.Ordinal)))
             throw new Exception($"Fold divider {FoldOrdinal(view)} does not show the {label} hint");
         var center = hint.TranslatePoint(new Point(hint.ActualWidth / 2, hint.ActualHeight / 2), view.FoldTarget);
-        var rule = Descendants<Border>(view.FoldTarget).First(b => b.Height == 1 && b.ActualWidth > 1);
-        var left = rule.TranslatePoint(new Point(), view.FoldTarget).X;
-        var right = Descendants<Border>(view.FoldTarget).Where(b => b.Height == 1 && b.ActualWidth > 1)
-            .Max(b => b.TranslatePoint(new Point(b.ActualWidth, 0), view.FoldTarget).X);
+        var leadingRules = Descendants<Border>(view.FoldTarget)
+            .Where(b => b.IsVisible && b.Height == 1 && b.ActualWidth > 1 && b.TranslatePoint(new Point(), view.FoldTarget).X < center.X);
+        var rule = leadingRules.Single();
+        var number = Descendants<TextBlock>(view.FoldTarget).Single(b => b.IsVisible && b.Text.StartsWith('['));
+        var numberEnd = number.TranslatePoint(new Point(number.ActualWidth, 0), view.FoldTarget).X;
+        var gap = hint.TranslatePoint(new Point(), view.FoldTarget).X - numberEnd;
         var lineY = rule.TranslatePoint(new Point(0, rule.ActualHeight / 2), view.FoldTarget).Y;
-        if (Math.Abs(center.Y - lineY) > 2 || Math.Abs(center.X - (left + right) / 2) > 2)
-            throw new Exception($"Fold hint {label} is not centered on its divider: {center.X:F1} vs {(left + right) / 2:F1} DIP");
+        if (Math.Abs(center.Y - lineY) > 2 || Math.Abs(rule.ActualWidth - 4 * number.FontSize) > 1 ||
+            gap - rule.ActualWidth is < 4 or > 20)
+            throw new Exception($"Fold hint {label} has a {gap:F1} DIP gap and a {rule.ActualWidth:F1} DIP leading divider");
         return hint;
     }
 

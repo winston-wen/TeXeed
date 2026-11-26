@@ -1,0 +1,361 @@
+{
+  "baseline": "b86392f",
+  "candidateVersion": "0.6.4",
+  "fixture": "120 turns, 820x760, warm then seven idle-dispatch samples; --ai-ui-perf-only --with-folded-turns --offscreen",
+  "0.6.3": {
+    "individualLoad": [
+      {
+        "ms": 33.1531,
+        "bytes": 1411528,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 24.6547,
+        "bytes": 1411024,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 27.6665,
+        "bytes": 1410560,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 23.2208,
+        "bytes": 1411528,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 59.6567,
+        "bytes": 1411024,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 44.9216,
+        "bytes": 1413120,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 33.8528,
+        "bytes": 1413760,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      }
+    ],
+    "compact": [
+      {
+        "ms": 7.0992,
+        "bytes": 261088,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 4.6882,
+        "bytes": 260784,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 4.6739,
+        "bytes": 260784,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 5.1666,
+        "bytes": 260784,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 11.5457,
+        "bytes": 260784,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 7.838,
+        "bytes": 260784,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 8.103,
+        "bytes": 262160,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      }
+    ],
+    "split": [
+      {
+        "ms": 26.5795,
+        "bytes": 1384432,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 25.6282,
+        "bytes": 1385728,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 22.2892,
+        "bytes": 1385152,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 22.0866,
+        "bytes": 1384432,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 46.4877,
+        "bytes": 1385728,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 31.5097,
+        "bytes": 1382080,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 43.5226,
+        "bytes": 1386192,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      }
+    ],
+    "packedLoad": [
+      {
+        "ms": 3.5712,
+        "bytes": 103008,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.8131,
+        "bytes": 103008,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.8968,
+        "bytes": 103008,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.6857,
+        "bytes": 103008,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.6879,
+        "bytes": 103008,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 4.6626,
+        "bytes": 103008,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 3.3014,
+        "bytes": 103008,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      }
+    ]
+  },
+  "0.6.4": {
+    "individualLoad": [
+      {
+        "ms": 22.5135,
+        "bytes": 1408744,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 38.1256,
+        "bytes": 1409016,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 22.2348,
+        "bytes": 1408744,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 21.7328,
+        "bytes": 1408240,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 35.8399,
+        "bytes": 1409848,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 26.2065,
+        "bytes": 1410976,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 25.9723,
+        "bytes": 1408192,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      }
+    ],
+    "compact": [
+      {
+        "ms": 4.5656,
+        "bytes": 259656,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 5.4024,
+        "bytes": 259656,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 4.205,
+        "bytes": 259656,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 4.5749,
+        "bytes": 259656,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 7.5153,
+        "bytes": 259656,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 6.5784,
+        "bytes": 259656,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 6.6973,
+        "bytes": 259656,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      }
+    ],
+    "split": [
+      {
+        "ms": 21.6701,
+        "bytes": 1383304,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 20.6619,
+        "bytes": 1384024,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 22.3289,
+        "bytes": 1383304,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 20.3366,
+        "bytes": 1384600,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 28.1894,
+        "bytes": 1380952,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 25.7487,
+        "bytes": 1381640,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      },
+      {
+        "ms": 24.4865,
+        "bytes": 1385200,
+        "visibleTurns": 22,
+        "visibleControls": 22
+      }
+    ],
+    "packedLoad": [
+      {
+        "ms": 2.2789,
+        "bytes": 100296,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.3437,
+        "bytes": 100296,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.3403,
+        "bytes": 100296,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.4122,
+        "bytes": 100296,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.2641,
+        "bytes": 100296,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 3.2296,
+        "bytes": 100296,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      },
+      {
+        "ms": 2.6934,
+        "bytes": 100296,
+        "visibleTurns": 1,
+        "visibleControls": 21
+      }
+    ]
+  }
+}

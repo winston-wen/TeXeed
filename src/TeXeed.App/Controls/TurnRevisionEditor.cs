@@ -12,6 +12,7 @@ internal sealed class TurnRevisionEditor : StackPanel
     private readonly AiRevisionDraft _original;
     private readonly int _number;
     private readonly string? _imageBaseDirectory;
+    private readonly (AiPanel Panel, AiTurn Source)? _equations;
     private readonly Action<AiRevisionDraft> _saveDraft;
     private readonly Func<Task>? _persistDraft;
     private readonly Func<IReadOnlyList<AiRevisionRow>, Task> _finish;
@@ -34,10 +35,12 @@ internal sealed class TurnRevisionEditor : StackPanel
     private ToolTip? _savedTip;
 
     internal TurnRevisionEditor(AiRevisionDraft draft, int number, string? imageBaseDirectory, Action<AiRevisionDraft> saveDraft,
-        Func<IReadOnlyList<AiRevisionRow>, Task> finish, Func<Task> cancel, Func<Task>? persistDraft = null)
+        Func<IReadOnlyList<AiRevisionRow>, Task> finish, Func<Task> cancel, Func<Task>? persistDraft = null,
+        (AiPanel Panel, AiTurn Source)? equations = null)
     {
         _original = draft; _rows = [.. draft.Rows]; _number = number; _imageBaseDirectory = imageBaseDirectory;
         _saveDraft = saveDraft; _finish = finish; _persistDraft = persistDraft;
+        _equations = equations;
         Focusable = true;
         KeyboardNavigation.SetIsTabStop(this, false);
         Loaded += (_, _) =>
@@ -294,7 +297,8 @@ internal sealed class TurnRevisionEditor : StackPanel
             text.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
             return text;
         }
-        var preview = new MarkdownView { ChatMode = true, ImageBaseDirectory = _imageBaseDirectory, Padding = new Thickness(2, 1, 2, 1),
+        var preview = new MarkdownView { ChatMode = true, TurnNumber = _number, EquationPanel = _equations?.Panel, EquationSource = _equations?.Source,
+            ImageBaseDirectory = _imageBaseDirectory, Padding = new Thickness(2, 1, 2, 1),
             Margin = new Thickness(-AiChatTypography.RichTextInset, 0, -AiChatTypography.RichTextInset, 0),
             RevisionEquationLabels = _equationLabels.GetValueOrDefault(row.SegmentId), PrecedingDisplayCount = _precedingDisplays.GetValueOrDefault(row.Id),
             MinHeight = AiChatTypography.LineHeight, Focusable = row.Locked };
@@ -513,8 +517,8 @@ internal sealed class TurnRevisionEditor : StackPanel
     private void Merge(int index, bool forward)
     {
         var leftIndex = forward ? index : index - 1;
-        var left = RevisionBuffer.From(_rows[leftIndex], editableInlineMath: true);
-        var right = RevisionBuffer.From(_rows[leftIndex + 1], editableInlineMath: true);
+        var left = RevisionBuffer.From(_rows[leftIndex], RevisionMathScope.Inline);
+        var right = RevisionBuffer.From(_rows[leftIndex + 1], RevisionMathScope.Inline);
         var container = _rows[forward ? leftIndex + 1 : leftIndex];
         _rows[leftIndex] = left.Append(right).Apply(container);
         _rows.RemoveAt(leftIndex + 1); Changed(); Paint(container.Id, left.Display.Length);
@@ -536,7 +540,7 @@ internal sealed class TurnRevisionEditor : StackPanel
     }
     private static int EndOfText(AiRevisionRow row)
     {
-        var content = RevisionBuffer.From(row, editableInlineMath: true);
+        var content = RevisionBuffer.From(row, RevisionMathScope.Inline);
         var at = content.Display.Length;
         foreach (var atom in content.Atoms.Reverse())
         {
@@ -558,7 +562,7 @@ internal sealed class TurnRevisionEditor : StackPanel
         foreach (var row in _rows)
         {
             if (row.Locked || !_selected.Contains(row.Id)) { kept.Add(row); continue; }
-            var protectedRow = RevisionBuffer.From(row, editableInlineMath: true).ProtectedOnly().Apply(row);
+            var protectedRow = RevisionBuffer.From(row, RevisionMathScope.Inline).ProtectedOnly().Apply(row);
             if (protectedRow.Text.Length > 0) kept.Add(protectedRow);
             else if (kept.Count == 0 && row.Links.Count > 0) kept.Add(protectedRow with { Level = 0 });
             else if (kept.Count > 0 && row.Links.Count > 0) AppendLinks(kept, kept.Count - 1, row.Links);

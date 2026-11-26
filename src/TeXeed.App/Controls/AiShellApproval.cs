@@ -14,7 +14,7 @@ internal static class AiShellApproval
             [("拒绝", "deny"), ("允许一次", "once"), ("允许类似", "similar")], token, command);
 
     internal static async Task<AiDecision> ShowAsync(Window owner, string title, string question,
-        IReadOnlyList<(string Label, string Value)> choices, CancellationToken token, string? command = null)
+        IReadOnlyList<(string Label, string Value)> choices, CancellationToken token, string? command = null, string detailLabel = "查看命令全文")
     {
         token.ThrowIfCancellationRequested();
         var done = new TaskCompletionSource<AiDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -27,7 +27,7 @@ internal static class AiShellApproval
             editor.SetResourceReference(Control.BackgroundProperty, "EditorBackground");
             editor.SetResourceReference(Control.ForegroundProperty, "EditorForeground");
             editor.TextArea.SetResourceReference(ICSharpCode.AvalonEdit.Editing.TextArea.SelectionBrushProperty, "Selection");
-            panel.Children.Add(new Expander { Header = "查看命令全文", Content = editor, Margin = new Thickness(0, 0, 0, 12) });
+            panel.Children.Add(new Expander { Header = detailLabel, Content = editor, Margin = new Thickness(0, 0, 0, 12) });
         }
         var feedback = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 12, 0, 0) };
         var input = new TextBox { Name = "DecisionFeedback", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 80, MaxHeight = 160, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, ToolTip = "Enter 换行；Ctrl+Enter 提交" };

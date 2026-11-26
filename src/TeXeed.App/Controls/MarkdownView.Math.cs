@@ -6,6 +6,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using Markdig.Extensions.CustomContainers;
 using Markdig.Syntax;
+using TeXeed.App.AI;
 
 namespace TeXeed.App.Controls;
 
@@ -78,15 +79,24 @@ public sealed partial class MarkdownView
             if (token.Reference is { } reference)
             {
                 var number = EquationNumber(reference);
-                target.Add(token.Parenthesize ? new EquationReference(this, reference, number) : EquationLink(reference, number));
+                target.Add(token.Parenthesize || AiEquationIndex.TrySplit(reference, out _, out _)
+                    ? new EquationReference(this, reference, number, token.Parenthesize) : EquationLink(reference, number));
             }
             else target.Add(FormulaInline(token));
             offset = match.Index + match.Length;
         }
         AddEmojiText(target, text[offset..]);
     }
-    private string EquationNumber(string reference) =>
-        RevisionEquationLabels?.GetValueOrDefault(reference) ?? _math.Labels.GetValueOrDefault(reference, reference + " ?");
+    private string EquationNumber(string reference)
+    {
+        var owner = _tableOwner ?? this;
+        if (AiEquationIndex.TrySplit(reference, out _, out var key) && owner.EquationPanel is { } panel)
+        {
+            var target = panel.ResolveEquation(owner.EquationSource, reference, key, out var number);
+            return target is null ? reference + " ?" : target.TurnId == owner.EquationSource?.Id ? target.Equation.Number! : $"{number}:{target.Equation.Number}";
+        }
+        return RevisionEquationLabels?.GetValueOrDefault(reference) ?? _math.Labels.GetValueOrDefault(reference, reference + " ?");
+    }
     internal string ReferenceText(string label, bool parenthesize) =>
         parenthesize ? "(" + EquationNumber(label) + ")" : EquationNumber(label);
     private void AddEmojiText(InlineCollection target, string text)
