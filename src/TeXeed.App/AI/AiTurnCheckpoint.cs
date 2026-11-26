@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using System.Text.Json;
 using TeXeed.App.Services;
 
@@ -68,20 +69,51 @@ internal sealed class AiTurnCheckpoint
         _stop.Cancel(); await _worker; _stop.Dispose();
         await Task.Run(Write);
     }
-    internal void Commit() { if (File.Exists(_path)) File.Delete(_path); }
+    private static Pending? ReadPending(string path)
+    {
+        var text = AtomicFile.ReadTextIfPresent(path);
+        if (text is null) return null;
+        var pending = JsonSerializer.Deserialize<Pending>(text);
+        if (pending is not { ConversationId.Length: > 0, Turn.Id.Length: > 0 }) throw new InvalidDataException("未完成对话恢复文件缺少会话或轮次标识。");
+        return pending;
+    }
+
+    // The notebook has already been published. Failure to retire the journal
+    // must not roll back a committed in-memory revision. A later save retries it.
+    private static bool DeferredCleanup(Exception ex) => ex is IOException or UnauthorizedAccessException
+        or System.Security.SecurityException or JsonException or InvalidDataException;
+
+    private static void Retire(string path, Func<Pending, bool> saved)
+    {
+        try
+        {
+            if (ReadPending(path) is { } pending && saved(pending)) File.Delete(path);
+        }
+        catch (Exception ex) when (DeferredCleanup(ex))
+        {
+            Trace.TraceWarning("Deferred conversation journal cleanup: {0}", ex.Message);
+        }
+    }
+
+    internal void Commit() => Retire(_path, pending => pending.ConversationId == _pending.ConversationId && pending.Turn.Id == _pending.Turn.Id);
     internal static void RetireSaved(string project, AiNotebook book)
     {
-        foreach (var path in PathsFor(project))
+        try
         {
-            var pending = JsonSerializer.Deserialize<Pending>(File.ReadAllText(path));
-            if (pending is not null && book.Conversations.Any(c => c.Id == pending.ConversationId && c.Turns.Any(t => t.Id == pending.Turn.Id))) File.Delete(path);
+            foreach (var path in PathsFor(project))
+                Retire(path, pending => book.Conversations.Any(c => c.Id == pending.ConversationId && c.Turns.Any(t => t.Id == pending.Turn.Id)));
+        }
+        catch (Exception ex) when (DeferredCleanup(ex))
+        {
+            Trace.TraceWarning("Deferred conversation journal enumeration: {0}", ex.Message);
         }
     }
     internal static void Recover(string project, AiNotebook book)
     {
         foreach (var path in PathsFor(project))
         {
-            var pending = JsonSerializer.Deserialize<Pending>(File.ReadAllText(path)) ?? throw new InvalidDataException("未完成对话恢复文件为空。");
+            // Retirement may remove a journal between directory enumeration and opening its handle.
+            if (ReadPending(path) is not { } pending) continue;
             var conversation = book.Conversations.FirstOrDefault(c => c.Id == pending.ConversationId);
             if (conversation is null) { conversation = new() { Id = pending.ConversationId, Title = pending.Title }; book.Conversations.Add(conversation); }
             if (!conversation.Turns.Any(t => t.Id == pending.Turn.Id)) conversation.Turns.Add(pending.Turn);

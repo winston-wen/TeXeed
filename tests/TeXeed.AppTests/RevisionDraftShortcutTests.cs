@@ -1,4 +1,5 @@
 using System.IO;
+using System.Security.AccessControl;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -10,6 +11,37 @@ using TeXeed.App.Controls;
 
 internal static partial class Program
 {
+    private static async Task CheckRevisionStorageSharingAsync(string project, AiNotebook book)
+    {
+        var source = book.Turns[0];
+        // Windows needs DELETE access on the file during an atomic rename.
+        using (var replacing = new FileInfo(AiStorage.NotebookPath(project)).Create(
+            FileMode.Open, FileSystemRights.Read | FileSystemRights.Delete, FileShare.ReadWrite | FileShare.Delete,
+            4096, FileOptions.None, null))
+        {
+            var persisted = AiStorage.Load(project);
+            if (persisted.Turns.Count != book.Turns.Count || persisted.Turns[0].Answer != source.Answer)
+                throw new Exception("Reading during atomic replacement lost the saved turn");
+        }
+
+        var store = new AiWorkspaceStore(project, book);
+        var journal = await AiTurnCheckpoint.StartAsync(project, book.Active.Id, book.Active.Title, source, new AiStreamBuffer());
+        await journal.StopAsync();
+        var previousDraft = book.Draft;
+        var journalPath = AiTurnCheckpoint.PathFor(project);
+        using (var checkpointReader = File.OpenRead(journalPath))
+        {
+            const string draft = "保存后等待清理恢复文件";
+            await store.SaveWithMutationAsync(() => book.Draft = draft, () => book.Draft = previousDraft);
+            var reopened = AiStorage.Load(project);
+            if (book.Draft != draft || reopened.Draft != draft || reopened.Turns.Count != book.Turns.Count || !File.Exists(journalPath))
+                throw new Exception("A locked journal rolled back a committed edit or duplicated the turn");
+        }
+        book.Draft = previousDraft;
+        await store.SaveAsync();
+        if (File.Exists(journalPath)) throw new Exception("The next successful save did not retire the journal");
+    }
+
     private static void RevisionShortcut(Window window, UIElement target, Key command)
     {
         var original = new byte[256];
@@ -51,6 +83,7 @@ internal static partial class Program
         book.Turns.Add(turn);
         book.Turns.Add(unrelated);
         AiStorage.Save(project, book);
+        await CheckRevisionStorageSharingAsync(project, book);
 
         async Task<AiPanel> Open()
         {

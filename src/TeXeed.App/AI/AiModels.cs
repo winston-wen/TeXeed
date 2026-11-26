@@ -444,8 +444,8 @@ internal static class AiStorage
     internal static AiNotebook Load(string project)
     {
         var path = NotebookPath(project);
-        if (!File.Exists(path)) return Restore(new AiNotebook());
-        var text = File.ReadAllText(path);
+        var text = AtomicFile.ReadTextIfPresent(path);
+        if (text is null) return Restore(new AiNotebook());
         var json = JsonNode.Parse(text)?.AsObject();
         if (json?.ContainsKey(nameof(AiNotebook.Conversations)) == true)
         {
