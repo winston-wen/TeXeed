@@ -22,6 +22,7 @@ internal static partial class Program
     private static extern bool PostUnicodeInput(nint window, uint message, nint character, nint flags);
     [DllImport("user32.dll", EntryPoint = "SendMessageW")]
     private static extern nint SendUnicodeInput(nint window, uint message, nint character, nint flags);
+    [DllImport("user32.dll")] private static extern nint GetCapture();
 
     private static async Task CheckAnnotationFocusAsync(MainWindow window, string output)
     {
@@ -44,16 +45,14 @@ internal static partial class Program
             window.UpdateLayout();
         }
         await Settle();
-        var answer = Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == turn.Id).Answers.Single();
-        await answer.RenderTask;
-        await Settle();
         var layers = (Dictionary<MarkdownView, AiAnnotationLayer>)Field(panel, "_answerLayers")!;
-        var layer = layers[answer];
-        var popup = (Popup)Field(layer, "_popup")!;
+        Popup popup = null!;
         var ready = false;
         var typeOnOpen = true;
+        int openCount = 0, closeCount = 0;
         void CheckAtOpen(object? sender, EventArgs args)
         {
+            openCount++;
             var visiblePopup = (Popup)sender!;
             var input = Descendants<TextBox>(visiblePopup.Child).Single();
             var text = input.Text;
@@ -64,7 +63,15 @@ internal static partial class Program
             SendUnicodeInput(GetFocus(), 0x0102, '即', 1);
             ready &= input.Text == text + "即";
         }
-        popup.Opened += CheckAtOpen;
+        void Observe(Popup current)
+        {
+            if (ReferenceEquals(current, popup)) return;
+            if (popup is not null) { popup.Opened -= CheckAtOpen; popup.Closed -= OnClosed; }
+            popup = current;
+            popup.Opened += CheckAtOpen;
+            popup.Closed += OnClosed;
+        }
+        void OnClosed(object? sender, EventArgs args) => closeCount++;
         var composer = (TextBox)panel.FindName("Composer");
         var samples = new List<object>();
         var failures = new List<string>();
@@ -72,25 +79,35 @@ internal static partial class Program
         async Task NativeClick(FrameworkElement target, Point at, bool right)
         {
             var source = (HwndSource)PresentationSource.FromVisual(target)!;
+            var handle = source.Handle;
+            Check(handle != 0, "Mouse input target has no live HWND.");
             var point = target.TranslatePoint(at, (UIElement)source.RootVisual);
             var coordinates = CaptionPoint(source.CompositionTarget.TransformToDevice.Transform(point));
             var keys = new byte[256];
             Check(GetKeyboardState(keys), "Could not inspect the isolated desktop keyboard.");
             var pressed = (byte[])keys.Clone();
             pressed[right ? 2 : 1] = 0x80;
-            SetCapture(source.Handle);
+            // WPF transfers capture from the answer to its context-menu HWND on right-up.
+            // Sending input on a private desktop must preserve capture acquired by the menu.
+            var acquired = GetCapture() == 0;
+            if (acquired) SetCapture(handle);
+            Check(GetCapture() == handle, $"Mouse capture belongs to another window before clicking {target.GetType().Name}.");
             try
             {
-                PostMessage(source.Handle, 0x0200, 0, coordinates);
+                Check(PostMessage(handle, 0x0200, 0, coordinates), "Mouse move was not queued.");
                 await Settle();
                 SetKeyboardState(pressed);
-                Check(PostMessage(source.Handle, right ? 0x0204u : 0x0201u, right ? 2 : 1, coordinates), "Mouse down was not queued.");
+                Check(PostMessage(handle, right ? 0x0204u : 0x0201u, right ? 2 : 1, coordinates), "Mouse down was not queued.");
                 await Settle();
                 SetKeyboardState(keys);
-                Check(PostMessage(source.Handle, right ? 0x0205u : 0x0202u, 0, coordinates), "Mouse up was not queued.");
+                Check(PostMessage(handle, right ? 0x0205u : 0x0202u, 0, coordinates), "Mouse up was not queued.");
                 await Settle();
             }
-            finally { SetKeyboardState(keys); ReleaseCapture(); }
+            finally
+            {
+                SetKeyboardState(keys);
+                if (acquired && GetCapture() == handle) ReleaseCapture();
+            }
         }
         async Task TypeInPopup(string operation, char character, long begin, long before)
         {
@@ -115,9 +132,14 @@ internal static partial class Program
             if (!correct) failures.Add(operation);
             if (composer.Text != book.Draft) composer.Text = book.Draft;
         }
-        var run = ((Paragraph)answer.Document.Blocks.FirstBlock!).Inlines.OfType<Run>().First();
         for (var i = 0; i < 6; i++)
         {
+            var answer = Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == turn.Id).Answers.Single();
+            await answer.RenderTask;
+            await Settle();
+            var layer = layers[answer];
+            Observe((Popup)Field(layer, "_popup")!);
+            var run = ((Paragraph)answer.Document.Blocks.FirstBlock!).Inlines.OfType<Run>().First();
             typeOnOpen = i == 0;
             answer.Focus();
             var start = run.ContentStart;
@@ -125,12 +147,30 @@ internal static partial class Program
             var rect = start.GetPositionAtOffset(2)!.GetCharacterRect(LogicalDirection.Forward);
             var menu = answer.ContextMenu!;
             await NativeClick(answer, new Point(rect.X + 1, rect.Y + rect.Height / 2), right: true);
-            Check(menu.IsOpen, "Native right click did not open the answer context menu.");
+            Check(menu.IsOpen && answer.HasBookmarkSelection, $"Round {i + 1}: native right click lost the answer menu or selected text.");
             var annotate = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "批注到当前会话"));
+            Check(annotate.IsEnabled, "The answer annotation menu item is disabled.");
+            var clicks = 0;
+            void OnClick(object sender, RoutedEventArgs args) => clicks++;
+            annotate.Click += OnClick;
             var began = Stopwatch.GetTimestamp();
             var bytes = GC.GetAllocatedBytesForCurrentThread();
-            await NativeClick(annotate, new Point(annotate.ActualWidth / 2, annotate.ActualHeight / 2), right: false);
-            await TypeInPopup("create", '甲', began, bytes);
+            ready = false;
+            try
+            {
+                await NativeClick(annotate, new Point(annotate.ActualWidth / 2, annotate.ActualHeight / 2), right: false);
+                Check(clicks == 1 && panel.AnnotationEntries.Count == 1, "The menu item did not create exactly one annotation.");
+                await TypeInPopup("create", '甲', began, bytes);
+            }
+            catch
+            {
+                Console.WriteLine($"Create {i + 1}: menu={menu.IsOpen}, clicks={clicks}, selected={answer.HasBookmarkSelection}, " +
+                    $"answerLoaded={answer.IsLoaded}, currentLayer={layers.TryGetValue(answer, out var live) && live == layer}, " +
+                    $"entries={panel.AnnotationEntries.Count}, pending={Field(layer, "_pendingEdit") is not null}, " +
+                    $"markers={((System.Collections.ICollection)Field(layer, "_positions")!).Count}, opened={openCount}, closed={closeCount}.");
+                throw;
+            }
+            finally { annotate.Click -= OnClick; }
             var entry = panel.AnnotationEntries.Single();
             Descendants<Button>(popup.Child).Single(b => b.Name == "AnnotationConfirm").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await Settle();
@@ -139,6 +179,7 @@ internal static partial class Program
             composer.Focus();
             began = Stopwatch.GetTimestamp();
             bytes = GC.GetAllocatedBytesForCurrentThread();
+            ready = false;
             await NativeClick(layer, new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2), right: false);
             await TypeInPopup("reopen", '乙', began, bytes);
             if (i == 0)
@@ -157,8 +198,8 @@ internal static partial class Program
         typeOnOpen = true;
         var editor = (LatexEditor)window.FindName("LeftEditor");
         var sourceLayer = ((Dictionary<LatexEditor, AiAnnotationLayer>)Field(window, "_sourceAnnotations")!)[editor];
-        popup = (Popup)Field(sourceLayer, "_popup")!;
-        popup.Opened += CheckAtOpen;
+        Observe((Popup)Field(sourceLayer, "_popup")!);
+        ready = false;
         // A source mark enters the same editor through its document-local layer.
         editor.Focus();
         var startTime = Stopwatch.GetTimestamp();
@@ -178,8 +219,8 @@ internal static partial class Program
         var left = (double)page.GetType().GetProperty("Left")!.GetValue(page)!;
         var top = (double)page.GetType().GetProperty("Top")!.GetValue(page)!;
         var pdfLayer = AdornerLayer.GetAdornerLayer(preview)!.GetAdorners(preview)!.OfType<AiAnnotationLayer>().Single();
-        popup = (Popup)Field(pdfLayer, "_popup")!;
-        popup.Opened += CheckAtOpen;
+        Observe((Popup)Field(pdfLayer, "_popup")!);
+        ready = false;
         typeof(PdfPreview).GetField("_aiSelection", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .SetValue(preview, new Rect(left + 30, top + 50, 100, 50));
         startTime = Stopwatch.GetTimestamp();
