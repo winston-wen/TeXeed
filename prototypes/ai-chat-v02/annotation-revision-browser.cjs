@@ -55,9 +55,21 @@ module.exports=async function checkAnnotationRevision(page){
  const receipt=page.locator('#thread article.turn').last();
  assert.equal(await receipt.locator('.source-updated').innerText(),'原文已更新');
  assert.match(await receipt.locator('.citation-comment').innerText(),/加入我设立的/);
- await receipt.locator('.equation-ref').click();
+ const receiptLink=receipt.locator('.equation-ref');
+ // Reveal the link in the same event task as the real click. Chromium delivers
+ // that scroll notification later, after the preview has measured the new position.
+ await receiptLink.evaluate(link=>link.addEventListener('click',()=>{
+   const reader=document.getElementById('reader'),before=reader.scrollTop;
+   reader.scrollTop+=before>=12?-12:12;
+   if(reader.scrollTop===before)throw Error('测试场景必须发生实际滚动');
+ },{once:true}));
+ await receiptLink.click();
+ await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
  assert.match(await page.locator('#equation-preview .math').getAttribute('data-tex'),/delta_0/);
- await page.keyboard.press('Escape');
+ const readerBounds=await page.locator('#reader').boundingBox();
+ await page.mouse.move(readerBounds.x+12,readerBounds.y+readerBounds.height/2);
+ await page.mouse.wheel(0,-140);
+ await page.locator('#equation-preview').waitFor({state:'detached'});
  await page.reload();
  assert.equal((await receipt.locator('.sent-summary .katex-mathml annotation').textContent()).trim(),old);
  await receipt.getByRole('button',{name:'原文已更新'}).click();

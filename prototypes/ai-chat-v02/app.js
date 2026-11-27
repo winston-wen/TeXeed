@@ -822,10 +822,10 @@ function jumpToEquation(b){const id=b.dataset.equationRef,turn=current().turns.f
  if(changed)renderTurns();
  requestAnimationFrame(()=>{const target=$(id);if(target){scrollToReadingTarget(target,'center');target.classList.add('equation-target');saveReading();}});
 }
-let equationPreviewLink=null;
+let equationPreviewLink=null,equationPreviewAnchor=null;
 function closeEquationPreview(){
  if(!equationPreviewLink)return;
- equationPreviewLink.setAttribute('aria-expanded','false');equationPreviewLink=null;
+ equationPreviewLink.setAttribute('aria-expanded','false');equationPreviewLink=null;equationPreviewAnchor=null;
  $('equation-preview')?.remove();
 }
 function previewEquation(link){
@@ -855,7 +855,7 @@ function previewEquation(link){
  popup.style.maxHeight=Math.max(32,showAbove?above:below)+'px';
  popup.style.top=(showAbove?anchor.top-gap-popup.offsetHeight:anchor.bottom+gap)+'px';
  popup.style.left=Math.max(reader.left+gap,Math.min(anchor.left,reader.right-popup.offsetWidth-gap))+'px';
- link.setAttribute('aria-expanded','true');equationPreviewLink=link;
+ link.setAttribute('aria-expanded','true');equationPreviewLink=link;equationPreviewAnchor=anchor;
 }
 $('thread').addEventListener('click',event=>{
  const link=event.target.closest('[data-equation-ref]');if(!link)return;
@@ -877,7 +877,10 @@ document.addEventListener('focusin',event=>{
 });
 document.addEventListener('keydown',event=>{if(event.key==='Escape')closeEquationPreview();});
 document.addEventListener('scroll',event=>{
- if(equationPreviewLink&&event.target!==$('equation-preview')&&event.target.contains?.(equationPreviewLink))closeEquationPreview();
+ if(!equationPreviewLink||!event.target.contains?.(equationPreviewLink))return;
+ const bounds=equationPreviewLink.getBoundingClientRect();
+ // A focus or reveal scroll from before the click can still be waiting for paint.
+ if(bounds.top!==equationPreviewAnchor.top||bounds.left!==equationPreviewAnchor.left)closeEquationPreview();
 },true);
 window.addEventListener('resize',closeEquationPreview);
 
