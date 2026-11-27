@@ -77,6 +77,7 @@ jobs:
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-inline-math-repair-request-only --offscreen --output artifacts/ci-revision-inline-math-request
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-revision-agent-only --offscreen --output artifacts/ci-revision-agent
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-revision-table-only --offscreen --output artifacts/ci-ai-revision-table
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-turn-input-only --offscreen --output artifacts/ci-ai-turn-input
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --revision-editor-only --offscreen --output artifacts/ci-revision-editor
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-relations-surface-only --offscreen --output artifacts/ci-ai-relations-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --workspace-restore-only --offscreen --output artifacts/ci-workspace-restore-check
@@ -88,6 +89,7 @@ jobs:
           path: |
             artifacts/ci-ai-eqref-check/*.png
             artifacts/ci-ai-revision-table/*.png
+            artifacts/ci-ai-turn-input/*.png
             artifacts/ci-ai-inline-wrap/*.png
             artifacts/ci-ai-formula-cjk/*.png
             artifacts/ci-ai-annotation-focus/*.log

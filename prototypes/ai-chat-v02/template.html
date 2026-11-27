@@ -452,7 +452,7 @@ dialog textarea { width:100%; height:220px }
 <dialog id="source-dialog" aria-label="源码预览"><div class="row"><h2 id="source-title"></h2><span class="spacer"></span><button id="close-source">关闭源码</button></div><p class="muted">收集的只读源码快照 · 文件内容不会随项目改动而更新</p><div id="source-lines" tabindex="0"></div></dialog>
 <dialog id="image-viewer" aria-labelledby="image-title"><div class="image-viewer-header"><h2 id="image-title">图片预览</h2><button id="image-close" class="icon-button" aria-label="关闭图片预览"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg></button></div><div id="image-viewport" tabindex="0" aria-label="图片浏览区域"><img id="image-preview" alt=""></div><div class="image-viewer-tools"><button id="image-zoom-out" aria-label="缩小图片">−</button><output id="image-scale" aria-live="polite">100%</output><button id="image-zoom-in" aria-label="放大图片">+</button><button id="image-fit">适应窗口</button><button id="image-actual">原尺寸</button></div></dialog>
 <div id="context-tooltip" role="tooltip" hidden></div>
-<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>按 Ctrl+Alt+T 打开试验台，选择预编回放结果或导出本次交互记录。</p><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="failure">持续网络故障</option><option value="program-failure">程序中止</option></select></label><button id="restore">恢复示例状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>合成示例 / 预编续答</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
+<dialog id="lab"><div class="row"><h2>实现基线 · 原型试验台</h2><span class="spacer"></span><button id="close-lab">关闭</button></div><p>按 Ctrl+Alt+T 打开试验台，选择预编回放结果或导出本次交互记录。</p><div class="lab-row"><label>发送回放 <select id="playback-mode"><option value="normal">成功</option><option value="repair">校对后成功</option><option value="decision">等待方向选择</option><option value="failure">持续网络故障</option><option value="program-failure">程序中止</option></select></label><button id="restore">恢复示例状态</button><button id="export">导出本次 transcript</button></div><p id="provenance"></p><details><summary>合成示例 / 预编续答</summary><pre id="lab-transcripts"></pre></details><details><summary>本次交互记录</summary><pre id="lab-events"></pre></details></dialog>
 <dialog id="copy-dialog"><div class="row"><h2>复制文本</h2><span class="spacer"></span><button id="close-copy">关闭</button></div><textarea id="copy-text" aria-label="复制文本"></textarea></dialog>
 <dialog id="rename-dialog" aria-label="重命名 AI 对话"><form id="rename-form"><label for="rename-title">AI 对话标题</label><input id="rename-title" maxlength="200" autocomplete="off"><div class="row"><button type="button" id="rename-cancel">取消</button><button type="submit" id="rename-save">确定</button></div></form></dialog>
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
@@ -462,6 +462,7 @@ dialog textarea { width:100%; height:220px }
 <script src="quote-summary.js"></script>
 <script src="scrollbar-activity.js"></script>
 <script src="history.js"></script>
+<script src="turn-decision.js"></script>
 <script src="turn-revision.js"></script>
 <script src="ai-revision-intent.js"></script>
 <script>/*__APP__*/</script>

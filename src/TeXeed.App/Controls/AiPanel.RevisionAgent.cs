@@ -13,7 +13,7 @@ public partial class AiPanel
     private void RequestAiRevision(AiTurn turn)
     {
         var index = _book.Turns.FindIndex(t => t.Id == turn.Id);
-        if (index < 0 || turn.IsIncomplete) return;
+        if (index < 0 || !_book.Turns[index].CanReviseAnswer) return;
         var prefix = $"请改写第 {index + 1} 轮：";
         if (!Composer.Text.StartsWith(prefix, StringComparison.Ordinal)) Composer.Text = prefix + Regex.Replace(Composer.Text, @"^请改写第 [0-9]+ 轮：", "");
         Composer.Focus(); Composer.CaretIndex = Composer.Text.Length;
@@ -54,7 +54,7 @@ public partial class AiPanel
             }
             var id = name == "read_answer_revision" ? request.TargetTurnId : args.GetProperty("target").GetString();
             var operationId = name == "apply_answer_revision" ? request.TaskId + "/" + AiStorage.Hash(arguments) : null;
-            var target = conversation.Turns.FirstOrDefault(t => t.Id == id && !t.IsIncomplete);
+            var target = conversation.Turns.FirstOrDefault(t => t.Id == id && t.CanReviseAnswer);
             string SavedResult()
             {
                 var branches = AiRevisionImpact.Branches(_book.Conversations, conversation, target!.Id);
@@ -69,6 +69,13 @@ public partial class AiPanel
                 name == "apply_answer_revision" && !reviewed.Contains(id)))
                 throw new InvalidOperationException("提交目标与用户选定的轮次不符；连带改稿须先读取扫描列出的相关轮次。");
             if (target is null) throw new InvalidOperationException("找不到授权改稿的轮次。");
+            if (target.UserRevisionDraft is not null || _savingUserDrafts.ContainsKey(id))
+            {
+                await SaveUserDraftAsync(id, token);
+                if (_disposed || conversation != _book.Active || conversation.Permission == AiPermission.ReadOnly)
+                    throw new InvalidOperationException("会话或改稿权限已经变化。");
+                target = conversation.Turns.First(t => t.Id == id);
+            }
             var taskTurns = conversation.Turns.Where(t => t.RevisionRequest?.TaskId == request.TaskId).ToList();
             if (_foldingLiveTurn is { } live && live.RevisionRequest?.TaskId == request.TaskId && taskTurns.All(t => t.Id != live.Id))
                 taskTurns.Add(live);
@@ -98,7 +105,7 @@ public partial class AiPanel
                             formula_source = anchor.PreviewSource, original_number = anchor.PreviewNumber, current_number = currentNumber };
                     }),
                     clarification = t.RevisionRequest!.AwaitingReply ? t.Answer : null,
-                    replies = AiForms.AllFromTurn(t).Where(form => taskTurnIds.Contains(form.TurnId)).Select(form => form.Values) });
+                    replies = AiForms.AllFromTurn(t).Where(form => taskTurnIds.Contains(form.TurnId)).Select(form => form.Values).Concat(t.InputReplies.Select(reply => reply.Values)) });
                 if (start < draft.Rows.Count) reviewed.Add(target.Id);
                 return JsonSerializer.Serialize(new { target = target.Id, turn = conversation.Turns.IndexOf(target) + 1, version = draft.Version, total_rows = draft.Rows.Count,
                     potentially_affected = candidates.Values.OrderBy(c => c.Turn),
@@ -108,7 +115,6 @@ public partial class AiPanel
             var version = args.GetProperty("version").GetString();
             var changes = args.GetProperty("changes");
             if (version != draft.Version) throw new InvalidOperationException("稿件版本已变化，请读取最新版后核对。");
-            if (target.UserRevisionDraft is not null) throw new InvalidOperationException(AiAnswerRevision.PendingManualDraft);
             var rows = ApplyRevisionChanges(draft, changes);
             var needsApproval = requestedApproval || conversation.Permission == AiPermission.AskBeforeShell;
             if (needsApproval)
@@ -123,6 +129,7 @@ public partial class AiPanel
                 if (_disposed || conversation != _book.Active || conversation.Permission == AiPermission.ReadOnly)
                     throw new InvalidOperationException("会话或改稿权限已经变化，请重新发起改稿。");
             }
+            if (needsApproval) await SaveUserDraftAsync(target.Id, token);
             await CommitRevisionAsync(target.Id, draft.Version, rows, "ai", operationId, token, approved: needsApproval);
             setWaiting(false);
             var updated = conversation.Turns.First(t => t.Id == id);

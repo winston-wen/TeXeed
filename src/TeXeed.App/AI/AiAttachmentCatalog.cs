@@ -23,7 +23,7 @@ internal sealed class AiAttachmentCatalog
     {
         catalogCancellation = cancellationToken;
         var currentEntries = new HashSet<AiEntry>(current, ReferenceEqualityComparer.Instance);
-        foreach (var entry in history.SelectMany(t => t.SentAnnotations).Concat(current))
+        foreach (var entry in history.SelectMany(t => t.ContextEntries).Concat(current))
         {
             if (entry.HasUnresolvedAttachmentMetadata) { unresolvedEntries++; continue; }
             AiFormAttachmentOrigins.TryGet(entry, out var formOrigin);

@@ -171,6 +171,41 @@ internal static partial class Program
             revised.RevisionHistory![1].Author != "user" || untouched.RevisionHistory?.Count > 0 || untouched.Answer != unrelated.Answer ||
             untouched.UserRevisionDraft?.Rows.Single().Text != unrelated.Answer + otherDraft)
             throw new Exception("Finishing the paragraph draft changed the wrong history or text");
+        var activeBook = (AiNotebook)Field(panel, "_book")!;
+        activeBook.Active.Permission = AiPermission.FullAccess;
+        line = await OpenLastParagraph(panel, revised, "同一句话", 3);
+        const string beforeAi = "这句由用户先写。";
+        Append(line, beforeAi);
+        ((TextBox)panel.FindName("Composer")).Focus();
+        var runner = (AiRevisionRunner)Invoke(panel, "CreateRevisionRunner",
+            new AiRevisionRequest(turn.Id, Guid.NewGuid().ToString("N")), (Action<bool>)(_ => { }))!;
+        var result = await runner("read_answer_revision", """{"start_row":0,"max_rows":10}""", default);
+        await Layout();
+        var after = AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id);
+        if (!result.Contains(beforeAi) || after.UserRevisionDraft != null || after.Answer != turn.Answer + suffix + beforeAi ||
+            after.RevisionHistory is not [{ Id: "original" }, { Author: "user" }, { Author: "user" }] ||
+            Descendants<TurnRevisionEditor>(panel).Any(e => e.IsVisible))
+            throw new Exception("Reading for AI failed to save and close the actual paragraph editor");
+        line = await OpenLastParagraph(panel, after, "同一句话", 3);
+        const string concurrentEdit = "同时发送改稿命令。";
+        Append(line, concurrentEdit);
+        var saveGate = (SemaphoreSlim)Field((AiWorkspaceStore)Field(panel, "_store")!, "_gate")!;
+        await saveGate.WaitAsync();
+        Task<string> concurrentRead;
+        try
+        {
+            RevisionShortcut(window, line.TextArea, Key.S);
+            concurrentRead = runner("read_answer_revision", """{"start_row":0,"max_rows":10}""", default);
+            await Layout();
+            if (concurrentRead.IsCompleted || AiStorage.Load(project).Turns[0].Answer != after.Answer)
+                throw new Exception("An AI reader used uncommitted text while Ctrl+S waited for disk");
+        }
+        finally { saveGate.Release(); }
+        var concurrentResult = await concurrentRead;
+        var completed = AiStorage.Load(project).Turns[0];
+        if (!concurrentResult.Contains(concurrentEdit) || completed.Answer != after.Answer + concurrentEdit ||
+            completed.UserRevisionDraft != null || completed.RevisionHistory!.Count != after.RevisionHistory!.Count + 1)
+            throw new Exception("Concurrent Ctrl+S and AI reading failed to share one durable user revision");
         Console.WriteLine("PASS: main-window paragraph menu distinguishes repeated Markdown, autosaved draft recovery, failed TeX validation, retry from ESC preview and Ctrl+S completion change only the owning turn");
     }
 }

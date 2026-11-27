@@ -12,7 +12,7 @@ function prototypeRevisionRequest(prompt, turns) {
   if (command.test(prompt)) {
     if (/^(?:是什么意思|的方法|会不会|吗)|只(?:讨论|解释)|(?:不要|先别|暂不)(?:改|写)/.test(prompt.replace(command,'').trim())) return null;
     number = Number(ordinal.exec(prompt)?.[1] || turns.length);
-  } else if (writeBack.test(prompt) && !previous.incomplete && /可(?:以)?(?:改|写|替换)|替换稿|改为|改成|写回/.test(previous.answer)) {
+  } else if (writeBack.test(prompt) && !previous.incomplete && !previous.decision && /可(?:以)?(?:改|写|替换)|替换稿|改为|改成|写回/.test(previous.answer)) {
     const targets = new Set(Array.from((previous.prompt ?? previous.question ?? '').matchAll(/第\s*(\d+)\s*轮/g), m => Number(m[1])));
     if (targets.size !== 1) return null;
     [number] = targets;
@@ -21,7 +21,7 @@ function prototypeRevisionRequest(prompt, turns) {
     if (proposal) instruction = proposal[0];
   } else return null;
   const target = turns[number-1];
-  return target && !target.incomplete ? {target,number,instruction} : null;
+  return target && !target.incomplete && !target.decision ? {target,number,instruction} : null;
 }
 
 function annotationRevisionRequests(prompt,entries,turns){
@@ -34,7 +34,7 @@ function annotationRevisionRequests(prompt,entries,turns){
     if(!anchor||entry.sourceLocked||veto(note)||/(?:怎么|如何|能否|是否)(?:改|写)/u.test(note))continue;
     if(!/^(?:请(?:你)?(?:帮我)?|帮我|麻烦你)?\s*(?:直接|就地|原地)?\s*(?:改(?:写|动|为|成|公式|这|此)|修改|重写|润色|精简|删除|删掉|补上|加入|把[^。！？\n]{1,200}?(?:改|替换|写回)|将[^。！？\n]{1,200}?(?:改|替换|写回))/u.test(note))continue;
     const target=turns.find(turn=>turn.id===anchor.turnId);
-    if(target&&!target.incomplete)commands.push({target,number:turns.indexOf(target)+1,instruction:note,entry});
+    if(target&&!target.incomplete&&!target.decision)commands.push({target,number:turns.indexOf(target)+1,instruction:note,entry});
   }
   return commands;
 }

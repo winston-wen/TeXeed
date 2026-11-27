@@ -4,7 +4,10 @@ namespace TeXeed.App.AI;
 
 // Keep the attachment itself in the existing attachment model; this records why it was collected.
 internal sealed record AiFormAttachmentOrigin(int Version, string ConversationId, string ConversationTitle,
-    string TurnId, int TurnNumber, string FieldId, string Purpose);
+    string TurnId, int TurnNumber, string FieldId, string Purpose)
+{
+    public string? InputSegmentId { get; init; }
+}
 
 internal static class AiFormAttachmentOrigins
 {

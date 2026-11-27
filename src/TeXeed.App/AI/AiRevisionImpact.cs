@@ -92,7 +92,7 @@ internal static class AiRevisionImpact
         {
             token.ThrowIfCancellationRequested();
             var other = turns[i];
-            if (other.Id == after.Id || other.IsIncomplete) continue;
+            if (other.Id == after.Id || !other.CanReviseAnswer) continue;
             var reasons = new HashSet<string>();
             if (other.SentAnnotations.Any(e => e.AnswerAnchor?.TurnId == after.Id))
                 reasons.Add("提问引用了改稿轮次");

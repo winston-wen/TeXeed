@@ -1,0 +1,547 @@
+{
+  "baseline": "0.6.11 a3e798d",
+  "candidate": "0.6.12",
+  "fixture": "--ai-turn-input-perf-only --offscreen",
+  "window": "960x740 DIP",
+  "action": "Alternate radio selection in a legacy revision clarification, four warmups and fourteen measured inputs in each of three independent processes. UI bytes include waiting for ApplicationIdle.",
+  "versions": {
+    "before": [
+      {
+        "process": 1,
+        "samples": [
+          {
+            "syncMs": 0.1411,
+            "idleMs": 0.4032,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1653,
+            "idleMs": 0.3665,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1469,
+            "idleMs": 0.3716,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1596,
+            "idleMs": 0.2432,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1398,
+            "idleMs": 0.3498,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1651,
+            "idleMs": 0.2667,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.2612,
+            "idleMs": 0.4731,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1071,
+            "idleMs": 0.2737,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1927,
+            "idleMs": 0.4479,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1698,
+            "idleMs": 0.2924,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1716,
+            "idleMs": 0.8569,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1707,
+            "idleMs": 0.4657,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1119,
+            "idleMs": 0.1863,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1091,
+            "idleMs": 0.6631,
+            "uiBytes": 5224,
+            "controls": 6
+          }
+        ]
+      },
+      {
+        "process": 2,
+        "samples": [
+          {
+            "syncMs": 0.0988,
+            "idleMs": 0.2402,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0947,
+            "idleMs": 0.1649,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.077,
+            "idleMs": 0.2504,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0954,
+            "idleMs": 0.2984,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0816,
+            "idleMs": 0.189,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0793,
+            "idleMs": 0.213,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0727,
+            "idleMs": 0.213,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0938,
+            "idleMs": 0.2155,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0903,
+            "idleMs": 0.614,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0948,
+            "idleMs": 0.1738,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0875,
+            "idleMs": 0.2236,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0844,
+            "idleMs": 0.1832,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0743,
+            "idleMs": 0.1317,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0691,
+            "idleMs": 0.2238,
+            "uiBytes": 5224,
+            "controls": 6
+          }
+        ]
+      },
+      {
+        "process": 3,
+        "samples": [
+          {
+            "syncMs": 0.0758,
+            "idleMs": 0.1736,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1585,
+            "idleMs": 0.2315,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0744,
+            "idleMs": 0.2317,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1268,
+            "idleMs": 0.2829,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1453,
+            "idleMs": 0.4566,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1397,
+            "idleMs": 0.232,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1434,
+            "idleMs": 0.3227,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0808,
+            "idleMs": 0.3194,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1092,
+            "idleMs": 0.4209,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1317,
+            "idleMs": 0.2456,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1559,
+            "idleMs": 0.2636,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0777,
+            "idleMs": 0.2326,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.1429,
+            "idleMs": 0.2425,
+            "uiBytes": 5224,
+            "controls": 6
+          },
+          {
+            "syncMs": 0.0753,
+            "idleMs": 0.2039,
+            "uiBytes": 5224,
+            "controls": 6
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "process": 1,
+        "samples": [
+          {
+            "syncMs": 0.1172,
+            "idleMs": 0.2823,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.123,
+            "idleMs": 0.205,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1323,
+            "idleMs": 0.2258,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1449,
+            "idleMs": 0.5021,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1117,
+            "idleMs": 0.1883,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1195,
+            "idleMs": 0.2776,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0942,
+            "idleMs": 0.2767,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 1.0743,
+            "idleMs": 1.9532,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0975,
+            "idleMs": 0.166,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0807,
+            "idleMs": 0.2239,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1144,
+            "idleMs": 0.6689,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1136,
+            "idleMs": 0.1936,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0957,
+            "idleMs": 0.2781,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1081,
+            "idleMs": 0.2878,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ]
+      },
+      {
+        "process": 2,
+        "samples": [
+          {
+            "syncMs": 0.0987,
+            "idleMs": 0.2701,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1076,
+            "idleMs": 0.177,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0817,
+            "idleMs": 0.1856,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.094,
+            "idleMs": 0.1556,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0796,
+            "idleMs": 0.2448,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1013,
+            "idleMs": 0.1956,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1155,
+            "idleMs": 0.3128,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0937,
+            "idleMs": 0.1629,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.088,
+            "idleMs": 0.1542,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0791,
+            "idleMs": 0.1365,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0828,
+            "idleMs": 0.2367,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.138,
+            "idleMs": 0.2152,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0843,
+            "idleMs": 0.2275,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1904,
+            "idleMs": 0.4658,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ]
+      },
+      {
+        "process": 3,
+        "samples": [
+          {
+            "syncMs": 0.1274,
+            "idleMs": 0.2207,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.148,
+            "idleMs": 0.2446,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1223,
+            "idleMs": 0.3093,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1231,
+            "idleMs": 0.3241,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.12,
+            "idleMs": 0.3026,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.122,
+            "idleMs": 0.324,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.147,
+            "idleMs": 0.253,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.145,
+            "idleMs": 0.2444,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1415,
+            "idleMs": 0.3003,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1361,
+            "idleMs": 0.2253,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1214,
+            "idleMs": 0.2838,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.151,
+            "idleMs": 0.2906,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1193,
+            "idleMs": 0.303,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.3175,
+            "idleMs": 1.4943,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ]
+      }
+    ]
+  }
+}

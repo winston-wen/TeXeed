@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.IO;
 using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -354,6 +356,11 @@ internal static partial class Program
         Require(copied is null && editor.Text == "abc\ndef\nghi", "Cut partially deleted editable lines before finding a protected line.");
     }
 
+    [DllImport("user32.dll")] private static extern nint SetCapture(nint window);
+    [DllImport("user32.dll")] private static extern nint GetCapture();
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern bool PostMessage(nint hwnd, uint message, nint buttons, nint position);
+
     private static void MultiMouseRouting()
     {
         var content = string.Join('\n', Enumerable.Repeat("abcdef", 40));
@@ -361,19 +368,26 @@ internal static partial class Program
         var window = HostEditor(editor, width: 400, height: 220);
         try
         {
-            // Route a real WPF MouseButtonEventArgs through TextView, preserving
-            // OriginalSource and device coordinates. The transparent test host is
-            // moved under the pointer; no synthetic OS input or clipboard is used.
-            var mouse = Mouse.GetPosition(window);
-            window.Left += mouse.X - 120;
-            window.Top += mouse.Y - 90;
+            // Prime WPF's mouse input provider at an actual point in the TextView on
+            // the private test desktop. The Windows user's pointer stays in place.
             window.Activate();
             editor.Focus();
             SettleLayout(window);
             var view = editor.TextArea.TextView;
-            var point = Mouse.GetPosition(view);
-            Require(point.X >= 0 && point.X < view.ActualWidth && point.Y >= 0 && point.Y < view.ActualHeight,
-                "The routed mouse test did not place the pointer over TextView.");
+            var hwnd = new WindowInteropHelper(window).Handle;
+            var pointInWindow = view.TranslatePoint(new Point(120, 90), window);
+            var device = PresentationSource.FromVisual(view)!.CompositionTarget.TransformToDevice.Transform(pointInWindow);
+            var coordinates = ((int)device.Y << 16) | ((int)device.X & 0xffff);
+            void PointAtView()
+            {
+                SetCapture(hwnd);
+                Require(PostMessage(hwnd, 0x0200, 0, coordinates), "Failed to send the mouse move.");
+                SettleLayout(window);
+                var point = Mouse.GetPosition(view);
+                Require(point.X >= 0 && point.X < view.ActualWidth && point.Y >= 0 && point.Y < view.ActualHeight,
+                    "The routed mouse test did not place the pointer over TextView.");
+            }
+            PointAtView();
             var down = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Middle)
                 { RoutedEvent = Mouse.PreviewMouseDownEvent };
             view.RaiseEvent(down);
@@ -388,6 +402,7 @@ internal static partial class Program
             view.RaiseEvent(up);
             Require(move.Handled && up.Handled && editor.MultiCaretCount >= 2 && !editor.TextArea.IsMouseCaptured,
                 "WPF middle drag was swallowed by AvalonEdit or left the mouse captured.");
+            PointAtView();
             var ordinary = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
                 { RoutedEvent = Mouse.PreviewMouseDownEvent };
             view.RaiseEvent(ordinary);
@@ -396,6 +411,7 @@ internal static partial class Program
         finally
         {
             if (editor.TextArea.IsMouseCaptured) editor.TextArea.ReleaseMouseCapture();
+            if (GetCapture() == new WindowInteropHelper(window).Handle) ReleaseCapture();
             window.Close();
         }
     }

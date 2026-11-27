@@ -53,9 +53,9 @@ internal sealed partial class AiResponses
             cancellationToken.ThrowIfCancellationRequested();
             if (!first) AppendRaw("\n"); first = false;
             AppendRaw(TurnContext(turn));
-            if (turn.SentAnnotations.Count == 0) continue;
-            AppendRaw("\n附件身份:v1"); Count(turn.SentAnnotations.Count);
-            foreach (var entry in turn.SentAnnotations)
+            if (turn.SentAnnotations.Count == 0 && !turn.InputReplies.Any(r => r.Files.Count > 0)) continue;
+            AppendRaw("\n附件身份:v1"); Count(turn.ContextEntries.Count());
+            foreach (var entry in turn.ContextEntries)
             {
                 Add(entry.Id); Add(entry.Title); Add(entry.PdfRevision);
                 Count(entry.Files.Count);
@@ -85,7 +85,7 @@ internal sealed partial class AiResponses
     {
         var question = AiForms.HistoryQuestion(turn);
         var parts = new JsonArray(new JsonObject { ["type"] = "input_text", ["text"] = question });
-        foreach (var entry in turn.SentAnnotations)
+        foreach (var entry in turn.ContextEntries)
         {
             token.ThrowIfCancellationRequested();
             var files = entry.Files.Where(file => file.ReferenceKind is null && !IsHistoricalFolderFile(file)).ToList();
@@ -103,7 +103,7 @@ internal sealed partial class AiResponses
         if (message["content"] is not JsonArray content) return TurnContext(turn);
         var parts = content.Skip(1).Where(part => part?["type"]?.ToString() == "input_text")
             .Select(part => part!["text"]!.ToString());
-        var media = turn.SentAnnotations.SelectMany(entry => entry.Files)
+        var media = turn.ContextEntries.SelectMany(entry => entry.Files)
             .Where(file => file.ReferenceKind is null && !IsHistoricalFolderFile(file) && file.MimeType != "text/plain")
             .Select(file => "\n用户上传了 " + file.Name + "（" + file.MimeType + "）；二进制正文未纳入摘要。");
         return TurnContext(turn) + string.Concat(parts.Select(part => "\n用户发送的附件资料：\n" + part)) + string.Concat(media);

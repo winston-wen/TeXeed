@@ -503,6 +503,16 @@ internal static partial class Program
                     await CheckAiDiscoveryAsync(window, root, output);
                     await CloseAndObserveAsync(window, "AI project discovery regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-turn-input-perf-only"))
+                {
+                    await MeasureTurnInputAsync(window, output);
+                    await CloseAndObserveAsync(window, "Turn-input performance"); result = 0; return;
+                }
+                if (args.Contains("--ai-turn-input-only"))
+                {
+                    await CheckTurnInputAsync(window, output);
+                    await CloseAndObserveAsync(window, "Waiting for turn input"); result = 0; return;
+                }
                 if (args.Contains("--ai-revision-table-only"))
                 {
                     await CheckRevisionTableAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-read"));

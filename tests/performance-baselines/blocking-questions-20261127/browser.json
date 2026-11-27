@@ -1,0 +1,125 @@
+{
+  "chromium": "158.0.8127.38",
+  "viewport": [
+    1250,
+    900
+  ],
+  "baseline": "a3e798d",
+  "scenario": "AI revision of the paragraph immediately before a pipe table, two completed turns, two warm-ups, seven samples per build, two animation frames",
+  "old": [
+    {
+      "writeMs": 6.5999999940395355,
+      "settledMs": 24.099999994039536,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 184716
+    },
+    {
+      "writeMs": 7.699999988079071,
+      "settledMs": 24.69999998807907,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 128296
+    },
+    {
+      "writeMs": 6.5,
+      "settledMs": 25.30000001192093,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 176644
+    },
+    {
+      "writeMs": 7.9000000059604645,
+      "settledMs": 25.5,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 186184
+    },
+    {
+      "writeMs": 7.800000011920929,
+      "settledMs": 25.5,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 181336
+    },
+    {
+      "writeMs": 9.800000011920929,
+      "settledMs": 23.30000001192093,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 165808
+    },
+    {
+      "writeMs": 6.300000011920929,
+      "settledMs": 26.400000005960464,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 181316
+    }
+  ],
+  "current": [
+    {
+      "writeMs": 3.4000000059604645,
+      "settledMs": 26.900000005960464,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 157544
+    },
+    {
+      "writeMs": 3.7000000178813934,
+      "settledMs": 26,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 170156
+    },
+    {
+      "writeMs": 3.5,
+      "settledMs": 26.200000017881393,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 148172
+    },
+    {
+      "writeMs": 5.300000011920929,
+      "settledMs": 24.30000001192093,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 186068
+    },
+    {
+      "writeMs": 5.200000017881393,
+      "settledMs": 24.5,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 169248
+    },
+    {
+      "writeMs": 4,
+      "settledMs": 25.5,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 164592
+    },
+    {
+      "writeMs": 4,
+      "settledMs": 26.5,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 166240
+    }
+  ]
+}

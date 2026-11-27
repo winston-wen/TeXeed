@@ -14,6 +14,7 @@
     <Resource Include="../../src/TeXeed.App/Assets/Emoji/*.png" Link="Assets/Emoji/%(Filename)%(Extension)" />
     <EmbeddedResource Include="../../src/TeXeed.App/Assets/Emoji/index.json" LogicalName="TeXeed.App.Assets.Emoji.index.json" />
     <Compile Include="../../src/TeXeed.App/Services/ThemeManager.cs" Link="Services/ThemeManager.cs" />
+    <Compile Include="../TeXeed.AppTests/PrivateDesktopFixture.cs" Link="PrivateDesktopFixture.cs" />
     <Compile Include="../../src/TeXeed.App/Services/WindowTheme.cs" Link="Services/WindowTheme.cs" />
     <EmbeddedResource Include="../../src/TeXeed.App/Themes/*.json" LogicalName="TeXeed.App.Themes.%(Filename)%(Extension)" />
     <Page Include="../../src/TeXeed.App/Controls/EditorSearchTheme.xaml" Link="Controls/EditorSearchTheme.xaml" />

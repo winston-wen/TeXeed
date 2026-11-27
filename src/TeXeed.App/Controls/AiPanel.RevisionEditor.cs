@@ -10,6 +10,35 @@ namespace TeXeed.App.Controls;
 public partial class AiPanel
 {
     private readonly Dictionary<string, TurnRevisionEditor> _revisionEditors = [];
+    private readonly Dictionary<string, Task> _savingUserDrafts = [];
+
+    private async Task SaveUserDraftAsync(string turnId, CancellationToken token, IReadOnlyList<AiRevisionRow>? editorRows = null)
+    {
+        // Ctrl+S and an agent starting on the same turn must see the same durable commit.
+        if (_savingUserDrafts.TryGetValue(turnId, out var pending))
+        {
+            await pending.WaitAsync(token);
+            return;
+        }
+        var turn = _book.Turns.FirstOrDefault(item => item.Id == turnId);
+        if (turn?.UserRevisionDraft is not { } draft) return;
+        var editor = _revisionEditors.GetValueOrDefault(turnId);
+        var disableEditor = editor is { IsBusy: false };
+        if (disableEditor) editor!.IsEnabled = false;
+        try
+        {
+            var rows = editorRows ?? TurnRevisionEditor.KeptRows(draft.Rows);
+            var saving = CommitRevisionAsync(turnId, draft.Version, rows, "user", cancellationToken: token, expectedUserDraft: draft);
+            _savingUserDrafts.Add(turnId, saving);
+            await saving;
+            if (editor != null && _revisionEditors.GetValueOrDefault(turnId) == editor) CloseRevisionEditor(turnId);
+        }
+        finally
+        {
+            _savingUserDrafts.Remove(turnId);
+            if (disableEditor) editor!.IsEnabled = true;
+        }
+    }
 
     internal static bool IsRevisionInput(DependencyObject? element)
     {
@@ -26,7 +55,7 @@ public partial class AiPanel
         // Most turns are only read. Materialize these commands on the first menu opening.
         void Opened(object sender, RoutedEventArgs e)
         {
-            if (getTurn() is not { IsIncomplete: false }) return;
+            if (getTurn() is not { CanReviseAnswer: true }) return;
             menu.Opened -= Opened;
             if (menu.Items.Count != 0) menu.Items.Add(new Separator());
             void Add(string label, Action<AiTurn> action)
@@ -48,7 +77,9 @@ public partial class AiPanel
 
     private void OpenRevisionEditor(AiTurn turn, MarkdownView? source)
     {
-        if (!_turnViews.TryGetValue(turn.Id, out var view)) return;
+        if (_savingUserDrafts.ContainsKey(turn.Id) || !_turnViews.TryGetValue(turn.Id, out var view)) return;
+        if (_book.Turns.FirstOrDefault(current => current.Id == turn.Id) is not { CanReviseAnswer: true } latest) return;
+        turn = latest;
         var context = source?.RevisionContext(MessagesScroll);
         var segment = source?.DataContext as AiSegment;
         var draft = turn.UserRevisionDraft ?? BeginRevision(turn);
@@ -69,9 +100,7 @@ public partial class AiPanel
                 {
                     var anchor = editor?.ActiveReadingAnchor(MessagesScroll);
                     var version = _readingRestoreVersion;
-                    await CommitRevisionAsync(turn.Id, draft.Version, rows, "user");
-                    if (!_revisionEditors.TryGetValue(turn.Id, out var currentEditor) || currentEditor != editor) return;
-                    CloseRevisionEditor(turn.Id);
+                    await SaveUserDraftAsync(turn.Id, default, rows);
                     if (anchor is { } place)
                         await RestoreFinishedParagraphAsync(turn.Id, rows, place, version);
                 },

@@ -27,7 +27,8 @@ public partial class AiPanel
             paths = dialog.FileNames;
         }
         if (!Available()) { StatusText.Text = "会话已切换或表单已提交，请重新操作。"; return; }
-        var origin = new AiFormAttachmentOrigin(1, conversation.Id, conversation.Title, turnId, turnIndex + 1, id, purpose);
+        var origin = new AiFormAttachmentOrigin(1, conversation.Id, conversation.Title, turnId, turnIndex + 1, id, purpose)
+            { InputSegmentId = conversation.Turns[turnIndex].PendingInputSegmentIds?.FirstOrDefault() };
         if (kind == "file") AddFileReferences(paths, origin, Available);
         else await AddAttachmentsAsync(paths, origin, Available);
         RefreshFormEnabled();
@@ -48,7 +49,8 @@ public partial class AiPanel
             return new(files.Length, lockedDescription);
         }
         var entries = conversation.Entries.Where(entry => AiFormAttachmentOrigins.TryGet(entry, out var origin)
-            && origin!.ConversationId == conversation.Id && origin.TurnId == turn.Id && origin.FieldId == fieldId).ToArray();
+            && origin!.ConversationId == conversation.Id && origin.TurnId == turn.Id && origin.FieldId == fieldId &&
+            (origin.InputSegmentId is null ? !turn.IsWaitingForInput || turn.InputReplies.Length == 0 : turn.PendingInputSegmentIds?.Contains(origin.InputSegmentId) == true)).ToArray();
         var count = entries.Where(entry => entry.AttachmentSelected).Sum(entry => entry.AttachmentItems.Count);
         var description = string.Join("\n", entries.SelectMany(entry => entry.AttachmentItems.Select(item =>
             (entry.AttachmentSelected ? "待发送：" : "未勾选：") + item.DisplayPath)));

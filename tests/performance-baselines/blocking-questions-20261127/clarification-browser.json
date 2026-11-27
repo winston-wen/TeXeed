@@ -1,0 +1,97 @@
+{
+  "baseline": "a3e798d",
+  "chromium": "158.0.8127.38",
+  "viewport": [
+    1250,
+    900
+  ],
+  "scenario": "Send a revision command for turn 1, wait for the clarification about the original text, 2 warm-ups and 7 samples per build, include 2 animation frames.",
+  "old": [
+    {
+      "writeMs": 6.5999999940395355,
+      "settledMs": 24.400000005960464,
+      "visibleControls": 3,
+      "sampledBytes": 198720
+    },
+    {
+      "writeMs": 6.699999988079071,
+      "settledMs": 25.19999998807907,
+      "visibleControls": 3,
+      "sampledBytes": 223472
+    },
+    {
+      "writeMs": 6.199999988079071,
+      "settledMs": 24.900000005960464,
+      "visibleControls": 3,
+      "sampledBytes": 174664
+    },
+    {
+      "writeMs": 6.5,
+      "settledMs": 25.5,
+      "visibleControls": 3,
+      "sampledBytes": 199276
+    },
+    {
+      "writeMs": 7.899999976158142,
+      "settledMs": 24.299999982118607,
+      "visibleControls": 3,
+      "sampledBytes": 189836
+    },
+    {
+      "writeMs": 6.0999999940395355,
+      "settledMs": 25.30000001192093,
+      "visibleControls": 3,
+      "sampledBytes": 141296
+    },
+    {
+      "writeMs": 6.100000023841858,
+      "settledMs": 25.30000001192093,
+      "visibleControls": 3,
+      "sampledBytes": 182152
+    }
+  ],
+  "current": [
+    {
+      "writeMs": 4.9000000059604645,
+      "settledMs": 27.5,
+      "visibleControls": 3,
+      "sampledBytes": 218704
+    },
+    {
+      "writeMs": 4.799999982118607,
+      "settledMs": 27.299999982118607,
+      "visibleControls": 3,
+      "sampledBytes": 145524
+    },
+    {
+      "writeMs": 5.0999999940395355,
+      "settledMs": 27.19999998807907,
+      "visibleControls": 3,
+      "sampledBytes": 186728
+    },
+    {
+      "writeMs": 4.899999976158142,
+      "settledMs": 27.599999994039536,
+      "visibleControls": 3,
+      "sampledBytes": 171380
+    },
+    {
+      "writeMs": 4.600000023841858,
+      "settledMs": 27.400000005960464,
+      "visibleControls": 3,
+      "sampledBytes": 153796
+    },
+    {
+      "writeMs": 5.100000023841858,
+      "settledMs": 27.100000023841858,
+      "visibleControls": 3,
+      "sampledBytes": 132308
+    },
+    {
+      "writeMs": 4.700000017881393,
+      "settledMs": 27.200000017881393,
+      "visibleControls": 3,
+      "sampledBytes": 170076
+    }
+  ]
+}

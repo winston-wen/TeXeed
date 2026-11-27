@@ -33,6 +33,7 @@ async function submit(dialog,text){
 const snapshot=page=>page.evaluate(()=>window.turnRevision.snapshot(current().turns[0]));
 const getRevisions=page=>page.evaluate(()=>current().turns[0].readingRevisions||[]);
 module.exports=async function checkTableRevision(page){
+  const decision=page.locator('.decision-question');
   await setup(page);
   let dialog=await openWriter(page);
   await submit(dialog,'把「'+oldTable+'」改为「'+newTable+'」');await dialog.waitFor({state:'hidden'});
@@ -80,11 +81,11 @@ module.exports=async function checkTableRevision(page){
   await setup(page,'只读');await openWriter(page);assert.deepEqual(await getRevisions(page),[]);assert.match(await page.locator('#status').innerText(),/只读/);
   await setup(page,'完全访问',oldTable.replace('原列甲','{{text:answer}}'));
   dialog=await openWriter(page);await submit(dialog,'把「{{text:answer}}」改为「其他」');
-  assert.match(await dialog.locator('.revision-feedback').innerText(),/表单/);assert.deepEqual(await getRevisions(page),[]);
-  await dialog.getByRole('button',{name:'关闭'}).click();
+  assert.match(await decision.innerText(),/表单/);assert.deepEqual(await getRevisions(page),[]);
+  await decision.getByRole('button',{name:'结束本轮'}).click();
   await setup(page);dialog=await openWriter(page);await submit(dialog,'把「原列甲」改为「见公式 \\eqref{eq:missing}」');
-  assert.match(await dialog.locator('.revision-feedback').innerText(),/找不到目标/);
-  await submit(dialog,'见公式 \\eqref{eq:sample}');await dialog.waitFor({state:'hidden'});
+  assert.match(await decision.innerText(),/找不到目标/);
+  await decision.locator('textarea').fill('见公式 \\eqref{eq:sample}');await decision.getByRole('button',{name:'确认并继续'}).click();
   await table.locator('.equation-ref').click();assert.match(await page.locator('#equation-preview .math').getAttribute('data-tex'),/b=As/);
   await page.keyboard.press('Escape');
   await setup(page);
@@ -100,12 +101,14 @@ module.exports=async function checkTableRevision(page){
   await page.locator('[data-revise="table-turn"]').click();
   const draft=page.locator('#table-turn [data-id="table-turn-p1"] .words');
   await draft.click();await page.keyboard.insertText('草稿');await page.reload();
-  await openWriter(page);assert.match(await page.locator('#status').innerText(),/手动草稿/);
-  assert.deepEqual(await getRevisions(page),[]);
+  dialog=await openWriter(page);await submit(dialog,'把「原列甲」改为「草稿之后的新值」');
+  assert.deepEqual((await getRevisions(page)).map(r=>r.author),['用户','AI']);
+  assert.match(await snapshot(page),/草稿之后的新值/);
+  assert((await getRevisions(page))[0].rows.some(row=>row.parts.some(p=>typeof p==='string'&&p.includes('草稿'))));
   await setup(page);
   dialog=await openWriter(page);await submit(dialog,'把「'+oldTable+'」改为「| 表头 |\n| 没有分隔行 |」');
-  assert.match(await dialog.locator('.revision-feedback').innerText(),/管道表格/);assert.deepEqual(await getRevisions(page),[]);
-  await dialog.getByRole('button',{name:'关闭'}).click();
+  assert.match(await decision.innerText(),/管道表格/);assert.deepEqual(await getRevisions(page),[]);
+  await decision.getByRole('button',{name:'结束本轮'}).click();
   await setup(page);dialog=await openWriter(page);
   await submit(dialog,'把「判定型 | 原列乙」改为「判定型 | 原列乙 | 第三个值」');await dialog.waitFor({state:'hidden'});
   await page.reload();
@@ -113,7 +116,7 @@ module.exports=async function checkTableRevision(page){
   assert.deepEqual(await table.locator('tbody tr').first().locator('td').allTextContents(),['搜索型','原列甲','']);
   assert.equal(await table.locator('td').last().innerText(),'第三个值');
   assert((await snapshot(page)).includes('| 判定型 | 原列乙 | 第三个值 |'));
-  console.log('PASS: AI table cells, TeX, row structure, reference preview, permissions, protected controls, manual lock, history and persisted draft');
+  console.log('PASS: AI table cells, TeX, row structure, reference preview, permissions, protected controls, manual autosave, history and persisted draft');
 };
 
 async function measure(page,url){
@@ -153,7 +156,7 @@ if(require.main===module)(async()=>{
     if(process.env.TEXEED_TABLE_REVISION_BASELINE){
       const baseline=pathToFileURL(path.resolve(process.env.TEXEED_TABLE_REVISION_BASELINE)).href+'?test=1';
       const file=process.env.TEXEED_TABLE_REVISION_SAMPLES;
-      const data={chromium:browser.version(),viewport:[1250,900],baseline:'f2a2584',
+      const data={chromium:browser.version(),viewport:[1250,900],baseline:process.env.TEXEED_TABLE_REVISION_BASELINE_COMMIT||'f2a2584',
         scenario:'AI revision of the paragraph immediately before a pipe table, two completed turns, two warm-ups, seven samples per build, two animation frames',
         old:await measure(page,baseline),current:await measure(page,url)};
       fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(data,null,2)+'\n');

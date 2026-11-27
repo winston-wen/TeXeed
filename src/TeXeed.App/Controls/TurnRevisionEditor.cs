@@ -26,6 +26,7 @@ internal sealed class TurnRevisionEditor : StackPanel
     private readonly StackPanel _passages = new();
     private readonly TextBlock _notice = new() { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
     private bool _selecting, _painting, _busy;
+    internal bool IsBusy => _busy;
     private string _active = "";
     private int _lastCaret;
     private Window? _window;
@@ -63,7 +64,7 @@ internal sealed class TurnRevisionEditor : StackPanel
             if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 e.Handled = true;
-                if (!e.IsRepeat) await RunAsync(() => _finish(KeptRows()));
+                if (!e.IsRepeat) await RunAsync(() => _finish(KeptRows(_rows)));
             }
             else if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control)
             {
@@ -157,7 +158,8 @@ internal sealed class TurnRevisionEditor : StackPanel
     {
         if (_rows.Count == 0) _rows.Add(NewRow(_original.Rows.FirstOrDefault()?.SegmentId ?? _original.TurnId + "-final"));
     }
-    private List<AiRevisionRow> KeptRows() => _rows.Where(row => row.Locked || row.Links.Count > 0 || !string.IsNullOrWhiteSpace(row.Text)).ToList();
+    internal static List<AiRevisionRow> KeptRows(IEnumerable<AiRevisionRow> rows) =>
+        rows.Where(row => row.Locked || row.Links.Count > 0 || !string.IsNullOrWhiteSpace(row.Text)).ToList();
     private void Remember(string id, int caret) => _undo.Push((new List<AiRevisionRow>(_rows), id, caret));
     private void Changed()
     {

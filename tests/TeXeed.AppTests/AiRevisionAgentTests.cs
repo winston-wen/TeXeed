@@ -57,6 +57,13 @@ internal static partial class Program
             Check(handler.Steps.Count == 0, "Expected requests were missing after: " + text);
             Check(!AiStorage.Load(project).Active.Turns.Last().IsIncomplete, "Test turn failed: " + text);
         }
+        async Task Confirm(AiTurn turn, params Func<string[], JsonObject>[] responses)
+        {
+            handler.Steps = new(responses); handler.Authorized = true; handler.Permission = panel.Permission; handler.Failure = null;
+            await panel.ConfirmTurnInputAsync(turn).WaitAsync(TimeSpan.FromSeconds(25));
+            if (handler.Failure is { } error) throw new InvalidOperationException("Revision continuation failed", error);
+            Check(handler.Steps.Count == 0 && !AiStorage.Load(project).Turns.Single(t => t.Id == turn.Id).IsIncomplete, "Missing or failed continuation.");
+        }
         var read = new Func<string[], JsonObject>(_ => handler.Call("read_answer_revision", new { start_row = 0, max_rows = 20 }));
         var wait = new Func<string[], JsonObject>(_ => handler.Call("await_revision_reply", new { }));
         var ignored = "普通讨论。";
@@ -88,10 +95,10 @@ internal static partial class Program
         AiForms.SetDraft(((AiNotebook)Field(panel, "_book")!).Turns.Last(), "text", "keep", "已经填过这个框");
         await Send("今天只讨论别的题。", false, _ => handler.Say(ignored));
         // An unrelated discussion should not grant writes even if there was a partially filled form.
-        await Send("继续改稿：先确认该保留的公式。", true, wait, _ => handler.Say("保留哪个公式？ {{text:formula}}"));
+        await Confirm(((AiNotebook)Field(panel, "_book")!).Turns.Single(t => t.Id == first.Id), wait, _ => handler.Say("保留哪个公式？ {{text:formula}}"));
         await Reload();
         var book = (AiNotebook)Field(panel, "_book")!;
-        var last = book.Turns.Last();
+        var last = book.Turns.Single(t => t.Id == first.Id);
         AiForms.SetDraft(last, "text", "formula", "保留 x，保留引用，删掉第二段。");
         string? application = null;
         JsonObject Apply(string targetId, string version, string rowId, object[] parts, string? deleted = null)
@@ -101,12 +108,12 @@ internal static partial class Program
             return handler.Call("apply_answer_revision", new { target = targetId, version, changes });
         }
         string version = "", row = "", unwanted = "";
-        await Send("", true, read, results =>
+        await Confirm(last, read, results =>
         {
             var draft = JsonNode.Parse(results.Last())!;
             Check(draft["target"]!.ToString() == target.Id, "Form reply was rebound to the latest question");
             Check(draft["task_history"]![0]!["instruction"]!.ToString().Contains("先问我") &&
-                draft["task_history"]![1]!["clarification"]!.ToString().Contains("保留哪个公式"), "The task lost the original request or its follow-up questions");
+                draft["task_history"]![0]!["replies"]!.AsArray().Count == 2, "The task lost its original request or confirmed replies");
             version = draft["version"]!.ToString(); row = draft["rows"]![0]!["id"]!.ToString(); unwanted = draft["rows"]![1]!["id"]!.ToString();
             return Apply(other.Id, version, row, []);
         }, results =>
@@ -134,7 +141,7 @@ internal static partial class Program
         Check(history.First().Sources.Values.Single() == target.Answer && answer.Answer == "新说明保留 $x$。", "Latest and original content not reliably persisted");
         Check(history.Last().Rows.Single().Links.Single() is { Offset: 3 } link && link.Id == branch.Id, "Relocated branch link was lost or duplicated");
         Check(saved.Turns[1].Answer == other.Answer && saved.Turns.Skip(1).All(t => t.RevisionHistory is null), "History was saved on a question or clarification turn");
-        Check(saved.Turns.Last().RevisionRequest is { AwaitingReply: false } finished && finished.TaskId == first.RevisionRequest!.TaskId, "Task identity changed or permission stayed open");
+        Check(saved.Turns.Single(t => t.Id == first.Id).RevisionRequest is { AwaitingReply: false } finished && finished.TaskId == first.RevisionRequest!.TaskId, "Task identity changed or permission stayed open");
         await Reload();
         book = (AiNotebook)Field(panel, "_book")!;
         var resume = (AiRevisionRunner)typeof(AiPanel).GetMethod("CreateRevisionRunner", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
@@ -163,19 +170,34 @@ internal static partial class Program
         var concurrent = AiStorage.Load(project).Turns[1];
         Check(concurrent.Answer == "用户在等待期间保存了另一种表述。" && concurrent.RevisionHistory!.Last().Author == "user", "Concurrent edit wasn't reliably saved");
         var actual = book.Turns.Single(t => t.Id == other.Id);
-        actual.UserRevisionDraft = panel.BeginRevision(actual);
+        actual.UserRevisionDraft = panel.BeginRevision(actual) with { Version = "previously-saved-version" };
+        const string lateDraft = "模型读取以后用户接着写的内容。";
         await Send("请整理第2轮。", true, read, results =>
         {
             var draft = JsonNode.Parse(results.Last())!;
+            var savedTurn = AiStorage.Load(project).Turns[1];
+            Check(savedTurn.UserRevisionDraft == null && savedTurn.RevisionHistory!.Count == concurrent.RevisionHistory!.Count,
+                "A matching restored draft manufactured another history entry");
+            panel.Dispatcher.Invoke(() =>
+            {
+                var current = book.Turns.Single(t => t.Id == other.Id);
+                var basis = panel.BeginRevision(current);
+                current.UserRevisionDraft = basis with { Rows = [basis.Rows[0] with { Text = lateDraft }] };
+            });
             return Apply(other.Id, draft["version"]!.ToString(), draft["rows"]![0]!["id"]!.ToString(), [new { kind = "text", value = "与手动草稿冲突。" }]);
         }, results =>
         {
-            Check(results.Last().Contains("未完成的手动整理"), "Concurrent unsaved user draft was clobbered");
-            return handler.Say("请先处理手动草稿。");
+            Check(results.Last().Contains("版本已变化"), "Concurrent unsaved user draft was clobbered");
+            return read(results);
+        }, results =>
+        {
+            Check(results.Last().Contains(lateDraft), "Rereading did not return the newly saved user draft");
+            return handler.Say("已核对最新稿。");
         });
-        Check(AiStorage.Load(project).Turns[1].UserRevisionDraft is not null, "Manual draft disappeared after conflict");
+        Check(AiStorage.Load(project).Turns[1] is { Answer: lateDraft, UserRevisionDraft: null } &&
+            AiStorage.Load(project).Turns[1].RevisionHistory!.Last().Author == "user", "Late edits were not preserved as user history");
         await Send("请改写第1轮：请先向我确认。", true, wait, _ => handler.Say("请回复想保留的内容。"));
-        await Send("取消这次改稿。", false, _ => handler.Say("已取消。"));
+        await panel.CancelTurnInputAsync(book.Turns.Last());
         await Send("继续改稿：这次已经取消。", false, _ => handler.Say(ignored));
         await Send("第1轮才是文字所在轮次，无需另加前缀。", false, _ => handler.Say("对应段落可写成一行。"));
         JsonObject WriteFirst(string result, string text, bool keep = true)
@@ -354,7 +376,9 @@ internal static partial class Program
         }, _ => handler.Say("请确认新符号。"));
         await Reload();
         book = (AiNotebook)Field(panel, "_book")!;
-        await Send("继续改稿：就按批注写回。", true, read, r =>
+        var waiting = book.Turns.Last();
+        AiForms.SetDraft(waiting, "textarea", "clarification", "就按批注写回。");
+        await Confirm(waiting, read, r =>
         {
             var page = JsonNode.Parse(r.Last())!;
             Check(page["target"]!.ToString() == annotatedSource.Id &&
@@ -453,6 +477,8 @@ internal static partial class Program
         internal bool Authorized;
         internal AiPermission Permission;
         internal Exception? Failure;
+        internal Action<JsonNode>? ObserveRequest;
+        internal Func<CancellationToken, Task>? BeforeReply;
         private int _callId;
         internal JsonObject Call(string name, object? args) => new() { ["type"] = "function_call", ["name"] = name,
             ["call_id"] = "test-" + ++_callId, ["arguments"] = JsonSerializer.Serialize(args) };
@@ -464,6 +490,8 @@ internal static partial class Program
             {
                 if (request.RequestUri!.AbsolutePath != "/v1/responses") throw new InvalidOperationException("Unexpected network endpoint");
                 var payload = JsonNode.Parse(await request.Content!.ReadAsStringAsync(token))!;
+                ObserveRequest?.Invoke(payload);
+                if (BeforeReply is not null) await BeforeReply(token);
                 if (payload["tools"]!.ToJsonString().Contains("replace_source") != (Permission != AiPermission.ReadOnly) || !payload["tools"]!.ToJsonString().Contains("ask_user"))
                     throw new InvalidOperationException("The request didn't exercise the selected native workspace permission.");
                 if (payload["tools"]!.ToJsonString().Contains("read_answer_revision") != Authorized ||

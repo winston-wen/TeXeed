@@ -174,6 +174,7 @@ async function checkCaretBlink(page,editor,dir){
   await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?test=1');
   await require('./annotation-revision-browser.cjs')(page);
   await require('./table-revision-browser.cjs')(page);
+  await require('./turn-decision-browser.cjs')(page);
   await checkEditedStrong(page);
   await checkRevisionFinish(page);
   const original='# 密钥恢复\n\n先算接收值，再核对。\n\n## 进一步计算\n\n复查结论。\n\n行内 $x+1$ 仍在。\n\n$$w=x+1$$\n\n| 输入 | 输出 |\n| --- | --- |\n| 1 | 2 |';
@@ -194,7 +195,10 @@ async function checkCaretBlink(page,editor,dir){
     await target.click({button:'right'});await page.getByRole('menuitem',{name:label,exact:true}).click();
   }
   async function readingAction(id,label){
-    await page.locator('#'+id+' .answer .passage-body').first().click({button:'right'});
+    const paragraph=page.locator('#'+id+' .answer .passage-body').first();
+    await paragraph.scrollIntoViewIfNeeded();
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await paragraph.click({button:'right'});
     await page.getByRole('button',{name:label,exact:true}).click();
   }
   async function caret(locator,side,selectAll=false){await locator.evaluate((el,{side,selectAll})=>{
@@ -265,12 +269,14 @@ async function checkCaretBlink(page,editor,dir){
   await readingAction('up','请 AI 改这一轮');
   const dialog=page.getByRole('dialog',{name:'AI 改稿 · 原型模拟'});
   await dialog.locator('textarea').fill('帮我把结论写具体');await dialog.getByRole('button',{name:'提交'}).click();
-  assert.match(await dialog.locator('label').textContent(),/原句/);
-  await dialog.locator('textarea').fill('按提示恢复。');await dialog.getByRole('button',{name:'提交'}).click();
-  await dialog.getByRole('button',{name:'关闭'}).click();
-  await page.reload();await readingAction('up','请 AI 改这一轮');
-  assert.match(await dialog.locator('label').textContent(),/什么文字/);
-  await dialog.locator('textarea').fill('核对提示后恢复密钥。');await dialog.getByRole('button',{name:'提交'}).click();
+  const decision=page.locator('.decision-question');
+  const confirm=decision.getByRole('button',{name:'确认并继续'});
+  assert.match(await decision.textContent(),/原句/);
+  await decision.locator('textarea').fill('按提示恢复。');await confirm.click();
+  await page.reload();
+  assert.match(await decision.textContent(),/什么文字/);
+  assert.match(await page.locator('.decision-record').innerText(),/按提示恢复。/);
+  await decision.locator('textarea').fill('核对提示后恢复密钥。');await confirm.click();
   assert.match(await page.locator('#up .answer').innerText(),/核对提示后恢复密钥/);
   assert.deepEqual(await page.evaluate(()=>current().turns[0].readingRevisions.map(v=>v.author)),['用户','AI']);
   await readingAction('up','编辑历史');

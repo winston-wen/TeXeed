@@ -130,6 +130,7 @@ function installImageViewer(){
  window.addEventListener('resize',()=>{if(dialog.open&&fitMode)fit();});
 }
 function turnEnd(t){
+ if(t.decision)return {incomplete:false,action:'等待你确认答案',at:null};
  const terminal=(t.segments||[]).findLast(s=>s.kind==='activity'&&/^(已停止[。.]|本轮未完成[:：]|公式排版检查通过\s*·\s*回放完成)/.test(s.text));
  const incomplete=typeof t.incomplete==='boolean'?t.incomplete:terminal?!terminal.text.startsWith('公式排版检查通过'):!t.answeredAt&&!t.answer;
  const reason=t.endReason||(terminal?.text.startsWith('已停止')?'user':'program');
@@ -143,12 +144,12 @@ function turnHtml(t,index=0,turns=[t]){
  const processAfter=after.length?'<div class="process-log after-answer" aria-label="过程记录">'+after.map(activity).join('')+'</div>':'';
  const process=(t.segments||[]).some(s=>s.kind==='text'&&s.text)?(t.segments||[]).filter(s=>s.kind==='text'||s.kind==='activity'&&!isConnectionStatus(s)&&!/^公式排版检查通过/.test(s.text)).map(s=>s.kind==='text'?'<div class="streaming-answer">'+esc(s.text)+'</div>':'<div class="process-log" aria-label="过程记录">'+activity(s)+'</div>').join(''):(activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'');
  const sent='<div class="turn-time sent-time"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起本轮"':'')+'>'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送</div>';
- const answerTime=thinking?'<span class="thinking-label" role="status"><span class="pending-label-text">'+esc(running.pendingStatus||'等待 AI 响应')+'</span><span class="thinking-dot" aria-hidden="true"></span></span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
- const retry=!running&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
- const revise=!thinking&&t.answer?'<button type="button" class="revision-open" data-revise="'+esc(t.id)+'">整理本轮</button>':'';
+ const answerTime=thinking?'<span class="thinking-label" role="status"><span class="pending-label-text">'+esc(running.pendingStatus||'等待 AI 响应')+'</span><span class="thinking-dot" aria-hidden="true"></span></span>':t.decision?'<span role="status">等待你确认答案</span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
+ const retry=!running&&!t.decisions?.at(-1)?.cancelled&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
+ const revise=!thinking&&!t.decision&&t.answer?'<button type="button" class="revision-open" data-revise="'+esc(t.id)+'">整理本轮</button>':'';
  const answerHtml=globalThis.turnRevision?.html(t)??svgHtml(t);
  const footer='<div class="turn-footer" id="'+t.id+'-divider"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" aria-expanded="true" aria-controls="'+t.id+'-segments" title="双击收起本轮；键盘 Enter / 空格切换"':'')+'><div class="turn-time answer-time">'+answerTime+retry+revise+'</div><div class="answer-divider" aria-hidden="true"></div></div>';
- return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t,index)+'</div>'+sent+'<div class="segments" id="'+t.id+'-segments">'+process+(answerHtml?'<div class="answer-start-divider" aria-hidden="true"></div><div class="answer" data-turn="'+t.id+'">'+answerHtml+'</div>':'')+processAfter+'</div>'+footer+'</article>';
+ return '<article class="turn" id="'+t.id+'"><div class="question" id="'+t.id+'-question"><span class="turn-number" aria-label="第 '+(index+1)+' 轮">['+(index+1)+']</span>'+questionHtml(t,index)+'</div>'+sent+'<div class="segments" id="'+t.id+'-segments">'+process+(globalThis.turnDecision?.html(t)||'')+(answerHtml?'<div class="answer-start-divider" aria-hidden="true"></div><div class="answer" data-turn="'+t.id+'">'+answerHtml+'</div>':'')+processAfter+'</div>'+footer+'</article>';
 }
 function transcriptRows(turns){
  const rows=[];
@@ -427,7 +428,7 @@ function branchOriginHtml(source){
 function openBranchFrom(ctx){
  if(!ctx||!ctx.quote.trim())return;const parent=current(),index=parent.turns.findIndex(turn=>turn.id===ctx.turn);if(index<0)return;
  const source={parentId:parent.id,turn:ctx.turn,block:ctx.block,endBlock:ctx.endBlock,endTextOffset:ctx.endTextOffset,endMediaIndex:ctx.endMediaIndex,quote:ctx.quote,preview:ctx.preview};
- const inherited=[...(parent.inheritedContext||[]),...parent.turns.slice(0,index+1).map(turn=>({question:turn.question,answer:window.turnRevision?.snapshot(turn)??turn.answer,annotations:turn.annotations||[]}))];
+ const inherited=[...(parent.inheritedContext||[]),...parent.turns.slice(0,index+1).map(turn=>({question:turn.question,answer:window.turnRevision?.snapshot(turn)??turn.answer,annotations:turn.annotations||[],...(turn.decisions?.length?{decisions:turn.decisions}:{})}))];
  const entry={id:crypto.randomUUID(),number:1,title:'追问来源',question:'',selected:true,state:'待提交',sources:[],pdf:[],quote:ctx.quote,block:null,sourceLocked:true};
  const child={id:crypto.randomUUID(),title:shortTitle(ctx.quote),updatedAt:new Date().toISOString(),turns:[],entries:[entry],next:2,draft:'',permission:parent.permission||'完全访问',model:conversationModel(parent),effort:conversationEffort(parent),branchSource:source,inheritedContext:clone(inherited)};
  state.conversations.push(child);if(!persist()){state.conversations.pop();return;}openConversation(child.id);record('open-branch',{parent:parent.id,source:ctx.block});
@@ -493,11 +494,11 @@ function send(retryTurn=null){
  const annotations=outgoing.map(e=>({...e,summary:summarizeSnapshot(e),block:null}));
  const t={id:'sim-'+Date.now(),question,prompt,annotations,request:{prompt,annotations:clone(outgoing),model:retryTurn?.request?.model||conversationModel(c),effort:retryTurn?.request?.effort||conversationEffort(c),displayInstructions:DATA.prompts.answer,titleInstructions:DATA.prompts.title,...(c.inheritedContext?{inheritedContext:clone(c.inheritedContext)}:{})},answer:'',answerHtml:'',incomplete:true,sentAt:new Date().toISOString(),segments:[]};
  if(revision){
-  Object.assign(t,{id:crypto.randomUUID(),incomplete:false,answeredAt:t.sentAt,answer:'已收到第 '+revision.number+' 轮的改稿请求。'});
+  Object.assign(t,{id:crypto.randomUUID(),incomplete:false,answeredAt:t.sentAt});
   c.turns.push(t);c.draft='';c.entries=c.entries.filter(e=>!selected.includes(e));c.lastSentAt=t.sentAt;
   if(!persist()){c.turns.pop();Object.assign(c,beforeSend);return;}
   $('composer').value='';refreshEditors();renderTurns();renderEntries();
-  window.turnRevision.askAi(revision.target,revision.instruction,revision.entry?{replyId:t.id,entryId:revision.entry.id,remaining:notes.slice(1).map(note=>note.entry.id)}:null);return;
+  window.turnRevision.askAi(revision.target,revision.instruction,{replyId:t.id,entryId:revision.entry?.id,remaining:notes.slice(1).map(note=>note.entry.id)});return;
  }
  c.lastSentAt=t.sentAt;c.turns.push(t);if(!retryTurn)c.entries=c.entries.filter(e=>!selected.includes(e));if(c.title==='新对话')c.title=shortTitle(question);if(!retryTurn)c.draft='';if(!persist()){c.turns.pop();Object.assign(c,beforeSend);return;}if(!retryTurn){$('composer').value='';refreshEditors();}if($('entries-dialog').open)$('entries-dialog').close();selected.forEach(e=>e.state='提交中');const job={turn:t,selected,timers:[]};requests.set(c.id,job);running=job;renderTabs();status('');setBusy(true);renderTurns();scrollEnd();record('send',{question,entries:selected.map(e=>e.number)});
  const mode=$('playback-mode').value;
@@ -505,6 +506,11 @@ function send(retryTurn=null){
   if(requests.get(c.id)!==job)return;const visible=state.active===c.id;const follow=visible&&$('reader').scrollHeight-$('reader').scrollTop-$('reader').clientHeight<40;
   if(mode==='failure'){job.retryCount=(job.retryCount||0)+1;const wait=Math.min(30,2**Math.min(job.retryCount-1,5));const countdown=remaining=>{if(requests.get(c.id)!==job)return;if(!remaining){finish();return;}setPendingStatus(job,'网络连接中断，'+remaining+' 秒后重试 · 第 '+job.retryCount+' 次');job.timers.push(setTimeout(()=>countdown(remaining-1),1000));};countdown(wait);record('network-retry',{attempt:job.retryCount});return;}
   if(mode==='program-failure'){t.incomplete=true;t.endReason='program';t.endedAt=new Date().toISOString();selected.forEach(e=>e.state='未完成，可重试');t.segments.push({kind:'activity',text:'本轮未完成：程序无法继续处理。',details:'原型预编失败事件。',time:t.endedAt});}
+  else if(mode==='decision'){
+   t.incomplete=false;
+   turnDecision.wait(t,{id:crypto.randomUUID(),question:'你想先看哪一种说明？',options:['一步步推导','先看例子'],draft:'',
+    results:['正方形的四条边长度相同。周长是四条边之和，所以周长等于边长的四倍。','取一个具体例子：正方形边长为 3，周长就是 4 × 3 = 12。']});
+  }
   else {t.answer=DATA.playback.answer;t.answerHtml=DATA.playback.answerHtml.replace(/id="([^"]+)"/g,(_,id)=>'id="'+t.id+'-'+id+'"').replace(/data-block="([^"]+)"/g,(_,id)=>'data-block="'+t.id+'-'+id+'"').replace(/href="#([^"]+)"/g,(_,id)=>'href="#'+t.id+'-'+id+'"');t.incomplete=false;t.answeredAt=new Date().toISOString();t.segments.push({kind:'activity',text:'公式排版检查通过 · 回放完成',time:t.answeredAt});}
   requests.delete(c.id);if(visible){running=null;setBusy(false);renderTurns();if(follow)scrollEnd();}renderTabs();if(activeView==='history')historyDialog.refresh();record('finish',{mode});
  };

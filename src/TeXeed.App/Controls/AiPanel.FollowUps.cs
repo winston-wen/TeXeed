@@ -81,11 +81,11 @@ public partial class AiPanel
 
     private async Task AddFollowUpAsync(string kind)
     {
-        if (_project is null || _operation is null || _followUpsClosing || _followUpSaving || _formGradeCommitPending || kind == "steer" && (_steering is null || _foldingLiveTurn is null)) return;
+        if (_project is null || _operation is null || _followUpsClosing || _followUpSaving || _formGradeCommitPending || kind == "steer" && (_steering is null || FollowUpTurnId is null)) return;
         if (BlockPendingFormAttachmentRead(_book.Active)) return;
         var draft = Composer.Text;
         var prompt = draft.Trim();
-        var parts = _book.Entries.Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected && AiSessionExcerptReferences.IsPendingReference(_book.Active, e), Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray();
+        var parts = _book.Entries.Where(e => !BelongsToWaitingQuestion(e)).Select(e => (Entry: e, Reference: e.HasReference && e.ReferenceSelected && AiSessionExcerptReferences.IsPendingReference(_book.Active, e), Attachment: e.HasAttachments && e.AttachmentSelected)).Where(x => x.Reference || x.Attachment).ToArray();
         var entries = parts.Select((x, i) => SnapshotSelectedParts(x.Entry, x.Reference, x.Attachment, i + 1)).ToList();
         if (prompt.Length == 0 && entries.Count == 0) { StatusText.Text = "请输入消息，或选择引用及附件。"; return; }
         if (prompt.Length == 0 && entries.Any(e => string.IsNullOrWhiteSpace(e.Question))) { StatusText.Text = "请在编辑栏描述要问的问题。"; return; }
@@ -98,7 +98,7 @@ public partial class AiPanel
         try
         {
             AiFollowUpMessage? item = null;
-            var targetTurnId = kind == "steer" ? _foldingLiveTurn!.Id : null;
+            var targetTurnId = kind == "steer" ? FollowUpTurnId! : null;
             await MutateFollowUpsAsync(book, queue => { item = queue.Enqueue(kind, prompt, entries, targetTurnId); return true; });
             if (Composer.Text == draft) { DetachUnsentMentions(parts.Where(x => x.Attachment).Select(x => x.Entry)); _editingMention = true; try { Composer.Clear(); } finally { _editingMention = false; } }
             for (var i = 0; i < parts.Length; i++)
@@ -167,7 +167,7 @@ public partial class AiPanel
             if (item.State is "unknown" or "failed") AddButton("重试", item.Kind == "steer" ? "将此消息作为下一轮排队发送" : "确认后再次发送", async () => { await ChangeFollowUpAsync(q => item.Kind == "steer" ? q.RetryAsQueue(item.Id) : q.Retry(item.Id)); });
             if (item.State == "pending" && item.Kind == "queue")
             {
-                if (_operation is not null && _steering is not null && _foldingLiveTurn is not null)
+                if (_operation is not null && _steering is not null && FollowUpTurnId is not null)
                     AddButton("转为引导", "将排队消息交给当前任务", async () => await ConvertQueuedToSteerAsync(item.Id));
                 AddButton("↓", "下移", async () => await ChangeFollowUpAsync(q => q.Move(item.Id, 1)));
                 AddButton("↑", "上移", async () => await ChangeFollowUpAsync(q => q.Move(item.Id, -1)));
@@ -192,14 +192,14 @@ public partial class AiPanel
 
     private async Task ConvertQueuedToSteerAsync(string id)
     {
-        if (_followUpsClosing || _conversionIdle is not null || _operation is null || _steering is null || _foldingLiveTurn is null) return;
+        if (_followUpsClosing || _conversionIdle is not null || _operation is null || _steering is null || FollowUpTurnId is null) return;
         if (BlockPendingFormAttachmentRead(_book.Active)) return;
         _conversionIdle = new(TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
         var book = _book;
         var controller = _steering;
-        var turnId = _foldingLiveTurn.Id;
+        var turnId = FollowUpTurnId;
         AiFollowUpMessage? item = null;
         if (!await MutateFollowUpsAsync(book, queue => (item = queue.ConvertToSteer(id, turnId)) is not null)) return;
         if (controller.TryEnqueue(new AiSteeringMessage(item!.Id, item.Prompt, item.Entries)))
@@ -273,7 +273,7 @@ public partial class AiPanel
                 var dispatchTurnId = Guid.NewGuid().ToString("N");
                 await MutateFollowUpsAsync(book, queue =>
                 {
-                    if (BlockPendingFormAttachmentRead(book.Active)) return false;
+                    if (book.Active.Turns.Any(t => t.IsWaitingForInput) || BlockPendingFormAttachmentRead(book.Active)) return false;
                     item = queue.NextQueued();
                     if (item is not null && ConversationModelProblem() is { } problem) { StatusText.Text = problem; item = null; return false; }
                     if (item is null || !queue.MarkDispatching([item.Id], dispatchTurnId)) return false;

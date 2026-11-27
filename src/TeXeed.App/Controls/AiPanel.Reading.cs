@@ -116,7 +116,9 @@ public partial class AiPanel
         view.ConfigureRevisionMenu = menu => AddRevisionCommands(menu, () => view.Turn);
         if (!view.Turn.Collapsed && _revisionEditors.TryGetValue(view.Turn.Id, out var openEditor)) view.SetRevisionEditor(openEditor);
         view.RetryRequested = async () => await SubmitAsync(view.Turn);
-        view.CanRetry = _operation is null && _book.Turns.LastOrDefault()?.Id == view.Turn.Id && view.Turn.IsIncomplete;
+        view.ConfirmInputRequested = async () => await ConfirmTurnInputAsync(view.Turn);
+        view.EndInputRequested = async () => await CancelTurnInputAsync(view.Turn);
+        UpdateTurnActions(view, _book.Turns.LastOrDefault()?.Id);
         view.PreviewChanged = _ => { foreach (var other in VisualChildren<AiTurnView>(History).Where(v => v != view)) other.ClosePreview(); };
         view.AnswerReady = answer => Answer_Loaded(answer, new RoutedEventArgs());
         view.AnswerFoldingChanged = AddBranchLinks;
@@ -133,8 +135,19 @@ public partial class AiPanel
     }
     private void UpdateRetryActions()
     {
-        var last = _book.Turns.LastOrDefault();
-        foreach (var view in _turnViews.Values) view.CanRetry = _operation is null && last?.Id == view.Turn.Id && view.Turn.IsIncomplete;
+        var lastId = _book.Turns.LastOrDefault()?.Id;
+        foreach (var view in _turnViews.Values) UpdateTurnActions(view, lastId);
+    }
+    private void UpdateTurnActions(AiTurnView view, string? lastId)
+    {
+        view.CanRetry = _operation is null && (view.Turn.CanRetryInputReply || lastId == view.Turn.Id && view.Turn.IsIncomplete);
+        RefreshInputActions(view);
+    }
+    private void RefreshInputActions(AiTurnView view)
+    {
+        var waiting = view.Turn.IsWaitingForInput;
+        var available = waiting && _operation is null && !_disposed;
+        view.SetInputActions(waiting, available && CanConfirmTurnInput(view.Turn), available);
     }
     private void RevealLiveTurn()
     {

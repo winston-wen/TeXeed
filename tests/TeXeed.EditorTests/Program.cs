@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using ICSharpCode.AvalonEdit.CodeCompletion;
@@ -12,7 +13,29 @@ internal static partial class Program
     private static int _passed;
 
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
+    {
+        try
+        {
+            // NavigateTo focuses its HWND, even for a transparent offscreen host. Keep
+            // real user typing, pointer movement and focus changes outside this fixture.
+            if (args.Length == 0)
+            {
+                var fixture = Directory.CreateTempSubdirectory("TeXeedEditor-");
+                try { RunOnInputDesktopAsync("native editor", "--editor-native", fixture.FullName).GetAwaiter().GetResult(); }
+                finally { fixture.Delete(true); }
+                return 0;
+            }
+            if (args is not ["--editor-native", "--output", var directory]) throw new ArgumentException("Unexpected editor fixture arguments.");
+            using var log = new StreamWriter(Path.Combine(directory, "input.log")) { AutoFlush = true };
+            Console.SetOut(log);
+            Console.SetError(log);
+            return RunEditorChecks();
+        }
+        catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+    }
+
+    private static int RunEditorChecks()
     {
         try
         {

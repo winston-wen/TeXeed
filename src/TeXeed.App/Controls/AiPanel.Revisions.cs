@@ -49,8 +49,8 @@ public partial class AiPanel
             var ordered = row.Links.OrderBy(l => l.Offset).ToArray();
             row.Links.Clear(); row.Links.AddRange(ordered);
         }
-        var sourceVersion = latest?.Id ?? AiStorage.Hash(JsonSerializer.Serialize(segments.Select(s => new[] { s.Id, s.Text })));
-        var version = sourceVersion + "/" + AiStorage.Hash(JsonSerializer.Serialize(rows.SelectMany(r => r.Links).Select(l => l.Id)));
+        var sourceVersion = AiRevisionText.SourceVersion(turn, segments);
+        var version = sourceVersion + "/" + RevisionLinkVersion(rows);
         return new(turn.Id, version, rows);
     }
 
@@ -119,7 +119,7 @@ public partial class AiPanel
     }
 
     internal async Task CommitRevisionAsync(string turnId, string expectedRevision, IReadOnlyList<AiRevisionRow> rows, string author, string? operationId = null,
-        CancellationToken cancellationToken = default, bool approved = false)
+        CancellationToken cancellationToken = default, bool approved = false, AiRevisionDraft? expectedUserDraft = null)
     {
         var conversation = _book.Active;
         var project = _project;
@@ -136,8 +136,15 @@ public partial class AiPanel
         token.ThrowIfCancellationRequested();
         var startingTurn = conversation.Turns.FirstOrDefault(t => t.Id == turnId)
             ?? throw new InvalidOperationException("找不到指定轮次。");
+        if (!startingTurn.CanReviseAnswer) throw new InvalidOperationException("请待这一轮完成后再整理。");
         if (!string.IsNullOrEmpty(operationId) && startingTurn.RevisionHistory?.Any(rev => rev.OperationId == operationId) == true) return;
         var initial = BeginRevision(startingTurn);
+        if (expectedUserDraft is not null && initial.Version != expectedRevision)
+        {
+            if (!SameRevisionRows(initial.Rows, rows))
+                rows = RefreshUserDraftLinks(initial, expectedRevision, rows);
+            expectedRevision = initial.Version;
+        }
         if (initial.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
         var mathScope = writer == "user" ? RevisionMathScope.Inline : RevisionMathScope.All;
         var proposed = AiRevisionText.Normalize(initial, rows, mathScope);
@@ -153,15 +160,15 @@ public partial class AiPanel
             at = conversation.Turns.FindIndex(t => t.Id == turnId);
             if (at < 0) throw new InvalidOperationException("找不到指定轮次。");
             var original = conversation.Turns[at];
+            if (!original.CanReviseAnswer) throw new InvalidOperationException("请待这一轮完成后再整理。");
             if (!string.IsNullOrEmpty(operationId) && original.RevisionHistory?.Any(rev => rev.OperationId == operationId) == true) return;
-            if (writer == "ai" && original.UserRevisionDraft is not null) throw new InvalidOperationException(AiAnswerRevision.PendingManualDraft);
+            if (writer == "ai" && original.UserRevisionDraft is not null ||
+                expectedUserDraft is not null && !ReferenceEquals(original.UserRevisionDraft, expectedUserDraft))
+                throw new InvalidOperationException("用户刚刚更新了手动整理稿。请重新读取该轮，核对保存后的内容。");
             var draft = BeginRevision(original);
             if (draft.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
             var normalized = AiRevisionText.Normalize(draft, rows, mathScope);
-            bool Same(IEnumerable<AiRevisionRow> left, IEnumerable<AiRevisionRow> right) =>
-                left.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))).SequenceEqual(
-                    right.Select(row => (row.Id, row.Text, row.Level, row.SegmentId, Links: JsonSerializer.Serialize(row.Links))));
-            var revised = !Same(draft.Rows, normalized);
+            var revised = !SameRevisionRows(draft.Rows, normalized);
             if (!revised && (writer != "user" || original.UserRevisionDraft is null)) return;
             var segments = AiRevisionText.Segments(original).ToArray();
             var sources = segments.ToDictionary(s => s.Id, s => s.Text);
@@ -227,6 +234,47 @@ public partial class AiPanel
         if (updated is null || _book.Active != conversation || _disposed) return;
         InvalidateSameConversationLinks(); SyncTranscriptRows(); RefreshMessageMatches(); RefreshVisibleBranchLinks();
         foreach (var view in _bookmarkQuestions) view.RefreshSnapshotOrigins(turnId);
+    }
+
+    private static bool SameRevisionRows(IReadOnlyList<AiRevisionRow> left, IReadOnlyList<AiRevisionRow> right) =>
+        left.Count == right.Count && left.Zip(right).All(pair => pair.First.Id == pair.Second.Id &&
+            pair.First.Text == pair.Second.Text && pair.First.Level == pair.Second.Level && pair.First.Locked == pair.Second.Locked &&
+            pair.First.SegmentId == pair.Second.SegmentId && pair.First.Links.SequenceEqual(pair.Second.Links));
+
+    private static string RevisionLinkVersion(IEnumerable<AiRevisionRow> rows) =>
+        AiStorage.Hash(JsonSerializer.Serialize(rows.SelectMany(r => r.Links).Select(l => l.Id)));
+
+    // New follow-up links can arrive while a manual draft is at rest. Keep the user's
+    // edits when the base text and the insertion point of every new link are identifiable.
+    private static List<AiRevisionRow> RefreshUserDraftLinks(AiRevisionDraft current, string expected, IReadOnlyList<AiRevisionRow> rows)
+    {
+        var sourceVersion = current.Version[..current.Version.IndexOf('/')];
+        if (expected != sourceVersion + "/" + RevisionLinkVersion(rows))
+            throw new InvalidOperationException("该轮在整理期间已另存新稿，无法自动合并。手动整理草稿已保留。");
+        var revised = AiRevisionText.Clone(rows);
+        var currentLinks = current.Rows.SelectMany(r => r.Links).Select(l => l.Id).ToHashSet(StringComparer.Ordinal);
+        var alreadyPresent = revised.SelectMany(r => r.Links).Select(l => l.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var row in revised) row.Links.RemoveAll(l => !currentLinks.Contains(l.Id));
+        foreach (var original in current.Rows)
+        {
+            foreach (var link in original.Links.Where(l => !alreadyPresent.Contains(l.Id)))
+            {
+                var row = revised.FirstOrDefault(item => item.Id == original.Id);
+                int? offset = null;
+                if (row != null)
+                {
+                    if (row.Text.AsSpan().StartsWith(original.Text.AsSpan(0, link.Offset), StringComparison.Ordinal))
+                        offset = link.Offset;
+                    else if (row.Text.AsSpan().EndsWith(original.Text.AsSpan(link.Offset), StringComparison.Ordinal))
+                        offset = row.Text.Length - (original.Text.Length - link.Offset);
+                }
+                if (offset is null)
+                    throw new InvalidOperationException("新引用的位置与手动整理的改动重叠，无法自动定位。手动整理草稿已保留。");
+                row!.Links.Add(link with { Offset = offset.Value });
+            }
+        }
+        var order = current.Rows.SelectMany(r => r.Links).Select((l, i) => (l.Id, i)).ToDictionary(p => p.Id, p => p.i);
+        return revised.Select(r => r with { Links = r.Links.OrderBy(l => l.Offset).ThenBy(l => order[l.Id]).ToList() }).ToList();
     }
 
     private static Dictionary<string, bool> RevisionFoldKeys(AiTurn original, AiSegment[] segments,

@@ -32,6 +32,13 @@ public sealed class AiTurnView : StackPanel
     internal Action<AiEntry>? PreviewChanged;
     internal Action<string>? SourceRequested;
     internal Action? RetryRequested;
+    internal Action? ConfirmInputRequested, EndInputRequested;
+    private (bool Show, bool CanConfirm, bool CanEnd) _inputActions;
+    internal void SetInputActions(bool show, bool canConfirm, bool canEnd)
+    {
+        _inputActions = (show, canConfirm, canEnd);
+        _footer?.SetInputActions(show, canConfirm, canEnd);
+    }
     private bool _canRetry;
     internal bool CanRetry { get => _canRetry; set { _canRetry = value; if (_footer is not null) _footer.CanRetry = value; } }
     internal List<MarkdownView> Answers { get; } = [];
@@ -339,10 +346,13 @@ public sealed class AiTurnView : StackPanel
     {
         var toggle = new AiReplyStatus { Text = Turn.AnswerTime, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
         toggle.CanRetry = _canRetry; toggle.RetryRequested = () => RetryRequested?.Invoke();
+        toggle.ConfirmRequested = () => ConfirmInputRequested?.Invoke();
+        toggle.EndRequested = () => EndInputRequested?.Invoke();
+        toggle.SetInputActions(_inputActions.Show, _inputActions.CanConfirm, _inputActions.CanEnd);
         toggle.ToolTip = "双击收起本轮，右键整理或查看编辑历史";
         void OpenMenu()
         {
-            if (ConfigureRevisionMenu is null || Turn.IsIncomplete) return;
+            if (ConfigureRevisionMenu is null || !Turn.CanReviseAnswer) return;
             var menu = new ContextMenu { PlacementTarget = toggle }; ConfigureRevisionMenu(menu);
             menu.IsOpen = true;
         }

@@ -27,8 +27,39 @@ public sealed class AiReplyStatus : StackPanel
     private readonly Func<bool> _animationsEnabled;
     private DispatcherTimer? _blinkTimer;
     private Button? _retry;
+    private Button? _confirm, _end;
     private readonly WrapPanel _row = new();
     internal Action? RetryRequested;
+    internal Action? ConfirmRequested, EndRequested;
+    internal void SetInputActions(bool show, bool canConfirm, bool canEnd)
+    {
+        if (!show && _confirm is null) return;
+        if (_confirm is null)
+        {
+            Button ActionButton(string text, Action activate)
+            {
+                var button = new Button { Content = text, FontSize = 15, MinHeight = 28,
+                    Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(9, 2, 9, 2),
+                    VerticalAlignment = VerticalAlignment.Center };
+                button.Click += (_, e) => { e.Handled = true; activate(); };
+                _row.Children.Add(button);
+                return button;
+            }
+            _confirm = ActionButton("确认并继续", () => ConfirmRequested?.Invoke());
+            _confirm.SetResourceReference(Control.ForegroundProperty, "ChatHeading");
+            _confirm.SetResourceReference(Control.BorderBrushProperty, "ChatHeading");
+            _stamp.VerticalAlignment = VerticalAlignment.Center;
+            ToolTipService.SetShowOnDisabled(_confirm, true);
+            _end = ActionButton("结束本轮", () => EndRequested?.Invoke());
+            _end.BorderThickness = new Thickness(0);
+            _end.Background = Brushes.Transparent;
+            _end.SetResourceReference(Control.ForegroundProperty, "Muted");
+        }
+        _confirm.Visibility = _end!.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        _confirm.IsEnabled = canConfirm;
+        _confirm.ToolTip = canConfirm ? "提交这道题的答案，在本轮继续" : "请先填写或选择答案";
+        _end.IsEnabled = canEnd;
+    }
     internal bool CanRetry
     {
         get => _retry?.Visibility == Visibility.Visible;

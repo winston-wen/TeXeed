@@ -53,6 +53,15 @@ internal sealed class AiTurnCheckpoint
         var segments = _buffer.Snapshot();
         var partial = string.Join("\n\n", segments.Where(s => s.Kind is "text" or "final").Select(s => s.Text));
         var turn = _pending.Turn with { Answer = "[本轮未完成]\n" + (partial.Length > 0 ? partial : "尚未收到回答。"), Segments = segments };
+        if (_pending.Turn.InputAttemptId is { } attempt)
+        {
+            foreach (var segment in segments) segment.Id = attempt + "-" + segment.Id;
+            turn = _pending.Turn with
+            {
+                Answer = string.Join("\n\n", new[] { _pending.Turn.Answer, partial }.Where(s => s.Length > 0)),
+                Segments = [.. _pending.Turn.Segments, .. segments]
+            };
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         var temporary = _path + ".tmp";
         try
@@ -95,13 +104,14 @@ internal sealed class AiTurnCheckpoint
         }
     }
 
-    internal void Commit() => Retire(_path, pending => pending.ConversationId == _pending.ConversationId && pending.Turn.Id == _pending.Turn.Id);
+    internal void Commit() => Retire(_path, pending => pending.ConversationId == _pending.ConversationId && pending.Turn.Id == _pending.Turn.Id && pending.Turn.InputAttemptId == _pending.Turn.InputAttemptId);
     internal static void RetireSaved(string project, AiNotebook book)
     {
         try
         {
             foreach (var path in PathsFor(project))
-                Retire(path, pending => book.Conversations.Any(c => c.Id == pending.ConversationId && c.Turns.Any(t => t.Id == pending.Turn.Id)));
+                Retire(path, pending => book.Conversations.Any(c => c.Id == pending.ConversationId && c.Turns.Any(t => t.Id == pending.Turn.Id &&
+                    (pending.Turn.InputAttemptId is null || t.InputAttemptId != pending.Turn.InputAttemptId || t.EndReason != "input-resuming"))));
         }
         catch (Exception ex) when (DeferredCleanup(ex))
         {
@@ -116,7 +126,12 @@ internal sealed class AiTurnCheckpoint
             if (ReadPending(path) is not { } pending) continue;
             var conversation = book.Conversations.FirstOrDefault(c => c.Id == pending.ConversationId);
             if (conversation is null) { conversation = new() { Id = pending.ConversationId, Title = pending.Title }; book.Conversations.Add(conversation); }
-            if (!conversation.Turns.Any(t => t.Id == pending.Turn.Id)) conversation.Turns.Add(pending.Turn);
+            var index = conversation.Turns.FindIndex(t => t.Id == pending.Turn.Id);
+            if (index < 0) conversation.Turns.Add(pending.Turn);
+            else if (pending.Turn.InputAttemptId is { } attempt && conversation.Turns[index] is { EndReason: "input-resuming" } current &&
+                current.InputAttemptId == attempt)
+                conversation.Turns[index] = AiTurnInput.AppendToRevisions(conversation, current,
+                    current with { Answer = pending.Turn.Answer, Segments = pending.Turn.Segments });
             conversation.LastSentAt = conversation.LastSend;
             if (!book.Conversations.Any(c => c.Id == book.ActiveConversationId)) book.ActiveConversationId = conversation.Id;
             // Only a successful notebook save retires this journal.

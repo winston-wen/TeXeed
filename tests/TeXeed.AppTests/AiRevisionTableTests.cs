@@ -126,16 +126,17 @@ internal static partial class Program
         var draft = panel.BeginRevision(target);
         Expect(draft.Rows.Single(r => r.Text.StartsWith('|')).Locked, "Table was exposed to manual editing");
         var draftRows = AiRevisionText.Clone(draft.Rows);
-        draftRows[1] = draftRows[1] with { Text = "尚未完成的个人整理。" };
+        draftRows[1] = draftRows[1] with { Text = "尚未闭合的 $A" };
         target.UserRevisionDraft = draft with { Rows = draftRows };
-        await Send(true, Read, r => Apply(r), r =>
-        {
-            Expect(r.Last().Contains("未完成的手动整理"), "An open draft allowed an AI write: " + r.Last());
-            return handler.Say("请先处理手动草稿。");
-        });
+        await panel.SaveAsync();
+        var composer = (TextBox)panel.FindName("Composer");
+        composer.Text = instruction;
+        var turnCount = live.Turns.Count;
+        await panel.SubmitAsync();
         var latest = AiStorage.Load(project).Turns[0];
-        Expect(latest.UserRevisionDraft?.Rows[1].Text == "尚未完成的个人整理。" && latest.RevisionHistory is null &&
-            latest.Answer == before, "Rejected write altered the saved answer or its active draft");
+        Expect(latest.UserRevisionDraft?.Rows[1].Text == draftRows[1].Text && latest.RevisionHistory is null &&
+            latest.Answer == before && live.Turns.Count == turnCount && composer.Text == instruction &&
+            ((TextBlock)panel.FindName("StatusText")).Text.Contains("定界符"), "A failed user save lost the draft or started the AI task");
         target.UserRevisionDraft = null;
         live.Active.Permission = AiPermission.AskBeforeShell;
         async Task Deny()
@@ -158,21 +159,47 @@ internal static partial class Program
         });
         await deny;
         live.Active.Permission = AiPermission.FullAccess;
+        const string manualNote = "用户手动补充的定义。";
+        var manualText = before.Replace("这两类问题要求的输出不同。", "这两类问题要求的输出不同。" + manualNote);
+        draftRows[1] = draftRows[1] with { Text = draft.Rows[1].Text + manualNote };
+        target.UserRevisionDraft = draft with { Rows = draftRows };
+        var bookmark = new AiUserBookmark { Anchor = anchor, Label = "题型" };
+        live.Active.Bookmarks.Add(bookmark); // The saved draft predates this additional link.
+        composer.Text = instruction;
+        await panel.SaveAsync();
+        turnCount = live.Turns.Count;
+        using (File.OpenRead(AiStorage.NotebookPath(project)))
+        {
+            await panel.SubmitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            var blocked = AiStorage.Load(project).Turns[0];
+            Expect(live.Turns.Count == turnCount && live.Turns[0].RevisionHistory is null &&
+                live.Turns[0].UserRevisionDraft?.Rows[1].Text == draftRows[1].Text && composer.Text == instruction &&
+                blocked.Answer == before && blocked.UserRevisionDraft?.Rows[1].Text == draftRows[1].Text &&
+                handler.Failure is null, "Disk failure lost edits or allowed an AI request");
+        }
+        await Reload(); // The draft exists on disk, with no live editor left to finish it.
         string? operation = null;
         string? hiddenField = null;
-        await Send(true, Read, r =>
+        await Send(true, r =>
         {
+            var preflight = AiStorage.Load(project).Turns[0];
+            Expect(preflight.Answer == manualText && preflight.RevisionHistory is [{ Id: "original" }, { Author: "user" }] &&
+                preflight.UserRevisionDraft is null, "The first model request ran before the user revision reached disk");
+            return Read(r);
+        }, r =>
+        {
+            Expect(r.Last().Contains(manualNote), "The model was given the pre-edit introduction");
             operation = Apply(r)["arguments"]!.ToString();
             hiddenField = Apply(r, hideForm: true)["arguments"]!.ToString();
             return Apply(r, keep: false);
         }, r =>
         {
-            Expect(r.Last().Contains("保护") && AiStorage.Load(project).Turns[0].Answer == before,
+            Expect(r.Last().Contains("保护") && AiStorage.Load(project).Turns[0].Answer == manualText,
                 "Losing a form or branch token produced a partial write: " + r.Last());
             return handler.Call("apply_answer_revision", JsonNode.Parse(hiddenField!));
         }, r =>
         {
-            Expect(!r.Last().Contains("已保存") && AiStorage.Load(project).Turns[0].Answer == before,
+            Expect(!r.Last().Contains("已保存") && AiStorage.Load(project).Turns[0].Answer == manualText,
                 "A retained field hidden inside a link URL escaped form validation: " + r.Last());
             return handler.Call("apply_answer_revision", JsonNode.Parse(operation!));
         }, r =>
@@ -188,17 +215,19 @@ internal static partial class Program
         var saved = AiStorage.Load(project);
         var result = saved.Turns[0];
         var history = result.RevisionHistory!;
-        Expect(result.Answer == Rewrite(before) && history is [{ Id: "original" }, { Author: "ai" }] &&
-            history[0].Sources.Values.Single() == before && saved.Turns.Skip(1).All(t => t.RevisionHistory is null),
+        Expect(result.Answer == Rewrite(manualText) && history is [{ Id: "original" }, { Author: "user" }, { Author: "ai" }] &&
+            history[0].Sources.Values.Single() == before && history[1].Sources.Values.Single() == manualText &&
+            saved.Turns.Skip(1).All(t => t.RevisionHistory is null),
             "The saved table or its history did not survive reopening on the target turn");
-        var tableRow = history[1].Rows.Single(r => r.Text.StartsWith('|'));
-        Expect(tableRow.Links.Single().Id == branch.Id && saved.Conversations.Single(c => c.Id == branch.Id).BranchAnchor == anchor &&
+        var tableRow = history[^1].Rows.Single(r => r.Text.StartsWith('|'));
+        Expect(tableRow.Links.Select(l => l.Id).ToHashSet().SetEquals([branch.Id, "bookmark:" + bookmark.Id]) &&
+            saved.Conversations.Single(c => c.Id == branch.Id).BranchAnchor == anchor &&
             panel.ResolveEquation(result, "2:definition", "definition", out _)?.Equation.Source == "x=1",
             "Saving changed a branch snapshot or the table's cross-turn equation");
         await CheckReopenedTableAsync(window, panel, original.Id, output);
         CheckTableStructureEdits();
         Console.WriteLine("PASS: native turn 1 table and introduction changed atomically through the model tools, duplicate write receipts, " +
-            "form and branch ownership, permission, draft conflict, history, formulas and rendered cells after reopening.");
+            "form and branch ownership, permission, user autosave before AI, history, formulas and rendered cells after reopening.");
     }
 
     private static void CheckTableStructureEdits()

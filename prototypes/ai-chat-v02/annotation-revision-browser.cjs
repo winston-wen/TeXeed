@@ -4,6 +4,7 @@ const fs=require('node:fs'),path=require('node:path');
 
 module.exports=async function checkAnnotationRevision(page){
  const dialog=page.getByRole('dialog',{name:'AI 改稿 · 原型模拟'});
+ const decision=page.locator('.decision-question'),confirm=decision.getByRole('button',{name:'确认并继续'});
  const old='d=b-a',label='eq:gap',note='改公式6，加入我设立的 $\\delta_0$。检查一下前后文，自动修改不一致的符号。';
  async function setup(permission='完全访问'){
    await page.evaluate(({permission,old,label})=>{
@@ -40,9 +41,9 @@ module.exports=async function checkAnnotationRevision(page){
  await attach(source,note);
  assert.equal(await page.locator('#composer').inputValue(),'');
  await page.locator('#send').click();
- await dialog.waitFor();assert.match(await dialog.locator('label').innerText(),/这道公式/);
+ await decision.waitFor();assert.match(await decision.innerText(),/这道公式/);
  assert.equal(await page.evaluate(()=>current().turns.length),16);
- await dialog.locator('textarea').fill('d=b-a+\\delta_0');await dialog.getByRole('button',{name:'提交'}).click();
+ await decision.locator('textarea').fill('d=b-a+\\delta_0');await confirm.click();
  await dialog.waitFor({state:'hidden'});const all=await snapshot();
  assert.match(all[8],/d=b-a\+\\delta_0\\label\{eq:gap\}/);
  assert.doesNotMatch(all[9],/delta/);
@@ -89,9 +90,9 @@ module.exports=async function checkAnnotationRevision(page){
  await setup();await attach(source,'改公式（９：６），把「d=b-a」改为「d=b-a+x」');await page.locator('#send').click();
  assert.match((await snapshot())[8],/d=b-a\+x/);
  await setup();await attach(source,'改公式6，拆成两条。');await page.locator('#send').click();
- await dialog.locator('textarea').fill('$$d=b$$\n\n$$d=a$$');await dialog.getByRole('button',{name:'提交'}).click();
- assert.match(await dialog.locator('.revision-feedback').innerText(),/哪道公式承接/);assert.deepEqual((await histories()).filter(Boolean),[]);
- await dialog.locator('textarea').fill('$$d=b$$\n\n$$d=a\\label{eq:gap}$$');await dialog.getByRole('button',{name:'提交'}).click();
+ await decision.locator('textarea').fill('$$d=b$$\n\n$$d=a$$');await confirm.click();
+ assert.match(await decision.innerText(),/哪道公式承接/);assert.deepEqual((await histories()).filter(Boolean),[]);
+ await decision.locator('textarea').fill('$$d=b$$\n\n$$d=a\\label{eq:gap}$$');await confirm.click();
  await dialog.waitFor({state:'hidden'});
  const split=await snapshot();
  assert.match(split[10],/\\eqref\{9:eq:gap\}/);

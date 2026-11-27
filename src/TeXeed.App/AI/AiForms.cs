@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Markdig;
@@ -26,9 +27,11 @@ internal static class AiForms
     internal static string Value(IReadOnlyDictionary<string, string> values, string type, string id, bool allowLegacy = true) =>
         values.TryGetValue(FieldKey(type, id), out var value) ? value : allowLegacy ? values.GetValueOrDefault(id, "") : "";
     internal static Dictionary<string, HashSet<string>> FieldTypes(AiTurn turn)
+        => Types(Tokens(turn));
+    private static Dictionary<string, HashSet<string>> Types(IEnumerable<Match> tokens)
     {
         var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        foreach (var m in Tokens(turn))
+        foreach (var m in tokens)
         {
             var (type, id) = Field(m);
             if (!result.TryGetValue(id, out var kinds)) result[id] = kinds = new(StringComparer.Ordinal);
@@ -58,11 +61,14 @@ internal static class AiForms
     internal static Submission? Snapshot(AiTurn? turn)
     {
         if (turn is null || !SupportsForms(turn)) return null;
-        var draft = Draft(turn); var values = new Dictionary<string, string>(StringComparer.Ordinal); var found = false; var hasFile = false;
-        var tokens = Tokens(turn).ToArray(); var types = FieldTypes(turn);
+        var scoped = turn.InputReplies.Length != 0 || turn.PendingInputSegmentIds is not null;
+        var fields = scoped ? InputFields.GetValue(turn, GetInputFields) : null;
+        var tokens = fields?.Tokens ?? Tokens(turn).ToArray();
+        if (tokens.Length == 0) return null;
+        var types = fields?.Types ?? Types(tokens);
+        var draft = Draft(turn); var values = new Dictionary<string, string>(StringComparer.Ordinal); var hasFile = false;
         foreach (var m in tokens)
         {
-            found = true;
             if (m.Groups["fid"].Success) { hasFile = true; continue; }
             var (type, id) = Field(m);
             var value = Value(draft, type, id, AllowLegacy(types, id));
@@ -70,8 +76,39 @@ internal static class AiForms
         }
         var ambiguous = draft.Where(pair => !AllowLegacy(types, pair.Key) && (types[pair.Key].Contains("file") || types[pair.Key].Any(type => !draft.ContainsKey(FieldKey(type, pair.Key)))))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        return found ? new Submission(turn.Id, values) { Attachments = hasFile ? new(StringComparer.Ordinal) : null, AmbiguousLegacy = ambiguous.Count == 0 ? null : ambiguous } : null;
+        return new Submission(turn.Id, values) { Attachments = hasFile ? new(StringComparer.Ordinal) : null, AmbiguousLegacy = ambiguous.Count == 0 ? null : ambiguous };
     }
+    // A turn's question segments are replaced together. Reuse their field definitions while the user types.
+    private sealed record InputDefinition(Match[] Tokens, Dictionary<string, HashSet<string>> Types, IGrouping<(string Type, string Id), Match>[] Groups);
+    private static readonly ConditionalWeakTable<AiTurn, InputDefinition> InputFields = new();
+    private static InputDefinition GetInputFields(AiTurn turn)
+    {
+        var frozen = turn.InputReplies.SelectMany(reply => reply.SegmentIds).ToHashSet(StringComparer.Ordinal);
+        if (!turn.IsWaitingForInput && turn.PendingInputSegmentIds is not null) frozen.UnionWith(turn.PendingInputSegmentIds);
+        var current = turn.Segments.Where(s => !frozen.Contains(s.Id) &&
+            (!turn.IsWaitingForInput || turn.PendingInputSegmentIds?.Contains(s.Id) == true)).ToList();
+        var tokens = current.Count == 0 ? [] : Tokens(turn with { Segments = current }).ToArray();
+        return new(tokens, Types(tokens), tokens.GroupBy(Field).ToArray());
+    }
+
+    internal static bool HasCompleteInput(AiTurn turn, Submission submission)
+    {
+        var tokens = InputFields.GetValue(turn, GetInputFields).Groups;
+        var checkedBox = false;
+        foreach (var group in tokens)
+        {
+            var (type, id) = group.Key;
+            var value = Value(submission.Values, type, id);
+            if (type == "file")
+            {
+                if (submission.Attachments?.GetValueOrDefault(id) is not { Length: > 0 }) return false;
+            }
+            else if (type == "checkbox") checkedBox |= value == "true";
+            else if (string.IsNullOrWhiteSpace(value) || type == "radio" && !group.Any(m => m.Groups["value"].Value == value)) return false;
+        }
+        return checkedBox || tokens.Any(group => group.Key.Type != "checkbox");
+    }
+
     internal static Submission? FromTurn(AiTurn turn)
     {
         if (turn.AdditionalData?.ContainsKey(SubmissionsKey) == true) return AllFromTurn(turn).FirstOrDefault();
@@ -150,6 +187,11 @@ internal static class AiForms
     internal static string HistoryQuestion(AiTurn turn)
     {
         var question = turn.Question;
+        foreach (var reply in turn.InputReplies)
+        {
+            question += "\n\n本轮用户依次确认的作答：" +
+                Describe(new(turn.Id, reply.Values) { Attachments = reply.Attachments });
+        }
         var submissions = AllFromTurn(turn);
         if (submissions.Count > 0) question += "\n\n本次提交消息标识：" + turn.Id;
         foreach (var submission in submissions) question += "\n\n" + Describe(submission);
@@ -204,8 +246,8 @@ internal static class AiForms
     }
     internal static Submission? SubmittedFor(AiConversation conversation, string turnId)
     {
-        if (AiFormGrading.IsReopened(conversation, turnId)) return null;
         var source = conversation.Turns.FirstOrDefault(t => t.Id == turnId);
+        if (source?.IsWaitingForInput == true || AiFormGrading.IsReopened(conversation, turnId)) return null;
         if (source?.AdditionalData?.TryGetValue(ManualReopenKey, out var marker) == true && marker.ValueKind == JsonValueKind.String)
         {
             var latest = conversation.Turns.LastOrDefault(turn => AllFromTurn(turn).Any(item => item.TurnId == turnId));

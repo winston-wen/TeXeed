@@ -178,8 +178,16 @@ public sealed record AiTurn(string Question, string Answer)
     public bool? Incomplete { get; init; }
     public string? EndReason { get; init; }
     public string? Prompt { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string[]? PendingInputSegmentIds { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? InputAttemptId { get; init; }
+    public AiInputReply[] InputReplies { get; init; } = [];
+    [JsonIgnore] public bool IsWaitingForInput => EndReason == "input";
+    [JsonIgnore] internal bool CanReviseAnswer => !IsIncomplete && !IsWaitingForInput;
+    [JsonIgnore] public bool CanRetryInputReply => IsIncomplete && InputReplies.Length > 0;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public AiRevisionRequest? RevisionRequest { get; init; }
     public List<AiEntry> SentAnnotations { get; init; } = [];
+    [JsonIgnore] internal IEnumerable<AiEntry> ContextEntries => InputReplies.Length == 0 ? SentAnnotations : SentAnnotations.Concat(InputReplies.SelectMany(r => r.Files));
     public bool Collapsed { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FoldGroup { get; set; }
@@ -198,6 +206,8 @@ public sealed record AiTurn(string Question, string Answer)
     public AiRevisionDraft? UserRevisionDraft { get; set; }
     internal AiTurn Snapshot() => this with
     {
+        InputReplies = InputReplies.Select(r => r with { SegmentIds = [.. r.SegmentIds], Values = new(r.Values),
+            Attachments = r.Attachments?.ToDictionary(p => p.Key, p => p.Value.ToArray()), Files = r.Files.Select(e => e.Snapshot()).ToList() }).ToArray(),
         SentAnnotations = SentAnnotations.Select(entry => entry.Snapshot()).ToList(),
         Segments = Segments.Select(segment => segment.Snapshot()).ToList(),
         CollapsedSections = new(CollapsedSections),
@@ -231,6 +241,10 @@ public sealed record AiTurn(string Question, string Answer)
     {
         get
         {
+            if (IsWaitingForInput) return "等待你确认答案";
+            if (EndReason == "input-resuming") return "AI 正在继续本轮";
+            if (EndReason == "user" && !IsIncomplete && EndedAt is { } ended)
+                return AiTimestamp.Full(ended) + " 用户结束本轮";
             var end = IsIncomplete ? EndedAt ?? FailureSegment?.CreatedAt : AnsweredAt;
             var stoppedByUser = EndReason == "user" || EndReason is null && FailureSegment?.Text.StartsWith("已停止。") == true;
             var status = IsIncomplete ? stoppedByUser ? "用户中止" : "程序中止" : "答复";
@@ -463,7 +477,10 @@ internal static class AiStorage
         {
             AiTurnCheckpoint.Recover(project, book);
             foreach (var conversation in book.Conversations)
+            {
                 if (conversation.ReconcileSentAnnotations()) book.RequiresSave = true;
+                if (AiTurnInput.Restore(conversation)) book.RequiresSave = true;
+            }
             return book;
         }
     }

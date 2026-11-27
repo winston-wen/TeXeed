@@ -39,6 +39,8 @@ internal static class AiRevisionText
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseCustomContainers().UsePipeTables().DisableHtml().Build();
     internal static List<AiRevisionRow> Clone(IEnumerable<AiRevisionRow> rows) => rows.Select(row => row with { Links = [.. row.Links] }).ToList();
+    internal static string SourceVersion(AiTurn turn, IEnumerable<AiSegment> segments) =>
+        turn.RevisionHistory?.LastOrDefault()?.Id ?? AiStorage.Hash(JsonSerializer.Serialize(segments.Select(s => new[] { s.Id, s.Text })));
     internal static IEnumerable<AiSegment> Segments(AiTurn turn) => turn.Segments.Count == 0
         ? [new AiSegment { Id = turn.Id + "-answer", Kind = "final", Text = turn.Answer, CreatedAt = turn.CreatedAt }]
         : turn.Segments.Where(s => s.Kind != "activity" && !s.IsTransientStatus && s.Id != "request");

@@ -37,3 +37,12 @@
 .citation-history-target { padding-inline-start:.5em;border-inline-start:2px solid var(--accent) }
 .revision-history-body .same-turn-link { font:inherit;border:0;padding:0;background:transparent;opacity:.85 }
 .revision-dialog > select { width:min(100%,25em);max-width:100% }
+
+.decision-question,.decision-record{margin:var(--reading-paragraph-gap,14px) 0;color:var(--ink);font:var(--reading-font)/var(--reading-line) var(--serif)}
+.decision-question p,.decision-record p{margin:0 0 .4em}
+.decision-question>label{display:block;line-height:1.6;cursor:pointer}
+.decision-question textarea{display:block;width:min(38em,100%);box-sizing:border-box;resize:vertical}
+.decision-actions{display:flex;align-items:center;gap:.7em;margin-top:.65em}
+.decision-actions [data-decision-action=confirm]:enabled{border-color:var(--focus);color:var(--ink)}
+.decision-actions [data-decision-action=cancel]{background:transparent;color:var(--muted);border-color:transparent}
+.decision-record{border-left:2px solid var(--line);padding-left:.8em;color:var(--muted)}

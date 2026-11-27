@@ -15,6 +15,22 @@ public partial class AiPanel
     {
         if (!AiForms.SupportsForms(turn) || !view.Markdown.Contains("{{", StringComparison.Ordinal)) return;
         var conversation = _book.Active;
+        if (view.DataContext is AiSegment segment)
+        {
+            var confirmed = turn.InputReplies.LastOrDefault(reply => reply.SegmentIds.Contains(segment.Id));
+            if (confirmed is not null || !turn.IsWaitingForInput && turn.PendingInputSegmentIds?.Contains(segment.Id) == true)
+            {
+                var values = confirmed?.Values ?? AiForms.Draft(turn);
+                AiFormAttachmentState Files(string id)
+                {
+                    var paths = confirmed?.Attachments?.GetValueOrDefault(id) ?? [];
+                    return new(paths.Length, paths.Length == 0 ? "未提交附件" : string.Join("\n", paths));
+                }
+                view.ConfigureForms(new AiFormContext(turn.Id + "-" + segment.Id,
+                    (type, id) => AiForms.Value(values, type, id), (_, _, _) => { }, () => true, AttachmentState: Files));
+                return;
+            }
+        }
         var types = AiForms.FieldTypes(turn);
         AiForms.Submission? Submitted() => _pendingFormSubmissions.TryGetValue(turn.Id, out var pending) ? pending : AiForms.SubmittedFor(conversation, turn.Id);
         Dictionary<string, string> Values() => Submitted()?.Values ?? AiForms.Draft(turn);
@@ -46,7 +62,10 @@ public partial class AiPanel
             if (_updatingFormBindings || Submitted() is not null) return;
             AiForms.SetDraft(turn, type, id, value); Dirty();
             if (_turnViews.TryGetValue(turn.Id, out var turnView))
+            {
+                if (turn.IsWaitingForInput) RefreshInputActions(turnView);
                 foreach (var answer in turnView.Answers) answer.RefreshFormFeedback(type, id);
+            }
             var key = (conversation.Id, turn.Id, type, id);
             if (!_formBindings.TryGetValue(key, out var bindings)) return;
             _updatingFormBindings = true;
@@ -74,7 +93,10 @@ public partial class AiPanel
     private void RefreshFormEnabled()
     {
         foreach (var view in _turnViews.Values)
+        {
+            if (view.Turn.IsWaitingForInput) RefreshInputActions(view);
             foreach (var answer in view.Answers) answer.RefreshFormEnabled();
+        }
     }
     private void InvalidateAttachmentFeedback(AiEntry entry)
     {
@@ -87,7 +109,7 @@ public partial class AiPanel
             foreach (var answer in view.Answers) answer.RefreshFormFeedback("file", origin.FieldId);
     }
 
-    private async Task<(bool Applied, bool Invalid, bool QueuePaused)> SaveCompletedFormTurnAsync(AiNotebook book, AiTurn completed, IReadOnlySet<string> allowedGradingSources)
+    private async Task<(bool Applied, bool Invalid, bool QueuePaused)> SaveCompletedFormTurnAsync(AiNotebook book, AiTurn completed, IReadOnlySet<string> allowedGradingSources, AiTurn? replace = null, IReadOnlyList<AiEntry>? consume = null)
     {
         var project = _project ?? throw new InvalidOperationException("项目已关闭。");
         var conversation = book.Active;
@@ -98,12 +120,27 @@ public partial class AiPanel
         Dictionary<string, AiForms.Submission> oldPending = new(StringComparer.Ordinal);
         Dictionary<string, Dictionary<string, System.Text.Json.JsonElement>?> oldTurnData = new(StringComparer.Ordinal);
         IReadOnlyList<string> changed = [];
+        var priorData = replace?.AdditionalData;
+        var removedFiles = new List<(int Index, AiEntry Entry)>();
+        var mutated = false;
         void Mutate()
         {
+            var index = replace is null ? -1 : book.Turns.FindIndex(t => ReferenceEquals(t, replace));
+            if (replace is not null && (index < 0 || !ReferenceEquals(priorData, replace.AdditionalData)))
+                throw new InvalidOperationException("该轮在保存期间已更新，请检查后重试。");
+            if (consume?.Any(e => !book.Entries.Contains(e) || !e.AttachmentSelected) == true)
+                throw new InvalidOperationException("所选附件已改变，请检查后重新确认。");
             oldConversationData = conversation.AdditionalData; oldUpdated = conversation.UpdatedAt;
             oldPending = new(_pendingFormSubmissions, StringComparer.Ordinal);
             if (candidate) oldTurnData = book.Turns.GroupBy(turn => turn.Id, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().AdditionalData, StringComparer.Ordinal);
-            book.Turns.Add(completed);
+            if (replace is null) book.Turns.Add(completed);
+            else book.Turns[index] = completed;
+            mutated = true;
+            if (consume is not null) foreach (var file in consume)
+            {
+                removedFiles.Add((book.Entries.IndexOf(file), file));
+                book.Entries.Remove(file);
+            }
             if (candidate)
             {
                 var lastSubmissions = book.Turns.SelectMany(AiForms.AllFromTurn).GroupBy(item => item.TurnId, StringComparer.Ordinal)
@@ -124,7 +161,10 @@ public partial class AiPanel
         }
         void Rollback()
         {
-            book.Turns.Remove(completed);
+            if (!mutated) return;
+            if (replace is null) book.Turns.Remove(completed);
+            else book.Turns[book.Turns.FindIndex(t => ReferenceEquals(t, completed))] = replace;
+            foreach (var (index, entry) in removedFiles.AsEnumerable().Reverse()) book.Entries.Insert(index, entry);
             foreach (var id in changed)
                 if (book.Turns.FirstOrDefault(turn => turn.Id == id) is { } source && oldTurnData.TryGetValue(id, out var previous)) source.AdditionalData = previous;
             conversation.AdditionalData = oldConversationData; conversation.UpdatedAt = oldUpdated;

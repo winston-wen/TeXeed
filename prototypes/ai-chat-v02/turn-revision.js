@@ -379,6 +379,7 @@
    if(active?.root.isConnected){if(active.turn===turn){if(sourceId)active.focus(sourceId);return;}active.pause();}else active=null;
    const original=capture(turn),cat=catalog(turn);
    const draft=turn.readingRevisionDraft;
+   const baseVersion=draft?.baseVersion??(turn.readingRevisions?.length||0);
    const compatible=Array.isArray(draft?.rows)?{...draft,rows:editableRows(draft.rows,cat)}:draft;
    let paragraphs=resumeDraft(compatible,original),painting=false,selecting=false,activeId=sourceId||paragraphs[0]?.id;
    const selected=new Set(),history=[];
@@ -406,7 +407,7 @@
    }
    let pendingWrite=null;
    const save=()=>{
-     turn.readingRevisionDraft={...turn.readingRevisionDraft,rows:paragraphs};
+     turn.readingRevisionDraft={...turn.readingRevisionDraft,baseVersion,rows:paragraphs};
      clearTimeout(pendingWrite);
      pendingWrite=setTimeout(persist,180);
    };
@@ -874,26 +875,18 @@
      }
    };
    function finish(){
-     let rows=editableRows(paragraphs.filter(p=>refs(p.parts).length||!blank(textOf(p.parts))),cat);
-     let repaired=false;
-     const errors=checkFormulas(rows,original);
-     if(errors.length){
-       const candidate=simulateFormulaRepair(rows,errors);
-       const remaining=candidate&&checkFormulas(candidate,original);
-       if(!candidate||remaining.length){
-         const {rowIndex,error}=(remaining?.[0]??errors[0]);
-         if(selecting){selecting=false;selected.clear();render();}
-         const row=Array.from(body.children).find(el=>el.dataset.id===rows[rowIndex].id);
-         row?.classList.add('revision-invalid');
-         row?.querySelector('.words').focus({preventScroll:true});
-         row?.scrollIntoView({block:'nearest'});
-         const result=error==='行间公式在整理区中保留为只读。'?error:
-           '行内公式未通过 KaTeX 校验。AI 模拟修正未能修复。'+error.slice(0,180);
-         notice.textContent=result;
-         save();clearTimeout(pendingWrite);persist();return false;
-       }
-       rows=candidate;repaired=true;
+     if(baseVersion!==(turn.readingRevisions?.length||0)){
+       notice.textContent='当前稿已更新，草稿仍然保留。';return false;
      }
+     const checked=validateManualRows(paragraphs,original,cat);
+     if(checked.error){
+       if(selecting){selecting=false;selected.clear();render();}
+       const row=Array.from(body.children).find(el=>el.dataset.id===checked.rowId);
+       row?.classList.add('revision-invalid');row?.querySelector('.words').focus({preventScroll:true});
+       row?.scrollIntoView({block:'nearest'});notice.textContent=checked.error;
+       save();clearTimeout(pendingWrite);persist();return false;
+     }
+     const {rows,repaired}=checked;
      if(!closeEditor(JSON.stringify(rows)!==JSON.stringify(original)?rows:null))return false;
      if(repaired)status('行内公式初次校验失败，AI 模拟修正后重新通过校验，已保存。');
      return true;
@@ -908,7 +901,7 @@
      clearTimeout(pendingWrite);endCaret();active=null;anchoredRefresh(turn.id,activeId);return true;
    }
    function focusRow(id){Array.from(body.children).find(r=>r.dataset.id===id)?.querySelector('.words')?.focus({preventScroll:true});}
-   active={turn,root,focus:focusRow,endCaret,
+   active={turn,root,finish,focus:focusRow,endCaret,
      focusState:()=>({id:activeId,span:sourceWords&&selectionOf(sourceWords),within:root.contains(document.activeElement)}),
      pause(){clearTimeout(pendingWrite);endCaret();persist();active=null;anchoredRefresh(turn.id,activeId);}};
    render();
@@ -917,6 +910,35 @@
    if(start&&restoredFocus?.span)setCaret(start.querySelector('.words'),restoredFocus.span[0],false,restoredFocus.span[1]);
    else if(!restoredFocus)start?.querySelector('.words').focus({preventScroll:true});
    else if(restoredFocus.within)root.focus({preventScroll:true});
+ }
+ function validateManualRows(paragraphs,original,cat){
+   const rows=editableRows(paragraphs.filter(row=>refs(row.parts).length||!blank(textOf(row.parts))),cat);
+   const errors=checkFormulas(rows,original);
+   if(!errors.length)return {rows};
+   const repaired=simulateFormulaRepair(rows,errors);
+   const remaining=repaired?checkFormulas(repaired,original):errors;
+   if(!remaining.length)return {rows:repaired,repaired:true};
+   const {rowIndex,error}=remaining[0];
+   return {rowId:rows[rowIndex].id,error:error==='行间公式在整理区中保留为只读。'?error:'行内公式未通过 KaTeX 校验。AI 模拟修正未能修复。'+error.slice(0,180)};
+ }
+ function saveBeforeAi(turn){
+   const draft=turn.readingRevisionDraft;
+   if(draft&&(!Array.isArray(draft.rows)||(draft.baseVersion!=null&&draft.baseVersion!==(turn.readingRevisions?.length||0))))
+     return '草稿与当前版本不一致，请在整理区核对。';
+   if(active?.turn===turn&&active.root.isConnected){
+     const editor=active;
+     return editor.finish()?'':(editor.root.querySelector('.revision-notice')?.textContent||'手动修改未能保存。');
+   }
+   if(!draft)return '';
+   const original=capture(turn),cat=catalog(turn);
+   const paragraphs=resumeDraft({...draft,rows:editableRows(draft.rows,cat)},original);
+   const checked=validateManualRows(paragraphs,original,cat);
+   if(checked.error)return checked.error;
+   delete turn.readingRevisionDraft;
+   const changed=JSON.stringify(checked.rows)!==JSON.stringify(original);
+   if(changed?commit(turn,checked.rows,'用户'):persist())return '';
+   turn.readingRevisionDraft=draft;
+   return '手动修改未能保存。';
  }
  function commit(turn,rows,author){
    return commitBatch([{turn,rows}],author);
@@ -1150,17 +1172,22 @@
    }
    check(captured,oldIndex,true);check(edits[0].rows,newIndex,false);
    for(const other of current().turns){
-     if(other===turn||other.incomplete||!snapshot(other)?.includes(':'))continue;
-     const fixed=fixReferences(other,capture(other));
+     if(other===turn||other.incomplete||other.decision||!snapshot(other)?.includes(':'))continue;
+     let fixed=fixReferences(other,capture(other));
+     if(fixed&&other.readingRevisionDraft){
+       const saveError=saveBeforeAi(other);
+       if(saveError)throw Error(saveError);
+       fixed=fixReferences(other,capture(other));
+     }
      if(fixed)edits.push({turn:other,rows:fixed});
    }
    return {edits,pending,review};
  }
- function askAi(turn,prompt,requestedBinding){
+ function askAi(turn,prompt,requestedBinding,waitingReply){
    const conversation=current();
-   const prior=turn.readingAiTask;
+   const prior=waitingReply?.decision?.task??turn.readingAiTask;
    const binding=requestedBinding||prior?.binding;
-   const reply=binding&&conversation.turns.find(t=>t.id===binding.replyId);
+   let reply=waitingReply||(binding&&conversation.turns.find(t=>t.id===binding.replyId));
    const entry=(reply?.request?.annotations??reply?.annotations)?.find(a=>a.id===binding.entryId&&a.citation?.turnId===turn.id);
    function setReply(text){
      if(reply){reply.answer=text;delete reply.answerHtml;}
@@ -1168,9 +1195,8 @@
    function report(text){
      setReply(reply?.annotationEdits?.length?reply.answer+' '+text:text);if(reply){persist();renderTurns();}status(text);
    }
-   if(binding&&!entry){report('无法确定这条批注的来源，请重新选择原文。');return;}
-   if(entry&&citationChanged(entry,reply.id)){report('所选原文已更新，请核对最新版本后重新批注。');return;}
-   if(conversation.permission==='只读'||turn.readingRevisionDraft){report(conversation.permission==='只读'?'当前为只读，改稿未写入。':'本轮有手动草稿，请先完成或取消整理。');return;}
+   if(binding?.entryId&&!entry){report('无法确定这条批注的来源，请重新选择原文。');return;}
+   if(conversation.permission==='只读'){report('当前为只读，改稿未写入。');return;}
    const namedTurn=entry?.question.match(/(?:改写|修改|重写|整理|改|把|将)\s*第\s*(\d+)\s*轮/u)?.[1];
    if(namedTurn&&Number(namedTurn)!==conversation.turns.indexOf(turn)+1){report('批注所选的轮次和指令不同。请重新选择要修改的原文。');return;}
    const namedFormula=entry?.question.normalize('NFKC')
@@ -1182,12 +1208,31 @@
      report('这条批注跨越多个段落，请分别选中要修改的内容。');return;
    }
    const dialog=modal('AI 改稿 · 原型模拟'),label=make('label'),input=make('textarea'),feedback=make('p','revision-feedback');
+   function dismiss(){if(dialog.open)dialog.close();else dialog.remove();}
    let task=(!requestedBinding&&prior)||{turnId:turn.id,phase:'request',messages:[],binding};
    const messages={request:'希望 AI 怎样修改本轮？',source:'请指出要改写的原句。',replacement:'这处换成什么文字？'};
    if(entry?.citation.formula)messages.replacement='这道公式应改成什么？请输入新的 TeX 公式。';
    label.textContent=messages[task.phase];input.placeholder=task.phase==='request'?'例如：把「原句」改为「新句」':'';label.append(input);
+   function waitForAnswer(message){
+     const created=!reply;
+     if(created){
+       const sentAt=new Date().toISOString();
+       reply={id:crypto.randomUUID(),question:task.messages[0].text,prompt:task.messages[0].text,sentAt,segments:[],answer:'',incomplete:false};
+       conversation.turns.push(reply);
+     }
+     const next={id:crypto.randomUUID(),question:message,draft:'',task};
+     if(!turnDecision.wait(reply,next)){
+       if(created){conversation.turns.pop();reply=null;}
+       return;
+     }
+     delete turn.readingAiTask;dismiss();turnDecision.showWait(reply);
+     document.getElementById(reply.id)?.querySelector('[data-decision-input]')?.scrollIntoView({block:'nearest'});
+   }
    const send=button('提交',()=>{
       const text=input.value.trim();if(!text){input.focus();return;}
+      const saveError=saveBeforeAi(turn);
+      if(saveError){dismiss();report(saveError);return;}
+      if(entry&&citationChanged(entry,reply.id)){dismiss();report('所选原文已更新，请核对最新版本后重新批注。');return;}
       const captured=capture(turn),rows=aiSourceRows(turn,captured),before=structuredClone(rows);
       let scope,excerpt;
       if(entry){
@@ -1228,7 +1273,7 @@
             const oldLabel=formulaLabel(excerpt);
             if(!equations.length||(equations.length>1&&(!oldLabel||equations.filter(f=>formulaLabel(f.raw)===oldLabel).length!==1))){
               feedback.textContent='删除或拆分后，哪道公式承接原来的引用？请给出完整公式，并在承接公式上保留原标签。';
-              task.from=excerpt;delete task.to;task.phase='replacement';label.firstChild.textContent=messages.replacement;input.value='';input.focus();return;
+              task.from=excerpt;delete task.to;task.phase='replacement';waitForAnswer(feedback.textContent);return;
             }
             if(equations.length===1&&oldLabel&&!formulaLabel(replacement)){
               const f=equations[0],end=f.end-2;
@@ -1277,12 +1322,13 @@
             function apply(){
               if(current()!==conversation||conversation.permission==='只读'||edits.some(({turn},i)=>
                 !conversation.turns.includes(turn)||turn.readingRevisionDraft||versions[i]!==turn.readingRevisions?.at(-1))){
-                dialog.close();status('会话、稿件或权限已变化，请重新核对。');return;
+                dismiss();status('会话、稿件或权限已变化，请重新核对。');return;
               }
               const previousReply=reply?.answer;
               if(reply){reply.annotationEdits=allEdits;setReply(receipt);}
-              if(!commitBatch(edits,'AI')){if(reply){reply.annotationEdits=previousEdits;setReply(previousReply);}return;}
-              delete turn.readingAiTask;persist();dialog.close();
+              const undoDecision=reply&&turnDecision.finish(reply);
+              if(!commitBatch(edits,'AI')){undoDecision?.();if(reply){reply.annotationEdits=previousEdits;setReply(previousReply);}return;}
+              delete turn.readingAiTask;persist();dismiss();
               renderTurns();
               const related=edits.slice(1).map(item=>conversation.turns.indexOf(item.turn)+1);
               status('AI 模拟改稿已保存。'+(related.length?'已同步第 '+related.join('、')+' 轮的引用。':'')+
@@ -1295,22 +1341,25 @@
             if(conversation.permission==='执行前询问'){
               label.hidden=true;send.hidden=true;
               feedback.textContent='允许 AI 修改第 '+edits.map(item=>conversation.turns.indexOf(item.turn)+1).join('、')+' 轮吗？';
-              dialog.append(button('同意修改',apply,'revision-primary'),button('拒绝',()=>{dialog.close();delete turn.readingAiTask;report('已拒绝改稿。');}));
+              dialog.append(button('同意修改',apply,'revision-primary'),button('拒绝',()=>{dismiss();delete turn.readingAiTask;if(reply)turnDecision.finish(reply);report('已拒绝改稿。');}));
             }else apply();
             return;
           }
         }
       }
-      task.messages.push({author:'AI',text:messages[task.phase]});turn.readingAiTask=task;persist();label.firstChild.textContent=messages[task.phase];input.value='';input.placeholder='';input.focus();
+      const question=[feedback.textContent,messages[task.phase]].filter(Boolean).join(' ');
+      task.messages.push({author:'AI',text:question});
+      waitForAnswer(question);
    },'revision-primary');
-   dialog.append(label,feedback,send);dialog.showModal();input.focus();
+   dialog.append(label,feedback,send);
    if(prompt){input.value=prompt;send.click();}
+   if(dialog.isConnected){dialog.showModal();(label.hidden?dialog.querySelector('.revision-primary:not([hidden])'):input)?.focus();}
  }
  document.addEventListener('click',e=>{
    const open=e.target.closest('[data-revise],#revise-here,#revision-history,#revision-ai');if(!open)return;
    e.preventDefault();e.stopPropagation();
    const turn=current().turns.find(t=>t.id===(open.dataset.revise||context?.turn));
-   if(!turn||running?.turn.id===turn.id)return;
+   if(!turn||turn.decision||running?.turn.id===turn.id)return;
    if(open.id==='revision-history'){closePopups();showHistory(turn);return;}
    if(open.id==='revision-ai'){closePopups();askAi(turn);return;}
    const savedId=open.id==='revise-here'?context?.revisionBlock:null;
