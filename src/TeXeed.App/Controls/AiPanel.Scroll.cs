@@ -27,9 +27,10 @@ public partial class AiPanel
                 ScrollNestedWithLayoutAnchor(content, e.Delta, horizontal)) { e.Handled = true; return; }
             if (item is ScrollViewer scroll)
             {
-                var tracking = !horizontal && ReferenceEquals(scroll, MessagesScroll) && _layoutAnchorPending;
-                if (tracking ? ScrollWheel(scroll, e.Delta, horizontal, TrackLayoutAnchorWheel, _layoutAnchor?.Offset)
-                    : ScrollNestedWithLayoutAnchor(scroll, e.Delta, horizontal)) { e.Handled = true; return; }
+                var handled = !horizontal && ReferenceEquals(scroll, MessagesScroll)
+                    ? MessagesScroll.ScrollHistoryWheel(e.Delta, _layoutAnchorPending ? TrackLayoutAnchorWheel : null)
+                    : ScrollNestedWithLayoutAnchor(scroll, e.Delta, horizontal);
+                if (handled) { e.Handled = true; return; }
             }
             if (ReferenceEquals(item, MessagesScroll)) break;
         }

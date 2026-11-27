@@ -60,6 +60,7 @@ public partial class AiPanel
     }
     private void ShowCurrentConversation()
     {
+        MessagesScroll.ResetWheelRemainder();
         _revisionEditors.Clear();
         if (AiSessionExcerptReferences.EnsureBranchOrigin(_book.Active)) Dirty();
         _followUpsClosing = false;

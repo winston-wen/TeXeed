@@ -55,7 +55,7 @@ window.turnDecision=(()=>{
     return turn?.decision?.id===form?.dataset.decision&&turn?.decision?turn:null;
   }
   function resume(conversation,turn){
-    const question=turn.decision;
+    const question=turn.decision,viewVersion=readingRestoreVersion;
     const job={turn,pendingStatus:'AI 正在继续本轮',timers:[]};
     requests.set(conversation.id,job);
     job.timers.push(setTimeout(()=>{
@@ -69,7 +69,7 @@ window.turnDecision=(()=>{
       delete question.confirmed;
       if(question.task){
         const target=conversation.turns.find(t=>t.id===question.task.turnId);
-        if(target)turnRevision.askAi(target,question.draft,null,turn);
+        if(target)turnRevision.askAi(target,question.draft,null,turn,viewVersion);
         if(turn.decision===question){persist();showWait(turn);}
         return;
       }

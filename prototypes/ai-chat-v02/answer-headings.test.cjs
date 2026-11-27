@@ -35,7 +35,7 @@ function answer(){
  const passages=levels.map((level,index)=>({id:'p'+index,dataset:{},heading:level?{tagName:'H'+level,innerHTML:'Title '+level,replaceChildren(button){this.button=button;}}:null,querySelector(selector){return this.querySelectorAll(selector)[0]||null;},querySelectorAll(selector){return [this.heading,...this.additionalHeadings||[]].filter(heading=>heading&&selector.split(',').includes(heading.tagName.toLowerCase()));},contains(target){return target?.passage===this;}}));
  return {dataset:{turn:'third'},passages,querySelectorAll:()=>passages};
 }
-context.current=()=>conversation;context.prepareReadingLayout=()=>{};
+context.current=()=>conversation;context.prepareReadingLayout=()=>{};context.prepareReadingMath=()=>{};
 context.document={querySelectorAll:selector=>selector==='.answer'?[renderedAnswer]:[],createElement:()=>({dataset:{},attributes:{},setAttribute(name,value){this.attributes[name]=value;}})};
 vm.runInContext(app.slice(app.indexOf('function enhanceAnswers('),app.indexOf('function toggleTurn(')),context);
 renderedAnswer=answer();const adjacentHeading={tagName:'H6',innerHTML:'Adjacent title'};renderedAnswer.passages[2].additionalHeadings=[adjacentHeading];renderedAnswer.passages[4].heading.innerHTML='2. 原有手写编号';context.enhanceAnswers();assert.match(adjacentHeading.innerHTML,/\[3:1\.1\.0\.0\.0\.1\]/);
@@ -54,7 +54,7 @@ assert.equal(context.serialize(heading),'Deep title\n');assert.equal(context.ser
 
 const formulaTarget={passage:renderedAnswer.passages[11],closest:selector=>selector==='.answer'?renderedAnswer:null,scrollIntoView(){},classList:{add(){}}};
 renderedAnswer=answer();formulaTarget.passage=renderedAnswer.passages[11];
-context.$=()=>formulaTarget;context.renderTurns=()=>{};context.scrollToReadingTarget=(el,block)=>el.scrollIntoView({block});context.closeEquationPreview=()=>{};context.cancelReadingRestore=()=>{};context.requestAnimationFrame=callback=>callback();context.saveReading=()=>{};
+context.$=()=>formulaTarget;context.renderTurns=()=>{};context.scrollToReadingTarget=(el,block)=>el.scrollIntoView({block});context.closeEquationPreview=()=>{};context.cancelReadingRestore=()=>{};context.queueReadingNavigation=callback=>callback();context.saveReading=()=>{};
 vm.runInContext(app.slice(app.indexOf('function revealFoldedTurn('),app.indexOf('function changeFoldRun(')),context);
 const formulaStart=app.indexOf('function jumpToEquation(');
 vm.runInContext(app.slice(formulaStart,app.indexOf('let equationPreviewLink',formulaStart)),context);

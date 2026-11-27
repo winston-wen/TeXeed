@@ -541,8 +541,14 @@ internal static partial class Program
                 }
                 if (args.Contains("--ai-wheel-bounce-only"))
                 {
+                    await CheckColdWheelAsync(window, output);
                     await CheckAiWheelBounceAsync(window);
                     await CloseAndObserveAsync(window, "AI wheel bounce regression"); result = 0; return;
+                }
+                if (args.Contains("--ai-cold-wheel-only"))
+                {
+                    await CheckColdWheelAsync(window, output);
+                    await CloseAndObserveAsync(window, "AI first entry wheel"); result = 0; return;
                 }
                 if (args.Contains("--ai-async-layout-only"))
                 {

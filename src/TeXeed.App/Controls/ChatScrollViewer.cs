@@ -11,7 +11,46 @@ public sealed class ChatScrollViewer : ScrollViewer
 {
     private bool _revealingItem;
     private DispatcherOperation? _focusReveal;
+    private long _wheelRemainder;
+    private int _lastWheelDirection;
     internal Action? TextNavigationStarting { get; set; }
+
+    internal void ResetWheelRemainder() { _wheelRemainder = 0; _lastWheelDirection = 0; }
+
+    internal bool ScrollHistoryWheel(int delta, Action<double>? trackLayoutAnchor)
+    {
+        if (delta == 0 || ScrollInfo is not ChatVirtualizingPanel panel) return false;
+        var direction = Math.Sign(delta);
+        if (_lastWheelDirection == -direction && !panel.IsMeasureValid) panel.UpdateLayout();
+        var offset = panel.VerticalOffset;
+        var limit = Math.Max(0, panel.ExtentHeight - panel.ViewportHeight);
+        // An earlier relative wheel command invalidates measure. The exposed
+        // offset still describes the previous frame, including its old edge.
+        if (limit <= 0 || panel.IsMeasureValid && (delta > 0 ? offset <= 0 : offset >= limit))
+        {
+            ResetWheelRemainder();
+            return false;
+        }
+        var lines = SystemParameters.WheelScrollLines;
+        if (lines == 0) { ResetWheelRemainder(); return true; }
+        if (_lastWheelDirection != direction) _wheelRemainder = 0;
+        _lastWheelDirection = direction;
+        var unitsPerNotch = Math.Max(1, lines);
+        var units = Math.DivRem(_wheelRemainder + (long)delta * unitsPerNotch,
+            Mouse.MouseWheelDeltaForOneLine, out _wheelRemainder);
+        if (units == 0) return true;
+        var step = lines < 0 ? panel.ViewportHeight : 16d;
+        trackLayoutAnchor?.Invoke(-units * step);
+
+        // Relative WPF commands retain the visible container as their anchor while the
+        // panel revises its extent. Setting an absolute offset aborts that pending anchor.
+        var notches = Math.DivRem(Math.Abs(units), unitsPerNotch, out var extraLines);
+        for (long i = 0; i < notches; i++)
+            if (units > 0) panel.MouseWheelUp(); else panel.MouseWheelDown();
+        for (long i = 0; i < extraLines; i++)
+            if (units > 0) panel.LineUp(); else panel.LineDown();
+        return true;
+    }
 
     internal void KeepContentPosition(double viewportMovement)
     {
@@ -39,6 +78,7 @@ public sealed class ChatScrollViewer : ScrollViewer
 
     internal void RevealItem(Action reveal)
     {
+        ResetWheelRemainder();
         CancelFocusReveal();
         var previous = _revealingItem;
         _revealingItem = true;

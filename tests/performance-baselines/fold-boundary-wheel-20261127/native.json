@@ -1,0 +1,134 @@
+{
+  "baseline": "0.6.13 d325bdc",
+  "candidate": "0.6.14 native relative-wheel implementation with synchronous edge reversal and coalesced layout correction",
+  "command": "TeXeed.AppTests.exe --offscreen --ai-cold-wheel-only --measure-cold-wheel --output <fresh folder>",
+  "environment": "Windows x64, .NET SDK 10.0.203, Release, 980x1060 DIP window, three system wheel lines. Real WPF UI with isolated synthetic conversation and profile per process.",
+  "protocol": "One untimed pair followed by six alternating before/after process pairs. Read-only cached equation SVGs. 72 upward routed wheel events, delta 120, one millisecond pacing. syncMs and syncBytes include hit testing and routed event handling. elapsedMs and uiBytes include dispatcher work through ApplicationIdle. visibleControls counts WPF controls intersecting the final viewport; it varies when the baseline reverses direction. reverseDip is the largest backward displacement of turn 6 while it was visible.",
+  "order": [
+    "before-after",
+    "after-before",
+    "before-after",
+    "after-before",
+    "before-after",
+    "after-before",
+    "before-after"
+  ],
+  "before": [
+    {
+      "pulses": 72,
+      "syncMs": 21.0846,
+      "syncBytes": 418064,
+      "elapsedMs": 161.7641,
+      "uiBytes": 5652216,
+      "visibleControls": 13,
+      "reverseDip": 424.8269444444445
+    },
+    {
+      "pulses": 72,
+      "syncMs": 21.9792,
+      "syncBytes": 418584,
+      "elapsedMs": 153.2552,
+      "uiBytes": 5655184,
+      "visibleControls": 14,
+      "reverseDip": 424.8269444444445
+    },
+    {
+      "pulses": 72,
+      "syncMs": 24.5727,
+      "syncBytes": 428320,
+      "elapsedMs": 167.5386,
+      "uiBytes": 5674680,
+      "visibleControls": 11,
+      "reverseDip": 424.8269444444445
+    },
+    {
+      "pulses": 72,
+      "syncMs": 23.0727,
+      "syncBytes": 417248,
+      "elapsedMs": 187.5434,
+      "uiBytes": 5568576,
+      "visibleControls": 13,
+      "reverseDip": 424.8269444444445
+    },
+    {
+      "pulses": 72,
+      "syncMs": 25.1652,
+      "syncBytes": 427656,
+      "elapsedMs": 174.243,
+      "uiBytes": 5589816,
+      "visibleControls": 11,
+      "reverseDip": 424.8269444444445
+    },
+    {
+      "pulses": 72,
+      "syncMs": 24.5876,
+      "syncBytes": 415808,
+      "elapsedMs": 172.1613,
+      "uiBytes": 5500904,
+      "visibleControls": 16,
+      "reverseDip": 424.8269444444445
+    }
+  ],
+  "after": [
+    {
+      "pulses": 72,
+      "syncMs": 23.4283,
+      "syncBytes": 430536,
+      "elapsedMs": 164.8339,
+      "uiBytes": 5576672,
+      "visibleControls": 9,
+      "reverseDip": 0
+    },
+    {
+      "pulses": 72,
+      "syncMs": 25.1243,
+      "syncBytes": 432528,
+      "elapsedMs": 152.4446,
+      "uiBytes": 5502432,
+      "visibleControls": 9,
+      "reverseDip": 0
+    },
+    {
+      "pulses": 72,
+      "syncMs": 28.8788,
+      "syncBytes": 432344,
+      "elapsedMs": 173.0134,
+      "uiBytes": 5413512,
+      "visibleControls": 9,
+      "reverseDip": 0
+    },
+    {
+      "pulses": 72,
+      "syncMs": 25.308,
+      "syncBytes": 431784,
+      "elapsedMs": 151.4189,
+      "uiBytes": 5500168,
+      "visibleControls": 9,
+      "reverseDip": 0
+    },
+    {
+      "pulses": 72,
+      "syncMs": 27.3533,
+      "syncBytes": 422432,
+      "elapsedMs": 161.4175,
+      "uiBytes": 5432424,
+      "visibleControls": 9,
+      "reverseDip": 0
+    },
+    {
+      "pulses": 72,
+      "syncMs": 21.2668,
+      "syncBytes": 428640,
+      "elapsedMs": 148.8646,
+      "uiBytes": 5556264,
+      "visibleControls": 9,
+      "reverseDip": 0
+    }
+  ],
+  "candidateSources": {
+    "AiPanel.Scroll.cs": "f66a969325072e710fe8ad8524212d59de637ebf",
+    "AiPanel.History.cs": "700f029d0a71b08a0bf5616603c45f86fd71e672",
+    "ChatScrollViewer.cs": "4536ecfe5b8aefbd104bf82d2598b7ea9495e63a",
+    "AiPanel.AsyncLayout.cs": "e7f97573a2ef18c2b1f930ba5948b4e0bd334f42"
+  }
+}

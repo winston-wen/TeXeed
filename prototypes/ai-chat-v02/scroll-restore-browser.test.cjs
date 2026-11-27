@@ -4,14 +4,17 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 let chromium;
 try { ({ chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright')); }
-catch { console.log('SKIP scroll restore: Playwright unavailable'); process.exit(0); }
+catch (error) {
+  if (process.env.CI || process.env.TEXEED_PLAYWRIGHT_PATH) throw error;
+  console.log('SKIP scroll restore: Playwright unavailable'); process.exit(0);
+}
 
 (async () => {
   const browser = await chromium.launch({ headless: true, ...(process.env.TEXEED_BROWSER_PATH ? { executablePath: process.env.TEXEED_BROWSER_PATH } : {}) });
   try {
     const page = await browser.newPage({ viewport: { width: 849, height: 932 } });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.goto(pathToFileURL(path.join(__dirname, 'index.html')).href + '?test=1');
+    await page.goto(pathToFileURL(path.join(process.env.TEXEED_PROTOTYPE||__dirname, 'index.html')).href + '?test=1');
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(350);
     const reader = page.locator('#reader');
@@ -51,6 +54,7 @@ catch { console.log('SKIP scroll restore: Playwright unavailable'); process.exit
     await page.waitForTimeout(2000);
     const distanceToBottom = await reader.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop);
     assert(distanceToBottom < 5, 'reader at the bottom must continue to follow an answer');
+    await require('./fold-boundary-wheel-browser.cjs')(page);
     assert.deepEqual(errors, []);
     console.log('PASS: wheel cancels delayed restore; reopen keeps viewport and draft; answer completion respects reading and follows at bottom');
   } finally { await browser.close(); }

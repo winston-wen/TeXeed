@@ -57,6 +57,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node prototypes/ai-chat-v02/turn-fold-browser.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node prototypes/ai-chat-v02/scroll-restore-browser.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node prototypes/ai-chat-v02/equation-reference-browser.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:TEXEED_INLINE_WRAP_OUTPUT = 'artifacts/ci-browser-inline-wrap'

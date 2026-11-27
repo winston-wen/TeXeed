@@ -576,7 +576,7 @@ function record(action,detail={}){state.events.push({at:new Date().toISOString()
 let answerMarkingStatusTimer=null;
 function status(text){if(answerMarkingStatusTimer!==null){clearTimeout(answerMarkingStatusTimer);answerMarkingStatusTimer=null;}$('status').textContent=text;$('status').hidden=!text;}
 function time(value,short=false){if(!value)return '';const d=new Date(value);const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d);return short?parts.slice(-8):parts.replace(' ',' (+8) ');}
-function scrollEnd(){$('reader').scrollTop=$('reader').scrollHeight;}
+function scrollEnd(){cancelReadingRestore();$('reader').scrollTop=$('reader').scrollHeight;}
 function svgHtml(turn){
  if(turn.answerHtml){if(turn.answerHeadingVersion!==1){turn.answerHtml=restoreAnswerHeadings(turn.answerHtml,turn.answer);turn.answerHeadingVersion=1;}return turn.answerHtml;}
  const bundled=BUNDLED_TURNS.find(t=>t.id===turn.id&&t.answer===turn.answer);if(bundled)return bundled.answerHtml;
@@ -599,10 +599,22 @@ function mountActivityCode(details){
 const ICON_CLOSE='<svg class="icon" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15"/></svg>';
 const ICON_SEND='<svg class="icon" viewBox="0 0 20 20"><path d="M10 17V3M4 9L10 3L16 9"/></svg>';
 let restoring=false,scrollTimer,readingRestoreVersion=0;
-function readingPosition(){const area=$('reader'),top=area.getBoundingClientRect().top;const nodes=[...area.querySelectorAll('.passage,.question,.fold-line')].filter(n=>n.getClientRects().length);const anchor=nodes.find(n=>n.getBoundingClientRect().bottom>top+2);return {top:area.scrollTop,anchor:anchor?.id||anchor?.closest('.turn')?.id,offset:anchor?anchor.getBoundingClientRect().top-top:0};}
-function saveReading(){if(!restoring&&!$('chat').hidden){current().reading=readingPosition();persist();}}
+function readingPosition(){
+ const area=$('reader'),top=area.getBoundingClientRect().top;
+ for(const node of area.querySelectorAll('.passage,.question,.fold-line')){
+  const rect=node.getBoundingClientRect();
+  if(rect.height&&rect.bottom>top+2)return {top:area.scrollTop,anchor:node.id||node.closest('.turn')?.id,offset:rect.top-top};
+ }
+ return {top:area.scrollTop,offset:0};
+}
+function saveReading(){clearTimeout(scrollTimer);if(!restoring&&!$('chat').hidden){current().reading=readingPosition();persist();}}
 function restoreReading(pos,version){if(version!==readingRestoreVersion)return;const area=$('reader');restoring=true;area.scrollTop=pos?.top??area.scrollHeight;if(pos?.anchor){const anchor=readingAnchor(pos.anchor);if(anchor?.getClientRects().length)area.scrollTop+=anchor.getBoundingClientRect().top-area.getBoundingClientRect().top-pos.offset;}requestAnimationFrame(()=>{if(version!==readingRestoreVersion)return;lastReaderBounds=area.getBoundingClientRect();readerRounding=0;restoring=false;positionEditor();});}
 function cancelReadingRestore(){readingRestoreVersion++;restoring=false;}
+function queueReadingNavigation(navigate){
+ cancelReadingRestore();
+ const version=readingRestoreVersion;
+ requestAnimationFrame(()=>{if(version===readingRestoreVersion)navigate();});
+}
 function scrollToReadingTarget(target,block){
  if(!target)return;
  cancelReadingRestore();
@@ -639,7 +651,7 @@ function showSnapshot(link){
  preview.querySelector('.snapshot-scroll').innerHTML=snapshotHtml(entry)||'<p class="muted">此条没有保存原文。</p>';
  preview.dataset.number=String(number);preview.hidden=false;link.setAttribute('aria-expanded','true');
  prepareReadingMath(preview);
- requestAnimationFrame(()=>{scrollToReadingTarget(preview,'nearest');preview.querySelector('.snapshot-scroll').focus({preventScroll:true});});
+ queueReadingNavigation(()=>{scrollToReadingTarget(preview,'nearest');preview.querySelector('.snapshot-scroll').focus({preventScroll:true});});
 }
 function installImageViewer(){
  const dialog=$('image-viewer'),viewport=$('image-viewport'),preview=$('image-preview');let source=null,zoom=1,fitMode=true;
@@ -1136,7 +1148,7 @@ $('reader').onscroll=()=>{
  const correction=chromeScrollOffset;chromeScrollOffset=null;
  if(correction===$('reader').scrollTop)return;
  commitAnnotation();$('answer-menu').hidden=true;
- if(!restoring){current().reading=readingPosition();clearTimeout(scrollTimer);scrollTimer=setTimeout(persist,160);}
+ if(!restoring){clearTimeout(scrollTimer);scrollTimer=setTimeout(saveReading,160);}
 };
 window.addEventListener('pagehide',saveReading);
 $('composer').oninput=()=>{current().draft=$('composer').value;persist();};$('composer').onkeydown=e=>{if(e.key==='Enter'&&e.ctrlKey&&!e.shiftKey&&!e.altKey){e.preventDefault();e.stopPropagation();if(!e.repeat&&!e.isComposing)send();}};
@@ -1360,7 +1372,7 @@ function jumpToEquation(b){const id=b.dataset.equationRef,turn=current().turns.f
   if(p.contains(target)){for(const h of stack)if(turn.sections?.[h.id]){turn.sections[h.id]=false;changed=true;}break;}
  }
  if(changed)renderTurns();
- requestAnimationFrame(()=>{const target=$(id);if(target){scrollToReadingTarget(target,'center');target.classList.add('equation-target');saveReading();}});
+ queueReadingNavigation(()=>{const target=$(id);if(target){scrollToReadingTarget(target,'center');target.classList.add('equation-target');saveReading();}});
 }
 let equationPreviewLink=null,equationPreviewAnchor=null;
 function closeEquationPreview(){

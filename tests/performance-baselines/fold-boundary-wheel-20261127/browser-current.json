@@ -1,0 +1,150 @@
+{
+  "chromium": "158.0.8127.38",
+  "viewport": {
+    "width": 849,
+    "height": 932
+  },
+  "scenario": "Long first turn, turns 2 to 5 folded together. Four -240 wheel impulses, pause, two +240 and one -120; includes both 250 ms idle periods. Two warmups and seven samples.",
+  "samples": [
+    {
+      "writes": [
+        4814,
+        4574,
+        4334,
+        4094,
+        3854,
+        4094,
+        4334,
+        4214
+      ],
+      "firstTurns": [
+        "wheel-1"
+      ],
+      "anchorCaptureCount": 2,
+      "anchorCaptureMs": 0.800000011920929,
+      "controls": 0,
+      "frameP95": 17.099999994039536,
+      "sampledBytes": 544648
+    },
+    {
+      "writes": [
+        4814,
+        4574,
+        4334,
+        4094,
+        3854,
+        4094,
+        4334,
+        4214
+      ],
+      "firstTurns": [
+        "wheel-1"
+      ],
+      "anchorCaptureCount": 2,
+      "anchorCaptureMs": 0.5,
+      "controls": 0,
+      "frameP95": 17.200000017881393,
+      "sampledBytes": 573756
+    },
+    {
+      "writes": [
+        4814,
+        4574,
+        4334,
+        4094,
+        3854,
+        4094,
+        4334,
+        4214
+      ],
+      "firstTurns": [
+        "wheel-1"
+      ],
+      "anchorCaptureCount": 2,
+      "anchorCaptureMs": 0.5,
+      "controls": 0,
+      "frameP95": 17.599999994039536,
+      "sampledBytes": 483048
+    },
+    {
+      "writes": [
+        4814,
+        4574,
+        4334,
+        4094,
+        3854,
+        4094,
+        4334,
+        4214
+      ],
+      "firstTurns": [
+        "wheel-1"
+      ],
+      "anchorCaptureCount": 2,
+      "anchorCaptureMs": 0.3999999761581421,
+      "controls": 0,
+      "frameP95": 17.299999982118607,
+      "sampledBytes": 602900
+    },
+    {
+      "writes": [
+        4814,
+        4574,
+        4334,
+        4094,
+        3854,
+        4094,
+        4334,
+        4214
+      ],
+      "firstTurns": [
+        "wheel-1"
+      ],
+      "anchorCaptureCount": 2,
+      "anchorCaptureMs": 0.3999999761581421,
+      "controls": 0,
+      "frameP95": 17,
+      "sampledBytes": 523008
+    },
+    {
+      "writes": [
+        4814,
+        4574,
+        4334,
+        4094,
+        3854,
+        4094,
+        4334,
+        4214
+      ],
+      "firstTurns": [
+        "wheel-1"
+      ],
+      "anchorCaptureCount": 2,
+      "anchorCaptureMs": 0.40000003576278687,
+      "controls": 0,
+      "frameP95": 17.100000023841858,
+      "sampledBytes": 606732
+    },
+    {
+      "writes": [
+        4814,
+        4574,
+        4334,
+        4094,
+        3854,
+        4094,
+        4334,
+        4214
+      ],
+      "firstTurns": [
+        "wheel-1"
+      ],
+      "anchorCaptureCount": 2,
+      "anchorCaptureMs": 0.5999999940395355,
+      "controls": 0,
+      "frameP95": 17.099999994039536,
+      "sampledBytes": 501652
+    }
+  ]
+}

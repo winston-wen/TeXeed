@@ -1183,7 +1183,7 @@
    }
    return {edits,pending,review};
  }
- function askAi(turn,prompt,requestedBinding,waitingReply){
+ function askAi(turn,prompt,requestedBinding,waitingReply,viewVersion){
    const conversation=current();
    const prior=waitingReply?.decision?.task??turn.readingAiTask;
    const binding=requestedBinding||prior?.binding;
@@ -1226,7 +1226,9 @@
        return;
      }
      delete turn.readingAiTask;dismiss();turnDecision.showWait(reply);
-     document.getElementById(reply.id)?.querySelector('[data-decision-input]')?.scrollIntoView({block:'nearest'});
+     // The next question of an existing turn arrives in the background while its reader may be elsewhere.
+     if(!waitingReply||viewVersion===readingRestoreVersion)
+       scrollToReadingTarget(document.getElementById(reply.id)?.querySelector('[data-decision-input]'),'nearest');
    }
    const send=button('提交',()=>{
       const text=input.value.trim();if(!text){input.focus();return;}

@@ -17,6 +17,7 @@ public partial class AiPanel
         internal TextPointer? Pointer = pointer;
         internal double Y = y;
         internal double Offset = offset;
+        internal bool FollowedWheel;
         internal Dictionary<(ScrollViewer Scroll, bool Horizontal), double>? NestedOffsets;
     }
 
@@ -27,11 +28,13 @@ public partial class AiPanel
         _layoutAnchor = null;
     }
 
-    private void TrackLayoutAnchorWheel(double oldOffset, double newOffset)
+    private void TrackLayoutAnchorWheel(double movement)
     {
         if (_layoutAnchor is not { } anchor) return;
-        anchor.Y -= newOffset - oldOffset;
-        anchor.Offset = newOffset;
+        var next = Math.Clamp(anchor.Offset + movement, 0, MessagesScroll.ScrollableHeight);
+        anchor.Y -= next - anchor.Offset;
+        anchor.Offset = next;
+        anchor.FollowedWheel = true;
     }
 
     private bool ScrollNestedWithLayoutAnchor(ScrollViewer scroll, int delta, bool horizontal)
@@ -98,11 +101,15 @@ public partial class AiPanel
             _layoutAnchorPending = false;
             _layoutAnchor = null;
             if (_disposed || _restoringReading || _book.Active != conversation || !owner.IsLoaded || !owner.IsVisible ||
-                Math.Abs(MessagesScroll.VerticalOffset - anchor.Offset) > .5 || !TryLayoutAnchorY(anchor.Owner, anchor.Pointer, out var newY)) return;
+                (!anchor.FollowedWheel && Math.Abs(MessagesScroll.VerticalOffset - anchor.Offset) > .5) || !TryLayoutAnchorY(anchor.Owner, anchor.Pointer, out var newY)) return;
+            // Wheel input may already have carried the original text line or
+            // visual completely outside the viewport while layout was pending.
+            if (anchor.FollowedWheel && (anchor.Y >= MessagesScroll.ViewportHeight ||
+                anchor.Y + (anchor.Pointer is null ? owner.ActualHeight : 0) < 0)) return;
             var difference = newY - anchor.Y;
             if (Math.Abs(difference) > .5)
             {
-                MessagesScroll.ScrollToVerticalOffset(Math.Clamp(anchor.Offset + difference, 0, MessagesScroll.ScrollableHeight));
+                MessagesScroll.KeepContentPosition(difference);
                 MessagesScroll.UpdateLayout();
             }
         }));
