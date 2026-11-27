@@ -95,7 +95,7 @@ function requestFixture(mode){
  vm.runInContext(app.slice(app.indexOf('function defaultModel('),app.indexOf('function selectStoredValue(')),runtime);
  vm.runInContext(fs.readFileSync(__dirname+'/ai-revision-intent.js','utf8'),runtime);
  vm.runInContext(app.slice(app.indexOf('function setPendingStatus('),app.indexOf('function alignReadingInk(')),runtime);
- vm.runInContext(app.slice(app.indexOf('function send('),app.indexOf('function newConversation(){')),runtime);
+ vm.runInContext(app.slice(app.indexOf('const playbackResponseMs='),app.indexOf('function newConversation(){')),runtime);
  runtime.send();
  assert.equal(conversation.turns.length,1,'Sending must create exactly one turn');
  assert.equal(timers.length,1,'A normal or failed playback has one completion callback');

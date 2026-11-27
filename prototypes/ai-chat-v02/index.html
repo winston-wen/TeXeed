@@ -560,7 +560,6 @@ if(REVIEW_PREVIEW&&!state.reviewDemoVersion){const prefix='一次修改可以保
 if(!state.sampleHistoryVersion){for(const c of DATA.sampleConversations)if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.sampleHistoryVersion=1;}
 if(VISUAL_PREVIEW&&!state.visualMediaVersion){for(const c of DATA.visualPreview.conversations.filter(c=>c.id==='visual-media'))if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.visualMediaVersion=1;}
 const requests=new Map(),composerHeights=new Map();
-const playbackResponseMs=1700;
 let activeView=state.active,openTabs=(state.openTabs||[state.active]).filter(id=>['settings','history'].includes(id)||state.conversations.some(c=>c.id===id));
 let running=null,editing=null,context=null,matchIndex=0,matches=[];
 function current(){return state.conversations.find(c=>c.id===state.active)||state.conversations[0];}
@@ -1021,6 +1020,7 @@ $('annotation-editor').addEventListener('focusout',()=>queueMicrotask(()=>{if(!$
 function closePopups(closeEditor=false){for(const id of ['options','answer-menu'])$(id).hidden=true;if(closeEditor)commitAnnotation();}
 function placePopup(id,anchor,above=false){const el=$(id);el.hidden=false;const r=anchor.getBoundingClientRect();el.style.left=Math.max(6,Math.min(r.left,innerWidth-el.offsetWidth-8))+'px';el.style.top=Math.max(6,Math.min(above?r.top-el.offsetHeight:r.bottom+4,innerHeight-el.offsetHeight-8))+'px';}
 function setBusy(value){$('send').hidden=value;$('stop').hidden=!value;for(const id of ['permission','model','effort'])$(id).disabled=value;renderEntries();}
+const playbackResponseMs=1700;
 function send(retryTurn=null){
  if(running)return;const c=current(),prompt=retryTurn?(retryTurn.prompt??retryTurn.question):$('composer').value.trim(),selected=retryTurn?clone(retryTurn.request?.annotations||retryTurn.annotations||[]):c.entries.filter(e=>e.selected);
  if(editing)commitAnnotation();
