@@ -119,7 +119,7 @@ details[open]>summary:before { transform:rotate(90deg) }
 .answer-divider { height:0; border:0; border-top:1px solid var(--line); margin-top:16px; background:none }
 .answer-start-divider { height:0; border-top:1px solid var(--line); margin:16px 0 }
 .thinking-label { display:inline-flex; align-items:center; gap:7px }
-.thinking-dot { display:inline-block; width:1em; height:1em; border-radius:50%; background:#a8bc9c; animation:thinking-breathe 1.6s ease-in-out infinite }
+.thinking-dot { display:inline-block; width:1em; height:1em; flex:none; box-sizing:border-box; border:1.5px solid #a8bc9c; border-radius:50%; background:#a8bc9c; animation:thinking-breathe 1.6s ease-in-out infinite }
 @keyframes thinking-breathe { 0%,100%{opacity:.4} 50%{opacity:1} }
 .empty { margin:64px auto 40px; max-width:380px; text-align:center }
 .empty h2 { font-size:24px; font-weight:500 }
@@ -407,7 +407,9 @@ dialog textarea { width:100%; height:220px }
  .usage { display:none }
 }
 @media(prefers-reduced-motion:reduce) {
- .thinking-dot,.equation-target { animation:none }
+ .thinking-dot { animation:thinking-blink 1s steps(1,end) infinite }
+ @keyframes thinking-blink { 0%,100%{background:#a8bc9c} 50%{background:transparent} }
+ .equation-target { animation:none }
 }
 </style>
 <link rel="stylesheet" href="reading-fonts.css">
@@ -558,6 +560,7 @@ if(REVIEW_PREVIEW&&!state.reviewDemoVersion){const prefix='一次修改可以保
 if(!state.sampleHistoryVersion){for(const c of DATA.sampleConversations)if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.sampleHistoryVersion=1;}
 if(VISUAL_PREVIEW&&!state.visualMediaVersion){for(const c of DATA.visualPreview.conversations.filter(c=>c.id==='visual-media'))if(!state.conversations.some(existing=>existing.id===c.id))state.conversations.push(clone(c));state.visualMediaVersion=1;}
 const requests=new Map(),composerHeights=new Map();
+const playbackResponseMs=1700;
 let activeView=state.active,openTabs=(state.openTabs||[state.active]).filter(id=>['settings','history'].includes(id)||state.conversations.some(c=>c.id===id));
 let running=null,editing=null,context=null,matchIndex=0,matches=[];
 function current(){return state.conversations.find(c=>c.id===state.active)||state.conversations[0];}
@@ -674,6 +677,9 @@ function turnEnd(t){
  const reason=t.endReason||(terminal?.text.startsWith('已停止')?'user':'program');
  return {incomplete,at:(incomplete?t.endedAt||terminal?.time||t.answeredAt:t.answeredAt)||null,action:incomplete?(reason==='user'?'用户中止':'程序中止'):'答复'};
 }
+function pendingStatusHtml(job){
+ return '<span class="thinking-label" role="status"><span class="pending-label-text">'+esc(job.pendingStatus||'等待 AI 响应')+'</span><span class="thinking-dot" aria-hidden="true"></span></span>';
+}
 function turnHtml(t,index=0,turns=[t]){
  const thinking=running?.turn.id===t.id,canFold=!thinking,end=turnEnd(t);
  const activities=(t.segments||[]).filter(s=>s.kind==='activity'&&!isConnectionStatus(s));
@@ -682,7 +688,7 @@ function turnHtml(t,index=0,turns=[t]){
  const processAfter=after.length?'<div class="process-log after-answer" aria-label="过程记录">'+after.map(activity).join('')+'</div>':'';
  const process=(t.segments||[]).some(s=>s.kind==='text'&&s.text)?(t.segments||[]).filter(s=>s.kind==='text'||s.kind==='activity'&&!isConnectionStatus(s)&&!/^公式排版检查通过/.test(s.text)).map(s=>s.kind==='text'?'<div class="streaming-answer">'+esc(s.text)+'</div>':'<div class="process-log" aria-label="过程记录">'+activity(s)+'</div>').join(''):(activities.length?'<div class="process-log" aria-label="过程记录">'+activities.map(activity).join('')+'</div>':'');
  const sent='<div class="turn-time sent-time"'+(canFold?' data-turn-divider="'+t.id+'" data-toggle-turn="'+t.id+'" tabindex="0" role="button" title="双击收起本轮"':'')+'>'+(t.sentAt?'<time datetime="'+esc(t.sentAt)+'">'+esc(time(t.sentAt))+'</time>':'未记录')+' 发送</div>';
- const answerTime=thinking?'<span class="thinking-label" role="status"><span class="pending-label-text">'+esc(running.pendingStatus||'等待 AI 响应')+'</span><span class="thinking-dot" aria-hidden="true"></span></span>':t.decision?'<span role="status">等待你确认答案</span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
+ const answerTime=thinking?pendingStatusHtml(running):t.decision?'<span role="status">等待你确认答案</span>':(end.at?'<time datetime="'+esc(end.at)+'">'+esc(time(end.at))+'</time>':'未记录')+' <span'+(end.incomplete?' class="incomplete-label"':'')+'>'+end.action+'</span>';
  const retry=!running&&!t.decisions?.at(-1)?.cancelled&&end.incomplete&&turns.at(-1)?.id===t.id?'<button class="retry-turn" data-retry-turn="'+t.id+'" aria-label="重试本轮">↻  重试</button>':'';
  const revise=!thinking&&!t.decision&&t.answer?'<button type="button" class="revision-open" data-revise="'+esc(t.id)+'">整理本轮</button>':'';
  const answerHtml=globalThis.turnRevision?.html(t)??svgHtml(t);
@@ -907,7 +913,7 @@ function renderEntries(){
 }
 
 function renderBubbles(){document.querySelectorAll('.margin-notes').forEach(e=>e.replaceChildren());for(const e of current().entries){if(!e.block||['已完成','提交中'].includes(e.state))continue;let p=$(e.block);if(p?.dataset.joinedInto)p=$(p.dataset.joinedInto);if(!p)continue;const b=document.createElement('button');b.className='bubble';b.textContent=e.number;b.dataset.bubble=e.id;b.setAttribute('aria-label','编辑批注 '+e.number);p.querySelector('.margin-notes').append(b);}}
-function renderConversation(){setAnswerMarking(false);running=requests.get(state.active)||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';selectStoredValue($('model'),conversationModel());selectStoredValue($('effort'),conversationEffort());const version=++readingRestoreVersion;restoring=true;renderTurns();setBusy(!!running);restoreComposerHeight();refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading,version));}
+function renderConversation(){setAnswerMarking(false);running=requests.get(state.active)||turnDecision.restore(current())||null;closePopups();$('composer').value=current().draft;$('permission').value=current().permission||'完全访问';selectStoredValue($('model'),conversationModel());selectStoredValue($('effort'),conversationEffort());const version=++readingRestoreVersion;restoring=true;renderTurns();setBusy(!!running);restoreComposerHeight();refreshEditors();status('');renderTabs();requestAnimationFrame(()=>restoreReading(current().reading,version));}
 
 function protectedAnnotation(e){return !!(e.sourceLocked||e.isBranchOrigin||e.state==='提交中');}
 function removeEntry(id){const e=current().entries.find(e=>e.id===id);if(!e||protectedAnnotation(e))return;current().entries=current().entries.filter(e=>e.id!==id);if(editing===id){editing=null;resetAnnotationDelete();annotationPosition=null;annotationDrag=null;annotationCanDrag=false;$('annotation-editor').hidden=true;}renderEntries();record('remove-entry',{number:e.number});}
@@ -1053,9 +1059,9 @@ function send(retryTurn=null){
   requests.delete(c.id);if(visible){running=null;setBusy(false);renderTurns();if(follow)scrollEnd();}renderTabs();if(activeView==='history')historyDialog.refresh();record('finish',{mode});
  };
  if(mode==='repair')job.timers.push(setTimeout(()=>{if(requests.get(c.id)===job){t.segments.push({kind:'activity',text:'正在校对公式 · 第 1 次自动修正',details:'现编回放：公式定界符未闭合，已请求修正。',time:new Date().toISOString()});if(state.active===c.id)renderTurns();}},900));
- job.timers.push(setTimeout(finish,mode==='repair'?3200:1700));
+ job.timers.push(setTimeout(finish,mode==='repair'?3200:playbackResponseMs));
 }
-function stopConversation(id=state.active){const job=requests.get(id);if(!job)return;job.timers.forEach(clearTimeout);job.turn.incomplete=true;job.turn.endReason='user';job.turn.endedAt=new Date().toISOString();job.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:job.turn.endedAt});requests.delete(id);if(id===state.active){running=null;setBusy(false);renderTurns();status('已停止；本轮已保留，可继续提问。');}record('stop',{id});}
+function stopConversation(id=state.active){const job=requests.get(id);if(!job)return;job.timers.forEach(clearTimeout);if(job.turn.decision?.confirmed){turnDecision.finish(job.turn);delete job.turn.answeredAt;}job.turn.incomplete=true;job.turn.endReason='user';job.turn.endedAt=new Date().toISOString();job.turn.segments.push({kind:'activity',text:'已停止。已完成的修改保留；可继续提问。',time:job.turn.endedAt});requests.delete(id);if(id===state.active){running=null;setBusy(false);renderTurns();status('已停止；本轮已保留，可继续提问。');}record('stop',{id});}
 function newConversation(){saveReading();const c={id:crypto.randomUUID(),title:'新对话',updatedAt:new Date().toISOString(),turns:[],entries:[],next:1,draft:'',permission:'完全访问',model:defaultModel(),effort:defaultEffort()};state.conversations.push(c);openConversation(c.id);record('new-conversation');$('composer').focus();}
 function search(){const q=$('search-input').value.trim().toLowerCase();matches=q?current().turns.filter(t=>(t.question+' '+t.answer).toLowerCase().includes(q)):[];matchIndex=0;showMatch();}
 function showMatch(){if(!matches.length){$('search-count').textContent='0';return;}matchIndex=(matchIndex+matches.length)%matches.length;$('search-count').textContent=(matchIndex+1)+'/'+matches.length;const turn=matches[matchIndex];if(revealFoldedTurn(turn))renderTurns();scrollToReadingTarget($(turn.id),'start');saveReading();}

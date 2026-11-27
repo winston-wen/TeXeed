@@ -44,6 +44,7 @@ module.exports=async function checkAnnotationRevision(page){
  await decision.waitFor();assert.match(await decision.innerText(),/这道公式/);
  assert.equal(await page.evaluate(()=>current().turns.length),16);
  await decision.locator('textarea').fill('d=b-a+\\delta_0');await confirm.click();
+ await page.locator('.thinking-dot').waitFor({state:'detached'});
  await dialog.waitFor({state:'hidden'});const all=await snapshot();
  assert.match(all[8],/d=b-a\+\\delta_0\\label\{eq:gap\}/);
  assert.doesNotMatch(all[9],/delta/);
@@ -93,6 +94,7 @@ module.exports=async function checkAnnotationRevision(page){
  await decision.locator('textarea').fill('$$d=b$$\n\n$$d=a$$');await confirm.click();
  assert.match(await decision.innerText(),/哪道公式承接/);assert.deepEqual((await histories()).filter(Boolean),[]);
  await decision.locator('textarea').fill('$$d=b$$\n\n$$d=a\\label{eq:gap}$$');await confirm.click();
+ await page.locator('.thinking-dot').waitFor({state:'detached'});
  await dialog.waitFor({state:'hidden'});
  const split=await snapshot();
  assert.match(split[10],/\\eqref\{9:eq:gap\}/);

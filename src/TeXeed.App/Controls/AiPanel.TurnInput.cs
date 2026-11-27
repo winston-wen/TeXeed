@@ -4,8 +4,13 @@ namespace TeXeed.App.Controls;
 
 public partial class AiPanel
 {
-    private string? _continuingInputTurnId;
-    private string? FollowUpTurnId => _foldingLiveTurn?.Id ?? _continuingInputTurnId;
+    private AiTurn? _continuingInputTurn;
+    private string? FollowUpTurnId => _foldingLiveTurn?.Id ?? _continuingInputTurn?.Id;
+
+    private void RefreshInputReplyStatus(AiTurnView view)
+    {
+        view.SetReplyProgress(ReferenceEquals(view.Turn, _continuingInputTurn) ? _followUpBuffer?.PendingStatus.Text : null);
+    }
 
     private bool BelongsToWaitingQuestion(AiEntry entry) =>
         AiFormAttachmentOrigins.TryGet(entry, out var source) && source!.ConversationId == _book.ActiveConversationId &&
@@ -55,11 +60,11 @@ public partial class AiPanel
                 RevisionRequest = turn.RevisionRequest is { } task ? task with { AwaitingReply = false } : null };
             await SaveCompletedFormTurnAsync(book, running, new HashSet<string>(), turn, files);
             foreach (var file in files) file.PropertyChanged -= AnnotationChanged;
-            Rebind(); RefreshTranscript();
-            StatusText.Text = "已确认，AI 正在继续本轮。";
             var buffer = new AiStreamBuffer();
-            _continuingInputTurnId = running.Id;
+            _continuingInputTurn = running;
             _followUpBuffer = buffer;
+            StatusText.Text = "";
+            Rebind(); RefreshTranscript();
             _steering = CreateSteeringController(book, running.Id);
             SteerButton.IsEnabled = true;
             var generation = _generation;
@@ -98,7 +103,9 @@ public partial class AiPanel
                         if (evt.Kind == "status")
                             Dispatcher.BeginInvoke(() =>
                             {
-                                if (_generation == generation && !_disposed && _continuingInputTurnId == turn.Id) StatusText.Text = evt.Text;
+                                if (_generation == generation && !_disposed && ReferenceEquals(_continuingInputTurn, running) &&
+                                    _turnViews.TryGetValue(running.Id, out var view))
+                                    RefreshInputReplyStatus(view);
                             });
                     }, permission: approved, contextWindow: model.ContextWindow, memory: book.Active.ContextMemory, steering: _steering,
                     usage: measured => Dispatcher.BeginInvoke(() =>

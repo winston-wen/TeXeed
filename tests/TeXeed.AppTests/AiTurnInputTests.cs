@@ -1,7 +1,11 @@
 using System.IO;
+using System.Net.Http;
+using System.Text;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
+using Ellipse = System.Windows.Shapes.Ellipse;
 using System.Windows.Threading;
 using TeXeed.App;
 using TeXeed.App.AI;
@@ -59,17 +63,61 @@ internal static partial class Program
                 await WaitUntilAsync(() => Field(panel, "_operation") is null && server.Steps.Count == 0 || server.Failure is not null, "Waiting action did not settle.");
                 Done(); await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             }
+            AiTurnView View(string turnId) => Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == turnId);
+            AiReplyStatus[] LitFooters() => Descendants<AiReplyStatus>(panel).Where(s => s.IsVisible && s.IsThinking).ToArray();
+            async Task<AiReplyStatus> AssertPhase(string? turnId, string phase)
+            {
+                await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                host.UpdateLayout();
+                var footer = turnId is null ? (AiReplyStatus)panel.FindName("LiveReplyStatus") : Descendants<AiReplyStatus>(View(turnId)).Single();
+                Check(LitFooters().SequenceEqual([footer]), $"Expected one visible thinking light at {turnId ?? "ordinary send"} during {phase}.");
+                if (turnId is not null)
+                    Check(((TextBlock)panel.FindName("StatusText")).Text != phase, "The continuation phase also appeared outside the turn.");
+                var stamp = Descendants<TextBlock>(footer).Single(t => t.IsVisible && t.Inlines.OfType<InlineUIContainer>().Any());
+                var visibleText = string.Concat(stamp.Inlines.OfType<Run>().Select(run => run.Text));
+                Check(visibleText == phase, $"Expected '{phase}', rendered '{visibleText}' (pending: '{footer.PendingText}').");
+                var lamp = Descendants<Ellipse>(stamp).Single(e => e.IsVisible);
+                var ink = GlyphInk(stamp, footer).Select(g => g.Bounds).Aggregate(Rect.Empty, Rect.Union);
+                var bounds = lamp.TransformToAncestor(footer).TransformBounds(new Rect(lamp.RenderSize));
+                Check(footer.PendingText == phase && stamp.FontSize == 13 && bounds.Width == 13 && bounds.Height == 13 &&
+                    Math.Abs(bounds.Top + bounds.Height / 2 - ink.Top - ink.Height / 2) < .6,
+                    $"The {phase} light was missing, off-size or misaligned.");
+                Check(SystemParameters.ClientAreaAnimation ? lamp.HasAnimatedProperties : Field(footer, "_blinkTimer") is DispatcherTimer { IsEnabled: true },
+                    $"The visible {phase} light was stationary.");
+                return footer;
+            }
+            void CheckDark(AiReplyStatus previous, string transition)
+            {
+                Check(LitFooters().Length == 0 && Field(previous, "_blinkTimer") is null &&
+                    !((Ellipse)Field(previous, "_indicator")!).HasAnimatedProperties, $"{transition} retained an active lamp.");
+            }
+            async Task HoldResponse(Action trigger, Func<Task> observe)
+            {
+                var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                server.BeforeReply = token => { entered.TrySetResult(); return release.Task.WaitAsync(token); };
+                try
+                {
+                    trigger();
+                    await entered.Task.WaitAsync(TimeSpan.FromSeconds(8));
+                    await observe();
+                }
+                finally { server.BeforeReply = null; release.TrySetResult(); }
+            }
             JsonObject Ask(string[] _) => server.Call("await_user_input", new { });
             await Reload();
             server.ObserveRequest = payload => Check(payload["tools"]!.ToJsonString().Contains("await_user_input"), "Missing general wait tool in read-only mode.");
             Script(Ask, _ => server.Say("这会决定下一步的讲解。要先看什么？\n\n{{radio:path:derive:看推导}}\n\n{{radio:path:example:看例子}}"));
             composer.Text = "请按我的选择继续讲。";
-            await panel.SubmitAsync(); Done();
+            Task sending = Task.CompletedTask;
+            await HoldResponse(() => sending = panel.SubmitAsync(), () => AssertPhase(null, "等待 AI 响应"));
+            await sending; Done();
             var first = AiStorage.Load(project).Turns.Single();
             Check(first.IsWaitingForInput && !first.IsIncomplete && first.AnsweredAt is null, "A blocking question was marked finished or interrupted.");
             var id = first.Id;
             var shown = await Show(id);
             var confirm = ButtonOn(shown, "确认并继续");
+            CheckDark((AiReplyStatus)panel.FindName("LiveReplyStatus"), "Waiting for the user");
             Check(!confirm.IsEnabled && Descendants<AiReplyStatus>(shown).Single().Text == "等待你确认答案",
                 "An unanswered choice could resume reasoning or was displayed as answered.");
             Descendants<RadioButton>(shown).Single(b => Equals(b.Content, "看例子")).IsChecked = true;
@@ -100,8 +148,21 @@ internal static partial class Program
             var received = new List<string>();
             server.ObserveRequest = payload => received.Add(RequestText(payload["input"]));
             Script(Ask, _ => server.Say("这次要展开哪一种？\n\n{{radio:path:brief:简短}}\n\n{{radio:path:full:完整}}"));
-            Click(confirm); Click(confirm);
+            AiReplyStatus? resumed = null;
+            await HoldResponse(() => { Click(confirm); Click(confirm); }, async () =>
+            {
+                resumed = await AssertPhase(id, "等待 AI 响应");
+                Capture(host, Path.Combine(output, "continuing-original-turn.png"));
+                RaiseFoldClick(resumed, 2);
+                await SettleFoldLayoutAsync(host);
+                Check(View(id).Turn.Collapsed, "Could not fold the active continuation.");
+                CheckDark(resumed, "Folding");
+                RaiseFoldClick(View(id).FoldTarget, 2);
+                await SettleFoldLayoutAsync(host);
+                resumed = await AssertPhase(id, "等待 AI 响应");
+            });
             await Idle();
+            CheckDark(resumed!, "Waiting for another answer");
             var middle = AiStorage.Load(project);
             Check(middle.Turns.Count == 2 && middle.Turns[0].Id == id && middle.Turns[0].IsWaitingForInput &&
                 middle.Turns[0].InputReplies.Length == 1 && composer.Text == "UNRELATED-COMPOSER-DRAFT", "Confirm lost the origin, draft or batch identity.");
@@ -143,18 +204,23 @@ internal static partial class Program
             shown = await Show(retryId);
             Descendants<TextBox>(shown).Single(t => !t.IsReadOnly).Text = "method-A";
             var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            server.BeforeReply = token => { started.TrySetResult(); return Task.Delay(Timeout.Infinite, token); };
+            var delta = Encoding.UTF8.GetBytes("data: {\"type\":\"response.output_text.delta\",\"delta\":\"开始推导\"}\n\n");
+            server.StreamReply = () => new StreamContent(new SteeringStalledStream(delta, started));
             Click(ButtonOn(shown, "确认并继续"));
             await started.Task.WaitAsync(TimeSpan.FromSeconds(8));
+            resumed = await AssertPhase(retryId, "正在生成回复");
             Click((Button)panel.FindName("StopButton"));
             await WaitUntilAsync(() => Field(panel, "_operation") is null, "Stopping confirmed reasoning did not settle.");
-            server.BeforeReply = null; await Reload();
+            CheckDark(resumed, "Stopping");
+            server.StreamReply = null; await Reload();
             var interrupted = Active().Turns.Single(t => t.Id == retryId);
             Check(interrupted.CanRetryInputReply && interrupted.InputReplies.Length == 1, "Interrupted reply lost its confirmed input.");
             received.Clear(); Script(_ => server.Say("已按所选方法继续。"));
             shown = await Show(retryId);
-            Click(Descendants<Button>(shown).Single(b => b.IsVisible && b.Content?.ToString()?.Contains("重试") == true));
+            var retry = Descendants<Button>(shown).Single(b => b.IsVisible && b.Content?.ToString()?.Contains("重试") == true);
+            await HoldResponse(() => Click(retry), async () => { resumed = await AssertPhase(retryId, "等待 AI 响应"); });
             await Idle();
+            CheckDark(resumed, "Successful retry");
             var retried = AiStorage.Load(project).Turns.Single(t => t.Id == retryId);
             Check(retried.InputReplies.Length == 1 && retried.AnsweredAt.HasValue && retried.Answer.Contains("已按所选方法继续") &&
                 received.Any(r => r.Contains("method-A")), "Retry duplicated confirmation or forgot the answer.");

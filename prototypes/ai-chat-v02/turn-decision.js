@@ -3,12 +3,15 @@
 // A question remains attached to the turn that asked it. Confirmation consumes
 // only that question's draft and keeps the conversation composer independent.
 window.turnDecision=(()=>{
+  function recordHtml(item){
+    return '<div class="decision-record"><p>'+esc(item.question)+'</p><p>'+esc(item.cancelled?'已结束本轮':'你的回答　'+item.answer)+'</p></div>';
+  }
   function html(turn){
     const question=turn.decision;
     if(!question&&!turn.decisions?.length)return '';
-    const history=(turn.decisions||[]).map(item=>
-      '<div class="decision-record"><p>'+esc(item.question)+'</p><p>'+esc(item.cancelled?'已结束本轮':'你的回答　'+item.answer)+'</p></div>').join('');
+    const history=(turn.decisions||[]).map(recordHtml).join('');
     if(!question)return history;
+    if(question.confirmed)return history+recordHtml({question:question.question,answer:question.draft});
     const value=String(question.draft||''),id=esc(question.id);
     const fields=question.options?question.options.map(option=>
       '<label><input type="radio" name="'+id+'" data-decision-input value="'+esc(option)+'"'+(option===value?' checked':'')+'> '+esc(option)+'</label>').join(''):
@@ -25,8 +28,8 @@ window.turnDecision=(()=>{
     const answer=segments.querySelector(':scope > .answer-start-divider');
     if(answer)answer.insertAdjacentHTML('beforebegin',html(turn));
     else segments.insertAdjacentHTML('beforeend',html(turn));
-    const status=document.createElement('span');status.setAttribute('role','status');
-    status.textContent='等待你确认答案';footer.replaceChildren(status);
+    if(running?.turn===turn){footer.innerHTML=pendingStatusHtml(running);alignPendingIndicator();}
+    else footer.innerHTML='<span role="status">等待你确认答案</span>';
   }
   function finish(turn,cancelled=false){
     const question=turn.decision;
@@ -51,6 +54,36 @@ window.turnDecision=(()=>{
     const turn=form&&current().turns.find(t=>t.id===form.closest('.turn')?.id);
     return turn?.decision?.id===form?.dataset.decision&&turn?.decision?turn:null;
   }
+  function resume(conversation,turn){
+    const question=turn.decision;
+    const job={turn,pendingStatus:'AI 正在继续本轮',timers:[]};
+    requests.set(conversation.id,job);
+    job.timers.push(setTimeout(()=>{
+      if(requests.get(conversation.id)!==job)return;
+      requests.delete(conversation.id);
+      // Off-screen revision playback needs its own conversation's rendered passages.
+      // Reopening that tab restores the confirmed request from the saved question.
+      const visible=current()===conversation;
+      if(question.task&&!visible)return;
+      if(visible){running=null;setBusy(false);}
+      delete question.confirmed;
+      if(question.task){
+        const target=conversation.turns.find(t=>t.id===question.task.turnId);
+        if(target)turnRevision.askAi(target,question.draft,null,turn);
+        if(turn.decision===question){persist();showWait(turn);}
+        return;
+      }
+      const previous=turn.answer,undo=finish(turn);
+      turn.answer=question.results?.[question.options?.indexOf(question.draft)]||'已收到你的回答。';
+      if(!persist()){undo();turn.answer=previous;}
+      if(visible)renderTurns();
+    },playbackResponseMs));
+    return job;
+  }
+  function restore(conversation){
+    const turn=conversation.turns.find(t=>t.decision?.confirmed);
+    if(turn)return resume(conversation,turn);
+  }
   document.addEventListener('input',event=>{
     if(!event.target.matches('[data-decision-input]'))return;
     const turn=decisionFor(event.target);
@@ -66,16 +99,15 @@ window.turnDecision=(()=>{
     const question=turn.decision,cancelled=button.dataset.decisionAction==='cancel';
     if(!cancelled){
       if(!question.draft?.trim()||(question.options&&!question.options.includes(question.draft)))return;
-      if(question.task){
-        const target=current().turns.find(t=>t.id===question.task.turnId);
-        if(target)turnRevision.askAi(target,question.draft,null,turn);
-        return;
-      }
+      if(running){status('请等待当前请求结束再确认。');return;}
+      question.confirmed=true;
+      if(!persist()){delete question.confirmed;return;}
+      running=resume(current(),turn);setBusy(true);showWait(turn);
+      return;
     }
-    const oldAnswer=turn.answer,undo=finish(turn,cancelled);
-    if(!cancelled)turn.answer=question.results?.[question.options.indexOf(question.draft)]||'已收到你的回答。';
-    if(!persist()){undo();turn.answer=oldAnswer;return;}
+    const undo=finish(turn,true);
+    if(!persist()){undo();return;}
     renderTurns();
   });
-  return {html,finish,wait,showWait};
+  return {html,finish,wait,showWait,restore};
 })();

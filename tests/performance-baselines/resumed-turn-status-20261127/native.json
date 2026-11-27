@@ -1,0 +1,670 @@
+{
+  "baseline": "0.6.12 bc4caa1",
+  "candidate": "0.6.13",
+  "environment": "Windows build 26300 x64, AMD Ryzen 7 5700X, .NET SDK 10.0.203, Release win-x64, isolated project and profile per process. --offscreen; WPF windows shown and laid out.",
+  "protocol": "Run one process at a time. Alternate before/after order between successive pairs. clickMs or syncMs measures the synchronous UI call. idleMs includes queued work through DispatcherPriority.ApplicationIdle. uiBytes measures allocations on the dispatcher thread only. controls counts visible WPF Controls in the target turn. The lamp is an Ellipse, so it is counted separately.",
+  "continuation": {
+    "command": "TeXeed.AppTests.exe --ai-turn-input-only --offscreen --output <new empty directory>",
+    "window": "900x740 DIP",
+    "measurement": "Instrument the 0.6.12 cancellation fixture identically on both products. After earlier confirmation and retries are warm, click 确认并继续 for the text question with method-A, hold the model response, wait for request arrival then dispatcher idle. Capture before cancellation. One sample in each of five independent processes per version.",
+    "reproduce": "Use bc4caa1 tests on both product source trees, apply continuation.fixturePatch to the tests via git apply and build Release -r win-x64.",
+    "fixturePatch": "diff --git a/tests/TeXeed.AppTests/AiTurnInputTests.cs b/tests/TeXeed.AppTests/AiTurnInputTests.cs\nindex a346393..fcc448c 100644\n--- a/tests/TeXeed.AppTests/AiTurnInputTests.cs\n+++ b/tests/TeXeed.AppTests/AiTurnInputTests.cs\n@@ -144,8 +144,21 @@ internal static partial class Program\n             Descendants<TextBox>(shown).Single(t => !t.IsReadOnly).Text = \"method-A\";\n             var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);\n             server.BeforeReply = token => { started.TrySetResult(); return Task.Delay(Timeout.Infinite, token); };\n-            Click(ButtonOn(shown, \"确认并继续\"));\n+            var startButton = ButtonOn(shown, \"确认并继续\");\n+            var measureStart = System.Diagnostics.Stopwatch.GetTimestamp();\n+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();\n+            Click(startButton);\n+            var clickMs = System.Diagnostics.Stopwatch.GetElapsedTime(measureStart).TotalMilliseconds;\n             await started.Task.WaitAsync(TimeSpan.FromSeconds(8));\n+            await host.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);\n+            var idleMs = System.Diagnostics.Stopwatch.GetElapsedTime(measureStart).TotalMilliseconds;\n+            var uiBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;\n+            var runningView = Descendants<AiTurnView>(panel).Single(v => v.Turn.Id == retryId);\n+            var footer = Descendants<AiReplyStatus>(runningView).Single();\n+            var controls = Descendants<Control>(runningView).Count(c => c.IsVisible);\n+            var lamps = Descendants<System.Windows.Shapes.Ellipse>(footer).Count(e => e.IsVisible && e.ActualHeight > 0 && e.ActualWidth > 0);\n+            var isThinking = footer.IsThinking;\n+            File.WriteAllText(Path.Combine(output, \"resuming-perf.json\"), System.Text.Json.JsonSerializer.Serialize(new { clickMs, idleMs, uiBytes, controls, lamps, isThinking }));\n             Click((Button)panel.FindName(\"StopButton\"));\n             await WaitUntilAsync(() => Field(panel, \"_operation\") is null, \"Stopping confirmed reasoning did not settle.\");\n             server.BeforeReply = null; await Reload();\n",
+    "before": {
+      "median": {
+        "clickMs": 0.2554,
+        "idleMs": 37.1292,
+        "uiBytes": 1259360,
+        "controls": 8,
+        "lamps": 0
+      },
+      "samplesByProcess": [
+        {
+          "clickMs": 0.3115,
+          "idleMs": 39.7603,
+          "uiBytes": 1259888,
+          "controls": 8,
+          "lamps": 0,
+          "isThinking": false
+        },
+        {
+          "clickMs": 0.2325,
+          "idleMs": 31.6632,
+          "uiBytes": 1259360,
+          "controls": 8,
+          "lamps": 0,
+          "isThinking": false
+        },
+        {
+          "clickMs": 0.2361,
+          "idleMs": 42.062,
+          "uiBytes": 1259360,
+          "controls": 8,
+          "lamps": 0,
+          "isThinking": false
+        },
+        {
+          "clickMs": 0.2694,
+          "idleMs": 37.1292,
+          "uiBytes": 1259360,
+          "controls": 8,
+          "lamps": 0,
+          "isThinking": false
+        },
+        {
+          "clickMs": 0.2554,
+          "idleMs": 37.0699,
+          "uiBytes": 1258808,
+          "controls": 8,
+          "lamps": 0,
+          "isThinking": false
+        }
+      ]
+    },
+    "after": {
+      "median": {
+        "clickMs": 0.2369,
+        "idleMs": 39.9746,
+        "uiBytes": 1300192,
+        "controls": 8,
+        "lamps": 1
+      },
+      "samplesByProcess": [
+        {
+          "clickMs": 0.3119,
+          "idleMs": 35.9661,
+          "uiBytes": 1300648,
+          "controls": 8,
+          "lamps": 1,
+          "isThinking": true
+        },
+        {
+          "clickMs": 0.3283,
+          "idleMs": 40.1078,
+          "uiBytes": 1300192,
+          "controls": 8,
+          "lamps": 1,
+          "isThinking": true
+        },
+        {
+          "clickMs": 0.2369,
+          "idleMs": 39.9746,
+          "uiBytes": 1299664,
+          "controls": 8,
+          "lamps": 1,
+          "isThinking": true
+        },
+        {
+          "clickMs": 0.2366,
+          "idleMs": 42.9671,
+          "uiBytes": 1300192,
+          "controls": 8,
+          "lamps": 1,
+          "isThinking": true
+        },
+        {
+          "clickMs": 0.2336,
+          "idleMs": 34.8846,
+          "uiBytes": 1299632,
+          "controls": 8,
+          "lamps": 1,
+          "isThinking": true
+        }
+      ]
+    }
+  },
+  "unconfirmedRadio": {
+    "command": "TeXeed.AppTests.exe --ai-turn-input-perf-only --offscreen --output <new empty directory>",
+    "window": "960x740 DIP",
+    "measurement": "Alternate a two-choice answer without confirming. Discard the first four selections and record the next fourteen in each of three independent processes per version. Same fixture as blocking-questions-20261127/native.json.",
+    "historicalSelectionMedians": {
+      "0.6.11": {
+        "syncMs": 0.10915,
+        "idleMs": 0.248,
+        "uiBytes": 5224,
+        "controls": 6
+      },
+      "0.6.12": {
+        "syncMs": 0.11825,
+        "idleMs": 0.2489,
+        "uiBytes": 5632,
+        "controls": 8
+      }
+    },
+    "before": {
+      "median": {
+        "syncMs": 0.1421,
+        "idleMs": 0.2726,
+        "uiBytes": 5632,
+        "controls": 8
+      },
+      "samplesByProcess": [
+        [
+          {
+            "syncMs": 0.0983,
+            "idleMs": 0.1632,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.3944,
+            "idleMs": 2.8921,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1687,
+            "idleMs": 0.306,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1019,
+            "idleMs": 0.2688,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0918,
+            "idleMs": 0.2431,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0849,
+            "idleMs": 0.1422,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.075,
+            "idleMs": 0.2422,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1365,
+            "idleMs": 0.2333,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.125,
+            "idleMs": 0.2439,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1139,
+            "idleMs": 0.1869,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0962,
+            "idleMs": 0.2528,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1442,
+            "idleMs": 0.2723,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0946,
+            "idleMs": 0.2315,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0968,
+            "idleMs": 0.2511,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ],
+        [
+          {
+            "syncMs": 0.1275,
+            "idleMs": 0.2688,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1873,
+            "idleMs": 0.8943,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1586,
+            "idleMs": 0.34,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1806,
+            "idleMs": 0.2768,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.127,
+            "idleMs": 0.2024,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1356,
+            "idleMs": 1.1484,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1252,
+            "idleMs": 0.3149,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1482,
+            "idleMs": 0.2555,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.2263,
+            "idleMs": 0.3357,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.2198,
+            "idleMs": 0.3069,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1747,
+            "idleMs": 0.2979,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1839,
+            "idleMs": 0.3332,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1753,
+            "idleMs": 0.3921,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.14,
+            "idleMs": 0.2345,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ],
+        [
+          {
+            "syncMs": 0.126,
+            "idleMs": 0.2957,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1383,
+            "idleMs": 0.2299,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.16,
+            "idleMs": 0.2509,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.116,
+            "idleMs": 0.2631,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1551,
+            "idleMs": 0.2729,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1329,
+            "idleMs": 0.2128,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1291,
+            "idleMs": 0.2139,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1591,
+            "idleMs": 0.2946,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1894,
+            "idleMs": 0.3236,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1737,
+            "idleMs": 0.3298,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1758,
+            "idleMs": 0.2994,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1728,
+            "idleMs": 0.2968,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1835,
+            "idleMs": 0.3021,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1603,
+            "idleMs": 0.281,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ]
+      ]
+    },
+    "after": {
+      "median": {
+        "syncMs": 0.13905,
+        "idleMs": 0.30275,
+        "uiBytes": 5632,
+        "controls": 8
+      },
+      "samplesByProcess": [
+        [
+          {
+            "syncMs": 0.1062,
+            "idleMs": 0.3545,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.4607,
+            "idleMs": 1.4525,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1495,
+            "idleMs": 0.7247,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1013,
+            "idleMs": 0.1704,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0906,
+            "idleMs": 0.6216,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.2453,
+            "idleMs": 1.2402,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.2242,
+            "idleMs": 0.9671,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1013,
+            "idleMs": 0.8068,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1177,
+            "idleMs": 1.024,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1853,
+            "idleMs": 0.3219,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1431,
+            "idleMs": 0.8017,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.094,
+            "idleMs": 0.5336,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.2051,
+            "idleMs": 0.8572,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1251,
+            "idleMs": 0.6082,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ],
+        [
+          {
+            "syncMs": 0.5485,
+            "idleMs": 1.2837,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1793,
+            "idleMs": 0.2971,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.201,
+            "idleMs": 0.3196,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1978,
+            "idleMs": 0.3432,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1556,
+            "idleMs": 0.2708,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1516,
+            "idleMs": 0.2633,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1587,
+            "idleMs": 0.2676,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1537,
+            "idleMs": 0.2609,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1719,
+            "idleMs": 0.3261,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1698,
+            "idleMs": 0.3787,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1427,
+            "idleMs": 0.2193,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1027,
+            "idleMs": 0.2864,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1204,
+            "idleMs": 0.2808,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1634,
+            "idleMs": 0.3084,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ],
+        [
+          {
+            "syncMs": 0.1003,
+            "idleMs": 0.1646,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1379,
+            "idleMs": 0.2308,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1124,
+            "idleMs": 0.3238,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0946,
+            "idleMs": 0.2391,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1402,
+            "idleMs": 0.2129,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0841,
+            "idleMs": 0.2144,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1254,
+            "idleMs": 0.2296,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1107,
+            "idleMs": 0.3177,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1509,
+            "idleMs": 0.2273,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0913,
+            "idleMs": 0.1504,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1087,
+            "idleMs": 0.1823,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0827,
+            "idleMs": 0.1421,
+            "uiBytes": 5648,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.0917,
+            "idleMs": 0.1661,
+            "uiBytes": 5616,
+            "controls": 8
+          },
+          {
+            "syncMs": 0.1054,
+            "idleMs": 0.1851,
+            "uiBytes": 5648,
+            "controls": 8
+          }
+        ]
+      ]
+    }
+  }
+}

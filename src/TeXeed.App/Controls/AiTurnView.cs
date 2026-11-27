@@ -62,6 +62,14 @@ public sealed class AiTurnView : StackPanel
         FontWeight = FontWeights.Normal, Margin = new Thickness(-40, 8, 10, 0), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
     private readonly TextBlock _sentTime = new() { FontSize = AiChatTypography.MetadataFontSize, TextWrapping = TextWrapping.Wrap, LineHeight = AiChatTypography.ExpandedLineHeight, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0), Focusable = true, Cursor = Cursors.Hand };
     private AiReplyStatus? _footer;
+    private string? _replyProgress;
+    internal void SetReplyProgress(string? status)
+    {
+        _replyProgress = status;
+        if (_footer is null) return;
+        if (status is not null && _footer.PendingText != status) _footer.PendingText = status;
+        if (_footer.IsThinking != (status is not null)) _footer.IsThinking = status is not null;
+    }
     private string? _previewId;
     private Grid? _foldedRow;
     private (int First, int Last) _foldLabel;
@@ -211,7 +219,7 @@ public sealed class AiTurnView : StackPanel
         if (_number.Parent is Panel question) question.Children.Remove(_number);
         Answers.Clear(); Questions.Clear(); Children.Clear(); _body.Children.Clear(); _preview.Children.Clear(); _previewId = null;
         _revisionEditor = null; _body.Visibility = Visibility.Visible;
-        _footer = null; _foldedRow = null; _foldLabel = default; FoldGroupHint = null;
+        _footer = null; _replyProgress = null; _foldedRow = null; _foldLabel = default; FoldGroupHint = null;
         if (Turn is not null) SetFoldRange(TurnNumber);
     }
     private void BuildExpanded()
@@ -249,6 +257,7 @@ public sealed class AiTurnView : StackPanel
         _body.Margin = new Thickness(AiChatTypography.TextLeft, 0, 4, 0); Children.Add(_body);
         _sentTime.Text = Turn.SentTime;
         _footer = Footer(); Children.Add(_footer);
+        if (_replyProgress is not null) SetReplyProgress(_replyProgress);
         BuildBody();
     }
     private void RegisterQuestion(MarkdownView view)

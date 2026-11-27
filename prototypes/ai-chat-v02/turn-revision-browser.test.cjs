@@ -273,10 +273,13 @@ async function checkCaretBlink(page,editor,dir){
   const confirm=decision.getByRole('button',{name:'确认并继续'});
   assert.match(await decision.textContent(),/原句/);
   await decision.locator('textarea').fill('按提示恢复。');await confirm.click();
+  await page.locator('.thinking-dot').waitFor();
   await page.reload();
   assert.match(await decision.textContent(),/什么文字/);
+  assert.equal(await page.locator('.thinking-dot').count(),0);
   assert.match(await page.locator('.decision-record').innerText(),/按提示恢复。/);
   await decision.locator('textarea').fill('核对提示后恢复密钥。');await confirm.click();
+  await page.locator('.thinking-dot').waitFor({state:'detached'});
   assert.match(await page.locator('#up .answer').innerText(),/核对提示后恢复密钥/);
   assert.deepEqual(await page.evaluate(()=>current().turns[0].readingRevisions.map(v=>v.author)),['用户','AI']);
   await readingAction('up','编辑历史');

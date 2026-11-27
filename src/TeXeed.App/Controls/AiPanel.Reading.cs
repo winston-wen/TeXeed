@@ -142,6 +142,7 @@ public partial class AiPanel
     {
         view.CanRetry = _operation is null && (view.Turn.CanRetryInputReply || lastId == view.Turn.Id && view.Turn.IsIncomplete);
         RefreshInputActions(view);
+        RefreshInputReplyStatus(view);
     }
     private void RefreshInputActions(AiTurnView view)
     {

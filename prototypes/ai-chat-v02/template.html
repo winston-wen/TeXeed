@@ -119,7 +119,7 @@ details[open]>summary:before { transform:rotate(90deg) }
 .answer-divider { height:0; border:0; border-top:1px solid var(--line); margin-top:16px; background:none }
 .answer-start-divider { height:0; border-top:1px solid var(--line); margin:16px 0 }
 .thinking-label { display:inline-flex; align-items:center; gap:7px }
-.thinking-dot { display:inline-block; width:1em; height:1em; border-radius:50%; background:#a8bc9c; animation:thinking-breathe 1.6s ease-in-out infinite }
+.thinking-dot { display:inline-block; width:1em; height:1em; flex:none; box-sizing:border-box; border:1.5px solid #a8bc9c; border-radius:50%; background:#a8bc9c; animation:thinking-breathe 1.6s ease-in-out infinite }
 @keyframes thinking-breathe { 0%,100%{opacity:.4} 50%{opacity:1} }
 .empty { margin:64px auto 40px; max-width:380px; text-align:center }
 .empty h2 { font-size:24px; font-weight:500 }
@@ -407,7 +407,9 @@ dialog textarea { width:100%; height:220px }
  .usage { display:none }
 }
 @media(prefers-reduced-motion:reduce) {
- .thinking-dot,.equation-target { animation:none }
+ .thinking-dot { animation:thinking-blink 1s steps(1,end) infinite }
+ @keyframes thinking-blink { 0%,100%{background:#a8bc9c} 50%{background:transparent} }
+ .equation-target { animation:none }
 }
 </style>
 <link rel="stylesheet" href="reading-fonts.css">

@@ -13,8 +13,12 @@ module.exports=async function checkTurnDecision(page){
   await page.locator('#composer').fill('解释你将怎样计算正方形的周长。');await page.locator('#send').click();
   const turn=page.locator('#thread article.turn').first(),form=turn.locator('.decision-question');
   const confirm=form.getByRole('button',{name:'确认并继续'});
+  const lamp=turn.locator('.answer-time .thinking-dot');
+  await lamp.waitFor();
+  assert.equal(await lamp.evaluate(el=>getComputedStyle(el).animationName),'thinking-breathe');
   await form.waitFor();assert(await confirm.isDisabled());
   assert.equal(await turn.locator('.answer-time').innerText(),'等待你确认答案');
+  assert.equal(await lamp.count(),0);
   const id=await turn.getAttribute('id');
   await form.getByLabel('一步步推导').check();await form.getByLabel('先看例子').check();
   assert.equal(await page.evaluate(()=>current().turns[0].decisions),undefined);
@@ -33,14 +37,50 @@ module.exports=async function checkTurnDecision(page){
   assert(await form.getByLabel('先看例子').isChecked());
   await page.locator('#composer').fill('保留第二份主草稿');
   const ids=await page.evaluate(()=>current().turns.map(t=>t.id));
-  await confirm.dblclick();await form.waitFor({state:'hidden'});await page.reload();
+  await confirm.dblclick();await lamp.waitFor();
+  assert.equal(await turn.locator('[role=status]').innerText(),'AI 正在继续本轮');
+  const light=await lamp.evaluate(el=>{
+    const rect=el.getBoundingClientRect(),style=getComputedStyle(el);
+    return {width:rect.width,height:rect.height,font:parseFloat(style.fontSize),animation:style.animationName};
+  });
+  assert.deepEqual(light,{width:13,height:13,font:13,animation:'thinking-breathe'});
+  if(process.env.TEXEED_REVISION_ARTIFACTS)await page.locator('#reader').screenshot({path:path.join(process.env.TEXEED_REVISION_ARTIFACTS,'decision-resuming.png')});
+  await page.emulateMedia({reducedMotion:'reduce'});await page.reload();await lamp.waitFor();
+  const blink=await lamp.evaluate(el=>{
+    const animation=el.getAnimations()[0];animation.pause();
+    return [0,499,500,999,1000].map(time=>{
+      animation.currentTime=time;
+      const style=getComputedStyle(el);
+      return [style.backgroundColor,style.borderTopColor,style.opacity];
+    });
+  });
+  const solid=['rgb(168, 188, 156)','rgb(168, 188, 156)','1'],hollow=['rgba(0, 0, 0, 0)',solid[0],'1'];
+  assert.deepEqual(blink,[solid,solid,hollow,hollow,solid]);
+  await page.evaluate(()=>renderTurns());assert.equal(await lamp.count(),1);
+  await lamp.waitFor({state:'detached'});await page.emulateMedia({reducedMotion:'no-preference'});await page.reload();
   assert.equal(ids[0],id);assert.deepEqual(await page.evaluate(()=>current().turns.map(t=>t.id)),ids);
   assert.match(await turn.locator('.answer').innerText(),/周长就是/);
   assert.equal(await turn.locator('.decision-record').count(),1);
   assert.match(await turn.locator('.decision-record').innerText(),/你的回答　先看例子/);
   assert.equal(await page.locator('#composer').inputValue(),'保留第二份主草稿');
+  assert.equal(await lamp.count(),0);
 
   assert.equal(await page.locator('#thread article.turn').nth(1).locator('.decision-question').count(),0);
+  await page.evaluate(()=>{
+    const t=current().turns[0];
+    turnDecision.wait(t,{id:'continue-then-stop',question:'还要看一个例子吗？',options:['继续'],draft:''});
+    turnDecision.showWait(t);
+  });
+  await form.getByLabel('继续').check();await confirm.click();
+  const [owner,other]=await page.evaluate(()=>[current().id,state.conversations.find(c=>c.id!==current().id).id]);
+  await page.evaluate(id=>openConversation(id),other);
+  assert.equal(await page.locator('#thread .thinking-dot').count(),0);
+  await page.evaluate(id=>openConversation(id),owner);await lamp.waitFor();
+  await page.locator('#stop').click();await page.reload();
+  assert.equal(await lamp.count(),0);
+  assert.match(await turn.locator('.answer-time').innerText(),/用户中止/);
+  assert.equal(await turn.locator('.decision-record').count(),2);
+  assert.match(await turn.locator('.decision-record').last().innerText(),/你的回答　继续/);
   console.log('PASS: blocking direction question, explicit confirmation, persistent choices, same-turn continuation and independent draft');
 };
 

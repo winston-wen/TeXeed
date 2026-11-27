@@ -1,0 +1,139 @@
+{
+  "baseline": "bc4caa1",
+  "chromium": "158.0.8127.38",
+  "viewport": [
+    1250,
+    900
+  ],
+  "scenario": "Confirm the same selected answer on one saved question. Two warmups, seven measured runs. The current prototype uses the initial simulated request delay (1700 ms); CPU and JS click timings exclude the idle wait.",
+  "previous": [
+    {
+      "clickMs": 1.699999988079071,
+      "settledMs": 26.399999976158142,
+      "pendingLamps": 0,
+      "controlsAfterClick": 1,
+      "finalControls": 1,
+      "cpuMs": 2.996000000000002,
+      "sampledBytes": 60572
+    },
+    {
+      "clickMs": 1.5,
+      "settledMs": 26.099999994039536,
+      "pendingLamps": 0,
+      "controlsAfterClick": 1,
+      "finalControls": 1,
+      "cpuMs": 2.796999999999997,
+      "sampledBytes": 87708
+    },
+    {
+      "clickMs": 1.4000000059604645,
+      "settledMs": 25.900000005960464,
+      "pendingLamps": 0,
+      "controlsAfterClick": 1,
+      "finalControls": 1,
+      "cpuMs": 2.7709999999999866,
+      "sampledBytes": 69156
+    },
+    {
+      "clickMs": 1.9000000059604645,
+      "settledMs": 23.799999982118607,
+      "pendingLamps": 0,
+      "controlsAfterClick": 1,
+      "finalControls": 1,
+      "cpuMs": 3.3419999999999987,
+      "sampledBytes": 72340
+    },
+    {
+      "clickMs": 1.7999999821186066,
+      "settledMs": 26.5,
+      "pendingLamps": 0,
+      "controlsAfterClick": 1,
+      "finalControls": 1,
+      "cpuMs": 3.169000000000011,
+      "sampledBytes": 47500
+    },
+    {
+      "clickMs": 1.300000011920929,
+      "settledMs": 26.599999994039536,
+      "pendingLamps": 0,
+      "controlsAfterClick": 1,
+      "finalControls": 1,
+      "cpuMs": 2.6170000000000044,
+      "sampledBytes": 75580
+    },
+    {
+      "clickMs": 1.4000000059604645,
+      "settledMs": 27.599999994039536,
+      "pendingLamps": 0,
+      "controlsAfterClick": 1,
+      "finalControls": 1,
+      "cpuMs": 2.716000000000008,
+      "sampledBytes": 105652
+    }
+  ],
+  "current": [
+    {
+      "clickMs": 1.4000000059604645,
+      "settledMs": 1724.800000011921,
+      "pendingLamps": 1,
+      "controlsAfterClick": 0,
+      "finalControls": 1,
+      "cpuMs": 7.399000000000001,
+      "sampledBytes": 70320
+    },
+    {
+      "clickMs": 1.7000000178813934,
+      "settledMs": 1741.2000000178814,
+      "pendingLamps": 1,
+      "controlsAfterClick": 0,
+      "finalControls": 1,
+      "cpuMs": 7.8359999999999985,
+      "sampledBytes": 78144
+    },
+    {
+      "clickMs": 1.4000000059604645,
+      "settledMs": 1742.5,
+      "pendingLamps": 1,
+      "controlsAfterClick": 0,
+      "finalControls": 1,
+      "cpuMs": 8.800999999999988,
+      "sampledBytes": 52112
+    },
+    {
+      "clickMs": 1.199999988079071,
+      "settledMs": 1725.9000000059605,
+      "pendingLamps": 1,
+      "controlsAfterClick": 0,
+      "finalControls": 1,
+      "cpuMs": 7.275000000000006,
+      "sampledBytes": 80072
+    },
+    {
+      "clickMs": 1.300000011920929,
+      "settledMs": 1725.800000011921,
+      "pendingLamps": 1,
+      "controlsAfterClick": 0,
+      "finalControls": 1,
+      "cpuMs": 6.873999999999995,
+      "sampledBytes": 100036
+    },
+    {
+      "clickMs": 1.300000011920929,
+      "settledMs": 1742.7000000178814,
+      "pendingLamps": 1,
+      "controlsAfterClick": 0,
+      "finalControls": 1,
+      "cpuMs": 6.963999999999999,
+      "sampledBytes": 66660
+    },
+    {
+      "clickMs": 1.2000000178813934,
+      "settledMs": 1726.800000011921,
+      "pendingLamps": 1,
+      "controlsAfterClick": 0,
+      "finalControls": 1,
+      "cpuMs": 7.008999999999986,
+      "sampledBytes": 93012
+    }
+  ]
+}

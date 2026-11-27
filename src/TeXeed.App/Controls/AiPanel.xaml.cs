@@ -189,7 +189,7 @@ public partial class AiPanel : UserControl, IDisposable
         try { await work(operation.Token); }
         catch (OperationCanceledException) { StatusText.Text = "已停止；本轮已保留，可继续提问。"; }
         catch (Exception ex) { ShowError(ex); }
-        finally { _continuingInputTurnId = null; _steering?.Close(); _steering = null; _followUpBuffer = null; _liveQueuedId = null; operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; SteerButton.IsEnabled = false; QueueButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; Attachments.IsEnabled = true; UpdateRetryActions(); RefreshFollowUps(); } _operationDone = null; done.TrySetResult(); }
+        finally { _continuingInputTurn = null; _steering?.Close(); _steering = null; _followUpBuffer = null; _liveQueuedId = null; operation.Dispose(); _operation = null; if (!_disposed) { SubmitButton.IsEnabled = true; StopButton.IsEnabled = false; SteerButton.IsEnabled = false; QueueButton.IsEnabled = false; if (_ownsSettings) Settings.IsEnabled = true; ModelControls.IsEnabled = true; PermissionPicker.IsEnabled = true; Entries.IsEnabled = true; Attachments.IsEnabled = true; UpdateRetryActions(); RefreshFollowUps(); } _operationDone = null; done.TrySetResult(); }
     }
     private void ShowError(Exception ex) => StatusText.Text = ex is HttpRequestException ? "网络连接失败，请检查网络后重试。问题已保留。" : ex is CryptographicException ? "加密凭据或登录身份验证失败，请重新登录。" : ex.Message;
     private void Add_Click(object sender, RoutedEventArgs e) => AddEntry(new());

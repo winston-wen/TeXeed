@@ -479,6 +479,7 @@ internal static partial class Program
         internal Exception? Failure;
         internal Action<JsonNode>? ObserveRequest;
         internal Func<CancellationToken, Task>? BeforeReply;
+        internal Func<HttpContent>? StreamReply;
         private int _callId;
         internal JsonObject Call(string name, object? args) => new() { ["type"] = "function_call", ["name"] = name,
             ["call_id"] = "test-" + ++_callId, ["arguments"] = JsonSerializer.Serialize(args) };
@@ -497,6 +498,7 @@ internal static partial class Program
                 if (payload["tools"]!.ToJsonString().Contains("read_answer_revision") != Authorized ||
                     payload["instructions"]!.ToString().Contains(AiAnswerRevision.Instructions) != Authorized)
                     throw new InvalidOperationException("Revision schema and instructions disagreed with user authorization.");
+                if (StreamReply is not null) return new(HttpStatusCode.OK) { Content = StreamReply() };
                 var results = payload["input"]!.AsArray().Where(n => n?["type"]?.ToString() == "function_call_output")
                     .Select(n => n!["output"]!.ToString()).ToArray();
                 var reply = Steps.Dequeue()(results);
