@@ -16,7 +16,7 @@ public sealed partial class MarkdownView
     private ChatMath _math = new();
     private readonly Dictionary<string, Paragraph> _equations = [];
     private readonly Dictionary<string, TextPointer?> _annotationPointers = [];
-    private readonly Dictionary<InlineUIContainer, ChatMath.Token> _clipboardMath = [];
+    private readonly Dictionary<Inline, ChatMath.Token> _clipboardMath = [];
     private readonly List<(FrameworkElement Grid, int Columns)> _formulaWidths = [];
     private double _measuredWidth = double.NaN;
     private static double FormulaAvailableWidth(double width, int columns) => Math.Max(80, (width - 34) / columns - (columns > 1 ? 64 : 32));
@@ -50,7 +50,8 @@ public sealed partial class MarkdownView
                 if (offset < length) { result = table.View.AnnotationPointer(id, anchor with { TextOffset = offset }); break; }
                 offset -= length; p = table.Block.ElementEnd; continue;
             }
-            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart &&
+                SourceObject(p.GetAdjacentElement(LogicalDirection.Forward), out var source) is { } ui)
             {
                 if (offset == source.Length) { result = ui.ElementEnd; break; }
                 if (offset < source.Length) { result = p; break; }
@@ -134,12 +135,58 @@ public sealed partial class MarkdownView
     }
     private Inline FormulaInline(ChatMath.Token token)
     {
-        var formula = new ChatFormula(token.Source, token.Display, () => { NotifyAsyncLayoutChanging(); LayoutVersion++; }, FormulaAsset?.Invoke(token.Source, token.Display));
+        var asset = FormulaAsset?.Invoke(token.Source, token.Display);
+        Span? group = null;
+        var version = _renderVersion;
+        ChatFormula? formula = null;
+        void LoadedFormula()
+        {
+            if (version != _renderVersion) return;
+            NotifyAsyncLayoutChanging();
+            LayoutVersion++;
+            if (group is not null && formula is not null) AddSlices(group, formula);
+        }
+        formula = new ChatFormula(token.Source, token.Display, LoadedFormula, asset);
         formula.SetValue(TextElement.FontSizeProperty, FontSize);
+        if (!token.Display && UsesChatTypography && (formula.Asset is { } rendered
+                ? rendered.InlineSlices.Count != 0 : ChatInlineBreaks.Positions(token.Source).Length != 0))
+            group = new Span { Tag = token };
         var inline = new InlineUIContainer(formula)
-            { BaselineAlignment = BaselineAlignment.Baseline, Tag = "$" + token.Source + "$" };
-        _clipboardMath.Add(inline, token);
-        return inline;
+            { BaselineAlignment = BaselineAlignment.Baseline, Tag = group is null ? "$" + token.Source + "$" : null };
+        Inline owner = (Inline?)group ?? inline;
+        _clipboardMath.Add(owner, token);
+        EnableFormulaSelection(inline, owner);
+        if (group is not null)
+        {
+            group.Inlines.Add(inline);
+            AddSlices(group, formula);
+        }
+        return owner;
+    }
+
+    private void AddSlices(Span group, ChatFormula first)
+    {
+        if (first.Asset is not { InlineSlices.Count: > 1 } svg) return;
+        first.SetInlineSlice(0);
+        for (var i = 1; i < svg.InlineSlices.Count; i++)
+        {
+            var piece = new ChatFormula(first.Source, false, asset: svg);
+            piece.SetValue(TextElement.FontSizeProperty, FontSize);
+            piece.SetInlineSlice(i);
+            var inline = new InlineUIContainer(piece) { BaselineAlignment = BaselineAlignment.Baseline };
+            EnableFormulaSelection(inline, group);
+            group.Inlines.Add(inline);
+        }
+    }
+
+    private void EnableFormulaSelection(InlineUIContainer piece, Inline owner)
+    {
+        var formula = (ChatFormula)piece.Child;
+        formula.Tag = piece;
+        formula.PreviewMouseRightButtonDown += (_, _) =>
+        {
+            if (!SelectionContainsFormulaPiece(piece)) SelectBookmarkObject(owner);
+        };
     }
     private Paragraph DisplayFormula(ChatMath.Token token)
     {
@@ -216,7 +263,8 @@ public sealed partial class MarkdownView
             if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
             if (EmbeddedTable(p) is { } table)
             { output.Append(table.Text); p = table.Block.ElementEnd; continue; }
-            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart &&
+                SourceObject(p.GetAdjacentElement(LogicalDirection.Forward), out var source) is { } ui)
             { output.Append(source); p = ui.ElementEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
             {
@@ -237,7 +285,8 @@ public sealed partial class MarkdownView
             if (IsDecoration(p, out var paddingEnd)) { p = paddingEnd; continue; }
             if (EmbeddedTable(p) is { } table)
             { length += table.Text.Length; p = table.Block.ElementEnd; continue; }
-            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
+            if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.ElementStart &&
+                SourceObject(p.GetAdjacentElement(LogicalDirection.Forward), out var source) is { } ui)
             { length += source.Length; p = ui.ElementEnd; continue; }
             if (p.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
             {

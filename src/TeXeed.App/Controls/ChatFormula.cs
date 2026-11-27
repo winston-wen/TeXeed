@@ -12,9 +12,12 @@ internal sealed class ChatFormula : FrameworkElement
     private ChatSvg? _svg;
     private readonly bool _display;
     private readonly Action? _layoutChanged;
+    private int _slice = -1;
     internal string Source { get; }
     internal string? Error { get; private set; }
     internal string? SvgPath => _svg?.Path;
+    internal ChatSvg? Asset => _svg;
+    internal void SetInlineSlice(int slice) { _slice = slice; InvalidateMeasure(); InvalidateVisual(); }
     internal ChatFormula PreviewCopy() => new(Source, _display, asset: _svg);
     internal Task RenderTask { get; }
     static ChatFormula()
@@ -63,7 +66,9 @@ internal sealed class ChatFormula : FrameworkElement
             // Align the TeX box baseline with the text line, including the drawing's one-DIP inset.
             var baseline = svg.Baseline * Scale + 1;
             TextBlock.SetBaselineOffset(this, baseline);
-            return new(Math.Max(1, svg.Bounds.Width * Scale) + 2, Math.Max(Math.Max(1, svg.Bounds.Height * Scale) + 2, baseline + 1));
+            var width = _slice < 0 ? Math.Max(1, svg.Bounds.Width * Scale) + 2
+                : svg.InlineSlices[_slice].Width * Scale + (_slice == 0 ? 1 : 0) + (_slice == svg.InlineSlices.Count - 1 ? 1 : 0);
+            return new(width, Math.Max(Math.Max(1, svg.Bounds.Height * Scale) + 2, baseline + 1));
         }
         var text = Fallback();
         TextBlock.SetBaselineOffset(this, text.Baseline + 1);
@@ -72,9 +77,11 @@ internal sealed class ChatFormula : FrameworkElement
     protected override void OnRender(DrawingContext drawing)
     {
         if (_svg is not { } svg) { if (Error is not null) drawing.DrawRectangle((Brush?)TryFindResource("PanelBackground") ?? Brushes.Transparent, null, new Rect(RenderSize)); drawing.DrawText(Fallback(), new Point(1, 1)); return; }
-        drawing.PushTransform(new TranslateTransform(1 - svg.Bounds.X * Scale, 1 - svg.Bounds.Y * Scale));
+        var slice = _slice < 0 ? null : svg.InlineSlices[_slice];
+        var inset = _slice <= 0 ? 1 : 0;
+        drawing.PushTransform(new TranslateTransform(inset - (slice?.Left ?? svg.Bounds.X) * Scale, 1 - svg.Bounds.Y * Scale));
         drawing.PushTransform(new ScaleTransform(Scale, Scale));
-        drawing.DrawGeometry((Brush)GetValue(TextElement.ForegroundProperty), null, svg.Geometry);
+        drawing.DrawGeometry((Brush)GetValue(TextElement.ForegroundProperty), null, slice?.Geometry ?? svg.Geometry);
         drawing.Pop(); drawing.Pop();
     }
 }

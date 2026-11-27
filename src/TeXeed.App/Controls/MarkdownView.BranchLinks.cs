@@ -128,7 +128,8 @@ public sealed partial class MarkdownView
                 offset -= table.Text.Length; p = table.Block.ElementEnd; continue;
             }
             var context = p.GetPointerContext(LogicalDirection.Forward);
-            if (context == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Tag: string source } ui)
+            if (context == TextPointerContext.ElementStart &&
+                SourceObject(p.GetAdjacentElement(LogicalDirection.Forward), out var source) is { } ui)
             {
                 if (offset == 0) return ui.ElementStart;
                 if (offset < source.Length) return ui.ElementEnd;

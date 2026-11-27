@@ -35,6 +35,9 @@ jobs:
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-long-form-viewport-only --offscreen --output artifacts/ci-ai-long-form-viewport-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-reader-resize-only --offscreen --output artifacts/ci-ai-reader-resize-check
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-inline-axis-only --offscreen --output artifacts/ci-ai-inline-axis-check
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-inline-wrap-only --offscreen --output artifacts/ci-ai-inline-wrap
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-formula-cjk-only --offscreen --output artifacts/ci-ai-formula-cjk
+      - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-annotation-focus-only --offscreen --output artifacts/ci-ai-annotation-focus
       - run: dotnet run --project tests/TeXeed.AppTests -c Release --no-build -- --ai-heading-prompt-only --offscreen --output artifacts/ci-ai-writing-prompt-check
       - run: node prototypes/ai-chat-v02/preview.test.cjs
       - run: node prototypes/ai-chat-v02/turn-metadata.test.cjs
@@ -55,6 +58,12 @@ jobs:
           node prototypes/ai-chat-v02/turn-fold-browser.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node prototypes/ai-chat-v02/equation-reference-browser.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:TEXEED_INLINE_WRAP_OUTPUT = 'artifacts/ci-browser-inline-wrap'
+          node prototypes/ai-chat-v02/inline-math-wrap-browser.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:TEXEED_ANNOTATION_FOCUS_SCREENSHOT = 'artifacts/ci-browser-inline-wrap/annotation-focus.png'
+          node prototypes/ai-chat-v02/annotation-popup-browser.test.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:TEXEED_READER_CHROME_SCREENSHOTS = 'artifacts/ci-browser-reader'
           node prototypes/ai-chat-v02/reader-chrome-browser.test.cjs
@@ -77,6 +86,11 @@ jobs:
           name: TeXeed-workspace-tab-diagnostics
           path: |
             artifacts/ci-ai-eqref-check/*.png
+            artifacts/ci-ai-inline-wrap/*.png
+            artifacts/ci-ai-formula-cjk/*.png
+            artifacts/ci-ai-annotation-focus/*.log
+            artifacts/ci-ai-annotation-focus/*.png
+            artifacts/ci-browser-inline-wrap/*.png
             artifacts/ci-ai-reader-resize-check/*.png
             artifacts/ci-ai-reader-resize-check/*.log
             artifacts/ci-browser-reader/*.png

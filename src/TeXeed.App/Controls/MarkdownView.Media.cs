@@ -81,9 +81,9 @@ public sealed partial class MarkdownView
         var block = new BlockUIContainer(scroll) { Margin = new Thickness(0, 6, 0, 16) };
         var viewport = new TableViewport(block, view, scroll, table, widths, widths.Sum(), view.CopySource(document.ContentStart, document.ContentEnd), source.Span.Start, source.Span.End);
         _tableViews.Add(viewport); SizeTable(viewport);
-        scroll.PreviewMouseRightButtonDown += (_, _) =>
+        scroll.PreviewMouseRightButtonDown += (_, e) =>
         {
-            if (!view.Selection.IsEmpty) return;
+            if (!view.Selection.IsEmpty || e.OriginalSource is ChatFormula { Tag: InlineUIContainer }) return;
             _selectionView = view;
             view.Selection.Select(view.Document.ContentStart, view.Document.ContentEnd);
         };
@@ -102,9 +102,9 @@ public sealed partial class MarkdownView
     internal (int Offset, int Length, string Quote, int TextOffset) GetAnnotationSelection()
     {
         var view = SelectionView();
-        var start = view.Selection.Start; var end = view.Selection.End;
+        var (start, end) = FormulaSelection(view.Selection.Start, view.Selection.End);
         if (view.Selection.IsEmpty && start.Paragraph is { } paragraph) { start = paragraph.ContentStart; end = paragraph.ContentEnd; }
-        var textOffset = view.CopySource(view.Document.ContentStart, start).Length;
+        var textOffset = view.CopySourceLength(view.Document.ContentStart, start);
         var offset = view.Document.ContentStart.GetOffsetToPosition(start);
         if (!ReferenceEquals(view, this))
         {
@@ -142,7 +142,7 @@ public sealed partial class MarkdownView
         picture.PreviewMouseRightButtonDown += (_, _) => SelectBookmarkObject(inline);
         return inline;
     }
-    private void SelectBookmarkObject(InlineUIContainer inline)
+    private void SelectBookmarkObject(TextElement inline)
     {
         if (_tableOwner is not null) _tableOwner._selectionView = this;
         else _selectionView = null;

@@ -105,6 +105,15 @@ public sealed partial class MarkdownView
                 pointer = table.Block.ElementEnd; continue;
             }
             var context = pointer.GetPointerContext(LogicalDirection.Forward);
+            if (context == TextPointerContext.ElementStart &&
+                pointer.GetAdjacentElement(LogicalDirection.Forward) is Span { Tag: ChatMath.Token } formula)
+            {
+                // Previously every inline equation occupied three FlowDocument symbols.
+                yield return (formula.ElementStart, 1);
+                yield return (formula.ContentStart, 1);
+                yield return (formula.ContentEnd, 1);
+                pointer = formula.ElementEnd; continue;
+            }
             if (context == TextPointerContext.ElementStart && pointer.GetAdjacentElement(LogicalDirection.Forward) is Span emojiSpan
                 && ReferenceEquals(emojiSpan.Tag, EmojiSprite.Marker))
             {

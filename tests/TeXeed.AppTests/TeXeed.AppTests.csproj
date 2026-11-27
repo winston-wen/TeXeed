@@ -5,6 +5,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/TeXeed.App/TeXeed.App.csproj" />
     <EmbeddedResource Include="Fixtures/inline-axis/*.svg" LogicalName="TeXeed.AppTests.Fixtures.inline-axis.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Fixtures/inline-wrap/*.svg" LogicalName="TeXeed.AppTests.Fixtures.inline-wrap.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Fixtures/formula-cjk/*.svg" LogicalName="TeXeed.AppTests.Fixtures.formula-cjk.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Fixtures/eqref/*.svg" LogicalName="TeXeed.AppTests.Fixtures.eqref.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Fixtures/revision/*.svg" LogicalName="TeXeed.AppTests.Fixtures.revision.%(Filename)%(Extension)" />
   </ItemGroup>

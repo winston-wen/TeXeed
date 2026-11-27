@@ -19,9 +19,16 @@ internal static class ChatTexRenderer
         internal readonly bool Display = display;
         internal readonly bool Cjk = NeedsCjk(source);
         internal readonly bool UnicodeMath = NeedsUnicodeMath(source);
+        internal readonly int[] Breaks = display ? [] : ChatInlineBreaks.Positions(source);
+        internal ChatSvg? PreviousAsset;
         internal readonly TaskCompletionSource<ChatSvg> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal DateTime FailedAt;
-        internal void Fail(Exception error) { FailedAt = DateTime.UtcNow; Completion.TrySetException(error); }
+        internal void Fail(Exception error)
+        {
+            FailedAt = DateTime.UtcNow;
+            if (PreviousAsset is { } previous) Completion.TrySetResult(previous);
+            else Completion.TrySetException(error);
+        }
     }
     internal sealed class TexSyntaxException(string message) : Exception(message);
     private static readonly Lock CacheLock = new();
@@ -31,6 +38,15 @@ internal static class ChatTexRenderer
     private static bool _draining;
     // Version the disk cache with the TeX preamble and rendering styles.
     private const string Revision = "latex-svg-v1";
+    private const string CjkPreamble = """
+        \usepackage[CJKmath=true]{xeCJK}
+        \newcommand{\texeedcjkfont}[1]{%
+          \setCJKmainfont{#1}\setCJKsansfont{#1}\setCJKmonofont{#1}%
+          \typeout{TEXEED-CJK-FONT: #1}}
+        \IfFontExistsTF{Source Han Serif SC}{\texeedcjkfont{Source Han Serif SC}}{%
+          \IfFontExistsTF{Noto Serif CJK SC}{\texeedcjkfont{Noto Serif CJK SC}}{%
+            \IfFontExistsTF{SimSun}{\texeedcjkfont{SimSun}}{\texeedcjkfont{FandolSong-Regular.otf}}}}
+        """;
     private static bool NeedsCjk(string source) => source.EnumerateRunes().Any(r =>
         r.Value is >= 0x2E80 and <= 0xD7AF or >= 0xF900 and <= 0xFAFF or >= 0x20000 and <= 0x323AF);
     // AMS blackboard fonts contain capitals but omit most lowercase letters and digits.
@@ -64,7 +80,15 @@ internal static class ChatTexRenderer
             // Disk hits never wait for a TeX process slot, including while a long answer compiles.
             if (File.Exists(request.Path))
             {
-                try { request.Completion.TrySetResult(ChatSvg.Read(request.Path)); return; }
+                try
+                {
+                    var cached = ChatSvg.Read(request.Path);
+                    var needsSerif = request.Cjk && cached.CjkFont is null;
+                    if (!needsSerif && (request.Breaks.Length == 0 || cached.HasBreakMetrics || cached.Bounds.Width < ChatInlineBreaks.MinimumWidthBp))
+                    { request.Completion.TrySetResult(cached); return; }
+                    // Rebuild older graphics in place. Keep the readable original if TeX is unavailable.
+                    request.PreviousAsset = cached;
+                }
                 catch (Exception ex) when (ex is not OutOfMemoryException) { File.Delete(request.Path); }
             }
             lock (CacheLock)
@@ -103,9 +127,9 @@ internal static class ChatTexRenderer
         try { await CompileIsolatedAsync(batch); }
         finally { Workers.Release(); }
     }
-    private static async Task CompileIsolatedAsync(List<Request> batch)
+    private static async Task CompileIsolatedAsync(List<Request> batch, bool markBreaks = true)
     {
-        try { await CompileBatchAsync(batch); }
+        try { await CompileBatchAsync(batch, markBreaks); }
         catch (TexSyntaxException) when (batch.Count > 1)
         {
             // A malformed formula must not prevent its healthy neighbours from being rendered.
@@ -113,12 +137,18 @@ internal static class ChatTexRenderer
             await CompileIsolatedAsync(batch.GetRange(0, middle));
             await CompileIsolatedAsync(batch.GetRange(middle, batch.Count - middle));
         }
+        catch (TexSyntaxException) when (markBreaks && batch[0].Breaks.Length > 0)
+        {
+            // A position marker can interrupt a TeX macro scanning an unbraced argument.
+            // Validate and render the author's unmodified formula before reporting an error.
+            await CompileIsolatedAsync(batch, markBreaks: false);
+        }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             foreach (var request in batch) request.Fail(ex);
         }
     }
-    private static async Task CompileBatchAsync(List<Request> batch)
+    private static async Task CompileBatchAsync(List<Request> batch, bool markBreaks)
     {
         var home = batch[0].Home;
         string? work = null;
@@ -134,15 +164,19 @@ internal static class ChatTexRenderer
             work = Path.Combine(home, "job-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(work);
             var document = new StringBuilder("\\documentclass{article}\n\\usepackage{amsmath,amssymb}\n");
-            if (cjk) document.Append("\\usepackage{xeCJK}\n\\setCJKmainfont{Microsoft YaHei}\n");
+            if (cjk) document.AppendLine(CjkPreamble);
             if (unicodeMath) document.Append("\\usepackage{unicode-math}\n\\setmathfont{Latin Modern Math}\n");
-            document.Append("\\tracinglostchars=2\n\\pagestyle{empty}\n\\begin{document}\n");
+            document.Append("\\tracinglostchars=2\n\\pagestyle{empty}\n\\begin{document}\n")
+                .AppendLine(@"\def\texeedbreak#1{\pdfsavepos\write16{TEXEED-BREAK-#1: \the\pdflastxpos}}");
             for (var i = 0; i < batch.Count; i++)
             {
                 var request = batch[i];
-                document.Append("\\begingroup\n\\setbox0=\\hbox{$")
-                    .Append(request.Display ? @"\displaystyle" : @"\textstyle").Append('\n').Append(request.Source)
-                    .Append("\n$}\n\\typeout{TEXEED-METRICS-").Append(i + 1)
+                var breaks = markBreaks ? request.Breaks : [];
+                document.Append("\\begingroup\n\\setbox0=\\hbox{");
+                if (breaks.Length > 0) document.Append(@"\texeedbreak{").Append(i + 1).Append("-0}");
+                document.Append('$').Append(request.Display ? @"\displaystyle" : @"\textstyle").Append('\n');
+                ChatInlineBreaks.AppendMarked(document, request.Source, breaks, i + 1);
+                document.Append("\n$}\n\\typeout{TEXEED-METRICS-").Append(i + 1)
                     .Append(": \\the\\wd0,\\the\\ht0,\\the\\dp0}\n\\shipout\\box0\n\\endgroup\n");
             }
             document.Append("\\end{document}\n");
@@ -153,11 +187,15 @@ internal static class ChatTexRenderer
             if (latex.Contains("miktex", StringComparison.OrdinalIgnoreCase)) arguments.Add("--disable-installer");
             arguments.Add("formula.tex");
             var log = await RunAsync(latex, arguments, work, timeout.Token, isolateSyntax: true);
+            var cjkFont = cjk ? Regex.Match(log, @"TEXEED-CJK-FONT: ([^\r\n]+)").Groups[1].Value.Trim() : null;
+            if (cjk && string.IsNullOrEmpty(cjkFont)) throw new InvalidDataException("XeLaTeX 未返回公式所用的中文字体。");
             var missing = log.Split('\n').FirstOrDefault(line => line.Contains("Missing character:"));
             if (missing is not null) throw new TexSyntaxException("公式缺少字形：" + missing.Trim());
             var metrics = Regex.Matches(log, @"TEXEED-METRICS-(\d+):\s*([0-9.+-]+)pt,\s*([0-9.+-]+)pt,\s*([0-9.+-]+)pt")
                 .ToDictionary(m => int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture));
             if (metrics.Count != batch.Count) throw new InvalidDataException("LaTeX 未返回全部公式尺寸。");
+            var positions = Regex.Matches(log, @"TEXEED-BREAK-(\d+)-(\d+):\s*(-?\d+)")
+                .ToLookup(m => int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture));
             await RunAsync(svg, ["--no-fonts", "--no-specials", "--exact-bbox", "--bbox=min", "--page=1-", "--cache=none", "--output=formula-%1p.svg", xetex ? "formula.xdv" : "formula.dvi"], work, timeout.Token);
             for (var index = 0; index < batch.Count; index++)
             {
@@ -168,9 +206,21 @@ internal static class ChatTexRenderer
                     if (new FileInfo(generated).Length > 4_000_000) throw new InvalidDataException("公式 SVG 过大。");
                     var xml = XDocument.Load(generated);
                     var root = xml.Root ?? throw new InvalidDataException("公式 SVG 为空。");
+                    if (cjkFont is not null) root.SetAttributeValue("data-texeed-cjk-font", cjkFont);
                     var metric = metrics[index + 1];
                     for (var i = 0; i < 3; i++)
                         root.SetAttributeValue("data-texeed-" + new[] { "width", "height", "depth" }[i], double.Parse(metric.Groups[i + 2].Value, CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture));
+                    if (request.Breaks.Length > 0)
+                    {
+                        var marks = positions[index + 1].ToArray();
+                        var cuts = Array.Empty<double>();
+                        if (marks.Length == request.Breaks.Length + 1 && marks[0].Groups[2].Value == "0")
+                        {
+                            var origin = long.Parse(marks[0].Groups[3].Value, CultureInfo.InvariantCulture);
+                            cuts = marks.Skip(1).Select(m => (long.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture) - origin) * (72d / 72.27 / 65536)).ToArray();
+                        }
+                        root.SetAttributeValue("data-texeed-breaks", string.Join(" ", cuts.Select(x => x.ToString("R", CultureInfo.InvariantCulture))));
+                    }
                     var result = ChatSvg.Read(root, request.Path);
                     await File.WriteAllTextAsync(generated, xml.ToString(), new UTF8Encoding(false));
                     File.Move(generated, request.Path, overwrite: true);

@@ -37,7 +37,12 @@ internal static partial class Program
             RunOnInputDesktopAsync("revision editor", "--revision-editor-native", output).GetAwaiter().GetResult();
             return 0;
         }
-        if (args.Contains("--workspace-chrome-native") || args.Contains("--revision-editor-native"))
+        if (args.Contains("--ai-annotation-focus-only"))
+        {
+            RunOnInputDesktopAsync("annotation focus", "--ai-annotation-focus-native", output).GetAwaiter().GetResult();
+            return 0;
+        }
+        if (args.Contains("--workspace-chrome-native") || args.Contains("--revision-editor-native") || args.Contains("--ai-annotation-focus-native"))
         {
             var log = new StreamWriter(Path.Combine(output, "input.log")) { AutoFlush = true };
             Console.SetOut(log);
@@ -85,6 +90,11 @@ internal static partial class Program
                     await CheckRevisionEditorViewportAsync(window, output);
                     await CheckRevisionDraftShortcutAsync(window, output);
                     await CloseAndObserveAsync(window, "turn revision editor"); result = 0; return;
+                }
+                if (args.Contains("--ai-annotation-focus-native"))
+                {
+                    await CheckAnnotationFocusAsync(window, output);
+                    await CloseAndObserveAsync(window, "annotation popup focus"); result = 0; return;
                 }
                 if (args.Contains("--workspace-chrome-native"))
                 {
@@ -159,11 +169,21 @@ internal static partial class Program
                     await CheckEquationReferenceAsync(window, output, args.Contains("--real-tex"), args.Contains("--window-mouse"));
                     await CloseAndObserveAsync(window, "equation references"); result = 0; return;
                 }
+                if (args.Contains("--ai-formula-cjk-only"))
+                {
+                    await CheckCjkFormulaTypographyAsync(window, output, args.Contains("--real-tex"));
+                    await CloseAndObserveAsync(window, "Chinese formula font"); result = 0; return;
+                }
                 if (args.Contains("--ai-inline-axis-only"))
                 {
                     await CheckAiInlineTypographyAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-inline-axis"));
                     await CheckAiNumberMarkupAsync(args.Contains("--real-tex"));
                     await CloseAndObserveAsync(window, "AI inline reading axes"); result = 0; return;
+                }
+                if (args.Contains("--ai-inline-wrap-only"))
+                {
+                    await CheckInlineMathWrapAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-inline-wrap"));
+                    await CloseAndObserveAsync(window, "inline formula line breaks"); result = 0; return;
                 }
                 if (args.Contains("--ai-unlock-viewport-only"))
                 {

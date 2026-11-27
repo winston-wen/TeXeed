@@ -458,6 +458,7 @@ dialog textarea { width:100%; height:220px }
 <script src="vendor/markdown-it/markdown-it.min.js"></script>
 <script src="vendor/katex/katex.min.js"></script>
 <script src="rich-text.js"></script>
+<script src="inline-math-wrap.js"></script>
 <script src="quote-summary.js"></script>
 <script src="scrollbar-activity.js"></script>
 <script src="history.js"></script>
@@ -634,6 +635,7 @@ function showSnapshot(link){
  preview.querySelector('.preview-label').textContent='原文 · '+number;
  preview.querySelector('.snapshot-scroll').innerHTML=snapshotHtml(entry)||'<p class="muted">此条没有保存原文。</p>';
  preview.dataset.number=String(number);preview.hidden=false;link.setAttribute('aria-expanded','true');
+ prepareReadingMath(preview);
  requestAnimationFrame(()=>{scrollToReadingTarget(preview,'nearest');preview.querySelector('.snapshot-scroll').focus({preventScroll:true});});
 }
 function installImageViewer(){
@@ -756,6 +758,7 @@ function addSameTurnLinks(){
  }
 }
 function enhanceAnswers(scope=document){
+ prepareReadingMath(scope);
  scope.querySelectorAll('.math').forEach(m=>m.removeAttribute('tabindex'));
  scope.querySelectorAll('.answer code').forEach(code=>{const turn=current().turns.find(t=>t.id===code.closest('.answer').dataset.turn);if(!BUNDLED_TURNS.some(t=>t.id===turn.id&&t.answer===turn.answer))return;const text=code.textContent.trim();if(/^(?:main\.tex|qa\.md)(?::\d+(?:[–—-]\d+)?)?$/.test(text)){const b=document.createElement('button');b.className='file-link';b.dataset.file=text;b.textContent=text;b.title='打开源码快照'+(text.includes(':')?'并跳转到行号':'');code.replaceChildren(b);}});
  const answerNumbers=new Map();
@@ -907,6 +910,15 @@ function renderConversation(){setAnswerMarking(false);running=requests.get(state
 function protectedAnnotation(e){return !!(e.sourceLocked||e.isBranchOrigin||e.state==='提交中');}
 function removeEntry(id){const e=current().entries.find(e=>e.id===id);if(!e||protectedAnnotation(e))return;current().entries=current().entries.filter(e=>e.id!==id);if(editing===id){editing=null;resetAnnotationDelete();annotationPosition=null;annotationDrag=null;annotationCanDrag=false;$('annotation-editor').hidden=true;}renderEntries();record('remove-entry',{number:e.number});}
 function serialize(node){if(node.nodeType===3)return node.nodeValue;if(node.nodeType!==1&&node.nodeType!==11)return '';if(node.nodeType===1){if(node.matches('.margin-notes,.equation-number,.heading-marker,.same-turn-link'))return '';if(node.matches('.math'))return node.dataset.display==='true'?'$$\n'+node.dataset.tex+'$$\n':' $'+node.dataset.tex+'$ ';if(node.matches('svg'))return '';}let text=Array.from(node.childNodes).map(serialize).join('');if(node.nodeType===1&&node.matches('p,li,h1,h2,h3,h4,h5,h6,blockquote,.equation,.passage'))text+='\n';return text;}
+function serializeReadingSelection(range){
+ const formula=node=>(node.nodeType===Node.ELEMENT_NODE?node:node.parentElement)?.closest('.math');
+ const from=formula(range.startContainer),to=formula(range.endContainer);
+ if(!from&&!to)return serialize(range.cloneContents());
+ const expanded=range.cloneRange();
+ if(from)expanded.setStartBefore(from);
+ if(to)expanded.setEndAfter(to);
+ return serialize(expanded.cloneContents());
+}
 function targetContext(target,event){
  const p=target.closest('.passage'),answer=target.closest('.answer');if(!p||!answer)return null;
  const sel=window.getSelection(),media=target.closest('.math,img,table'),body=p.querySelector('.passage-body');
@@ -916,7 +928,7 @@ function targetContext(target,event){
   const inside=!event||Array.from(r.getClientRects()).some(rect=>event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom);
   if(!inside)sel.removeAllRanges();
   else if(start.closest('.answer')===answer&&end.closest('.answer')===answer){
-   quote=serialize(r.cloneContents());selected=true;startBlock=start.closest('.passage')?.id||p.id;endInMedia=!!media?.contains(r.endContainer);
+   quote=serializeReadingSelection(r);selected=true;startBlock=start.closest('.passage')?.id||p.id;endInMedia=!!media?.contains(r.endContainer);
    const block=end.closest('.passage'),endBody=block?.querySelector('.passage-body');
    if(endBody?.contains(r.endContainer)){const prefix=document.createRange();prefix.selectNodeContents(endBody);prefix.setEnd(r.endContainer,r.endOffset);const fragment=prefix.cloneContents();fragment.querySelectorAll('.same-turn-link,.heading-marker,.margin-notes,.math,svg').forEach(el=>el.remove());endBlock=block.id;endTextOffset=fragment.textContent.length;}
   }
@@ -966,9 +978,29 @@ function returnBranchOrigin(){
 let annotationPosition=null,annotationDrag=null,annotationCanDrag=false,annotationDeleteArmed=false;
 function resetAnnotationDelete(){annotationDeleteArmed=false;$('annotation-delete-hint').hidden=true;}
 function updateAnnotationDeleteHint(){const e=current().entries.find(entry=>entry.id===editing),button=$('delete-annotation');if(!e)return;button.disabled=protectedAnnotation(e);button.title=button.disabled?'受保护的来源不能删除':annotationCanDrag?'删除批注':'双击删除此条批注';button.setAttribute('aria-label',button.title);}
-function openEditor(id){const e=current().entries.find(e=>e.id===id);if(!e)return;commitAnnotation();deleteKeyboardAt=0;editing=id;annotationPosition=null;annotationCanDrag=!!(e.block&&$(e.block)?.closest('.answer'));$('annotation-editor').querySelector('.annotation-header').dataset.draggable=String(annotationCanDrag);$('annotation-title').innerHTML=esc('#'+e.number+' · '+e.title)+'<span class="anchor-state"></span>';$('annotation-input').value=e.question;$('annotation-editor').hidden=false;resetAnnotationDelete();updateAnnotationDeleteHint();refreshEditors();positionEditor();$('annotation-input').focus({preventScroll:true});}
+function openEditor(id){
+ const e=current().entries.find(e=>e.id===id);if(!e)return;
+ commitAnnotation();deleteKeyboardAt=0;editing=id;annotationPosition=null;
+ annotationCanDrag=!!(e.block&&$(e.block)?.closest('.answer'));
+ const popup=$('annotation-editor'),input=$('annotation-input');
+ popup.querySelector('.annotation-header').dataset.draggable=String(annotationCanDrag);
+ $('annotation-title').innerHTML=esc('#'+e.number+' · '+e.title)+'<span class="anchor-state"></span>';
+ input.value=e.question;popup.hidden=false;resetAnnotationDelete();updateAnnotationDeleteHint();refreshEditors();positionEditor();
+ input.focus({preventScroll:true});
+ input.setSelectionRange(input.value.length,input.value.length);
+}
 function commitAnnotation(){if(!editing)return;const e=current().entries.find(e=>e.id===editing);if(e)e.question=$('annotation-input').value;record('commit-annotation',{id:editing});editing=null;resetAnnotationDelete();annotationPosition=null;annotationDrag=null;annotationCanDrag=false;$('annotation-editor').hidden=true;}
-function confirmAnnotation(id){const e=current().entries.find(e=>e.id===id);if(!e)return;if(editing===id)commitAnnotation();e.selected=true;renderEntries();if($('entries-dialog').open)$('entries-dialog').close();record('confirm-annotation',{id});}
+function confirmAnnotation(id){
+ const e=current().entries.find(e=>e.id===id);if(!e)return;
+ const fromPopup=editing===id;
+ if(fromPopup)commitAnnotation();e.selected=true;renderEntries();
+ if($('entries-dialog').open)$('entries-dialog').close();
+ if(fromPopup&&e.block){
+  const bubble=$('thread').querySelector('[data-bubble="'+CSS.escape(id)+'"]');
+  (bubble?.getClientRects().length?bubble:$('reader')).focus({preventScroll:true});
+ }
+ record('confirm-annotation',{id});
+}
 function positionEditor(){if(!editing)return;const e=current().entries.find(e=>e.id===editing),p=e&&readingAnchor(e.block),box=$('annotation-editor');if(!e)return;const area=$('reader').getBoundingClientRect(),r=p?.getBoundingClientRect();box.hidden=false;const visible=r&&p.getClientRects().length&&r.bottom>=area.top&&r.top<=area.bottom;const label=$('annotation-title').querySelector('.anchor-state');if(label)label.textContent=visible?'':'原位置在视野外';if(annotationPosition){annotationPosition.x=Math.max(0,Math.min(annotationPosition.x,innerWidth-box.offsetWidth));annotationPosition.y=Math.max(0,Math.min(annotationPosition.y,innerHeight-box.offsetHeight));box.style.left=annotationPosition.x+'px';box.style.top=annotationPosition.y+'px';}else{box.style.left=Math.max(12,Math.min((r?.right||area.right)-28,innerWidth-box.offsetWidth-12))+'px';box.style.top=Math.max(area.top,Math.min(r?.top+28||area.top,area.bottom-box.offsetHeight-8))+'px';}}
 const annotationHeader=$('annotation-editor').querySelector('.annotation-header');
 annotationHeader.addEventListener('pointerdown',event=>{if(!annotationCanDrag||event.button!==0||event.target.closest('button'))return;const rect=$('annotation-editor').getBoundingClientRect();annotationDrag={pointer:event.pointerId,x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};annotationHeader.setPointerCapture(event.pointerId);event.preventDefault();});
@@ -1146,7 +1178,7 @@ document.addEventListener('keydown',e=>{
   searchPreviousFocus=null;
  }
 });
-document.addEventListener('copy',e=>{if(e.target.closest('textarea,input'))return;const sel=window.getSelection();if(!sel?.rangeCount||sel.isCollapsed)return;const r=sel.getRangeAt(0),start=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;if(!start.closest('.answer'))return;e.clipboardData.setData('text/plain',serialize(r.cloneContents()));e.preventDefault();});
+document.addEventListener('copy',e=>{if(e.target.closest('textarea,input'))return;const sel=window.getSelection();if(!sel?.rangeCount||sel.isCollapsed)return;const r=sel.getRangeAt(0),start=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;if(!start.closest('.answer'))return;e.clipboardData.setData('text/plain',serializeReadingSelection(r));e.preventDefault();});
 $('restore').onclick=()=>{for(const id of [...requests.keys()])stopConversation(id);state=fresh();openTabs=[state.active];migrateSnapshots();persist();$('lab').close();showChat();renderConversation();requestAnimationFrame(()=>$('entries').scrollTop=$('entries').scrollHeight);};
 $('close-lab').onclick=()=>$('lab').close();$('close-copy').onclick=()=>$('copy-dialog').close();
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify({basis:DATA.basis,provenance:DATA.provenance,scripted:DATA.playback,...state},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='texeed-baseline-transcript.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
@@ -1342,6 +1374,7 @@ function previewEquation(link){
  body.className='equation-preview-body';body.append(content);
  number.className='equation-number';number.textContent=link.textContent.replace('（','(').replace('）',')');
  popup.append(body,number);document.body.append(popup);
+ prepareReadingMath(body);
  const anchor=link.getBoundingClientRect(),reader=$('reader').getBoundingClientRect(),gap=6;
  popup.style.maxWidth=Math.max(1,reader.width-2*gap)+'px';
  const above=anchor.top-reader.top-gap,below=reader.bottom-anchor.bottom-gap;

@@ -474,6 +474,14 @@
       const position=locations.get(node);
       if(!position)continue;
       if(position.size===undefined)return position.offset+range.startOffset;
+      if(node.classList?.contains('wrapped-math')){
+        const lines=[...node.getClientRects()],hit=lines.find(rect=>y>=rect.top&&y<=rect.bottom);
+        if(hit){
+          const before=lines.slice(0,lines.indexOf(hit)).reduce((w,rect)=>w+rect.width,0);
+          const width=lines.reduce((w,rect)=>w+rect.width,0);
+          return position.offset+(before+x-hit.left>=width/2?position.size:0);
+        }
+      }
       const rect=node.getBoundingClientRect();
       return position.offset+(x>=rect.left+rect.width/2?position.size:0);
     }
@@ -722,7 +730,7 @@
       if(sourceWords!==words)return;
       endCaret();words.removeAttribute('contenteditable');
       const row=paragraphs[index()];
-      if(row)paintReading(words,row);
+      if(row){paintReading(words,row);prepareReadingMath(words);}
       const number=words.parentElement.querySelector('.revision-number');
       if(number)number.textContent=number.dataset.number;
       if(row&&!row.parts.length)deferDraftCleanup(id);
@@ -775,6 +783,7 @@
        }
        p.append(words);body.append(p);
      }
+     prepareReadingMath(body);
      painting=false;
    }
    function deleteSelected(){
@@ -930,8 +939,9 @@
      const target=formula?.closest('.equation')||passage;
      if(target){target.classList.add('citation-history-target');requestAnimationFrame(()=>{if(dialog.open)target.scrollIntoView({block:'center'});});}
    }
-   preview.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));preview.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);}
-   select.onchange=display;display();dialog.append(select,preview);dialog.showModal();
+   preview.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));preview.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);
+   prepareReadingMath(preview);}
+   select.onchange=display;dialog.append(select,preview);dialog.showModal();display();
  }
  // The prototype models an exact replacement. Give this writer the same TeX
  // source as the native tool while leaving the human editor's atoms untouched.

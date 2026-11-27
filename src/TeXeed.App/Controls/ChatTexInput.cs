@@ -14,7 +14,7 @@ internal static class ChatTexInput
         sin cos tan cot sec csc sinh cosh tanh coth arcsin arccos arctan log ln lg exp lim limsup liminf sup inf max min det dim ker gcd hom Pr arg deg mod bmod pmod pod
         mathbb mathcal mathfrak mathrm mathbf mathsf mathtt mathit mathnormal boldsymbol pmb operatorname
         text textrm textsf texttt textnormal textbf textit emph mbox
-        displaystyle textstyle scriptstyle scriptscriptstyle
+        displaystyle textstyle scriptstyle scriptscriptstyle nobreak allowbreak
         left right middle big Big bigg Bigg bigl Bigl biggl Biggl bigr Bigr biggr Biggr bigm Bigm biggm Biggm
         lbrace rbrace langle rangle lvert rvert lVert rVert vert Vert lfloor rfloor lceil rceil backslash
         hat widehat bar overline underline vec dot ddot dddot ddddot tilde widetilde breve check acute grave mathring

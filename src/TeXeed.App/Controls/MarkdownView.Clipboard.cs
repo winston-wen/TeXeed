@@ -10,10 +10,20 @@ public sealed partial class MarkdownView
         "ParagraphSourcePosition", typeof(int), typeof(MarkdownView), new PropertyMetadata(-1));
     private (MarkdownView View, Paragraph Paragraph)? _contextParagraph;
 
-    internal void PrepareContextSelection(Point point)
+    private bool SelectionContainsFormulaPiece(InlineUIContainer piece)
+    {
+        var selection = (_tableOwner ?? this).SelectionView().Selection;
+        return !selection.IsEmpty && selection.Start.IsInSameDocument(piece.ContentStart) &&
+            selection.Start.CompareTo(piece.ContentEnd) < 0 && selection.End.CompareTo(piece.ContentStart) > 0;
+    }
+
+    internal void PrepareContextSelection(Point point, object? hitElement = null)
     {
         var selected = SelectionView();
         if (selected.Selection.IsEmpty) return;
+        // The inline object supplies the exact hit even when its nearest text position
+        // falls across a wrap. Keep the user's selection when it includes that piece.
+        if (hitElement is ChatFormula { Tag: InlineUIContainer piece } && SelectionContainsFormulaPiece(piece)) return;
         var target = this;
         foreach (var table in _tableViews)
         {
@@ -81,6 +91,7 @@ public sealed partial class MarkdownView
     // Clipboard whitespace is independent of the canonical text offsets stored in existing annotations.
     internal string CopyForClipboard(TextPointer start, TextPointer end)
     {
+        (start, end) = FormulaSelection(start, end);
         var output = new StringBuilder();
         var afterInline = false;
         void Text(string text)
@@ -115,7 +126,7 @@ public sealed partial class MarkdownView
             if (context == TextPointerContext.ElementStart && p.GetAdjacentElement(LogicalDirection.Forward) is Run { Tag: SnapshotFormulaCopy formula } run && CoversElement(run, start, end))
             { Text(formula.Text); p = run.ElementEnd.CompareTo(end) <= 0 ? run.ElementEnd : end; continue; }
             var inline = context == TextPointerContext.ElementStart
-                ? p.GetAdjacentElement(LogicalDirection.Forward) as InlineUIContainer : p.Parent as InlineUIContainer;
+                ? p.GetAdjacentElement(LogicalDirection.Forward) as Inline : p.Parent as InlineUIContainer;
             if (inline is not null && _clipboardMath.TryGetValue(inline, out var token))
             {
                 var tex = token.CopyTex.ReplaceLineEndings("\n").Trim();
@@ -133,7 +144,7 @@ public sealed partial class MarkdownView
                 }
                 p = inline.ElementEnd; continue;
             }
-            if (inline is { Tag: string source }) { Text(source); p = inline.ElementEnd; continue; }
+            if (inline is InlineUIContainer { Tag: string source }) { Text(source); p = inline.ElementEnd; continue; }
             if (context == TextPointerContext.Text)
             {
                 var text = p.GetTextInRun(LogicalDirection.Forward);

@@ -29,8 +29,11 @@ for scenario in all_turns + [dict(question='', answer=data['playback']['answer']
             if key not in formulas:
                 formulas[key] = len(formulas) + 1
 
-document = [r'\documentclass{article}', r'\usepackage{amsmath,amssymb,xeCJK}',
-            r'\setCJKmainfont{Microsoft YaHei}', r'\tracinglostchars=2', r'\begin{document}']
+document = [r'\documentclass{article}', r'\usepackage{amsmath,amssymb}', r'\usepackage[CJKmath=true]{xeCJK}',
+            r'\IfFontExistsTF{Source Han Serif SC}{\setCJKmainfont{Source Han Serif SC}}{'
+            r'\IfFontExistsTF{Noto Serif CJK SC}{\setCJKmainfont{Noto Serif CJK SC}}{'
+            r'\IfFontExistsTF{SimSun}{\setCJKmainfont{SimSun}}{\setCJKmainfont{FandolSong-Regular.otf}}}}',
+            r'\tracinglostchars=2', r'\begin{document}']
 for (tex, display), i in formulas.items():
     style = r'\displaystyle' if display else r'\textstyle'
     body = re.sub(r'\\(?:tag\*?|label)\{[^{}]+\}', '', tex) if display else tex
@@ -62,6 +65,8 @@ def math_markup(tex, display):
     root.set('height', f'{(height + depth) / 10:.5f}em')
     root.set('style', f'vertical-align:-{depth / 10:.5f}em;fill:currentColor')
     root.set('aria-hidden', 'true')
+    if re.search(r'[\u3400-\u9fff\U00020000-\U000323af]', tex):
+        root.set('data-cjk-face', 'serif')
     svg = ET.tostring(root, encoding='unicode')
     svg = re.sub(r'\bid="([^"]+)"', lambda m: f'id="m{serial}-{m[1]}"', svg)
     svg = re.sub(r'href="#([^"]+)"', lambda m: f'href="#m{serial}-{m[1]}"', svg)

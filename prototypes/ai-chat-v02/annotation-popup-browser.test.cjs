@@ -6,6 +6,55 @@ let chromium;
 try { ({ chromium } = require(process.env.TEXEED_PLAYWRIGHT_PATH || 'playwright')); }
 catch { console.log('SKIP annotation popup browser: Playwright unavailable'); process.exit(0); }
 
+async function checkOpeningFocus(page) {
+  await page.evaluate(() => {
+    const session=current();
+    session.turns=[{id:'focus-check',question:'如何记录原文？',sections:{},
+      answer:Array.from({length:45},(_,i)=>'第'+(i+1)+'段，选择这几个字，然后继续阅读。').join('\n\n')}];
+    session.entries=[];
+    session.draft='继续写主草稿';
+    renderConversation();
+  });
+  const paragraph=page.locator('#focus-check-p26 p');
+  await paragraph.evaluate(p=>p.scrollIntoView({block:'center'}));
+  const anchorY=()=>paragraph.evaluate(p=>p.getBoundingClientRect().top);
+  const top=await anchorY();
+  const points=await paragraph.evaluate(p=>{
+    const text=p.firstChild,value='选择这几个字',start=text.data.indexOf(value),end=start+value.length;
+    const range=document.createRange();range.setStart(text,start);range.setEnd(text,end);
+    const box=range.getBoundingClientRect();
+    return {left:box.left+.25,right:box.right-.25,y:(box.top+box.bottom)/2};
+  });
+  await page.mouse.move(points.left,points.y);
+  await page.mouse.down();await page.mouse.move(points.right,points.y,{steps:6});await page.mouse.up();
+  assert.equal(await page.evaluate(()=>getSelection().toString()),'选择这几个字');
+  await page.mouse.click((points.left+points.right)/2,points.y,{button:'right'});
+  await page.locator('#annotate').click();
+  const field=page.locator('#annotation-input');
+  const caret=()=>field.evaluate(el=>[document.activeElement===el,el.selectionStart,el.selectionEnd]);
+  assert.deepEqual(await caret(),[true,0,0]);
+  await page.keyboard.insertText('第一条批注');
+  assert.equal(await field.inputValue(),'第一条批注');
+  assert.equal(await page.locator('#composer').inputValue(),'继续写主草稿');
+  assert(Math.abs(await anchorY()-top)<1,'Opening the annotation moved the source paragraph');
+  const quote=()=>page.evaluate(()=>{const e=current().entries[0];return [e.block,e.quote,e.question]});
+  await page.keyboard.press('Control+Enter');
+  assert(await page.locator('#annotation-editor').isHidden());
+  assert.deepEqual(await quote(),['focus-check-p26','选择这几个字','第一条批注']);
+  const bubble=paragraph.locator('xpath=ancestor::section[1]').locator('[data-bubble]');
+  assert(await bubble.evaluate(el=>document.activeElement===el));
+  await bubble.click();
+  assert.deepEqual(await caret(),[true,'第一条批注'.length,'第一条批注'.length]);
+  await page.keyboard.insertText('，补充说明');
+  assert.equal(await field.inputValue(),'第一条批注，补充说明');
+  if(process.env.TEXEED_ANNOTATION_FOCUS_SCREENSHOT)await page.screenshot({path:process.env.TEXEED_ANNOTATION_FOCUS_SCREENSHOT,caret:'initial'});
+  await page.locator('#send-annotation').click();
+  assert.deepEqual(await quote(),['focus-check-p26','选择这几个字','第一条批注，补充说明']);
+  assert(await bubble.evaluate(el=>document.activeElement===el));
+  assert.equal(await page.locator('#composer').inputValue(),'继续写主草稿');
+  assert(Math.abs(await anchorY()-top)<1,'Completing the annotation moved the source paragraph');
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, ...(process.env.TEXEED_BROWSER_PATH ? { executablePath: process.env.TEXEED_BROWSER_PATH } : {}) });
   try {
@@ -82,6 +131,7 @@ catch { console.log('SKIP annotation popup browser: Playwright unavailable'); pr
     assert.equal(await page.evaluate(() => current().turns.length), turns);
     await page.reload();
     assert.equal(await page.evaluate(() => current().entries.find(e => e.id === 'confirm')?.question), '确认后保留的评论');
+    await checkOpeningFocus(page);
     assert.deepEqual(errors, []);
     console.log('PASS popup: drag, bounded resize, two-stage delete, keyboard, protected source, confirmation and draft persistence');
   } finally { await browser.close(); }

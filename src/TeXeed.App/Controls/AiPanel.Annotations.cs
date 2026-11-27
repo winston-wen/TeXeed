@@ -116,7 +116,7 @@ public partial class AiPanel
     {
         if (sender is not MarkdownView view) return;
         var point = e.GetPosition(view);
-        view.PrepareContextSelection(point);
+        view.PrepareContextSelection(point, e.OriginalSource);
         view.CaptureContextParagraph(point);
     }
     private void Answer_VisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)

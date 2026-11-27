@@ -56,10 +56,11 @@ public sealed partial class MarkdownView
 
     internal (string Before, string After) BookmarkSelectionContext()
     {
-        var selection = SelectionView().Selection;
-        var before = SelectionView().CopySource(SelectionView().Document.ContentStart, selection.Start);
-        var after = SelectionView().CopySource(selection.End, SelectionView().Document.ContentEnd);
-        var selected = SelectionView().CopySource(selection.Start, selection.End);
+        var view = SelectionView();
+        var (start, end) = FormulaSelection(view.Selection.Start, view.Selection.End);
+        var before = view.CopySource(view.Document.ContentStart, start);
+        var after = view.CopySource(end, view.Document.ContentEnd);
+        var selected = view.CopySource(start, end);
         var left = 0; var right = selected.Length;
         while (left < right && char.IsWhiteSpace(selected[left])) left++;
         while (right > left && char.IsWhiteSpace(selected[right - 1])) right--;

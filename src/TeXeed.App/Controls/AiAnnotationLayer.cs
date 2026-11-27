@@ -30,6 +30,7 @@ internal sealed partial class AiAnnotationLayer : Adorner, IDisposable
     private double _editingZoom;
     private List<(AiEntry Entry, Rect Bounds)> _positions = [];
     private AiEntry? _editing;
+    private TextBox? _editingInput;
     private AiEntry? _pendingEdit;
     internal Func<FrameworkElement, Point>? AnswerPopupPointerPosition { get; set; }
     private bool _refreshQueued, _disposed;
@@ -40,10 +41,25 @@ internal sealed partial class AiAnnotationLayer : Adorner, IDisposable
     {
         _host = host; _entries = entries; _anchor = anchor; _remove = remove; _margin = margin; _confirm = confirm; _commit = commit;
         _popup.PlacementTarget = host;
+        _popup.Opened += (_, _) =>
+        {
+            if (_editingInput is not { } input) return;
+            input.CaretIndex = input.Text.Length;
+            var previous = Keyboard.FocusedElement;
+            // The popup now owns a live visual tree. Transfer input before a keystroke
+            // or IME commit can reach the reading area or the conversation composer.
+            if (!input.Focus())
+                input.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
+                {
+                    if (_popup.IsOpen && ReferenceEquals(_editingInput, input) && ReferenceEquals(Keyboard.FocusedElement, previous))
+                        input.Focus();
+                }));
+        };
         _popup.Closed += (_, _) =>
         {
             var hadEditor = _editing is not null;
             _editing = null;
+            _editingInput = null;
             ObserveContext(false);
             if (hadEditor) _commit?.Invoke();
         };
@@ -362,8 +378,8 @@ internal sealed partial class AiAnnotationLayer : Adorner, IDisposable
         ConfigureAnswerPopup(surface, stack, position.Bounds);
         _editingHostBounds = HostBounds(); _editingClip = _lastClip; _editingAnchor = position.Bounds;
         _editingDocumentVersion = _lastDocumentVersion; _editingZoom = (_host as PdfPreview)?.Zoom ?? 0;
+        _editingInput = input;
         _popup.IsOpen = true;
         ObserveContext(true);
-        input.Dispatcher.BeginInvoke(new Action(() => { if (_popup.IsOpen) { input.Focus(); input.CaretIndex = input.Text.Length; } }));
     }
 }

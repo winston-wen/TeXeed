@@ -1,0 +1,85 @@
+{
+  "fixture": "Windows private desktop. Native click on the annotation command in the answer selection context menu, then native click on its marker to reopen. One unsubmitted composer draft.",
+  "method": "Three processes per build, one warm-up then five measured interactions per operation. Elapsed time and UI-thread allocations cover mouse dispatch through ApplicationIdle, including Windows menu and popup handling. Check the caret and keyboard focus at Popup.Opened and after layout. A separate untimed first interaction sends Unicode to GetFocus() immediately.",
+  "beforeVersion": "0.6.9+0b6a4d2",
+  "afterVersion": "0.6.10",
+  "columns": ["operation", "elapsedMs", "uiBytes", "visiblePopupControls", "focusedAtOpenAndAfterLayout"],
+  "beforeAssemblySha256": "04c19f7ce7845bb1d6c69bbbd011c1e3e7061ded5d2dfae5f15fbc15eceb8faa",
+  "before": [
+    [
+      ["create", 668.7511, 922584, 6, false],
+      ["reopen", 512.2217, 630064, 6, false],
+      ["create", 671.0344, 873192, 6, false],
+      ["reopen", 531.2527, 600568, 6, false],
+      ["create", 665.0056, 883072, 6, false],
+      ["reopen", 518.4799, 598168, 6, false],
+      ["create", 668.1871, 881288, 6, false],
+      ["reopen", 370.2366, 592592, 6, false],
+      ["create", 373.2768, 817088, 6, false],
+      ["reopen", 271.319, 589144, 6, false]
+    ],
+    [
+      ["create", 674.6913, 925072, 6, false],
+      ["reopen", 520.2428, 628816, 6, false],
+      ["create", 673.767, 908584, 6, false],
+      ["reopen", 523.531, 628856, 6, false],
+      ["create", 709.3317, 905904, 6, false],
+      ["reopen", 479.6928, 639856, 6, false],
+      ["create", 376.2241, 834120, 6, false],
+      ["reopen", 273.0675, 588808, 6, false],
+      ["create", 369.0903, 827944, 6, false],
+      ["reopen", 265.942, 589696, 6, false]
+    ],
+    [
+      ["create", 659.6631, 925568, 6, false],
+      ["reopen", 522.6165, 627784, 6, false],
+      ["create", 656.8104, 907568, 6, false],
+      ["reopen", 510.1781, 625136, 6, false],
+      ["create", 668.0099, 868712, 6, false],
+      ["reopen", 520.3928, 602824, 6, false],
+      ["create", 366.882, 883192, 6, false],
+      ["reopen", 369.5574, 588304, 6, false],
+      ["create", 370.6904, 819592, 6, false],
+      ["reopen", 274.7047, 638096, 6, false]
+    ]
+  ],
+  "afterAssemblySha256": "adbcd00fe61ce3dbf637627b2ff27dcd9fd82f1f6187c6591660b07a59f91001",
+  "after": [
+    [
+      ["create", 666.5124, 944904, 6, true],
+      ["reopen", 514.9106, 622960, 6, true],
+      ["create", 658.3541, 902992, 6, true],
+      ["reopen", 526.3381, 619160, 6, true],
+      ["create", 657.296, 888416, 6, true],
+      ["reopen", 521.8502, 599040, 6, true],
+      ["create", 376.6868, 877584, 6, true],
+      ["reopen", 376.7597, 584728, 6, true],
+      ["create", 365.9277, 813840, 6, true],
+      ["reopen", 291.2547, 635216, 6, true]
+    ],
+    [
+      ["create", 670.8752, 944904, 6, true],
+      ["reopen", 520.2705, 621736, 6, true],
+      ["create", 668.0513, 901976, 6, true],
+      ["reopen", 514.1126, 621664, 6, true],
+      ["create", 560.2034, 892704, 6, true],
+      ["reopen", 545.3113, 598608, 6, true],
+      ["create", 146.6654, 819736, 6, true],
+      ["reopen", 367.5664, 589664, 6, true],
+      ["create", 368.4663, 814320, 6, true],
+      ["reopen", 242.0219, 577816, 6, true]
+    ],
+    [
+      ["create", 671.8644, 944904, 6, true],
+      ["reopen", 514.6426, 622960, 6, true],
+      ["create", 664.0897, 902464, 6, true],
+      ["reopen", 524.6974, 619080, 6, true],
+      ["create", 672.6317, 863328, 6, true],
+      ["reopen", 524.6581, 592544, 6, true],
+      ["create", 369.2554, 877520, 6, true],
+      ["reopen", 385.0713, 583440, 6, true],
+      ["create", 370.4232, 813896, 6, true],
+      ["reopen", 244.6396, 578728, 6, true]
+    ]
+  ]
+}

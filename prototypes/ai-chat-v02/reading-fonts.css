@@ -47,6 +47,8 @@
 }
 
 .math > .katex { font-size: inherit; }
+.math.wrapped-math, .katex.wrapped-math { display: inline; white-space: normal; }
+.wrapped-math .math-chunk { display: inline-block; white-space: nowrap; vertical-align: baseline; }
 /* Let unclipped reference formulas paint their italic overhangs. */
 .quote-math-window:has(+ .quote-math-more[hidden]) { overflow: visible; }
 .math[data-display=true],
@@ -65,6 +67,9 @@
 }
 
 .katex, .katex * { font-feature-settings: normal; }
+.katex .cjk_fallback {
+  font-family: 'Source Han Serif SC', '思源宋体', 'Noto Serif CJK SC', 'Noto Serif SC', SimSun, '宋体', serif;
+}
 
 .reading-shell :is(input, textarea, pre, code),
 .transcript :is(input, textarea, pre, code, .exercise-line-numbers, .exercise-line-mirror) {
