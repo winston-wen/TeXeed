@@ -58,7 +58,7 @@ public partial class AiPanel
             string SavedResult()
             {
                 var branches = AiRevisionImpact.Branches(_book.Conversations, conversation, target!.Id);
-                var result = $"已保存到第 {conversation.Turns.IndexOf(target) + 1} 轮。已扫描本会话其他已完成轮次。\n" +
+                var result = $"已保存到第 {conversation.Turns.FindIndex(t => t.Id == id) + 1} 轮。已扫描本会话其他已完成轮次。\n" +
                     (candidates.Count == 0 ? "未发现需要复核的引用或相关段落。" :
                     "请逐项复核以下相关轮次，仅在需要时连带修改。\n" + JsonSerializer.Serialize(candidates.Values.OrderBy(c => c.Turn), RevisionToolJson));
                 return branches.Length == 0 ? result : result + "\n下游会话保留追问时的引文，可提醒用户复核：" +
@@ -91,6 +91,9 @@ public partial class AiPanel
                     {
                         var anchor = e.AnswerAnchor!;
                         AiAnnotationRevision.MatchesSelection(e, target, out var currentNumber);
+                        if (anchor.PreviewTableMarkdown != null)
+                            return (object)new { instruction = e.Question, snapshot_quote = anchor.Quote, segment = anchor.SegmentId,
+                                table_source = anchor.PreviewTableMarkdown, before = anchor.PreviewBefore, after = anchor.PreviewAfter };
                         return new { instruction = e.Question, snapshot_quote = anchor.Quote, segment = anchor.SegmentId,
                             formula_source = anchor.PreviewSource, original_number = anchor.PreviewNumber, current_number = currentNumber };
                     }),
@@ -105,7 +108,7 @@ public partial class AiPanel
             var version = args.GetProperty("version").GetString();
             var changes = args.GetProperty("changes");
             if (version != draft.Version) throw new InvalidOperationException("稿件版本已变化，请读取最新版后核对。");
-            if (target.UserRevisionDraft is not null) throw new InvalidOperationException("该轮有未完成的手动整理，请先保存或取消手动整理。");
+            if (target.UserRevisionDraft is not null) throw new InvalidOperationException(AiAnswerRevision.PendingManualDraft);
             var rows = ApplyRevisionChanges(draft, changes);
             var needsApproval = requestedApproval || conversation.Permission == AiPermission.AskBeforeShell;
             if (needsApproval)
@@ -133,7 +136,8 @@ public partial class AiPanel
 
     private static object DescribeRevisionRow(AiRevisionRow row)
     {
-        if (row.Locked && !AiRevisionText.IsDisplayFormula(row.Text)) return new { id = row.Id, level = row.Level, locked = true, source = row.Text };
+        var table = row.Locked && AiRevisionText.IsPipeTable(row.Text);
+        if (row.Locked && !table && !AiRevisionText.IsDisplayFormula(row.Text)) return new { id = row.Id, level = row.Level, locked = true, source = row.Text };
         var buffer = RevisionBuffer.From(row, RevisionMathScope.All);
         var parts = new List<object>();
         var start = 0;
@@ -145,6 +149,7 @@ public partial class AiPanel
             start = atom.End;
         }
         if (buffer.Display.Length > start) parts.Add(new { kind = "text", value = buffer.Display[start..] });
+        if (table) return new { id = row.Id, kind = "table", level = row.Level, locked = false, parts };
         return new { id = row.Id, level = row.Level, locked = false, parts };
     }
 
@@ -179,7 +184,7 @@ public partial class AiPanel
             var replace = position == "replace";
             if (!edits.Remove((original.Id, position), out var paragraphs)) { if (replace) rows.Add(original); return; }
             var row = replace ? original : new AiRevisionRow(Guid.NewGuid().ToString("N"), original.SegmentId, "", 0, false, []);
-            if (row.Locked && !AiRevisionText.IsDisplayFormula(row.Text)) throw new InvalidOperationException("该段包含受保护的对象，无法改写。");
+            if (row.Locked && !AiRevisionText.IsAgentEditableBlock(row.Text)) throw new InvalidOperationException("该段包含受保护的对象，无法改写。");
             var buffer = RevisionBuffer.From(row, RevisionMathScope.All);
             if (paragraphs.GetArrayLength() == 0 && buffer.Atoms.All(a => a.Source.Length == 0))
             {
@@ -208,7 +213,7 @@ public partial class AiPanel
                 var updated = first ? row with { Level = level } : new AiRevisionRow(Guid.NewGuid().ToString("N"), row.SegmentId, "", level, false, [])
                     { SplitFromRow = replace ? original.Id : null };
                 updated = new RevisionBuffer(text.ToString(), atoms).Apply(updated);
-                Append(updated with { Locked = AiRevisionText.IsDisplayFormula(updated.Text) });
+                Append(updated with { Locked = AiRevisionText.IsAgentEditableBlock(updated.Text) });
                 first = false;
             }
             if (expected != buffer.Atoms.Count) throw new InvalidOperationException("改稿缺少原段落中受保护的对象或会话引用。");

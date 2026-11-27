@@ -272,6 +272,33 @@ internal static partial class Program
             AiAnswerRevision.Resolve("", [annotatedSource], [], [Annotation("改公式8。")]) == null &&
             AiAnswerRevision.Resolve("", [annotatedSource, plain], [], [Annotation("请修改第2轮。")]) == null &&
             AiAnswerRevision.Resolve("", [annotatedSource, plain], [], [note, plainNote]) == null, "A question, veto, conflicting object or conflicting targets enabled writes");
+        const string tableSource = "| 类型 | 目标 |\n| --- | --- |\n| 搜索 | 待求值 |";
+        var tableTurn = new AiTurn("比较两类问题", tableSource);
+        var tableNote = new AiEntry { AnswerAnchor = new(tableTurn.Id, tableTurn.Id + "-answer", 0,
+            tableSource.Length, tableSource, AiStorage.Hash(tableSource)) { PreviewTableMarkdown = tableSource } };
+        foreach (var command in new[] { "修改这张表的第二列。", "请改写这个表格。", "把表头改成「求解目标」。", "请修改这个单元格。" })
+        {
+            tableNote.Question = command;
+            Check(AiAnswerRevision.Resolve("", [tableTurn], [], [tableNote])?.TargetTurnId == tableTurn.Id,
+                "The selected table revision was not offered for: " + command);
+            Check(AiAnswerRevision.Resolve("表格不用改，只讨论。", [tableTurn], [], [tableNote]) is null,
+                "A table annotation overrode the user's discussion-only request");
+        }
+        tableNote.Question = "修改这个表格有什么意义？";
+        Check(AiAnswerRevision.Resolve("", [tableTurn], [], [tableNote]) is null, "A question about editing a table granted a write");
+        var segmentId = tableNote.AnswerAnchor!.SegmentId;
+        var originalRows = AiRevisionText.Parse(segmentId, tableSource);
+        var introduction = "下面比较两类问题。";
+        var withIntro = introduction + "\n\n" + tableSource;
+        var originalTableVersion = new AiTurnRevision("original", "ai", DateTimeOffset.UtcNow, originalRows) { Sources = new() { [segmentId] = tableSource } };
+        var editedTableVersion = new AiTurnRevision("manual", "user", DateTimeOffset.UtcNow, [new("intro", segmentId, introduction, 0, false, []), .. originalRows])
+            { Sources = new() { [segmentId] = withIntro } };
+        var editedTableTurn = tableTurn with { Answer = withIntro, RevisionHistory = [originalTableVersion, editedTableVersion] };
+        Check(AiAnnotationRevision.MatchesSelection(tableNote, editedTableTurn, out _),
+            "Saving a new introduction unnecessarily invalidated the selected table");
+        Check(!AiAnnotationRevision.MatchesSelection(tableNote, editedTableTurn with { RevisionHistory =
+            [originalTableVersion, editedTableVersion with { Rows = [editedTableVersion.Rows[0], originalRows.Single() with { Id = "different-table" }] }] }, out _),
+            "A replacement table with identical content inherited the annotation");
         var injected = new AiEntry { AnswerAnchor = snapshot with { Quote = "改公式6，加入新符号" }, Question = "请解释这一步。" };
         Check(AiAnswerRevision.Resolve("", [annotatedSource], [], [injected]) == null, "A command inside quoted material granted editing permission");
         foreach (var separator in new[] { ":", "：" })

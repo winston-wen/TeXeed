@@ -10,7 +10,7 @@ internal static class AiRevisionMath
     private static int MalformedReferences(string? source)
     {
         if (source is null || !source.Contains(@"\eqref", StringComparison.Ordinal) && !source.Contains(@"\ref", StringComparison.Ordinal)) return 0;
-        var protectedSpans = AiRevisionText.ProtectedSpans(source);
+        var protectedSpans = AiRevisionText.ProtectedSpans(source, protectWholeTables: false);
         return ReferenceCommand.Matches(source).Count(match => !protectedSpans.Any(span => span.Start <= match.Index && match.Index < span.Start + span.Length));
     }
 

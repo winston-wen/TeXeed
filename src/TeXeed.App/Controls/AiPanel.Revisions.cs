@@ -154,7 +154,7 @@ public partial class AiPanel
             if (at < 0) throw new InvalidOperationException("找不到指定轮次。");
             var original = conversation.Turns[at];
             if (!string.IsNullOrEmpty(operationId) && original.RevisionHistory?.Any(rev => rev.OperationId == operationId) == true) return;
-            if (writer == "ai" && original.UserRevisionDraft is not null) throw new InvalidOperationException("该轮有未完成的手动整理，请先保存或取消手动整理。");
+            if (writer == "ai" && original.UserRevisionDraft is not null) throw new InvalidOperationException(AiAnswerRevision.PendingManualDraft);
             var draft = BeginRevision(original);
             if (draft.Version != expectedRevision) throw new InvalidOperationException("该轮的正文或引用已更新，请重新打开最新稿。");
             var normalized = AiRevisionText.Normalize(draft, rows, mathScope);
@@ -191,6 +191,8 @@ public partial class AiPanel
                 CollapsedSections = RevisionFoldKeys(original, segments, draft.Rows, normalized, current), UserRevisionDraft = null, Incomplete = original.IsIncomplete };
             if (textChanged)
             {
+                if (writer == "ai" && !AiForms.HasSameControls(original, updated))
+                    throw new InvalidOperationException("修改须保留原有表单控件的位置次序和可填写状态。请将其 keep 放在可显示控件的正文或单元格中。");
                 aliases = AiRevisionEquationLinks.Prepare(conversation, original, updated);
                 if (writer == "ai") AiRevisionMath.CheckReferences(conversation, original, updated);
             }

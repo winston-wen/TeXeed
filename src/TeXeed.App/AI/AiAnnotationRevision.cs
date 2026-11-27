@@ -7,7 +7,7 @@ internal static class AiAnnotationRevision
 {
     internal const string StaleNotice = "所选内容已经变化或无法在最新版中唯一定位。请用户在最新回答中重新选中目标并确认改稿。";
     private const string Lead = @"^\s*(?:请(?:你)?(?:帮我)?|麻烦(?:你)?(?:帮我)?|帮我)?\s*(?:直接|现在|原位|就地)?\s*";
-    private const string Object = @"(?:这里|这儿|(?:(?:选中|引用|批注)(?:的)?|这(?:一|个|条)?|该|此|原)?(?:处|段(?:落|文字|话)?|句(?:话|子)?|公式|式子|等式|标题|正文|原文|符号|表达式))";
+    private const string Object = @"(?:这里|这儿|(?:这张|该|此)表|(?:(?:选中|引用|批注)(?:的)?|这(?:一|个|条|张)?|该|此|原)?(?:处|段(?:落|文字|话)?|句(?:话|子)?|公式|式子|等式|标题|正文|原文|符号|表达式|表格|表头|单元格))";
     private const string Action = @"(?:改(?:写|为|成|一下)?|修改|修正|重写|替换(?:为|成)?|删(?:除|掉|去)?|去掉|补(?:上|入|充)?|加(?:上|入)?|插入|润色|精简|扩写)";
     private const string Number = @"(?:\s*[（(]?\d+[）)]?)?";
     private const string Direction = @"(?:改成|改为|改写为|替换为|替换成|删掉|去掉|补上|加上|加入|插入|写回|改一下)";
@@ -43,9 +43,10 @@ internal static class AiAnnotationRevision
         if (segment == null || string.IsNullOrWhiteSpace(anchor.Quote)) return false;
         var current = segment.Text;
         var unchanged = AiStorage.Hash(current) == anchor.Revision;
-        var original = unchanged ? current : turn.RevisionHistory?.Where(r => anchor.CapturedRevisionId == null || r.Id == anchor.CapturedRevisionId)
-            .Select(r => r.Sources.GetValueOrDefault(segment.Id))
-            .FirstOrDefault(s => s != null && AiStorage.Hash(s) == anchor.Revision);
+        var captured = unchanged ? null : turn.RevisionHistory?.FirstOrDefault(r =>
+            (anchor.CapturedRevisionId == null || r.Id == anchor.CapturedRevisionId) &&
+            r.Sources.TryGetValue(segment.Id, out var source) && AiStorage.Hash(source) == anchor.Revision);
+        var original = unchanged ? current : captured?.Sources[segment.Id];
         if (original == null) return false;
         if (anchor.PreviewKind == "formula" && !string.IsNullOrWhiteSpace(anchor.PreviewSource))
         {
@@ -63,7 +64,22 @@ internal static class AiAnnotationRevision
             return true;
         }
         if (unchanged) return true;
-        if (anchor.PreviewKind != null || anchor.PreviewTableMarkdown != null) return false;
+        if (anchor.PreviewTableMarkdown is { } table)
+        {
+            // Saving a manual edit to the introduction can move the table without changing it.
+            // The captured and current revisions must still identify the same unchanged block.
+            if (captured == null || turn.RevisionHistory?.LastOrDefault() is not { } latest ||
+                latest.Sources.GetValueOrDefault(segment.Id) != current) return false;
+            var source = table.Trim();
+            string? TableRowId(AiTurnRevision revision)
+            {
+                var matches = revision.Rows.Where(r => r.SegmentId == segment.Id && r.Locked &&
+                    r.Text.Trim() == source).Take(2).ToArray();
+                return matches.Length == 1 ? matches[0].Id : null;
+            }
+            return TableRowId(captured) is { } rowId && rowId == TableRowId(latest);
+        }
+        if (anchor.PreviewKind != null) return false;
         var quote = anchor.Quote.Trim();
         bool Unique(string source)
         {

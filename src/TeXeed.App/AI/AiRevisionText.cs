@@ -134,9 +134,17 @@ internal static class AiRevisionText
         return rows;
     }
 
-    internal static IReadOnlyList<(int Start, int Length)> ProtectedSpans(string text, RevisionMathScope mathScope = RevisionMathScope.Preserve)
+    internal static IReadOnlyList<(int Start, int Length)> ProtectedSpans(string text, RevisionMathScope mathScope = RevisionMathScope.Preserve,
+        bool protectWholeTables = true)
     {
-        if (string.IsNullOrEmpty(text) || text.IndexOfAny(['$', '\\', '{', '!', '|', '~', (char)96]) < 0) return [];
+        if (string.IsNullOrEmpty(text)) return [];
+        // In AI mode, a table containing only text, math and form controls needs no
+        // second Markdown parse after block classification. Form tokens already have source offsets.
+        if (mathScope == RevisionMathScope.All && !text.Contains("![", StringComparison.Ordinal) &&
+            text.IndexOfAny(['`', '~', '\t']) < 0 && !text.Contains("    ", StringComparison.Ordinal))
+            return text.Contains("{{", StringComparison.Ordinal)
+                ? AiForms.Token.Matches(text).Select(m => (m.Index, m.Length)).ToArray() : [];
+        if (text.IndexOfAny(['$', '\\', '{', '!', '|', '~', (char)96]) < 0) return [];
         var math = new ChatMath();
         var prepared = math.Prepare(text, Pipeline);
         var spans = math.Tokens.Values.Where(token => mathScope == RevisionMathScope.Preserve ||
@@ -144,7 +152,8 @@ internal static class AiRevisionText
             .Select(token => (Start: token.OriginalOffset, Length: token.OriginalLength)).ToList();
         spans.AddRange(AiForms.Token.Matches(text).Select(m => (m.Index, m.Length)));
         var parsed = Markdown.Parse(prepared, Pipeline);
-        foreach (var item in parsed.Descendants().Where(x => x is LinkInline { IsImage: true } or CodeInline or CodeBlock or Markdig.Extensions.Tables.Table))
+        foreach (var item in parsed.Descendants().Where(x => x is LinkInline { IsImage: true } or CodeInline or CodeBlock ||
+            protectWholeTables && mathScope != RevisionMathScope.All && x is Markdig.Extensions.Tables.Table))
         {
             var start = math.OriginalPosition(item.Span.Start);
             spans.Add((start, math.OriginalPosition(item.Span.End + 1) - start));
@@ -168,6 +177,16 @@ internal static class AiRevisionText
             source.AsSpan(0, token.OriginalOffset).IsWhiteSpace() &&
             source.AsSpan(token.OriginalOffset + token.OriginalLength).IsWhiteSpace();
     }
+
+    internal static bool IsPipeTable(string source)
+    {
+        if (!source.Contains('|') || !source.Contains('\n')) return false;
+        var prepared = new ChatMath().Prepare(source, Pipeline);
+        return Markdown.Parse(prepared, Pipeline) is [Markdig.Extensions.Tables.Table];
+    }
+
+    // Both blocks remain locked in the manual editor. The agent edits their source as a unit.
+    internal static bool IsAgentEditableBlock(string source) => IsDisplayFormula(source) || IsPipeTable(source);
 
     // Old excerpts contain displayed text. Markdig spans let us recover the original
     // Markdown offset even when a selection crosses emphasis, a link or inline TeX.
@@ -239,17 +258,23 @@ internal static class AiRevisionText
                 throw new InvalidOperationException("段落的标识、层级或所属回答片段有误。");
             lastSegment = index;
             previous.TryGetValue(row.Id, out var old);
-            var mathCanChange = mathScope == RevisionMathScope.All;
-            var fixedBlock = old?.Locked == true && !(mathCanChange && IsDisplayFormula(old.Text));
-            var display = mathCanChange && IsDisplayFormula(row.Text);
+            var agent = mathScope == RevisionMathScope.All;
+            var fixedBlock = old?.Locked == true && !(agent && IsAgentEditableBlock(old.Text));
+            var editableBlock = agent && IsAgentEditableBlock(row.Text);
+            if (editableBlock && row.Level != 0)
+                throw new InvalidOperationException("表格和行间公式须各自作为一个 level=0 的独立段落提交。");
             if (fixedBlock && (old!.Text != row.Text || old.Level != row.Level || old.SegmentId != row.SegmentId) ||
-                row.Locked != (fixedBlock || display) || display && row.Level != 0)
+                row.Locked != (fixedBlock || editableBlock))
                 throw new InvalidOperationException("该段落中的公式、表格或代码须完整保留。");
-            if (mathCanChange && !fixedBlock && !display && row.Text != old?.Text)
+            if (agent && !fixedBlock && !editableBlock && row.Text != old?.Text)
             {
+                var lineEnd = row.Text.IndexOf('\n');
+                if (lineEnd >= 0 && row.Text.AsSpan(0, lineEnd).Contains('|') && row.Text.AsSpan(lineEnd + 1).Contains('|') &&
+                    (row.Text.AsSpan().TrimStart().StartsWith("|", StringComparison.Ordinal) || old?.Locked == true && IsPipeTable(old.Text)))
+                    throw new InvalidOperationException("管道表格须独占一个正文段，表头下一行须为列分隔行。请核对表格结构后重新提交。");
                 var parsed = Parse(row.SegmentId, row.Text);
                 if (parsed.Count != 1 || parsed[0].Locked || parsed[0].Level != 0)
-                    throw new InvalidOperationException("请用独立段落提交公式和正文，用 level 指定标题层级。表格、代码块及其他受保护的块须完整保留。");
+                    throw new InvalidOperationException("请用独立段落提交公式、表格和正文，用 level 指定标题层级。代码块及其他受保护的块须完整保留。");
             }
             if (row.Links.Any(link => link.Offset < 0 || link.Offset > row.Text.Length) ||
                 !row.Links.Select(link => link.Offset).SequenceEqual(row.Links.Select(link => link.Offset).Order()))
@@ -258,7 +283,7 @@ internal static class AiRevisionText
                 old with { SegmentId = row.SegmentId, Text = row.Text, Level = row.Level, Locked = row.Locked, Links = [.. row.Links] });
         }
         IEnumerable<string> Atoms(IEnumerable<AiRevisionRow> list) => list.SelectMany(r => r.Locked &&
-            !(mathScope == RevisionMathScope.All && IsDisplayFormula(r.Text))
+            !(mathScope == RevisionMathScope.All && IsAgentEditableBlock(r.Text))
             ? [r.Id + "\n" + r.Text] : ProtectedSpans(r.Text, mathScope).Select(s => r.Text.Substring(s.Start, s.Length)));
         if (!Atoms(draft.Rows).SequenceEqual(Atoms(rows))) throw new InvalidOperationException("修改须保全当前编辑方式下受保护的对象。");
         var links = draft.Rows.SelectMany(r => r.Links).ToDictionary(l => l.Id, StringComparer.Ordinal);

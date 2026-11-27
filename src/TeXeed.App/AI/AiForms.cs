@@ -117,6 +117,9 @@ internal static class AiForms
         }
         return false;
     }
+    internal static bool HasSameControls(AiTurn before, AiTurn after) =>
+        Tokens(before).Select(match => match.Value).SequenceEqual(Tokens(after).Select(match => match.Value));
+
     private static IEnumerable<Match> Tokens(AiTurn turn)
     {
         static IEnumerable<Match> Inlines(ContainerInline inline, bool repaired)

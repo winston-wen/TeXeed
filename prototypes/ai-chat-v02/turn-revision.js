@@ -33,7 +33,7 @@
  function catalog(turn){
    const saved=catalogs.get(turn);
    if(saved&&saved.answer===turn.answer)return saved;
-   const markup=svgHtml(turn),root=rootOf(markup),atoms=new Map(),rows=[],sources=new Map(),inlineSources=new Map(),inlineMarkup=new Map(),equations=new Map();
+   const markup=svgHtml(turn),root=rootOf(markup),atoms=new Map(),rows=[],sources=new Map(),tables=new Map(),inlineSources=new Map(),inlineMarkup=new Map(),equations=new Map();
    for(const [index,node] of Array.from(root.querySelectorAll('.equation .math')).entries()){
      const tex=node.dataset.tex,tag=/\\tag\*?\{([^{}]+)\}/.exec(tex)?.[1]||String(index+1),label=/\\label\{([^{}]+)\}/.exec(tex)?.[1];
      const number=node.closest('.equation').querySelector('.equation-number');
@@ -47,12 +47,17 @@
      const body=section.querySelector('.passage-body'),source=chunks[sectionIndex++];
      if(!body)continue;
      const available=revisionFormulaSpans(source||'').filter(formula=>!formula.display&&formula.closed);
+     let tableIndex=0;
      for(const [childIndex,block] of Array.from(body.children).entries()){
        const id=section.id+(childIndex?'-sub'+childIndex:''),level=/^H[1-6]$/.test(block.tagName)?Number(block.tagName[1]):0;
        const parts=[];
        if(!level&&block.tagName!=='P'){
          const ref='block:'+id,wrapper=make('div');wrapper.append(block.cloneNode(true));atoms.set(ref,wrapper);
-         if(body.children.length===1&&source!==undefined)sources.set(ref,source);
+         if(block.matches('.table-wrap')&&source){
+           const table=body.children.length===1?source:answerPipeTables(source)[tableIndex++];
+           if(table){tables.set(ref,table);sources.set(ref,table);}
+         }
+         else if(body.children.length===1&&source!==undefined)sources.set(ref,source);
          rows.push({id,level:0,parts:[{ref}]});continue;
        }
        let count=0;
@@ -72,7 +77,7 @@
        block.childNodes.forEach(visit);rows.push({id,level,parts:compact(parts)});
      }
    }
-   const result={turn,answer:turn.answer,atoms,rows,sources,inlineSources,inlineMarkup,equations};catalogs.set(turn,result);return result;
+   const result={turn,answer:turn.answer,atoms,rows,sources,tables,inlineSources,inlineMarkup,equations};catalogs.set(turn,result);return result;
  }
  const protectedBlock=row=>row?.parts.some(p=>!textPart(p)&&p.ref.startsWith('block:'));
  const equationText=(part,cat)=>{
@@ -181,7 +186,11 @@
    }
  }
  function partNode(part,cat,editing){
-   // Never load markup from a revision. Rich tokens resolve against the unmodified original.
+   if(part.tableSource){
+     const body=rootOf(renderSavedAnswer(part.tableSource,'revision-table')).querySelector('.passage-body');
+     return body||make('div');
+   }
+   // Reconstruct rich tokens from source, including original protected objects.
    if(part.displaySource){
      const wrapper=make('div'),equation=make('div','equation');
      const formula=revisionFormulaSpans(part.displaySource)[0];
@@ -229,6 +238,7 @@
    const cat=catalog(turn);
    return live(turn).map(row=>(row.level?'#'.repeat(row.level)+' ':'')+row.parts.map(part=>{
      if(textPart(part))return part;
+     if(part.tableSource)return part.tableSource;
      if(part.displaySource)return part.displaySource;
      if(part.equation!==undefined)return part.equation;
      if(cat.sources.has(part.ref))return cat.sources.get(part.ref);
@@ -951,18 +961,63 @@
      if(isText(part))return part;
      if(part.equation!==undefined)return part.equation;
      if(part.displaySource)return part.displaySource;
+     const table=tableSource(part,cat);
+     if(table!==undefined)return table;
      const math=cat.atoms.get(part.ref)?.querySelector(':scope > .equation > .math');
      return math?(cat.sources.get(part.ref)??'$$'+math.dataset.tex+'$$'):part;
    }))}));
  }
+ function tableSource(part,cat){
+   return part.tableSource??cat.tables.get(part.ref);
+ }
+ function mapEquationReferences(part,cat,visit){
+   if(isText(part))return part;
+   if(part.equation)return visit(part);
+   const source=tableSource(part,cat);
+   if(!source||!source.includes('\\'))return part;
+   const opaque=[...revisionFormulaSpans(source),...Array.from(source.matchAll(/(`+)[\s\S]*?\1(?!`)/g),m=>({start:m.index,end:m.index+m[0].length}))];
+   const updated=source.replace(equationRefs,(raw,command,label,index)=>{
+     if(opaque.some(span=>index>=span.start&&index<span.end))return raw;
+     return visit({equation:raw,label,parentheses:command==='eqref'}).equation;
+   });
+   return updated===source?part:{...part,tableSource:updated};
+ }
+ function protectedTableContent(source){
+   if(!source||!/[!`{]/.test(source))return [];
+   const body=rootOf(renderSavedAnswer(source,'table-objects')),objects=[];
+   const visit=node=>{
+     if(node.nodeType===Node.TEXT_NODE){
+       for(const match of node.data.matchAll(/\{\{(?:text|textarea|checkbox|radio|file):[^{}\r\n]+\}\}/g))objects.push(match[0]);
+     }else if(node.nodeType!==Node.ELEMENT_NODE&&node.nodeType!==Node.DOCUMENT_FRAGMENT_NODE)return;
+     else if(node.matches?.('.math'))return;
+     else if(node.matches?.('code'))objects.push(['code',node.textContent]);
+     else if(node.matches?.('img'))objects.push(['image',node.getAttribute('src'),node.alt,node.title]);
+     else node.childNodes.forEach(visit);
+   };
+   visit(body);return objects;
+ }
  function aiPublishedRows(turn,source,captured,before){
-   const rows=[];
+   const rows=[],cat=catalog(turn);
    const original=new Map(before.map((row,index)=>[row.id,{source:row,published:captured[index]}]));
+   const retained=new Set(source.map(row=>row.id));
+   for(const row of captured)if(!retained.has(row.id)&&row.parts.some(p=>!isText(p)&&protectedTableContent(tableSource(p,cat)).length))
+     throw Error('请保留表格中已有的表单、图片及行内代码。');
    for(const row of source){
      const old=original.get(row.id);
      if(old&&old.source.level===row.level&&JSON.stringify(old.source.parts)===JSON.stringify(row.parts)){
        rows.push(old.published);continue;
      }
+     const content=textOf(row.parts).trim(),prior=old?.published.parts.find(p=>!isText(p)&&tableSource(p,cat)!==undefined);
+     if(prior&&JSON.stringify(protectedTableContent(tableSource(prior,cat)))!==JSON.stringify(protectedTableContent(content)))
+       throw Error('请保留表格中已有的表单、图片及行内代码。');
+     const tables=content.includes('|')&&content.includes('\n')?answerPipeTables(content):[];
+     if(tables.length===1&&tables[0]===content){
+       if(row.level||refs(row.parts).some(p=>atomic(p.ref)))throw Error('请将管道表格作为独立正文段落。');
+       rows.push({...row,parts:[{ref:prior?.ref||'block:'+row.id+':table',tableSource:content},...refs(row.parts)]});
+       continue;
+     }
+     if(content.includes('\n')&&(content.startsWith('|')||prior&&content.split(/\r?\n/).filter(line=>line.includes('|')).length>1))
+       throw Error('请提交完整的管道表格，包括表头和分隔行。');
      let parts=[],first=true;
      function append(){
        if(!parts.length)return;
@@ -1003,6 +1058,11 @@
        anchor.formula={label:formulaLabel(tex),tex,tag:equation.tag};
      }
    }
+   if(ctx.tableObject){
+     const row=(live(turn)??catalog(turn).rows).find(row=>row.id===anchor.rowId);
+     const part=row?.parts.find(p=>!isText(p)&&tableSource(p,catalog(turn))!==undefined);
+     if(part)anchor.tableSource=tableSource(part,catalog(turn));
+   }
    return anchor;
  }
  function citationEquation(turn,anchor){
@@ -1022,7 +1082,7 @@
    if(!turn||anchor.version===(turn.readingRevisions?.length||0))return false;
    if(anchor.formula)return citationEquation(turn,anchor)?.math.dataset.tex!==anchor.formula.tex;
    const row=citationRow(turn,entry,replyId);
-   return !row||!textOf(aiSourceRows(turn,[row])[0].parts).includes(entry.quote.trim());
+   return !row||!textOf(aiSourceRows(turn,[row])[0].parts).includes(anchor.tableSource??entry.quote.trim());
  }
  function openCitation(entry,historical,replyId){
    const anchor=entry.citation,turn=current().turns.find(t=>t.id===anchor?.turnId);
@@ -1055,13 +1115,13 @@
    function fixReferences(source,sourceRows){
      let changed=false;
      const original=publishedEquationIndex(source);
-     const fixed=sourceRows.map(row=>({...row,parts:row.parts.map(part=>{
-       if(!part.equation)return part;
+     const cat=catalog(source);
+     const fixed=sourceRows.map(row=>({...row,parts:row.parts.map(p=>mapEquationReferences(p,cat,part=>{
        const match=/^([1-9]\d*):(.+)$/u.exec(part.label);
        const prior=resolveEquationReference(part.label,source.id,original);
        if(!prior||prior.turnId!==turn.id)return part;
        if(source!==turn&&prior.id===reviewEquation?.id){
-         const containsMath=row.parts.some(p=>typeof p==='string'&&revisionFormulaSpans(p).length);
+       const containsMath=row.parts.some(p=>revisionFormulaSpans(isText(p)?p:tableSource(p,cat)||'').length);
          if(containsMath)review.add(current().turns.indexOf(source)+1);
        }
        const key=match?match[2]:part.label;
@@ -1072,18 +1132,21 @@
        const label=/\\label\{([^{}]+)\}/.exec(dest.math.dataset.tex)?.[1]||'eq-'+dest.tag;
        const qualified=(match?match[1]+':':'')+label;
        changed=true;return {...part,label:qualified,equation:'\\'+(part.parentheses?'eqref':'ref')+'{'+qualified+'}'};
-     })}));
+     }))}));
      return changed?fixed:null;
    }
    edits[0].rows=fixReferences(turn,edits[0].rows)??edits[0].rows;
    const existingMissing=new Map();
    function check(rowList,local,old){
-     for(const row of rowList)for(const part of row.parts)if(part.equation&&!resolveEquationReference(part.label,turn.id,local)){
-       const count=existingMissing.get(part.label)||0;
-       if(old)existingMissing.set(part.label,count+1);
-       else if(count)existingMissing.set(part.label,count-1);
-       else throw Error('公式引用找不到目标：'+part.equation);
-     }
+     const cat=catalog(turn);
+     for(const row of rowList)for(const part of row.parts)mapEquationReferences(part,cat,reference=>{
+       if(resolveEquationReference(reference.label,turn.id,local))return reference;
+       const count=existingMissing.get(reference.label)||0;
+       if(old)existingMissing.set(reference.label,count+1);
+       else if(count)existingMissing.set(reference.label,count-1);
+       else throw Error('公式引用找不到目标：'+reference.equation);
+       return reference;
+     });
    }
    check(captured,oldIndex,true);check(edits[0].rows,newIndex,false);
    for(const other of current().turns){
@@ -1131,7 +1194,7 @@
         const anchor=entry.citation,eq=anchor.formula&&citationEquation(turn,anchor);
         scope=rows.find(row=>row.id===(eq?.math.closest('.passage')?.id??citationRow(turn,entry,reply.id)?.id));
         const value=scope&&textOf(scope.parts);
-        excerpt=anchor.formula&&eq&&value?revisionFormulaSpans(value).find(f=>f.display&&f.closed)?.raw:entry.quote.trim();
+        excerpt=anchor.formula&&eq&&value?revisionFormulaSpans(value).find(f=>f.display&&f.closed)?.raw:anchor.tableSource??entry.quote.trim();
         if(!scope||!excerpt||(anchor.formula&&!eq)||!value.includes(excerpt)){
           feedback.textContent='无法把批注唯一定位到当前稿，请在最新段落重新批注。';return;
         }
@@ -1180,7 +1243,7 @@
             pos+=p.length;offset+=p.length;
           }
           if(begin===undefined||end===undefined){feedback.textContent='请选择正文、公式或公式引用。';return;}
-          if(refs(slice(row.parts,begin,end)).some(p=>atomic(p.ref))){feedback.textContent='选中的范围包含受保护的表格或其他对象。';return;}
+          if(refs(slice(row.parts,begin,end)).some(p=>atomic(p.ref))){feedback.textContent='选中的范围包含受保护的对象。';return;}
           row.parts=compact([...slice(row.parts,0,begin),task.to,...refs(slice(row.parts,begin,end)),...slice(row.parts,end)]);
           if(blank(textOf(row.parts))&&!refs(row.parts).some(p=>atomic(p.ref))){const links=refs(row.parts);if(i>0){rows[i-1].parts.push(...links);rows.splice(i,1);}else if(!links.length)rows.splice(i,1);}
           let plan;

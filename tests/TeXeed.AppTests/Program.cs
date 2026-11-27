@@ -503,6 +503,11 @@ internal static partial class Program
                     await CheckAiDiscoveryAsync(window, root, output);
                     await CloseAndObserveAsync(window, "AI project discovery regression"); result = 0; return;
                 }
+                if (args.Contains("--ai-revision-table-only"))
+                {
+                    await CheckRevisionTableAsync(window, output, args.Contains("--real-tex"), args.Contains("--measure-read"));
+                    await CloseAndObserveAsync(window, "AI table revision"); result = 0; return;
+                }
                 if (args.Contains("--ai-revision-agent-only"))
                 {
                     await CheckRevisionAgentAsync(window, output, args.Contains("--real-tex"));

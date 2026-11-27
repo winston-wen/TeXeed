@@ -942,7 +942,7 @@ function targetContext(target,event){
  const child=target.closest('.passage-body > *'),index=Array.from(body.children).indexOf(child);
  const revisionBlock=index>0?p.id+'-sub'+index:p.id;
  const equationId=media&&(!selected||quote.trim()===serialize(media).trim())?media.closest('.equation')?.id:undefined;
- return {block:startBlock,revisionBlock,equationId,quote,selected:selected||!!media,turn:answer.dataset.turn,endBlock,endTextOffset,endMediaIndex,paragraph,preview};
+ return {block:startBlock,revisionBlock,equationId,tableObject:!selected&&media?.matches('table'),quote,selected:selected||!!media,turn:answer.dataset.turn,endBlock,endTextOffset,endMediaIndex,paragraph,preview};
 }
 function addAnnotation(ctx){if(!ctx?.selected||!ctx.quote.trim())return;const c=current();const e={id:crypto.randomUUID(),number:c.next++,title:'AI 回答批注',question:'',selected:true,state:'待提交',sources:[],pdf:[],block:ctx.block,endBlock:ctx.endBlock,endTextOffset:ctx.endTextOffset,endMediaIndex:ctx.endMediaIndex,quote:ctx.quote,citation:window.turnRevision?.citationAt(ctx)};c.entries.push(e);renderEntries();record('add-answer-annotation',{number:e.number,quote:e.quote});openEditor(e.id);}
 let answerMarking=false;

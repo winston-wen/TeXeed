@@ -31,9 +31,10 @@ internal static partial class Program
             @"\label{eq:new}" + "\n$$";
         var rows = AiPanel.ApplyRevisionChanges(draft, JsonSerializer.SerializeToElement(new[] { Change(draft.Rows[0].Id, body), Change(equation.Id, display) }));
         bool rejected = false;
-        try { AiPanel.ApplyRevisionChanges(draft, JsonSerializer.SerializeToElement(new[] { Change(table.Id, "改表") })); }
+        var tableEdit = draft.Rows.Select(r => r.Id == table.Id ? r with { Text = r.Text.Replace("| A | B |", "| 分类 | 结果 |") } : r).ToList();
+        try { AiRevisionText.Normalize(draft, tableEdit, RevisionMathScope.Inline); }
         catch (InvalidOperationException) { rejected = true; }
-        Require(rejected, "AI could replace a protected table");
+        Require(rejected, "AI table editing leaked into the manual editor");
         rejected = false;
         try { AiRevisionText.Normalize(draft, rows, RevisionMathScope.Inline); }
         catch (InvalidOperationException) { rejected = true; }

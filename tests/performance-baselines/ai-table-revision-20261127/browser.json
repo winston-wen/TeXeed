@@ -1,0 +1,125 @@
+{
+  "chromium": "158.0.8127.38",
+  "viewport": [
+    1250,
+    900
+  ],
+  "baseline": "f2a2584",
+  "scenario": "AI revision of the paragraph immediately before a pipe table, two completed turns, two warm-ups, seven samples per build, two animation frames",
+  "old": [
+    {
+      "writeMs": 8.799999982118607,
+      "settledMs": 25.69999998807907,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 140668
+    },
+    {
+      "writeMs": 9.300000011920929,
+      "settledMs": 25.5,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 166460
+    },
+    {
+      "writeMs": 8.799999982118607,
+      "settledMs": 25,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 194532
+    },
+    {
+      "writeMs": 8.099999994039536,
+      "settledMs": 25.099999994039536,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 182028
+    },
+    {
+      "writeMs": 8.5,
+      "settledMs": 25.400000005960464,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 151876
+    },
+    {
+      "writeMs": 6.699999988079071,
+      "settledMs": 25.400000005960464,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 167876
+    },
+    {
+      "writeMs": 6.0999999940395355,
+      "settledMs": 25.80000001192093,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 170664
+    }
+  ],
+  "current": [
+    {
+      "writeMs": 7.9000000059604645,
+      "settledMs": 26.400000005960464,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 165948
+    },
+    {
+      "writeMs": 6.5,
+      "settledMs": 26.299999982118607,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 220308
+    },
+    {
+      "writeMs": 7.199999988079071,
+      "settledMs": 24.900000005960464,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 140632
+    },
+    {
+      "writeMs": 8.200000017881393,
+      "settledMs": 26,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 188856
+    },
+    {
+      "writeMs": 6.799999982118607,
+      "settledMs": 26.19999998807907,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 155616
+    },
+    {
+      "writeMs": 6,
+      "settledMs": 26.30000001192093,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 170316
+    },
+    {
+      "writeMs": 7,
+      "settledMs": 26.19999998807907,
+      "visibleControls": 3,
+      "saved": 1,
+      "tableCells": 4,
+      "sampledBytes": 203064
+    }
+  ]
+}

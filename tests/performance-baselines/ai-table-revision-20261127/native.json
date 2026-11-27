@@ -1,0 +1,456 @@
+{
+  "scenario": "read_answer_revision in a displayed conversation with a two-column table, one active form with a saved answer, one branch link and one cross-turn equation reference. Three processes per version, one warmup then twelve samples each; UI thread bytes and elapsed time through Dispatcher.ApplicationIdle.",
+  "baseline": "0.6.10 f2a2584",
+  "candidate": "0.6.11",
+  "command": "--ai-revision-table-only --offscreen --measure-read",
+  "batches": {
+    "old": [
+      [
+        {
+          "ms": 0.67,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3347,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2838,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2702,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2583,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2774,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2535,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.264,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2869,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2628,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2579,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2599,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        }
+      ],
+      [
+        {
+          "ms": 0.6784,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.6413,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2941,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.287,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.281,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3069,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4461,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3379,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2831,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3099,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4019,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3403,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        }
+      ],
+      [
+        {
+          "ms": 0.5898,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.315,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.5607,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3735,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.2737,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3287,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3945,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3872,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.38,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4065,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3178,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3443,
+          "bytes": 43184,
+          "locked": true,
+          "visibleControls": 7
+        }
+      ]
+    ],
+    "new": [
+      [
+        {
+          "ms": 0.7666,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4043,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3906,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3853,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3694,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.7186,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4653,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4635,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4513,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4117,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4196,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3932,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        }
+      ],
+      [
+        {
+          "ms": 0.848,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.5578,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4076,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4131,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3859,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3677,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3871,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3741,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4042,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3983,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4107,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.3895,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        }
+      ],
+      [
+        {
+          "ms": 0.5961,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.5165,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4705,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4582,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.5061,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.5167,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4559,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.4196,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 1.1155,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.5243,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.5044,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        },
+        {
+          "ms": 0.7371,
+          "bytes": 71704,
+          "locked": false,
+          "visibleControls": 7
+        }
+      ]
+    ]
+  }
+}

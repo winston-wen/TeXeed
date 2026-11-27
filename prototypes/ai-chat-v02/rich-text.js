@@ -167,6 +167,40 @@
   const {blocks,tokens,allTokens}=answerParts(source,protectCode);
   return blocks.map(block=>block.replace(allTokens,(_,index)=>tokens[index].raw));
  };
+ // Markdown-it identifies tables even when the header shares a passage with preceding prose.
+ root.answerPipeTables=function(source){
+  if(!md||!source.includes('|')||!source.includes('\n'))return [];
+  const {blocks,tokens,allTokens}=answerParts(source);
+  return blocks.flatMap(block=>{
+    const lines=block.split(/\r?\n/);
+    return md.parse(block,{}).filter(t=>t.type==='table_open').map(t=>
+      lines.slice(...t.map).join('\n').replace(allTokens,(_,i)=>tokens[i].raw));
+  });
+ };
+ // markdown-it sizes a pipe table from its header; the native reader uses its widest row.
+ // Widen the rendering input only. TeX and code are already single placeholders here.
+ function widenTableHeaders(block){
+   if(!md||!block.includes('|')||!block.includes('\n'))return block;
+   const lines=block.split(/\r?\n/);
+   function width(line){
+     const cells=line.trim().split(/(?<!\\)\|/);
+     if(cells[0]==='')cells.shift();
+     if(cells.at(-1)==='')cells.pop();
+     return cells.length;
+   }
+   for(const token of md.parse(block,{})){
+     if(token.type!=='table_open')continue;
+     const [header,end]=token.map,columns=width(lines[header]);
+     let widest=columns;
+     for(let i=header+2;i<end;i++)widest=Math.max(widest,width(lines[i]));
+     if(widest===columns)continue;
+     for(const i of [header,header+1]){
+       const line=lines[i].trimEnd(),closing=/(?<!\\)\|$/.test(line)?'':' |';
+       lines[i]=line+closing+(i===header?'   |':' --- |').repeat(widest-columns);
+     }
+   }
+   return lines.join('\n');
+ }
  // Keep the cached renderer's passage boundaries while correcting heading levels.
  root.restoreAnswerHeadings=function(markup,source){
   const runtimeMarkup=/<\/(?:h[1-6]|p|pre|ul|ol|blockquote|div)>\r?\n<\/div>/.test(markup),{blocks}=answerParts(source,runtimeMarkup);
@@ -199,7 +233,7 @@
    const token=singleToken.exec(chunk.trim());let content;
    if(token&&tokens[token[1]].display)content='<div class="equation">'+tokens[token[1]].html+'<span class="equation-number">('+(++equation)+')</span></div>';
    else if(token&&tokens[token[1]].block)content=tokens[token[1]].html;
-   else content=root.renderRichText(chunk).replace(allTokens,(_,index)=>tokens[index].html);
+   else content=root.renderRichText(widenTableHeaders(chunk)).replace(allTokens,(_,index)=>tokens[index].html);
    const id=escape(prefix)+'-p'+index;
    return '<section class="passage" id="'+id+'" data-block="'+id+'"><div class="passage-body">'+content+'</div><div class="margin-notes"></div></section>';
   }).join('\n');
